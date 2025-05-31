@@ -51,7 +51,6 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/PrintOutput.h"
 #include "../utils/ManagerWithCache.h"
 #include "../utils/PoolAllocator.h"
-#include "../utils/GeneralMemAllocator.h"
 #include "../utils/ThreadManager.h"
 #include "../utils/SmallArray.h"
 #include "../utils/Array.h"
@@ -138,6 +137,8 @@ public:
 		sdf_text(false),
 		combined(false),
 		overlay_target_is_nonlinear(true),
+		overlay_show_just_tex_rgb(false),
+		overlay_show_just_tex_w(false),
 		draw_into_depth_buffer(false),
 		auto_assign_shader(true),
 		begin_fade_out_distance(100.f),
@@ -177,6 +178,8 @@ public:
 	bool sdf_text;
 	bool combined; // Is this a material on a combined object, consisting of multiple objects combined into a single object, using an atlas texture.
 	bool overlay_target_is_nonlinear;
+	bool overlay_show_just_tex_rgb;
+	bool overlay_show_just_tex_w;
 
 	bool auto_assign_shader; // If true, assign a shader prog in assignShaderProgToMaterial(), e.g. when object is added or objectMaterialsUpdated() is called.  True by default.
 
@@ -749,7 +752,7 @@ struct PhongUniforms
 // Should be the same layout as in common_frag_structures.glsl
 struct MaterialCommonUniforms
 {
-	Matrix4f frag_view_matrix;
+	Matrix4f frag_view_matrix; // world space to camera space matrix
 	Vec4f sundir_cs;
 	Vec4f sundir_ws;
 	Vec4f sun_spec_rad_times_solid_angle; // spectral rad * 1.0e-9 * solid angle
@@ -1123,6 +1126,9 @@ public:
 
 	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
 	bool openglDriverVendorIsATI() const; // Works after opengl_vendor is set in initialise().
+	bool show_ssao;
+	void toggleShowTexDebug();
+	void toggleShowTexDebug2();
 	//----------------------------------------------------------------------------------------
 
 
@@ -1148,6 +1154,7 @@ private:
 	void drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch, uint32 batch_index);
 	void drawBatchWithDenormalisedData(const GLObject& ob, const GLObjectBatchDrawInfo& batch, uint32 batch_index);
 	void buildOutlineTextures();
+	void createSSAOTextures();
 private:
 	void addDebugSphere(const Vec4f& centre, float radius, const Colour4f& col);
 	void addDebugLine(const Vec4f& start_point, const Vec4f& end_point, float radius, const Colour4f& col);
@@ -1177,6 +1184,7 @@ private:
 	OpenGLProgramRef buildEnvProgram(const std::string& use_shader_dir);
 	OpenGLProgramRef buildAuroraProgram(const std::string& use_shader_dir);
 	OpenGLProgramRef buildComputeSSAOProg(const std::string& use_shader_dir);
+	OpenGLProgramRef buildBlurSSAOProg(const std::string& use_shader_dir);
 public:
 	OpenGLProgramRef buildProgram(const std::string& shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	uint32 getAndIncrNextProgramIndex() { return next_program_index++; }
@@ -1289,14 +1297,14 @@ private:
 	Reference<OpenGLTexture> noise_tex;
 	Reference<OpenGLTexture> cirrus_tex; // May be NULL, set by setCirrusTexture().
 	Reference<OpenGLTexture> aurora_tex;
+	Reference<OpenGLTexture> dummy_black_tex;
 	//Reference<OpenGLTexture> snow_ice_normal_map;
 
 	std::vector<Reference<OpenGLTexture>> water_caustics_textures;
 
 	Reference<OpenGLProgram> overlay_prog;
 	int overlay_diffuse_colour_location;
-	int overlay_have_texture_location;
-	int overlay_target_is_nonlinear_location;
+	int overlay_flags_location;
 	int overlay_diffuse_tex_location;
 	int overlay_texture_matrix_location;
 	int overlay_clip_min_coords_location;
@@ -1327,6 +1335,8 @@ private:
 
 	Reference<OpenGLProgram> draw_aurora_tex_prog;
 
+	Reference<OpenGLProgram> blur_ssao_prog;
+
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
 
@@ -1338,6 +1348,8 @@ public:
 private:
 	OverlayObjectRef clear_buf_overlay_ob;
 	std::vector<OverlayObjectRef> texture_debug_preview_overlay_obs;
+	OverlayObjectRef large_debug_overlay_ob;
+	OverlayObjectRef large_debug_overlay_ob2;
 
 	double draw_time;
 	Timer draw_timer;
@@ -1391,9 +1403,14 @@ private:
 	OpenGLTextureRef prepass_normal_copy_texture;
 	OpenGLTextureRef prepass_depth_copy_texture;
 
-	Reference<FrameBuffer> compute_ssao_output_framebuffer;
-	OpenGLTextureRef compute_ssao_output_texture;
-	OpenGLTextureRef compute_ssao_specular_output_texture;
+	Reference<FrameBuffer> compute_ssao_framebuffer;
+	OpenGLTextureRef ssao_texture;
+	OpenGLTextureRef ssao_specular_texture;
+
+	OpenGLTextureRef blurred_ssao_texture;
+	OpenGLTextureRef blurred_ssao_specular_texture;
+	Reference<FrameBuffer> blurred_ssao_framebuffer;
+	Reference<FrameBuffer> blurred_ssao_specular_framebuffer;
 
 
 	std::unordered_set<GLObject*> selected_objects;
@@ -1470,6 +1487,7 @@ private:
 	QueryRef draw_opaque_obs_gpu_timer;
 	QueryRef depth_pre_pass_gpu_timer;
 	QueryRef compute_ssao_gpu_timer;
+	QueryRef blur_ssao_gpu_timer;
 	QueryRef decal_copy_buffers_timer;
 	
 	uint32 last_num_prog_changes;
@@ -1492,6 +1510,7 @@ private:
 	double last_draw_opaque_obs_GPU_time;
 	double last_depth_pre_pass_GPU_time;
 	double last_compute_ssao_GPU_time;
+	double last_blur_ssao_GPU_time;
 	double last_decal_copy_buffers_GPU_time;
 
 	uint32 last_num_animated_obs_processed;

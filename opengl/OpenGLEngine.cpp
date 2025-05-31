@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../graphics/ImageMap.h"
 #include "../graphics/SRGBUtils.h"
 #include "../graphics/PerlinNoise.h"
+//#include "../utils/IncludeHalf.h"
 #ifndef NO_EXR_SUPPORT
 #include "../graphics/EXRDecoder.h"
 #endif
@@ -97,6 +98,12 @@ Copyright Glare Technologies Limited 2023 -
 #define DO_SSAO_FLAG						2
 
 
+#define OVERLAY_HAVE_TEXTURE_FLAG			1
+#define OVERLAY_TARGET_IS_NONLINEAR_FLAG	2
+#define OVERLAY_SHOW_JUST_TEX_RGB_FLAG		4
+#define OVERLAY_SHOW_JUST_TEX_W_FLAG		8
+
+
 static const size_t max_num_joint_matrices_per_ob = 256; // Max num joint matrices per object.
 
 
@@ -139,8 +146,9 @@ enum TextureUnitIndices
 
 	AURORA_TEXTURE_UNIT_INDEX,
 	//SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX
-	SSAO_OUTPUT_TEXTURE_UNIT_INDEX,
-	SSAO_SPECULAR_OUTPUT_TEXTURE_UNIT_INDEX,
+
+	SSAO_TEXTURE_UNIT_INDEX,
+	SSAO_SPECULAR_TEXTURE_UNIT_INDEX,
 	PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX,
 	PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX,
 	PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX
@@ -496,6 +504,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_draw_opaque_obs_GPU_time(0),
 	last_depth_pre_pass_GPU_time(0),
 	last_compute_ssao_GPU_time(0),
+	last_blur_ssao_GPU_time(0),
 	last_decal_copy_buffers_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	last_num_decal_batches_drawn(0),
@@ -504,12 +513,13 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	use_multi_draw_indirect(false),
 	use_reverse_z(true),
 	use_scatter_shader(false),
-	object_pool_allocator(sizeof(GLObject), 16),
+	object_pool_allocator(sizeof(GLObject), /*alignment=*/16, /*block capacity=*/1024),
 	running_in_renderdoc(false),
 	loaded_maps_for_sun_dir(false),
 	add_debug_obs(false),
 	async_texture_loader(NULL),
-	current_bound_phong_uniform_buf_ob_index(0)
+	current_bound_phong_uniform_buf_ob_index(0),
+	show_ssao(true)
 {
 	current_index_type = 0;
 	current_bound_prog = NULL;
@@ -545,6 +555,12 @@ OpenGLEngine::~OpenGLEngine()
 	for(size_t i=0; i<texture_debug_preview_overlay_obs.size(); ++i)
 		removeOverlayObject(texture_debug_preview_overlay_obs[i]);
 	texture_debug_preview_overlay_obs.clear();
+
+	removeOverlayObject(large_debug_overlay_ob);
+	large_debug_overlay_ob = nullptr;
+
+	removeOverlayObject(large_debug_overlay_ob2);
+	large_debug_overlay_ob2 = nullptr;
 
 	if(async_texture_loader)
 	{
@@ -1515,8 +1531,8 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.detail_heightmap_0_location		= prog->getUniformLocation("detail_heightmap_0");
 	prog->uniform_locations.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	prog->uniform_locations.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
-	prog->uniform_locations.ssao_output_tex_location		= prog->getUniformLocation("ssao_output_tex");
-	prog->uniform_locations.ssao_specular_output_tex_location		= prog->getUniformLocation("ssao_specular_output_tex");
+	prog->uniform_locations.ssao_tex_location				= prog->getUniformLocation("ssao_tex");
+	prog->uniform_locations.ssao_specular_tex_location		= prog->getUniformLocation("ssao_specular_tex");
 	//prog->uniform_locations.snow_ice_normal_map_location	= prog->getUniformLocation("snow_ice_normal_map");
 
 	prog->uniform_locations.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
@@ -1860,6 +1876,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->draw_opaque_obs_gpu_timer = new Query();
 	this->depth_pre_pass_gpu_timer = new Query();
 	this->compute_ssao_gpu_timer = new Query();
+	this->blur_ssao_gpu_timer = new Query();
 	this->decal_copy_buffers_timer = new Query();
 
 	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh(*vert_buf_allocator);
@@ -1965,6 +1982,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			params.use_sRGB = false;
 			params.use_mipmaps = false;
 			this->blue_noise_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(blue_noise_map_path), *blue_noise_map, params);
+		}
+
+		{
+			ImageMapUInt8Ref dummy_black_tex_map = new ImageMapUInt8(1, 1, 1);
+			dummy_black_tex_map->getPixel(0, 0)[0] = 0;
+			this->dummy_black_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("__dummy_black_tex__"), *dummy_black_tex_map);
 		}
 
 
@@ -2297,7 +2320,18 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 				texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
 				texture_debug_preview_overlay_ob->material.shader_prog = this->overlay_prog;
-				//texture_debug_preview_overlay_ob->material.albedo_texture = prepass_colour_copy_texture;
+
+				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
+
+				addOverlayObject(texture_debug_preview_overlay_ob);
+			}
+
+			{
+				OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
+				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-0.95f, -0.2f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
+				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+				texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
+				texture_debug_preview_overlay_ob->material.shader_prog = this->overlay_prog;
 
 				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
 
@@ -2309,9 +2343,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 				OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
 				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-0.3f, 0.4f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
 				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
-				texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(0.1f);
+				texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
 				texture_debug_preview_overlay_ob->material.shader_prog = this->overlay_prog;
-				//texture_debug_preview_overlay_ob->material.albedo_texture = prepass_normal_copy_texture;
 
 				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
 
@@ -2320,15 +2353,67 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 			{
 				OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
-				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.4f, 0.4f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
+				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.35f, 0.4f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
 				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 				texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
 				texture_debug_preview_overlay_ob->material.shader_prog = this->overlay_prog;
-				//texture_debug_preview_overlay_ob->material.albedo_texture = prepass_colour_copy_texture;
 
 				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
 
 				addOverlayObject(texture_debug_preview_overlay_ob);
+			}
+
+			// Create marker crosshair on second image to right
+			{
+				OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
+				texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-0.3f + 0.3f, 0.4f + 0.3f, -0.1f) * Matrix4f::uniformScaleMatrix(0.005f);
+				texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+				texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f, 0.f, 0.f);
+				texture_debug_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+
+				texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
+
+				addOverlayObject(texture_debug_preview_overlay_ob);
+			}
+
+			//{
+			//	OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
+			//	texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0.35f, -0.2f, 0) * Matrix4f::uniformScaleMatrix(0.6f);
+			//	texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+			//	texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
+			//	texture_debug_preview_overlay_ob->material.shader_prog = this->overlay_prog;
+			//
+			//	texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
+			//
+			//	addOverlayObject(texture_debug_preview_overlay_ob);
+			//}
+		}
+
+		if(true)
+		{
+			// Create large tex overlay
+			{
+				large_debug_overlay_ob =  new OverlayObject();
+				large_debug_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.f, -1.f, 0) * Matrix4f::uniformScaleMatrix(2.f);
+				large_debug_overlay_ob->mesh_data = this->unit_quad_meshdata;
+				large_debug_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
+				large_debug_overlay_ob->material.shader_prog = this->overlay_prog;
+				
+				large_debug_overlay_ob->draw = false;
+
+				addOverlayObject(large_debug_overlay_ob);
+			}
+			// Create large tex overlay
+			{
+				large_debug_overlay_ob2 =  new OverlayObject();
+				large_debug_overlay_ob2->ob_to_world_matrix = Matrix4f::translationMatrix(-1.f, -1.f, 0) * Matrix4f::uniformScaleMatrix(2.f);
+				large_debug_overlay_ob2->mesh_data = this->unit_quad_meshdata;
+				large_debug_overlay_ob2->material.albedo_linear_rgb = Colour3f(1.f);
+				large_debug_overlay_ob2->material.shader_prog = this->overlay_prog;
+				
+				large_debug_overlay_ob2->draw = false;
+
+				addOverlayObject(large_debug_overlay_ob2);
 			}
 		}
 
@@ -2494,8 +2579,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		addProgram(overlay_prog);
 
 		overlay_diffuse_colour_location		= overlay_prog->getUniformLocation("diffuse_colour");
-		overlay_have_texture_location		= overlay_prog->getUniformLocation("have_texture");
-		overlay_target_is_nonlinear_location	= overlay_prog->getUniformLocation("overlay_target_is_nonlinear");
+		overlay_flags_location				= overlay_prog->getUniformLocation("overlay_flags");
 		overlay_diffuse_tex_location		= overlay_prog->getUniformLocation("diffuse_tex");
 		overlay_texture_matrix_location		= overlay_prog->getUniformLocation("texture_matrix");
 		overlay_clip_min_coords_location	= overlay_prog->getUniformLocation("clip_min_coords");
@@ -2570,7 +2654,10 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 
 	//------------------------------------------- Build compute-SSAO prog -------------------------------------------
 	if(settings.ssao)
+	{
 		compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);
+		blur_ssao_prog = buildBlurSSAOProg(use_shader_dir);
+	}
 	
 
 	if(settings.render_to_offscreen_renderbuffers)
@@ -2881,6 +2968,23 @@ OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shade
 	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
+	return prog;
+}
+
+
+OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg(const std::string& use_shader_dir)
+{
+	const std::string use_preprocessor_defines = preprocessor_defines;
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"blur_ssao",
+		new OpenGLShader(use_shader_dir + "/blur_ssao_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/blur_ssao_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	getUniformLocations(prog);
+	addProgram(prog);
+	
 	return prog;
 }
 
@@ -3330,6 +3434,105 @@ void OpenGLEngine::buildOutlineTextures()
 		preview_overlay_ob->material.albedo_texture = outline_edge_tex;
 		preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
 		addOverlayObject(preview_overlay_ob);
+	}
+}
+
+
+void OpenGLEngine::createSSAOTextures()
+{
+	const int xres = myMax(16, main_viewport_w);
+	const int yres = myMax(16, main_viewport_h);
+
+	const int prepass_xres = xres / 2;
+	const int prepass_yres = yres / 2;
+	const int prepass_msaa_samples = 1;
+#if 0
+	// SSAO
+	prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, col_buffer_format);
+	prepass_depth_renderbuffer  = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, depth_format);
+	prepass_framebuffer = new FrameBuffer();
+	prepass_framebuffer->attachRenderBuffer(*prepass_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
+	prepass_framebuffer->attachRenderBuffer(*prepass_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
+	prepass_framebuffer->attachRenderBuffer(*prepass_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
+#else
+	// SSGI
+				
+#if EMSCRIPTEN
+	// NOTE: EXT_color_buffer_half_float is included in WebGL 2: See https://emscripten.org/docs/optimizing/Optimizing-WebGL.html#optimizing-load-times-and-other-best-practices
+	// However RGB16F is not supported as a render buffer format, just RGBA16F.  See https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/renderbufferStorage
+	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
+#else
+	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Half;
+#endif
+	const OpenGLTextureFormat normal_buffer_format = normal_texture_is_uint ? OpenGLTextureFormat::Format_RGBA_Integer_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
+	const OpenGLTextureFormat depth_format = OpenGLTextureFormat::Format_Depth_Float;
+
+	prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, col_buffer_format);
+	prepass_normal_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, normal_buffer_format);
+	prepass_depth_renderbuffer  = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, depth_format);
+	prepass_framebuffer = new FrameBuffer();
+	prepass_framebuffer->attachRenderBuffer(*prepass_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
+	prepass_framebuffer->attachRenderBuffer(*prepass_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
+	prepass_framebuffer->attachRenderBuffer(*prepass_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
+
+	prepass_colour_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	prepass_colour_copy_texture->setDebugName("prepass_colour_copy_texture");
+	prepass_normal_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), normal_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	prepass_normal_copy_texture->setDebugName("prepass_normal_copy_texture");
+	prepass_depth_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), depth_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	prepass_depth_copy_texture->setDebugName("prepass_depth_copy_texture");
+	prepass_copy_framebuffer = new FrameBuffer();
+	prepass_copy_framebuffer->attachTexture(*prepass_colour_copy_texture, GL_COLOR_ATTACHMENT0);
+	prepass_copy_framebuffer->attachTexture(*prepass_normal_copy_texture, GL_COLOR_ATTACHMENT1);
+	prepass_copy_framebuffer->attachTexture(*prepass_depth_copy_texture, GL_DEPTH_ATTACHMENT);
+
+	ssao_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
+		OpenGLTextureFormat::Format_RGBA_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	ssao_texture->setDebugName("ssao_texture");
+
+	blurred_ssao_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
+		OpenGLTextureFormat::Format_RGBA_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	blurred_ssao_texture->setDebugName("blurred_ssao_texture");
+
+	ssao_specular_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
+		OpenGLTextureFormat::Format_RGB_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	ssao_specular_texture->setDebugName("ssao_specular_texture");
+
+	blurred_ssao_specular_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
+		OpenGLTextureFormat::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	blurred_ssao_specular_texture->setDebugName("blurred_ssao_specular_texture");
+
+	compute_ssao_framebuffer = new FrameBuffer();
+	compute_ssao_framebuffer->attachTexture(*ssao_texture, GL_COLOR_ATTACHMENT0);
+	compute_ssao_framebuffer->attachTexture(*ssao_specular_texture, GL_COLOR_ATTACHMENT1);
+
+	blurred_ssao_framebuffer = new FrameBuffer();
+	blurred_ssao_framebuffer->attachTexture(*blurred_ssao_texture, GL_COLOR_ATTACHMENT0);
+
+	blurred_ssao_specular_framebuffer = new FrameBuffer();
+	blurred_ssao_specular_framebuffer->attachTexture(*blurred_ssao_specular_texture, GL_COLOR_ATTACHMENT0);
+#endif
+
+	//TEMP:
+	if(texture_debug_preview_overlay_obs.size() >= 4)
+	{
+		texture_debug_preview_overlay_obs[0]->material.albedo_texture = prepass_colour_copy_texture;
+
+		texture_debug_preview_overlay_obs[1]->material.albedo_texture = ssao_specular_texture;//prepass_normal_copy_texture;
+
+		texture_debug_preview_overlay_obs[2]->material.albedo_texture = ssao_texture;
+		texture_debug_preview_overlay_obs[2]->material.overlay_show_just_tex_rgb = true;
+
+		texture_debug_preview_overlay_obs[3]->material.albedo_texture = ssao_texture;
+		texture_debug_preview_overlay_obs[3]->material.overlay_show_just_tex_w = true;
+
+		//texture_debug_preview_overlay_obs[5]->material.albedo_texture = blurred_ssao_texture;
+		//texture_debug_preview_overlay_obs[5]->material.overlay_show_just_tex_w = true;
+
+		large_debug_overlay_ob->material.albedo_texture = blurred_ssao_texture;
+		large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
+
+		large_debug_overlay_ob2->material.albedo_texture = blurred_ssao_specular_texture;
 	}
 }
 
@@ -6419,7 +6622,10 @@ void OpenGLEngine::draw()
 		try
 		{
 			if(settings.ssao)
+			{
 				this->compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);;
+				this->blur_ssao_prog = buildBlurSSAOProg(use_shader_dir);
+			}
 		}
 		catch(glare::Exception& e)
 		{
@@ -6798,54 +7004,12 @@ void OpenGLEngine::draw()
 			assert(main_render_copy_framebuffer->isComplete());
 
 
-			//----------------- Prepass render buffers / textures / framebuffers -----------------
-			if(settings.ssao)
-			{
-				const int prepass_xres = xres / 2;
-				const int prepass_yres = yres / 2;
-				const int prepass_msaa_samples = 1;
-			
-				prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, col_buffer_format);
-				prepass_normal_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, normal_buffer_format);
-				prepass_depth_renderbuffer  = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, depth_format);
-				prepass_framebuffer = new FrameBuffer();
-				prepass_framebuffer->attachRenderBuffer(*prepass_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
-				prepass_framebuffer->attachRenderBuffer(*prepass_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
-				prepass_framebuffer->attachRenderBuffer(*prepass_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
+			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
+		}
 
-				prepass_colour_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
-				prepass_colour_copy_texture->setDebugName("prepass_colour_copy_texture");
-				prepass_normal_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), normal_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
-				prepass_normal_copy_texture->setDebugName("prepass_normal_copy_texture");
-				prepass_depth_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), depth_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
-				prepass_depth_copy_texture->setDebugName("prepass_depth_copy_texture");
-				prepass_copy_framebuffer = new FrameBuffer();
-				prepass_copy_framebuffer->attachTexture(*prepass_colour_copy_texture, GL_COLOR_ATTACHMENT0);
-				prepass_copy_framebuffer->attachTexture(*prepass_normal_copy_texture, GL_COLOR_ATTACHMENT1);
-				prepass_copy_framebuffer->attachTexture(*prepass_depth_copy_texture, GL_DEPTH_ATTACHMENT);
-
-				compute_ssao_output_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
-					OpenGLTextureFormat::Format_RGBA_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
-				compute_ssao_output_texture->setDebugName("compute_ssao_output_texture");
-
-				compute_ssao_specular_output_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
-					OpenGLTextureFormat::Format_RGB_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
-				compute_ssao_specular_output_texture->setDebugName("compute_ssao_specular_output_texture");
-
-				compute_ssao_output_framebuffer = new FrameBuffer();
-				compute_ssao_output_framebuffer->attachTexture(*compute_ssao_output_texture, GL_COLOR_ATTACHMENT0);
-				compute_ssao_output_framebuffer->attachTexture(*compute_ssao_specular_output_texture, GL_COLOR_ATTACHMENT1);
-
-
-				//TEMP:
-				/*if(texture_debug_preview_overlay_obs.size() >= 3)
-				{
-					texture_debug_preview_overlay_obs[0]->material.albedo_texture = prepass_colour_copy_texture;
-					texture_debug_preview_overlay_obs[1]->material.albedo_texture = compute_ssao_output_texture;
-					texture_debug_preview_overlay_obs[2]->material.albedo_texture = compute_ssao_specular_output_texture;
-				}*/
-			}
-
+		if(settings.ssao && !ssao_texture)
+		{
+			createSSAOTextures();
 			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
 		}
 
@@ -6866,6 +7030,7 @@ void OpenGLEngine::draw()
 #endif
 	
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
+	//glDepthFunc(use_reverse_z ? GL_GEQUAL : GL_LEQUAL);
 
 	if(current_scene->render_to_main_render_framebuffer)
 	{
@@ -7077,7 +7242,7 @@ void OpenGLEngine::draw()
 		computeSSAO(proj_matrix);
 
 		// Restore flags
-		common_uniforms.mat_common_flags = (this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (this->settings.ssao ? DO_SSAO_FLAG : 0);
+		common_uniforms.mat_common_flags = (this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | ((this->settings.ssao && show_ssao) ? DO_SSAO_FLAG : 0);
 		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
 
@@ -7393,6 +7558,9 @@ void OpenGLEngine::draw()
 		if(compute_ssao_gpu_timer->waitingForResult() && compute_ssao_gpu_timer->checkResultAvailable())
 			last_compute_ssao_GPU_time = compute_ssao_gpu_timer->getTimeElapsed();
 
+		if(blur_ssao_gpu_timer->waitingForResult() && blur_ssao_gpu_timer->checkResultAvailable())
+			last_blur_ssao_GPU_time = blur_ssao_gpu_timer->getTimeElapsed();
+
 		if(decal_copy_buffers_timer->waitingForResult() && decal_copy_buffers_timer->checkResultAvailable())
 			last_decal_copy_buffers_GPU_time = decal_copy_buffers_timer->getTimeElapsed();
 	}
@@ -7412,6 +7580,22 @@ void OpenGLEngine::draw()
 	}
 
 	add_debug_obs = false;
+
+
+	// DEBUG: print out texture values
+	if(0)//compute_ssao_texture)
+	{
+		// assert(ssao_texture->getFormat() == OpenGLTextureFormat::Format_RGBA_Linear_Half);
+		// ImageMap<half, HalfComponentValueTraits> image_map(ssao_texture->xRes(), ssao_texture->yRes(), 4);
+		// ssao_texture->readBackTexture(/*mipmap level=*/0, ArrayRef<uint8>((uint8*)image_map.getData(), image_map.getDataSizeB()));
+		// 
+		// conPrint("SSAO tex centre val: " + 
+		// 	doubleToStringNDecimalPlaces(image_map.getPixel(image_map.getWidth()/2, image_map.getHeight()/2)[0], 3) + ", " +
+		// 	doubleToStringNDecimalPlaces(image_map.getPixel(image_map.getWidth()/2, image_map.getHeight()/2)[1], 3) + ", " +
+		// 	doubleToStringNDecimalPlaces(image_map.getPixel(image_map.getWidth()/2, image_map.getHeight()/2)[2], 3) + ", " +
+		// 	doubleToStringNDecimalPlaces(image_map.getPixel(image_map.getWidth()/2, image_map.getHeight()/2)[3], 3)
+		// );
+	}
 
 	//PerformanceAPI_EndEvent();
 }
@@ -8677,7 +8861,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 		if(current_scene->collect_stats)
 			this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 	}
-	//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
+	//conPrint("Draw opaque make batch loop took " + timer.elapsedStringMSWIthNSigFigs(4) + " for " + toString(current_scene->objects.vector.size()) + " objects");
 
 	sortBatchDrawInfos();
 
@@ -8990,15 +9174,18 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 		assert(prepass_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == prepass_colour_renderbuffer->buffer_name);
 		assert(prepass_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == prepass_normal_renderbuffer->buffer_name);
 		assert(prepass_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT) == prepass_depth_renderbuffer->buffer_name);
-		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Draw to colour and normal buffer
 
 
 		glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
 		glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
-		glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
+		//glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
+		glClearDepthf(use_reverse_z ? 0.0001f :0.9999f); // For reversed-z, the 'far' z value is 0, instead of 1.
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
+
+		const Vec4f campos_ws = this->getCameraPositionWS();
 
 		//Timer timer;
 		batch_draw_info.reserve(current_scene->objects.size());
@@ -9025,6 +9212,10 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 				const GLObject* const ob = current_scene_obs[i].ptr();
 				if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 				{
+					// Only draw objects near to camera
+					if(ob->aabb_ws.distanceToPoint(campos_ws) > 80.f)
+						continue;
+
 					const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
 					const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
 					for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
@@ -9205,7 +9396,7 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 
 	assertCurrentProgramIsZero();
 
-	if(current_scene->render_to_main_render_framebuffer)
+/*	if(current_scene->render_to_main_render_framebuffer)
 	{
 		main_render_framebuffer->bindForDrawing();
 		//assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
@@ -9216,14 +9407,23 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 	{
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
 		//setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
-	}
+	}*/
+
+	prepass_framebuffer->bindForDrawing();
 
 	glDrawBuffers(/*num=*/0, NULL); // Don't draw to any colour buffers. (there are none attached to the frame buffer anyway)
+
+	glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
 	
+	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
+	glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	//Timer timer;
 	batch_draw_info.reserve(current_scene->objects.size());
 	batch_draw_info.resize(0);
+
+	const Vec4f campos_ws = this->getCameraPositionWS();
 
 	uint64 num_frustum_culled = 0;
 	{
@@ -9246,6 +9446,9 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 			const GLObject* const ob = current_scene_obs[i].ptr();
 			if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
 			{
+				if(ob->aabb_ws.distanceToPoint(campos_ws) > 80.f)
+					continue;
+
 				const size_t ob_batch_draw_info_size                  = ob->depth_draw_batches/*batch_draw_info*/.size();
 				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->depth_draw_batches/*batch_draw_info*/.data();
 				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
@@ -9353,6 +9556,8 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 		drawBatchWithDenormalisedData(*info.ob, batch, info.batch_i);
 	}
 
+	//printVar(num_face_culling_changes);
+	//printVar(num_prog_changes);
 	/*if(current_scene->collect_stats)
 	{
 		last_num_prog_changes = num_prog_changes;
@@ -9412,87 +9617,153 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 
 
 // Blits from prepass_framebuffer to prepass_copy_framebuffer
-// Computes SSAO, writes output to compute_ssao_output_framebuffer / compute_ssao_output_texture
+// Computes SSAO, writes output to compute_ssao_framebuffer / compute_ssao_texture
 void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 {
 	if(current_scene->render_to_main_render_framebuffer)
 	{
 		assertCurrentProgramIsZero();
 
-		ZoneScopedN("computeSSAO"); // Tracy profiler
-		TracyGpuZone("computeSSAO");
-		DebugGroup debug_group("computeSSAO");
-		
-		if(query_profiling_enabled && current_scene->collect_stats && compute_ssao_gpu_timer->isIdle())
-			compute_ssao_gpu_timer->beginTimerQuery();
-		
-
-		//---------------------- Blit from prepass_framebuffer to prepass_copy_framebuffer ----------------------
-		prepass_framebuffer->bindForReading();
-		prepass_copy_framebuffer->bindForDrawing();
-
-		// Copy colour and depth buffer
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)prepass_framebuffer->xRes(), /*srcY1=*/(int)prepass_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)prepass_framebuffer->xRes(), /*dstY1=*/(int)prepass_framebuffer->yRes(), 
-			GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
-			GL_NEAREST
-		);
-
-		// Copy normal buffer.
-		glReadBuffer(GL_COLOR_ATTACHMENT1);
-		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
-	
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)prepass_framebuffer->xRes(), /*srcY1=*/(int)prepass_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)prepass_framebuffer->xRes(), /*dstY1=*/(int)prepass_framebuffer->yRes(), 
-			GL_COLOR_BUFFER_BIT,
-			GL_NEAREST
-		);
-		//--------------------------------------------------
-
-
-		glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
-
-		compute_ssao_output_framebuffer->bindForDrawing();
-		setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
-
-
-		glDepthMask(GL_FALSE); // Don't write to z-buffer
-		glDisable(GL_DEPTH_TEST); // Disable depth testing
-
-		// Position quad to cover viewport
-		const float use_z = 0.5f; // Use a z value that will be in the clip volume for both default and reverse z.
-		const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, use_z, 0));
-
-		const OpenGLMeshRenderData& mesh_data = *outline_quad_meshdata;
-		bindMeshData(mesh_data);
-		for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 		{
-			checkUseProgram(compute_ssao_prog.ptr());
+			ZoneScopedN("computeSSAO"); // Tracy profiler
+			TracyGpuZone("computeSSAO");
+			DebugGroup debug_group("computeSSAO");
+		
+			if(query_profiling_enabled && current_scene->collect_stats && compute_ssao_gpu_timer->isIdle())
+				compute_ssao_gpu_timer->beginTimerQuery();
+		
 
-			glUniformMatrix4fv(compute_ssao_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
+			//---------------------- Blit from prepass_framebuffer to prepass_copy_framebuffer ----------------------
+			prepass_framebuffer->bindForReading();
+			prepass_copy_framebuffer->bindForDrawing();
 
-			bindTextureUnitToSampler(*prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, compute_ssao_prog->uniform_locations.diffuse_tex_location);
-			bindTextureUnitToSampler(*prepass_normal_copy_texture, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, compute_ssao_normal_tex_location);
-			bindTextureUnitToSampler(*prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, compute_ssao_depth_tex_location);
+			// Copy colour and depth buffer
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 
-			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
-			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+			glBlitFramebuffer(
+				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)prepass_framebuffer->xRes(), /*srcY1=*/(int)prepass_framebuffer->yRes(), 
+				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)prepass_framebuffer->xRes(), /*dstY1=*/(int)prepass_framebuffer->yRes(), 
+				GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+				GL_NEAREST
+			);
+
+			// Copy normal buffer.
+			glReadBuffer(GL_COLOR_ATTACHMENT1);
+			setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+	
+			glBlitFramebuffer(
+				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)prepass_framebuffer->xRes(), /*srcY1=*/(int)prepass_framebuffer->yRes(), 
+				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)prepass_framebuffer->xRes(), /*dstY1=*/(int)prepass_framebuffer->yRes(), 
+				GL_COLOR_BUFFER_BIT,
+				GL_NEAREST
+			);
+
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+			//--------------------------------------------------
+
+
+			glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
+
+			compute_ssao_framebuffer->bindForDrawing();
+			setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+
+
+			glDepthMask(GL_FALSE); // Don't write to z-buffer
+			glDisable(GL_DEPTH_TEST); // Disable depth testing
+
+			// Position quad to cover viewport
+			const float use_z = 0.5f; // Use a z value that will be in the clip volume for both default and reverse z.
+			const Matrix4f ob_to_world_matrix = Matrix4f::scaleMatrix(2.f, 2.f, 1.f) * Matrix4f::translationMatrix(Vec4f(-0.5, -0.5, use_z, 0));
+
+			const OpenGLMeshRenderData& mesh_data = *outline_quad_meshdata;
+			bindMeshData(mesh_data);
+			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+			{
+				checkUseProgram(compute_ssao_prog.ptr());
+
+				glUniformMatrix4fv(compute_ssao_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
+
+				bindTextureUnitToSampler(*prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, compute_ssao_prog->uniform_locations.diffuse_tex_location);
+				bindTextureUnitToSampler(*prepass_normal_copy_texture, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, compute_ssao_normal_tex_location);
+				bindTextureUnitToSampler(*prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, compute_ssao_depth_tex_location);
+
+				const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+			}
+
+			flushDrawCommandsAndUnbindPrograms();
+
+
+			if(query_profiling_enabled && compute_ssao_gpu_timer->isRunning())
+				compute_ssao_gpu_timer->endTimerQuery();
 		}
 
-		flushDrawCommandsAndUnbindPrograms();
+
+		//-------------------------------- Execute blur SSAO shader --------------------------------
+		{
+			ZoneScopedN("blurSSAO"); // Tracy profiler
+			TracyGpuZone("blurSSAO");
+			DebugGroup debug_group("blurSSAO");
+			
+			if(query_profiling_enabled && current_scene->collect_stats && blur_ssao_gpu_timer->isIdle())
+				blur_ssao_gpu_timer->beginTimerQuery();
+
+			// Blur irradiance + AO texture
+			// Input: ssao_texture, prepass_depth_copy_texture
+			// Output: blurred_ssao_texture (via blurred_ssao_framebuffer)
+			{
+				blurred_ssao_framebuffer->bindForDrawing();
+				glViewport(0, 0, (int)blurred_ssao_framebuffer->xRes(), (int)blurred_ssao_framebuffer->yRes()); // Set viewport to target texture size
+
+				blur_ssao_prog->useProgram();
+
+				bindTextureUnitToSampler(*ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
+
+				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
+				bindTextureUnitToSampler(*prepass_depth_copy_texture, /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+
+				// Draw quad
+				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); 
+			}
+
+			// Blur specular texture
+			// Input: ssao_specular_texture, prepass_depth_copy_texture
+			// Output: blurred_ssao_specular_texture (via blurred_ssao_specular_framebuffer)
+			{
+				blurred_ssao_specular_framebuffer->bindForDrawing();
+				glViewport(0, 0, (int)blurred_ssao_specular_framebuffer->xRes(), (int)blurred_ssao_specular_framebuffer->yRes()); // Set viewport to target texture size
+
+				blur_ssao_prog->useProgram();
+
+				bindTextureUnitToSampler(*ssao_specular_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
+
+				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
+				bindTextureUnitToSampler(*prepass_depth_copy_texture, /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+
+				// Draw quad
+				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); 
+			}
+
+			if(query_profiling_enabled && blur_ssao_gpu_timer->isRunning())
+				blur_ssao_gpu_timer->endTimerQuery();
+
+
+			// unbind textures
+			//unbindTextureFromTextureUnit(*ssao_texture, SSAO_TEXTURE_UNIT_INDEX);
+			unbindTextureFromTextureUnit(*prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+
+			// restore bindings
+			bindTextureToTextureUnit(*blurred_ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX);
+
+			flushDrawCommandsAndUnbindPrograms();
+		}
 
 		glEnable(GL_DEPTH_TEST); // Restore depth testing
 		glDepthMask(GL_TRUE); // Restore
-
 		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
-
-		if(query_profiling_enabled && compute_ssao_gpu_timer->isRunning())
-			compute_ssao_gpu_timer->endTimerQuery();
 	}
 }
 
@@ -9698,8 +9969,12 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 
 			glUniform4f(overlay_diffuse_colour_location, 1, 1, 1, 1);
 			glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
-			glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
-			glUniform1i(this->overlay_target_is_nonlinear_location, opengl_mat.overlay_target_is_nonlinear ? 1 : 0);
+			const int overlay_flags = 
+				(opengl_mat.albedo_texture              ? OVERLAY_HAVE_TEXTURE_FLAG        : 0) |
+				(opengl_mat.overlay_target_is_nonlinear ? OVERLAY_TARGET_IS_NONLINEAR_FLAG : 0) |
+				(opengl_mat.overlay_show_just_tex_rgb   ? OVERLAY_SHOW_JUST_TEX_RGB_FLAG   : 0) |
+				(opengl_mat.overlay_show_just_tex_w     ? OVERLAY_SHOW_JUST_TEX_W_FLAG     : 0);
+			glUniform1i(this->overlay_flags_location, overlay_flags);
 
 			const Matrix3f identity = Matrix3f::identity();
 			glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, identity.e);
@@ -9771,8 +10046,12 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 				const Matrix4f ob_to_cam = reverse_z_matrix * current_scene->overlay_world_to_camera_space_matrix * ob->ob_to_world_matrix;
 
 				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob_to_cam.e);
-				glUniform1i(this->overlay_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
-				glUniform1i(this->overlay_target_is_nonlinear_location, opengl_mat.overlay_target_is_nonlinear ? 1 : 0);
+				const int overlay_flags = 
+					(opengl_mat.albedo_texture              ? OVERLAY_HAVE_TEXTURE_FLAG        : 0) |
+					(opengl_mat.overlay_target_is_nonlinear ? OVERLAY_TARGET_IS_NONLINEAR_FLAG : 0) |
+					(opengl_mat.overlay_show_just_tex_rgb   ? OVERLAY_SHOW_JUST_TEX_RGB_FLAG   : 0) |
+					(opengl_mat.overlay_show_just_tex_w     ? OVERLAY_SHOW_JUST_TEX_W_FLAG     : 0);
+				glUniform1i(this->overlay_flags_location, overlay_flags);
 
 				glUniform2f(overlay_clip_min_coords_location, ob->clip_region.getMin().x, ob->clip_region.getMin().y);
 				glUniform2f(overlay_clip_max_coords_location, ob->clip_region.getMax().x, ob->clip_region.getMax().y);
@@ -10226,8 +10505,8 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 	
 	glUniform1i(program.uniform_locations.aurora_tex_location, AURORA_TEXTURE_UNIT_INDEX);
 
-	glUniform1i(program.uniform_locations.ssao_output_tex_location, SSAO_OUTPUT_TEXTURE_UNIT_INDEX);
-	glUniform1i(program.uniform_locations.ssao_specular_output_tex_location, SSAO_SPECULAR_OUTPUT_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.ssao_tex_location, SSAO_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.ssao_specular_tex_location, SSAO_SPECULAR_TEXTURE_UNIT_INDEX);
 
 	//glUniform1i(program.uniform_locations.snow_ice_normal_map_location, SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 }
@@ -10294,11 +10573,15 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 	if(this->aurora_tex.nonNull())
 		bindTextureToTextureUnit(*this->aurora_tex, /*texture_unit_index=*/AURORA_TEXTURE_UNIT_INDEX);
 	
-	if(this->compute_ssao_output_texture.nonNull())
-		bindTextureToTextureUnit(*this->compute_ssao_output_texture, /*texture_unit_index=*/SSAO_OUTPUT_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(blurred_ssao_texture ? *blurred_ssao_texture : *dummy_black_tex, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(blurred_ssao_specular_texture ? *blurred_ssao_specular_texture : *dummy_black_tex, /*texture_unit_index=*/SSAO_SPECULAR_TEXTURE_UNIT_INDEX);
 
-	if(this->compute_ssao_specular_output_texture.nonNull())
-		bindTextureToTextureUnit(*this->compute_ssao_specular_output_texture, /*texture_unit_index=*/SSAO_SPECULAR_OUTPUT_TEXTURE_UNIT_INDEX);
+	if(prepass_colour_copy_texture)
+		bindTextureToTextureUnit(*prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX);
+	if(prepass_normal_copy_texture)
+		bindTextureToTextureUnit(*prepass_normal_copy_texture, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX);
+	if(prepass_depth_copy_texture)
+		bindTextureToTextureUnit(*prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
 
 	//if(snow_ice_normal_map.nonNull())
 	//	bindTextureToTextureUnit(*snow_ice_normal_map, /*texture_unit_index=*/SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
@@ -10432,6 +10715,12 @@ void OpenGLEngine::setSharedUniformsForProg(const OpenGLProgram& shader_prog, co
 		assert(getBoundTexture2D(AURORA_TEXTURE_UNIT_INDEX)     == aurora_tex->texture_handle);
 	assert(getBoundTexture2D(BLUE_NOISE_TEXTURE_UNIT_INDEX) == blue_noise_tex->texture_handle);
 	assert(getBoundTexture2D(FBM_TEXTURE_UNIT_INDEX)        == fbm_tex->texture_handle);
+
+	if(blurred_ssao_texture)
+		assert(getBoundTexture2D(SSAO_TEXTURE_UNIT_INDEX) == blurred_ssao_texture->texture_handle);
+
+	if(blurred_ssao_specular_texture)
+		assert(getBoundTexture2D(SSAO_SPECULAR_TEXTURE_UNIT_INDEX) == blurred_ssao_specular_texture->texture_handle);
 }
 
 
@@ -11453,6 +11742,7 @@ void OpenGLEngine::setSSAOEnabled(bool ssao_enabled)
 	{
 		const std::string use_shader_dir = data_dir + "/shaders";
 		compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);
+		blur_ssao_prog = buildBlurSSAOProg(use_shader_dir);
 	}
 }
 
@@ -11466,6 +11756,20 @@ bool OpenGLEngine::openglDriverVendorIsIntel() const
 bool OpenGLEngine::openglDriverVendorIsATI() const
 {
 	return StringUtils::containsString(opengl_vendor, "ATI");
+}
+
+
+void OpenGLEngine::toggleShowTexDebug()
+{
+	if(large_debug_overlay_ob)
+		large_debug_overlay_ob->draw = !large_debug_overlay_ob->draw;
+}
+
+
+void OpenGLEngine::toggleShowTexDebug2()
+{
+	if(large_debug_overlay_ob2)
+		large_debug_overlay_ob2->draw = !large_debug_overlay_ob2->draw;
 }
 
 
@@ -11693,9 +11997,10 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "----GPU times----\n";
 	s += "dynamic depth draw: " + doubleToStringNSigFigs(last_dynamic_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "static depth draw : " + doubleToStringNSigFigs(last_static_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "pre-pass          : " + doubleToStringNSigFigs(last_depth_pre_pass_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "compute SSAO      : " + doubleToStringNSigFigs(last_compute_ssao_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "blur SSAO         : " + doubleToStringNSigFigs(last_blur_ssao_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "decal copy buffers: " + doubleToStringNSigFigs(last_decal_copy_buffers_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "\n";
 

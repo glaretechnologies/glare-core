@@ -78,8 +78,8 @@ uniform sampler2D detail_heightmap_0; // rock
 uniform sampler2D caustic_tex_a;
 uniform sampler2D caustic_tex_b;
 
-uniform sampler2D ssao_output_tex;
-uniform sampler2D ssao_specular_output_tex;
+uniform sampler2D ssao_tex;
+uniform sampler2D ssao_specular_tex;
 
 // uniform sampler2D snow_ice_normal_map;
 
@@ -635,6 +635,12 @@ void main()
 	float unclamped_roughness = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (use_roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : use_roughness;
 	float final_roughness = max(0.04, unclamped_roughness); // Avoid too small roughness values resulting in glare/bloom artifacts
 
+	//if((mat_common_flags & DO_SSAO_FLAG) == 0)
+	//{
+	//	// If this is the SSGI prepass:
+	//	final_roughness = max(0.3, unclamped_roughness);
+	//}
+
 	// final_roughness = mix(final_roughness, 0.6f, snow_frac);
 
 	float final_fresnel_scale = MAT_UNIFORM.fresnel_scale * (1.0 - square(final_roughness)); // Reduce fresnel reflection at higher roughnesses
@@ -757,25 +763,7 @@ void main()
 	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
 #endif
 
-#if 0 // Disable SSAO for now
-	// Apply SSAO
-	vec4 ss_indirect_irradiance = vec4(0.0);
-	vec4 ss_specular_refl_spec_rad = vec4(0.0);
-	if((mat_common_flags & DO_SSAO_FLAG) != 0)
-	{
-		vec4 ssao_val = texture(ssao_output_tex, cameraToScreenSpace(pos_cs));
 
-		ss_indirect_irradiance = ssao_val;
-
-		ss_specular_refl_spec_rad = texture(ssao_specular_output_tex, cameraToScreenSpace(pos_cs));
-
-		//sky_irradiance.xyz *= ssao_val.xyz;
-		//sky_irradiance.xyz += ssao_val.xyz * 10;
-
-		float ao = ssao_val.w;
-		sky_irradiance.xyz *= ao * ao;
-	}
-#endif
 
 #if BLOB_SHADOWS
 	for(int i=0; i<num_blob_positions; ++i)
@@ -798,21 +786,33 @@ void main()
 	// Reflect cam-to-fragment vector in ws normal
 	vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * dot(unit_normal_ws, unit_cam_to_pos_ws));
 
-	//========================= Do specular reflection of environment, weighted by fresnel factor ============================
+	// Apply SSAO
+	vec4 spec_refl_light; // spectral radiance * 1.0e-9
+	if((mat_common_flags & DO_SSAO_FLAG) != 0)
+	{
+		const vec4 ssao_val = textureLod(ssao_tex, cameraToScreenSpace(pos_cs), 0.0);
+		sky_irradiance = sky_irradiance * ssao_val.w;
+		sky_irradiance.xyz += ssao_val.xyz;
+
+		spec_refl_light = textureLod(ssao_specular_tex, cameraToScreenSpace(pos_cs), 0.0);
+	}
+	else
+	{
+		//========================= Do specular reflection of environment, weighted by fresnel factor ============================
 	
-	// Look up env map for reflected dir
-	int map_lower = int(final_roughness * 6.9999);
-	int map_higher = map_lower + 1;
-	float map_t = final_roughness * 6.9999 - float(map_lower);
+		// Look up env map for reflected dir
+		int map_lower = int(final_roughness * 6.9999);
+		int map_higher = map_lower + 1;
+		float map_t = final_roughness * 6.9999 - float(map_lower);
 
-	float refl_theta = acos(reflected_dir_ws.z);
-	float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
-	vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
+		float refl_theta = acos(reflected_dir_ws.z);
+		float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
+		vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
-	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
-	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)));
-	vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
-
+		vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
+		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)));
+		spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
+	}
 
 	float fresnel_cos_theta = max(0.0, dot(reflected_dir_ws, unit_normal_ws));
 	vec4 refl_fresnel = computeFresnelReflectance(fresnel_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
@@ -885,11 +885,7 @@ void main()
 
 	vec4 col =
 		sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
-		
-		//ss_indirect_irradiance * refl_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) + // Screen-space indirect irradiance * diffuse BRDF (col / PI)
-		//ss_specular_refl_spec_rad * refl_fresnel +
-
-		refl_fresnel * spec_refl_light + // Specular reflection of sky
+		spec_refl_light * refl_fresnel + // Specular reflection of sky or local environment with SSR
 		sun_light * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * refl_diffuse_col * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor + //  Diffuse substrate part of BRDF * direct sun light
 		sun_light * specular + // direct sun light * specular microfacet terms
 		local_light_radiance + // Reflected light from local light sources.
