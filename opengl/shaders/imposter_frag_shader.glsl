@@ -45,14 +45,6 @@ layout(location = 1) out vec3 normal_out;
 #endif
 
 
-float fresnelApproxCheap(float cos_theta_i, float n2)
-{
-	float r_0 = square((1.0 - n2) / (1.0 + n2));
-	return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta_i); // https://en.wikipedia.org/wiki/Schlick%27s_approximation
-}
-
-
-
 
 void main()
 {
@@ -91,13 +83,12 @@ void main()
 	if((matdata.flags & HAVE_NORMAL_MAP_FLAG) != 0) // If grass (and so if have normal map with decent normals):
 	{
 		float final_fresnel_scale = 0.6;
-		float grass_IOR = 1.33;
 		float final_roughness = 0.4;
 
 		vec3 frag_to_cam = normalize(-cam_to_pos_ws);
 		vec3 h_ws = normalize(frag_to_cam + sundir_ws.xyz);
 		float h_cos_theta = abs(dot(h_ws, use_normal_ws));
-		vec4 dielectric_fresnel = vec4(fresnelApproxCheap(h_cos_theta, grass_IOR)) * final_fresnel_scale;
+		vec4 dielectric_fresnel = vec4(dielectricFresnelReflForIOR1_333(h_cos_theta) * final_fresnel_scale);
 		specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * dielectric_fresnel;
 
 

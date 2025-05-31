@@ -180,33 +180,6 @@ layout(location = 1) out vec3 normal_out;
 
 
 #if DECAL
-
-vec3 oct_to_float32x3(vec2 e) {
-	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
-	if (v.z < 0.0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
-	return normalize(v);
-}
-
-#if NORMAL_TEXTURE_IS_UINT
-vec2 unorm8x3_to_snorm12x2(uvec4 u_) {
-	vec3 u = vec3(u_.xyz);
-	u.y *= (1.0 / 16.0);
-	vec2 s = vec2(u.x * 16.0 + floor(u.y),
-		fract(u.y) * (16.0 * 256.0) + u.z);
-	return clamp(s * (1.0 / 2047.0) - 1.0, vec2(-1.0), vec2(1.0));
-}
-#else
-// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
-vec2 unorm8x3_to_snorm12x2(vec3 u) {
-	u *= 255.0;
-	u.y *= (1.0 / 16.0);
-	vec2 s = vec2(u.x * 16.0 + floor(u.y),
-		fract(u.y) * (16.0 * 256.0) + u.z);
-	return clamp(s * (1.0 / 2047.0) - 1.0, vec2(-1.0), vec2(1.0));
-}
-#endif
-
-
 // See 'Calculations for recovering depth values from depth buffer' in OpenGLEngine.cpp
 float getDepthFromDepthTexture(vec2 pos_ss)
 {
@@ -216,7 +189,8 @@ float getDepthFromDepthTexture(vec2 pos_ss)
 	return -near_clip_dist / (texture(main_depth_texture, pos_ss).x - 1.0);
 #endif
 }
-#endif
+#endif // DECAL
+
 
 vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
 {
@@ -239,6 +213,19 @@ vec2 cameraToScreenSpace(vec3 pos_cs)
 }
 
 
+vec4 computeFresnelReflectance(float h_cos_theta, vec4 refl_diffuse_col, float final_fresnel_scale, float final_metallic_frac)
+{
+	//vec4 dielectric_fresnel = vec4(useFresnelApprox(h_cos_theta, 1.5) * final_fresnel_scale);
+	vec4 dielectric_fresnel = vec4(dielectricFresnelReflForIOR1_5(h_cos_theta) * final_fresnel_scale);
+	vec4 metal_fresnel = vec4(
+		metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
+		metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
+		metallicFresnelApprox(h_cos_theta, refl_diffuse_col.b),
+		0);
+
+	// Blend between metal_fresnel and dielectric_fresnel based on final_metallic_frac.
+	return mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
+}
 
 
 void main()
@@ -697,18 +684,7 @@ void main()
 			// Compute specular bsdf
 			vec3 h_ws = normalize(unit_pos_to_light - unit_cam_to_pos_ws);
 			float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
-			vec4 specular_fresnel;
-			{
-				vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * final_fresnel_scale;
-				vec4 metal_fresnel = vec4(
-					metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
-					metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
-					metallicFresnelApprox(h_cos_theta, refl_diffuse_col.b),
-					1);
-
-				// Blend between metal_fresnel and dielectric_fresnel based on metallic_frac.
-				specular_fresnel = mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
-			}
+			vec4 specular_fresnel = computeFresnelReflectance(h_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
 
 			vec4 specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(final_roughness)) * specular_fresnel;
 
@@ -729,18 +705,7 @@ void main()
 		float shadow_factor = smoothstep(-0.3, 0.0, light_cos_theta);
 		//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
 		float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
-		vec4 specular_fresnel;
-		{
-			vec4 dielectric_fresnel = vec4(fresnelApprox(h_cos_theta, 1.5)) * final_fresnel_scale;
-			vec4 metal_fresnel = vec4(
-				metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
-				metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
-				metallicFresnelApprox(h_cos_theta, refl_diffuse_col.b),
-				1);
-
-			// Blend between metal_fresnel and dielectric_fresnel based on metallic_frac.
-			specular_fresnel = mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
-		}
+		vec4 specular_fresnel = computeFresnelReflectance(h_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
 
 		specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(final_roughness)) * specular_fresnel * shadow_factor;
 	}
@@ -850,14 +815,7 @@ void main()
 
 
 	float fresnel_cos_theta = max(0.0, dot(reflected_dir_ws, unit_normal_ws));
-	vec4 dielectric_refl_fresnel = vec4(fresnelApprox(fresnel_cos_theta, 1.5) * final_fresnel_scale);
-	vec4 metallic_refl_fresnel = vec4(
-		metallicFresnelApprox(fresnel_cos_theta, refl_diffuse_col.r),
-		metallicFresnelApprox(fresnel_cos_theta, refl_diffuse_col.g),
-		metallicFresnelApprox(fresnel_cos_theta, refl_diffuse_col.b),
-		1)/* * fresnel_scale*/;
-
-	vec4 refl_fresnel = metallic_refl_fresnel * final_metallic_frac + dielectric_refl_fresnel * (1.0f - final_metallic_frac);
+	vec4 refl_fresnel = computeFresnelReflectance(fresnel_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
 
 	//========================= Emission ============================
 	vec4 emission_col = MAT_UNIFORM.emission_colour;

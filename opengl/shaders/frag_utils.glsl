@@ -48,23 +48,29 @@ float trowbridgeReitzPDF(float cos_theta, float alpha2)
 }
 
 
-float fresnelApprox(float cos_theta_i, float n2)
+// See 'Some Fresnel curve approximations', https://forwardscattering.org/post/65
+float dielectricFresnelReflForIOR1_5(float cos_theta_i)
 {
-	//float r_0 = square((1.0 - n2) / (1.0 + n2));
-	//return r_0 + (1.0 - r_0)*pow5(1.0 - cos_theta_i); // https://en.wikipedia.org/wiki/Schlick%27s_approximation
+	const float cos_theta_2 = cos_theta_i*cos_theta_i;
+	return 
+		(-2.4615278*cos_theta_2 +  3.473652*cos_theta_i + -1.9117112) /
+		(-13.303401*cos_theta_2 + -7.186081*cos_theta_i + -1.9189386);
+}
 
-	float sintheta_i = sqrt(1.0 - cos_theta_i*cos_theta_i); // Get sin(theta_i)
-	float sintheta_t = sintheta_i / n2; // Use Snell's law to get sin(theta_t)
+float dielectricFresnelReflForIOR1_333(float cos_theta_i)
+{
+	const float cos_theta_2 = cos_theta_i*cos_theta_i;
+	return 
+		(1.1040283f*cos_theta_2 + -1.6791086f*cos_theta_i + 0.86057293f) /
+		(9.739124f *cos_theta_2 + 3.293334f  *cos_theta_i + 0.8676968f);
+}
 
-	float costheta_t = sqrt(1.0 - sintheta_t*sintheta_t); // Get cos(theta_t)
-
-	float a2 = square(cos_theta_i - n2*costheta_t);
-	float b2 = square(cos_theta_i + n2*costheta_t);
-
-	float c2 = square(n2*cos_theta_i - costheta_t);
-	float d2 = square(costheta_t + n2*cos_theta_i);
-
-	return 0.5 * (a2*d2 + b2*c2) / (b2*d2);
+float dielectricFresnelReflForIOR2(float cos_theta_i)
+{
+	const float cos_theta_2 = cos_theta_i*cos_theta_i;
+	return 
+		(-2.703471f *cos_theta_2 + 2.4928381f*cos_theta_i + -1.932341f) /
+		(-8.6749525f*cos_theta_2 + -8.674303f*cos_theta_i + -1.9317712f);
 }
 
 
@@ -382,6 +388,34 @@ vec3 snorm12x2_to_unorm8x3(vec2 f) {
 		uint(u.y - t * 256.0)) / 255.0;
 }
 #endif
+
+
+
+vec3 oct_to_float32x3(vec2 e) {
+	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
+	if (v.z < 0.0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
+	return normalize(v);
+}
+
+#if NORMAL_TEXTURE_IS_UINT
+vec2 unorm8x3_to_snorm12x2(uvec4 u_) {
+	vec3 u = vec3(u_.xyz);
+	u.y *= (1.0 / 16.0);
+	vec2 s = vec2(u.x * 16.0 + floor(u.y),
+		fract(u.y) * (16.0 * 256.0) + u.z);
+	return clamp(s * (1.0 / 2047.0) - 1.0, vec2(-1.0), vec2(1.0));
+}
+#else // else if !NORMAL_TEXTURE_IS_UINT:
+// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
+vec2 unorm8x3_to_snorm12x2(vec3 u) {
+	u *= 255.0;
+	u.y *= (1.0 / 16.0);
+	vec2 s = vec2(u.x * 16.0 + floor(u.y),
+		fract(u.y) * (16.0 * 256.0) + u.z);
+	return clamp(s * (1.0 / 2047.0) - 1.0, vec2(-1.0), vec2(1.0));
+}
+#endif // !NORMAL_TEXTURE_IS_UINT
+
 
 
 // From https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/

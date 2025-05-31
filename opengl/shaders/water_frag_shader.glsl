@@ -223,8 +223,6 @@ void main()
 
 	vec3 frag_to_cam = normalize(-pos_cs);
 
-	const float ior = 1.33f;
-
 	//vec3 sunrefl_h = normalize(frag_to_cam + sundir_cs.xyz);
 	//float sunrefl_h_cos_theta = abs(dot(sunrefl_h, unit_normal_cs));
 	float roughness = 0.01;
@@ -694,7 +692,7 @@ void main()
 		//vec4 transmission_col = vec4(0.05, 0.2, 0.7, 1.0); //  MAT_UNIFORM.diffuse_colour;
 
 		float spec_refl_cos_theta = max(0.0, -unit_cam_to_pos_ws_dot_normal_ws);
-		spec_refl_fresnel = fresnelApprox(spec_refl_cos_theta, ior);
+		spec_refl_fresnel = dielectricFresnelReflForIOR1_333(spec_refl_cos_theta);
 
 		//float sun_vis_factor = 1.0f;//TODO: use shadow mapping to compute this.
 		//vec3 sun_light = vec3(1662102582.6479533,1499657101.1924045,1314152016.0871031) * sun_vis_factor; // Sun spectral radiance multiplied by solid angle, see SkyModel2Generator::makeSkyEnvMap().

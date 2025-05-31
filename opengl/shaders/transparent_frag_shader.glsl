@@ -171,8 +171,6 @@ void main()
 
 		vec3 frag_to_cam = normalize(-pos_cs);
 
-		const float ior = 2.0f;
-
 		vec3 unit_normal_ws = normalize(use_normal_ws);
 		if(dot(unit_normal_ws, cam_to_pos_ws) > 0.0)
 			unit_normal_ws = -unit_normal_ws;
@@ -225,7 +223,7 @@ void main()
 				// Compute specular bsdf
 				vec3 h_ws = normalize(unit_pos_to_light - unit_cam_to_pos_ws);
 				float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
-				vec4 specular_fresnel = vec4(fresnelApprox(h_cos_theta, ior));
+				vec4 specular_fresnel = vec4(dielectricFresnelReflForIOR2(h_cos_theta));
 
 				vec4 specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(roughness)) * fresnel_scale * specular_fresnel;
 
@@ -241,7 +239,7 @@ void main()
 		float sunrefl_h_cos_theta = abs(dot(sunrefl_h, unit_normal_cs));
 		
 		float sun_specular = trowbridgeReitzPDF(sunrefl_h_cos_theta, alpha2ForRoughness(roughness)) * 
-			fresnel_scale * fresnelApprox(sunrefl_h_cos_theta, ior);
+			fresnel_scale * dielectricFresnelReflForIOR2(sunrefl_h_cos_theta); // NOTE: using an unrealistically high IOR for now to make glass reflections more visible.
 
 		// Reflect cam-to-fragment vector in ws normal
 		vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * dot(unit_normal_ws, unit_cam_to_pos_ws));
@@ -293,7 +291,7 @@ void main()
 #endif		
 
 		float spec_refl_cos_theta = abs(dot(frag_to_cam, unit_normal_cs));
-		float spec_refl_fresnel = fresnelApprox(spec_refl_cos_theta, ior);
+		float spec_refl_fresnel = dielectricFresnelReflForIOR2(spec_refl_cos_theta);
 
 		float sun_vis_factor = 1.0f; // TODO: use shadow mapping to compute this.
 		vec4 sun_light = sun_spec_rad_times_solid_angle * sun_vis_factor;
