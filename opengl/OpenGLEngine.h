@@ -1127,8 +1127,7 @@ public:
 	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
 	bool openglDriverVendorIsATI() const; // Works after opengl_vendor is set in initialise().
 	bool show_ssao;
-	void toggleShowTexDebug();
-	void toggleShowTexDebug2();
+	void toggleShowTexDebug(int index);
 	//----------------------------------------------------------------------------------------
 
 
@@ -1349,7 +1348,6 @@ private:
 	OverlayObjectRef clear_buf_overlay_ob;
 	std::vector<OverlayObjectRef> texture_debug_preview_overlay_obs;
 	OverlayObjectRef large_debug_overlay_ob;
-	OverlayObjectRef large_debug_overlay_ob2;
 
 	double draw_time;
 	Timer draw_timer;

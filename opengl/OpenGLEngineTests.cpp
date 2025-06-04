@@ -23,7 +23,9 @@ Copyright Glare Technologies Limited 2016 -
 #include "../utils/Exception.h"
 #include "../utils/FileUtils.h"
 #include "../utils/IncludeHalf.h"
+#ifndef NO_GIF_SUPPORT
 #include <graphics/GifDecoder.h>
+#endif
 
 
 namespace OpenGLEngineTests
@@ -124,7 +126,7 @@ static void doTextureChunkedLoadingTestForMap2D(OpenGLEngine& engine, const std:
 	const std::string key = engine.getTextureServer()->keyForPath(tex_path); // Get canonical path.  May throw TextureServerExcep
 
 	const bool use_compression = opengl_engine->DXTTextureCompressionSupportedAndEnabled();
-	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(map.ptr(), engine.mem_allocator.ptr(), engine.getMainTaskManager(), use_compression, /*build mipmaps=*/true);
+	Reference<TextureData> texture_data = TextureProcessing::buildTextureData(map.ptr(), engine.mem_allocator.ptr(), engine.getMainTaskManager(), use_compression, /*build mipmaps=*/true, /*convert_float_to_half=*/true);
 
 	OpenGLTextureLoadingProgress loading_progress;
 	testAssert(!loading_progress.loadingInProgress());
@@ -155,7 +157,11 @@ static void doTextureChunkedLoadingTestForPath(OpenGLEngine& engine, const std::
 
 	Reference<Map2D> map;
 	if(hasExtension(key, "gif"))
+	{
+#ifndef NO_GIF_SUPPORT
 		map = GIFDecoder::decodeImageSequence(key);
+#endif
+	}
 	else
 		map = ImFormatDecoder::decodeImage(".", key);
 

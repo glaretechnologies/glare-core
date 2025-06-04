@@ -35,4 +35,5 @@ public:
 	static Reference<OpenGLMeshRenderData> makeRoundedCornerRect(VertexBufferAllocator& allocator, const Vec4f& i, const Vec4f& j, float w, float h, float corner_radius, int tris_per_corner);
 	static Reference<OpenGLMeshRenderData> makeSpriteQuad(VertexBufferAllocator& allocator);
 	static Reference<OpenGLMeshRenderData> makeCuboidEdgeAABBMesh(VertexBufferAllocator& allocator, const Vec4f& span, float edge_width);
+	static Reference<OpenGLMeshRenderData> makeCircleSector(VertexBufferAllocator& allocator, float angle/*, int num_segments*/); // Make circle sector in x-y plane, starting at x axis and extending counter-clockwise.
 };

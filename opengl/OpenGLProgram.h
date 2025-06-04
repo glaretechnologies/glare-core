@@ -33,6 +33,8 @@ struct UniformLocations
 	int aurora_tex_location;
 	int ssao_tex_location;
 	int ssao_specular_tex_location;
+	int prepass_depth_tex_location;
+	int prepass_normal_tex_location;
 	int detail_tex_0_location;
 	int detail_tex_1_location;
 	int detail_tex_2_location;

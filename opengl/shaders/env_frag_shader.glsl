@@ -51,7 +51,7 @@ void main()
 
 	int num_steps = 32;
 	float t_step = min(600.0, (aurora_end_ray_t - aurora_start_ray_t) / float(num_steps));
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 128.f)).x;
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 64.f)).x;
 	float t_offset = pixel_hash * t_step;
 
 	vec3 aurora_up = normalize(vec3(0.3, 0.0, 1.0));

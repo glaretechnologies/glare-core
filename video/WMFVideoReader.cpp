@@ -374,7 +374,7 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 	reader_callback(reader_callback_),
 	com_reader_callback(NULL),
 	decode_to_d3d_tex(decode_to_d3d_tex_),
-	frame_info_allocator(new glare::PoolAllocator(/*ob alloc size=*/sizeof(WMFSampleInfo), /*alignment=*/16))
+	frame_info_allocator(new glare::PoolAllocator(/*ob alloc size=*/sizeof(WMFSampleInfo), /*alignment=*/16, /*block capacity=*/16))
 {
 	HRESULT hr;
 

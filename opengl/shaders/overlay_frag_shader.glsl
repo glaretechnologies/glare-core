@@ -27,9 +27,9 @@ void main()
 		vec4 texcol = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
 
 		if((overlay_flags & OVERLAY_SHOW_JUST_TEX_RGB_FLAG) != 0)
-			texcol.w = 1;
+			texcol.w = 1.0;
 		if((overlay_flags & OVERLAY_SHOW_JUST_TEX_W_FLAG) != 0)
-			texcol = vec4(texcol.w, texcol.w, texcol.w, 1.f);
+			texcol = vec4(texcol.w, texcol.w, texcol.w, 1.0);
 
 		colour_out = vec4(texcol.x, texcol.y, texcol.z, texcol.w) * diffuse_colour;
 	}

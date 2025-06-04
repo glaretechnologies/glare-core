@@ -100,7 +100,7 @@ void main()
 	vec3 pos_cs = (frag_view_matrix * vec4(pos_ws, 1.0)).xyz;
 	float depth = -pos_cs.z;
 	
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 128.f)).x;
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 64.f)).x;
 
 #if IMPOSTER
 	float begin_fade_in_distance  = MAT_UNIFORM.materialise_lower_z;

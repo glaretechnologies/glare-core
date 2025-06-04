@@ -32,6 +32,7 @@ layout (std140) uniform MaterialCommonUniforms
 // mat_common_flags values
 #define CLOUD_SHADOWS_FLAG					1
 #define DO_SSAO_FLAG						2
+#define DOING_SSAO_PREPASS_FLAG				4
 
 
 // MaterialData flag values

@@ -1,6 +1,10 @@
 
 uniform sampler2D diffuse_tex;
+#if NORMAL_TEXTURE_IS_UINT
+uniform usampler2D normal_tex;
+#else
 uniform sampler2D normal_tex;
+#endif
 uniform sampler2D depth_tex;
 
 uniform sampler2D blue_noise_tex;
@@ -12,44 +16,13 @@ uniform sampler2D specular_env_tex;
 in vec2 texture_coords;
 
 
-//uniform vec2 iResolution;
-//uniform mat4 pmat; // proj matrix
-//uniform mat4 ipmat; // inverse proj matrix
-
 layout(location = 0) out vec4 irradiance_out;
 layout(location = 1) out vec3 specular_spec_rad_out;
 
 
-// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 1+2.
-// Returns +- 1
-vec2 signNotZero(vec2 v) {
-	return vec2(((v.x >= 0.0) ? 1.0 : -1.0), ((v.y >= 0.0) ? 1.0 : -1.0));
-}
-
-vec3 oct_to_float32x3(vec2 e) {
-	vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
-	if (v.z < 0.0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
-	return normalize(v);
-}
-
-// 'A Survey of Efficient Representations for Independent Unit Vectors', listing 5.
-vec2 unorm8x3_to_snorm12x2(vec3 u) {
-	u *= 255.0;
-	u.y *= (1.0 / 16.0);
-	vec2 s = vec2(u.x * 16.0 + floor(u.y),
-		fract(u.y) * (16.0 * 256.0) + u.z);
-	return clamp(s * (1.0 / 2047.0) - 1.0, vec2(-1.0), vec2(1.0));
-}
-
-
-// See 'Calculations for recovering depth values from depth buffer', OpenGLEngine.cpp.
 float getDepthFromDepthTexture(vec2 normed_pos_ss)
 {
-#if USE_REVERSE_Z
-	return near_clip_dist / texture(depth_tex, normed_pos_ss).x;
-#else
-	return -near_clip_dist / (texture(depth_tex, normed_pos_ss).x - 1.0);
-#endif
+	return getDepthFromDepthTextureValue(near_clip_dist, texture(depth_tex, normed_pos_ss).x);
 }
 
 
@@ -73,7 +46,18 @@ vec2 cameraToScreenSpace(vec3 pos_cs)
 	);
 }
 
-const float PI = 3.1415926535897932384626433832795;
+
+// See https://forwardscattering.org/post/64
+vec2 rayDirCameraToScreenSpace(vec3 p, vec3 d)
+{
+	return vec2(
+		(p.x * d.z - p.z * d.x) * l_over_w,
+		(p.y * d.z - p.z * d.y) * l_over_h
+	);
+}
+
+const float PI   = 3.1415926535897932384626433832795;
+const float PI_2 = 1.5707963267948966192313216916398;
 
 
 //#define SECTOR_COUNT 32
@@ -105,18 +89,11 @@ uint countSetBits(uint v)
 }
 
 
-float square(float x) { return x*x; }
-float pow4(float x) { return (x*x)*(x*x); }
-
 float heaviside(float x)
 {
 	return (x > 0.0) ? 1.0 : 0.0;
 }
 
-float trowbridgeReitzPDF(float cos_theta, float alpha2)
-{
-	return cos_theta * alpha2 / (3.1415926535897932384626433832795 * square(square(cos_theta) * (alpha2 - 1.0) + 1.0));
-}
 
 vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
 {
@@ -124,48 +101,29 @@ vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
 }
 
 
-// From https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.pdf, B.3.2. Specular BRDF
-// Note that we know dot(H, L) >= 0 and dot(H, V) >= from how we constructed H.
-float smithMaskingShadowingV(vec3 N, /*vec3 H, */vec3 L, vec3 V, float alpha2)
-{
-	/*float N_dot_L = dot(N, L);
-	float N_dot_V = dot(N, V);
-	return 
-		heaviside(dot(H, L)) / (N_dot_L + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_L))) * 
-		heaviside(dot(H, V)) / (N_dot_V + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_V)));*/
-	float N_dot_L = dot(N, L);
-	float N_dot_V = dot(N, V);
-	return 1.0 / (
-		(N_dot_L + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_L))) * 
-		(N_dot_V + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_V)))
-	);
-}
-
-float alpha2ForRoughness(float r) { return pow4(r); }
-
 
 // See "Screen Space Indirect Lighting with Visibility Bitmask", PDF: https://arxiv.org/pdf/2301.11376
 // See "SSAO using Visibility Bitmasks" blog post: https://cdrinmatane.github.io/posts/ssaovb-code/
 
 void main()
 {
-	//------------------------------------------
-	//Resolution = iResolution;
-	//isPerspectiveCam = true;
-	//nearZ = near_clip_dist; // looks like expected to be positive.
-	//cpos = mat_common_campos_ws.xyz;
-	//world_to_cam = mat3(frag_view_matrix[0].xyz, frag_view_matrix[1].xyz, frag_view_matrix[2].xyz);
-	//cam_to_world = transpose(world_to_cam);
-	//------------------------------------------
+	vec2 pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 64.f)).xy;
 
-	//float depth_tex_val = textureLod(depth_tex, texture_coords, 0.0).x;
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 128.f)).x;
+	// Read normal from normal texture
+#if NORMAL_TEXTURE_IS_UINT
+	vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, texture_coords, 0.0))); 
+#else
+	vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, texture_coords, 0.0).xyz));
+#endif
 
-	vec3 src_normal_encoded = textureLod(normal_tex, texture_coords, 0.0).xyz; // Encoded as a RGB8 texture (converted to floating point)
-	vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
-
-	vec3 n_p = normalize((frag_view_matrix * vec4(src_normal_ws, 0)).xyz); // View space 'fragment' normal
-	vec3 p = viewSpaceFromScreenSpacePos(texture_coords); // View space 'fragment' position
+	vec3 n = normalize((frag_view_matrix * vec4(src_normal_ws, 0)).xyz); // View/camera space 'fragment' normal
+	vec3 p = viewSpaceFromScreenSpacePos(texture_coords); // View/camera space 'fragment' position
+	if(p.z < -100000.0) // Don't do SSAO for the environment sphere
+	{
+		irradiance_out = vec4(0.0, 0.0, 0.0, 1.0);
+		specular_spec_rad_out = vec3(0.0);
+		return;
+	}
 	vec3 unit_p = normalize(p);
 	vec3 V = -unit_p; // View vector: vector from 'fragment' position to camera in view/camera space
 	
@@ -173,172 +131,320 @@ void main()
 
 
 	// Form basis in camera/view space aligned with fragment surface
-	vec3 tangent = normalize(removeComponentInDir(V, n_p));
-	vec3 bitangent = cross(tangent, n_p);
+	//vec3 tangent = normalize(removeComponentInDir(V, n));
+	//vec3 bitangent = cross(tangent, n);
 
-	//uint pixel_id = uint(gl_FragCoord.x + gl_FragCoord.y * iResolution.x);
+	//float final_roughness = 0.3; // TEMP
 
-	float final_roughness = 0.3; // TEMP
+	const float thickness = 0.2;
+	const float r = 0.2; // Total stepping radius in screen space
+	const int N_s = 22; // Number of steps per direction
+	const float step_size = r / float(N_s); // (float(N_s) + 1.0);
 
-	float thickness = 0.1;
-	float r = 0.4; // Total stepping radius in screen space
-	int N_s = 150; // Number of steps per direction
-	float step_size = r / (float(N_s) + 1.0);
-
-	int N_d = 116; // num directions
+	const int N_d = 4; // num directions to sample
 
 	//float ao = 0.0; // Accumulated ambient occlusion. 1 = not occluded at all, 0 = totally occluded.
 	//float unocclusion = 0.0;
 	float uniform_irradiance = 0.0;
 	vec3 irradiance = vec3(0.0);
-	vec3 specular = vec3(0.0);
-	float uniform_specular_spec_rad = 0.0;
+	/*vec3 specular = vec3(0.0);
+	float uniform_specular_spec_rad = 0.0;*/
 
-	float debug_val = 0.0;
+	vec3 debug_val = vec3(0.0);
+
+	debug_val = V;
+
+	float aspect_ratio = l_over_h / l_over_w; // viewport width / height
+
 	for(int i=0; i<N_d; ++i) // For each direction:
 	{
-#if 1
-		float theta_cs = PI * (float(i) + pixel_hash * 0.5) / float(N_d);
-		vec3 d_i_vs = tangent * cos(theta_cs) + bitangent * sin(theta_cs);
+#if 0
+		float theta = PI * (float(i) + pixel_hash.x) / float(N_d);
+		vec3 d_i_vs = tangent * cos(theta) + bitangent * sin(theta);
 		vec3 offset_p_vs = p + d_i_vs * 1.0e-2;
 		vec2 offset_p_ss = cameraToScreenSpace(offset_p_vs);
 		vec2 d_i_ss = normalize(offset_p_ss - origin_ss);
+
+		//origin_ss += d_i_ss * (pixel_hash * step_size); // Randomly offset starting position
 #else
 		// Direction d_i is given by the view space direction (1,0,0) rotated around (0, 0, 1) by theta = 2pi * i / N_d
-		float theta = PI * float(i) / float(N_d);
-		vec3 d_i_vs = vec3(cos(theta), sin(theta), 0); // direction i (d_i) in view/camera space
+		float theta = PI * (float(i) + pixel_hash.x) / float(N_d);
+		vec3 d_i_vs = vec3(cos(theta), sin(theta) * aspect_ratio, 0); // direction i (d_i) in view/camera space
 		vec2 d_i_ss = d_i_vs.xy; // direction i (d_i) in normalised screen space
 #endif
 
-		d_i_vs = d_i_vs - V * dot(V, d_i_vs); // Make d_i_vs orthogonal to view vector. NOTE: needed?
+		// d_i_vs = removeComponentInDir(d_i_vs, V);// d_i_vs - V * dot(V, d_i_vs); // Make d_i_vs orthogonal to view vector. NOTE: needed?
 
-		vec3 d_i_vs_cross_v = normalize(cross(d_i_vs, V)); // NOTE: need normalize?  Get vector normal to sampling plane and orthogonal to view vector.
-		vec3 projected_n_p = normalize(n_p - d_i_vs_cross_v * dot(n_p, d_i_vs_cross_v)); // fragment surface normal projected into sampling plane
+		//vec3 d_i_vs_cross_v = normalize(cross(d_i_vs, V)); // NOTE: need normalize?  Get vector normal to sampling plane and orthogonal to view vector.
+		vec3 sampling_plane_n = normalize(cross(d_i_vs, V)); // Get vector normal to sampling plane and orthogonal to view vector.  Normalise needed for removeComponentInDir() below. (could use unnormalised version of function tho)
+		//vec3 projected_n_p = normalize(n_p - d_i_vs_cross_v * dot(n_p, d_i_vs_cross_v)); // fragment surface normal projected into sampling plane
+		vec3 projected_n = normalize(removeComponentInDir(n, sampling_plane_n));//  normalize(n_p - d_i_vs_cross_v * dot(n_p, d_i_vs_cross_v)); // fragment surface normal projected into sampling plane
 
 		// Get angle between projected normal and view vector
-		float N = acos(dot(projected_n_p, V)) * sign(dot(d_i_vs_cross_v, cross(projected_n_p, V))) + ((pixel_hash - 0.5f) * PI/ float(SECTOR_COUNT));
-		
+		float view_proj_n_angle = acos(dot(projected_n, V));
+		float view_alpha = PI_2 + sign(dot(cross(V, projected_n), sampling_plane_n)) * view_proj_n_angle;
 
-		uint b_i = 0u; // bitmask (= globalOccludedBitfield)
-		for(int j=1; j<=N_s; ++j) // For each step
+
+		uint b_i = 0u; // bitmask: each bit set to 1 if trace hit something in that sector.
+		//for(int j=1; j<=N_s; ++j) // For each step
+		float step_incr = r / float(N_s); // Distance in screen space to step, increases slightly each step.
+		float last_step_incr = step_incr;
+		float dist_ss = step_incr;// * pixel_hash; // Total distance stepped in screen space, before randomisation
+		//for(int q=1; q<=N_s*2; ++q)
+
+		// Say N_s = 4.
+		// q = 0, 1, 2, 3  are samples in one direction,
+		// q = 4, 5, 6, 7 are samples in the backwards direction
+		for(int q=0; q<N_s * 2; ++q)
 		{
-			float dir_sign = (j % 2 == 0) ? 1.f : -1.f;
+			//int j = q;
+			//float dir_sign = 1.0;
+			if(q == N_s)
+			{
+				// Reset, start walking in other direction
+				//dist_ss = -step_incr;// * pixel_hash;
+				step_incr = -r / float(N_s);
+				last_step_incr = step_incr;
+				dist_ss = step_incr;
+			}
+			//else if(q > N_s)
+			//{
+			////	j = -(q - N_s);
+			//	//dir_sign = -1.0;
+			//}
+			//float dir_sign = (j % 2 == 0) ? 1.f : -1.f;
+			float cur_dist_ss = dist_ss - pixel_hash.y * last_step_incr;
 
-			vec2 pos_j_ss = origin_ss + d_i_ss * dir_sign * step_size * float(j); // step_j position in screen space
-			if(!(pos_j_ss.x >= 0.0 && pos_j_ss.y <= 1.0 && pos_j_ss.y >= 0.0 && pos_j_ss.y <= 1.0))
+			//vec2 pos_j_ss = origin_ss + d_i_ss * /*dir_sign * */(step_size * (float(j) + (pixel_hash - 0.5))); // step_j position in screen space
+			vec2 pos_j_ss = origin_ss + d_i_ss * cur_dist_ss; // step_j position in screen space
+			if(!(pos_j_ss.x >= 0.0 && pos_j_ss.x <= 1.0 && pos_j_ss.y >= 0.0 && pos_j_ss.y <= 1.0))
 				continue;
 			
-			vec3 pos_j_vs = viewSpaceFromScreenSpacePos(pos_j_ss); // step_j position in camera/view space
+			vec3 pos_j = viewSpaceFromScreenSpacePos(pos_j_ss); // get step_j position in camera/view space
 
-			vec3 back_pos_j_vs = pos_j_vs - V * thickness; // position of guessed 'backside' of step position in camera/view space
+			vec3 back_pos_j = pos_j - V * thickness; // position of guessed 'backside' of step position in camera/view space
 
-			vec3 p_to_pos_j_vs = pos_j_vs - p; // Vector from fragment position to step position
-			vec3 p_to_back_pos_j_vs = back_pos_j_vs - p;
-			float front_view_angle = acos(dot(normalize(     p_to_pos_j_vs), V)); // Angle between view vector (frag to cam) and frag-to-step_j position.
-			float back_view_angle  = acos(dot(normalize(p_to_back_pos_j_vs), V)); // Angle between view vector (frag to cam) and frag-to-back_step_j position.
-
+			//vec3 p_to_pos_j_vs = pos_j_vs - p; // Vector from fragment position to step position
+			//vec3 p_to_back_pos_j_vs = back_pos_j_vs - p;
+			vec3 unit_p_to_pos_j      = normalize(pos_j      - p); // normalised vector from fragment position to step position, in view/camera space
+			vec3 unit_p_to_back_pos_j = normalize(back_pos_j - p); // normalised vector from fragment position to step back position, in view/camera space
 			
+			// Convert to angles in [0, pi], the angle between the surface and frag-to-step_j position
+			float V_p_p_j_angle =      acos(dot(V, unit_p_to_pos_j)); // Angle between view vector and p to p_j.
+			float V_p_p_j_back_angle = acos(dot(V, unit_p_to_back_pos_j)); // Angle between view vector and p to p_back_j.
+			float angle_add_sign = sign(dot(cross(unit_p_to_pos_j, V), sampling_plane_n));
+			float front_alpha = view_alpha + angle_add_sign * V_p_p_j_angle;
+			float back_alpha  = view_alpha + angle_add_sign * V_p_p_j_back_angle;
 
-			float theta_min = min(front_view_angle, back_view_angle);
-			float theta_max = max(front_view_angle, back_view_angle);
+			// Map from [0, pi] to [0, 1]
+			front_alpha = clamp(front_alpha / PI, 0.0, 1.0);
+			back_alpha  = clamp(back_alpha  / PI, 0.0, 1.0);
 
-			//float front_angle = front_view_angle - N;
-			
+			float min_alpha = min(front_alpha, back_alpha);
+			float max_alpha = max(front_alpha, back_alpha);
 
-
-			//debug_val = clamp(theta_min, 0.0, 1.0);
-
-			// Adjust to get min and max angles around sampling-plane normal
-			float min_angle_from_proj_N = theta_min - N * dir_sign;
-			float min_angle_from_proj_N_01 = clamp((min_angle_from_proj_N + (0.5 * PI)) / PI, 0.0, 1.0); // Map from [-pi/2, pi/2] to [0, 1]
-
-			float max_angle_from_proj_N = theta_max - N * dir_sign;
-			float max_angle_from_proj_N_01 = clamp((max_angle_from_proj_N + (0.5 * PI)) / PI, 0.0, 1.0); // Map from [-pi/2, pi/2] to [0, 1]
-
-			uint occlusion_mask = occlusionBitMask(min_angle_from_proj_N_01, max_angle_from_proj_N_01);
+			uint occlusion_mask = occlusionBitMask(min_alpha, max_alpha); // min_angle_from_proj_N_01, max_angle_from_proj_N_01);
 			uint new_b_i = b_i | occlusion_mask;
 			uint bits_changed = new_b_i & ~b_i;
 			b_i  = new_b_i;
 
-			float p_to_pos_j_vs_len = length(p_to_pos_j_vs);
-			vec3 unit_p_to_pos_j_vs = normalize(p_to_pos_j_vs);//TEMP
-			float cos_norm_angle = dot(unit_p_to_pos_j_vs, n_p);
-			if(cos_norm_angle > 0.0)
+			float cos_norm_angle = dot(unit_p_to_pos_j, n);
+			if((cos_norm_angle > 0.01) && (bits_changed != 0u))
 			{
-				vec3 n_j_encoded = textureLod(normal_tex, pos_j_ss, 0.0).xyz; // Encoded as a RGB8 texture (converted to floating point)
-				vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(n_j_encoded)); // Read normal from normal texture
-				vec3 n_j_vs = normalize((frag_view_matrix * vec4(n_j_ws, 0)).xyz); // unnormalised TEMP: normalizing
-				float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j_vs); // cosine of angle between surface normal at step position and vector from step position to p.
-				//if(n_j_cos_theta > 0.0) // dot(n_j_ss, p_to_pos_j_vs) < 0)
-				{
-					float norm_angle = acos(cos_norm_angle);
-					float sin_factor = sin(norm_angle);
+				//vec3 n_j_encoded = textureLod(normal_tex, pos_j_ss, 0.0).xyz; // Encoded as a RGB8 texture (converted to floating point)
+				//vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(n_j_encoded)); // Read normal from normal texture
+#if NORMAL_TEXTURE_IS_UINT
+				vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, pos_j_ss, 0.0))); // Read normal from normal texture
+#else
+				vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, pos_j_ss, 0.0).xyz)); // Read normal from normal texture
+#endif
 
-					
-					vec3 h = normalize(unit_p_to_pos_j_vs + V); // half-vector in view/camera space
-					float h_cos_theta = max(0.0, dot(h, n_p));
-					float alpha2 = alpha2ForRoughness(final_roughness);
-					float D = trowbridgeReitzPDF(h_cos_theta, alpha2);// * specular_fresnel * shadow_factor;
+				vec3 n_j_vs = normalize((frag_view_matrix * vec4(n_j_ws, 0)).xyz);
+				float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
+				//if(n_j_cos_theta > -0.3) // dot(n_j_ss, p_to_pos_j_vs) < 0)
+				{
+					// cos^2 x = sin^2 x = 1
+					// sin^2 x = 1 - cos^2x
+					// sin x = sqrt(1 - cos^2 x)
+					//float norm_angle = acos(cos_norm_angle);
+					//float sin_factor = sin(norm_angle);
+					float sin_factor = sqrt(max(0.0, 1.0 - cos_norm_angle*cos_norm_angle));
+
+					//vec3 h = normalize(unit_p_to_pos_j_vs + V); // half-vector in view/camera space
+					//float h_cos_theta = max(0.0, dot(h, n_p));
+					//float alpha2 = alpha2ForRoughness(final_roughness);
+					//float D = trowbridgeReitzPDF(h_cos_theta, alpha2);// * specular_fresnel * shadow_factor;
 
 					//float smithMaskingShadowing(vec3 N, vec3 H, vec3 L, vec3 V)
 					//if(dot(h, unit_p_to_pos_j_vs) > 0.0 && dot(h, V) > 0.0) // heaviside(dot(H, L)) * heaviside(dot(H, V))
 					{
-						float V = smithMaskingShadowingV(n_p, /*h, */unit_p_to_pos_j_vs, V, alpha2);
-
-						float specular_brdf = D * V;
-
 						//float sin_factor = 1.f;
 						//if(texture_coords.x >= 0.49 && texture_coords.x <= 0.51 &&
 						//	texture_coords.y >= -0.1 && texture_coords.y <= 0.1)
 						{
-							//debug_val = n_j_vs.z;
 							float scalar_factors = cos_norm_angle * sin_factor * float(countSetBits(bits_changed));
 							uniform_irradiance += scalar_factors;
-							vec3 common_factors = scalar_factors * textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
-							irradiance += /*n_j_cos_theta * */common_factors;
-							specular += specular_brdf * common_factors;
-							uniform_specular_spec_rad += specular_brdf * scalar_factors;
+
+							if(n_j_cos_theta > -0.3) // dot(n_j_ss, p_to_pos_j_vs) < 0)
+							{
+								vec3 common_factors = scalar_factors * textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
+								irradiance += /*n_j_cos_theta * */common_factors;
+							}
 						}
 					}
 				}
 			}
+
+			dist_ss += step_incr;
+			last_step_incr = step_incr;
+			// NOTE: we want step_incr_factor^N_s ~= 2      , e.g. step length is approximately doubled at end of stepping.
+			// ln(step_incr_factor^N_s) = ln(2)
+			// N_s ln(step_incr_factor) = ln(2)
+			// ln(step_incr_factor) = ln(2) / N_s
+			// step_incr_factor = exp(ln(2) / N_s)
+			const float step_incr_factor = exp(log(2.0) / float(N_s));
+			step_incr *= step_incr_factor;
 		}
 
 		//ao += 1.0 - float(countSetBits(b_i)) * (1.0 / float(SECTOR_COUNT));
 	}
 
 	//ao       *= 1.0 / float(N_d);
-	uniform_irradiance        *= PI * PI / float(N_d * SECTOR_COUNT);
-	uniform_specular_spec_rad *= PI * PI / float(N_d * SECTOR_COUNT);
-	irradiance                *= PI * PI / float(N_d * SECTOR_COUNT);
-	specular                  *= PI * PI / float(N_d * SECTOR_COUNT);
+	uniform_irradiance        *= PI * PI / float(N_d * int(SECTOR_COUNT));
+	//uniform_specular_spec_rad *= PI * PI / float(N_d * SECTOR_COUNT);
+	irradiance                *= PI * PI / float(N_d * int(SECTOR_COUNT));
+	//specular                  *= PI * PI / float(N_d * SECTOR_COUNT);
 
 	// Mix in unoccluded environment lighting from env map
-	vec3 sky_irradiance = texture(cosine_env_tex, src_normal_ws).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
+	//vec3 sky_irradiance = texture(cosine_env_tex, src_normal_ws).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
 
-	float irradiance_scale = 1.0 - clamp(uniform_irradiance / PI, 0.0, 1.0); // NOTE: hack 2.0 factor
-	irradiance += irradiance_scale * sky_irradiance;
+	float irradiance_scale = 1.0 - clamp(uniform_irradiance / PI, 0.0, 1.0);
+	//irradiance += irradiance_scale * sky_irradiance;
+
+	//========================= Do a traditional trace for specular reflection ===============================
+	// Reflect -V in n
+	vec3 reflected_dir = reflect(-V, n);
+	vec3 dir_cs = reflected_dir;
+
+	vec2 dir_ss = normalize(rayDirCameraToScreenSpace(p, reflected_dir));
+
+	const float max_len = 0.7f;
+	float len = max_len; // distance to walk in screen space
+	
+	// Clip screen-space ray on screen edges.
+	// Clip against left or right edge of screen
+	{	
+		float x_clip_val = (dir_ss.x > 0.0) ? 1.f : 0.f;
+		float hit_len = (x_clip_val - origin_ss.x) / dir_ss.x;
+		len = min(len, hit_len);
+	}
+	// Clip against top or bottom of screen
+	{	
+		float y_clip_val = (dir_ss.y > 0.0) ? 1.f : 0.f;
+		float hit_len = (y_clip_val - origin_ss.y) / dir_ss.y;
+		len = min(len, hit_len);
+	}
+
+	
+	// Solve for t_1 using x or y coordinates, which ever one changes faster.
+	float o_ss_xy, d_ss_xy, l_over_w_factor, o_cs_xy, d_cs_xy;
+	if(abs(dir_ss.x) > abs(dir_ss.y))
+	{
+		o_ss_xy = origin_ss.x;
+		d_ss_xy = dir_ss.x;
+		l_over_w_factor = l_over_w;
+		o_cs_xy = p.x;
+		d_cs_xy = dir_cs.x;
+	}
+	else
+	{
+		o_ss_xy = origin_ss.y;
+		d_ss_xy = dir_ss.y;
+		l_over_w_factor = l_over_h;
+		o_cs_xy = p.y;
+		d_cs_xy = dir_cs.y;
+	}
+
+	const float step_len = max_len / 128.0;
+	int num_steps = int(len / step_len);
+	vec3 spec_refl_col = vec3(0.0);
+	float last_step_incr = step_len;
+	float cur_dist_ss = last_step_incr * (pixel_hash.y + 0.35);
+	bool hit_something = false;
+	float prev_t = 0.0;
+	float prev_step_depth = 0.0;
+	for(int i=0; i<num_steps; ++i)
+	{
+		vec2  cur_ss  = origin_ss    + dir_ss  * cur_dist_ss; // Compute current screen space position
+		float p_ss_xy = o_ss_xy      + d_ss_xy * cur_dist_ss;
+
+		float t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
+		if(t_1 < 0.0) // TODO: solve for the distance to this singularity to avoid this branch.
+			break;
+
+		float p_cs_z = p.z + dir_cs.z * t_1; // Z coordinate of point on camera-space ray that projects onto the current screen space point
+		float cur_step_depth = -p_cs_z;
+
+		float cur_depth_buf_depth = getDepthFromDepthTexture(cur_ss); // Get depth from depth buffer for current step position
+
+		float pen_depth = cur_step_depth - cur_depth_buf_depth; // penetration depth
+
+#if NORMAL_TEXTURE_IS_UINT
+		vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, cur_ss, 0.0))); // Read normal from normal texture
+#else
+		vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, cur_ss, 0.0).xyz)); // Read normal from normal texture
+#endif
+
+		vec3 n_j_vs = normalize((frag_view_matrix * vec4(n_j_ws, 0)).xyz);
+
+		vec3 p_cs = vec3(
+			(cur_ss.x - 0.5) * cur_depth_buf_depth / l_over_w,
+			(cur_ss.y - 0.5) * cur_depth_buf_depth / l_over_h,
+			-cur_depth_buf_depth
+		);
+		vec3 view_dir = normalize(-p_cs);
+
+
+		float thickness = 1.5 * clamp(cur_step_depth - prev_step_depth, 0.1, 10.0); // 0.1 / abs(dot(n_j_vs, view_dir));//*(t_1 - prev_t) * 2*/0.5 / max(abs(dot(n_j_vs, view_dir)), 0.01);
+		if((pen_depth > 0.0) && (pen_depth < thickness)) //   && (cur_depth_buf_depth > intersection_depth_threshold)) // if we hit something:
+		{
+			spec_refl_col = textureLod(diffuse_tex, cur_ss, 0.0).xyz;
+			hit_something = true;
+			break;
+		}
+
+		prev_t = t_1;
+		prev_step_depth = cur_step_depth;
+		cur_dist_ss += last_step_incr;
+	}
 
 
 	//========================= Mix in unoccluded specular env light ============================
-	vec3 frag_dir_ws = (transpose(frag_view_matrix) * vec4(unit_p, 0.0)).xyz;
-	vec3 reflected_dir_ws = reflect(frag_dir_ws, src_normal_ws);
+	if(!hit_something)
+	{
+		//vec3 frag_dir_ws = (transpose(frag_view_matrix) * vec4(unit_p, 0.0)).xyz;
+		//vec3 reflected_dir_ws = reflect(frag_dir_ws, src_normal_ws);
+		vec3 reflected_dir_ws = (transpose(frag_view_matrix) * vec4(reflected_dir, 0.0)).xyz; // NOTE: transpose could be very slow
 
-	// Look up env map for reflected dir
-	int map_lower = int(final_roughness * 6.9999);
-	int map_higher = map_lower + 1;
-	float map_t = final_roughness * 6.9999 - float(map_lower);
+		const float final_roughness = 0.3;
 
-	float refl_theta = acos(reflected_dir_ws.z);
-	float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
-	vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
+		// Look up env map for reflected dir
+		int map_lower = int(final_roughness * 6.9999);
+		int map_higher = map_lower + 1;
+		float map_t = final_roughness * 6.9999 - float(map_lower);
 
-	vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
-	vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)));
-	vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
+		float refl_theta = acos(reflected_dir_ws.z);
+		float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
+		vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
-	float env_scale = 1.0 - clamp(uniform_specular_spec_rad * 2.0, 0.0, 1.0);
-	//specular += env_scale * spec_refl_light.xyz;
+		vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
+		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)));
+		vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
+
+		//float env_scale = 1.0 - clamp(uniform_specular_spec_rad * 2.0, 0.0, 1.0);
+		//specular += env_scale * spec_refl_light.xyz;
+		spec_refl_col = spec_refl_light.xyz;
+	}
 
 //
 	// d_omega = sin(theta) dtheta dphi
@@ -366,8 +472,9 @@ void main()
 	//colour_out = vec4(vec3(clamp(-n_p.z, 0.0, 1.0)), 1.f);
 	
 	
-	irradiance_out = vec4(irradiance, 1.0);
-	specular_spec_rad_out = specular;
+	//irradiance_out = vec4(irradiance, 1.0);
+	irradiance_out = vec4(irradiance, irradiance_scale);
+	specular_spec_rad_out = spec_refl_col;
 	//colour_out = vec4(vec3(ao), 1.0);
 
 	//TEMP HACK:
@@ -376,4 +483,5 @@ void main()
 	//vec3 pos_j_ss_col = textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
 
 	//colour_out = vec4(vec3(debug_val * 0.1), 1.0);
+	//irradiance_out.xyz = debug_val;//TEMP
 }

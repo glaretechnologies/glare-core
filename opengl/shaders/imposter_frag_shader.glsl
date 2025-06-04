@@ -184,7 +184,7 @@ void main()
 		refl_diffuse_col = vec4(0.04895491,0.10686976,0.010306382, 0.0);
 	}
 
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 128.f)).x;
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 64.f)).x;
 
 	float begin_fade_in_distance  = matdata.materialise_lower_z;
 	float end_fade_in_distance    = matdata.materialise_upper_z;

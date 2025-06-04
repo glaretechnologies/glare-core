@@ -96,6 +96,7 @@ Copyright Glare Technologies Limited 2023 -
 // mat_common_flags values.  Should be same as in common_frag_structures.glsl
 #define CLOUD_SHADOWS_FLAG					1
 #define DO_SSAO_FLAG						2
+#define DOING_SSAO_PREPASS_FLAG				4
 
 
 #define OVERLAY_HAVE_TEXTURE_FLAG			1
@@ -558,9 +559,6 @@ OpenGLEngine::~OpenGLEngine()
 
 	removeOverlayObject(large_debug_overlay_ob);
 	large_debug_overlay_ob = nullptr;
-
-	removeOverlayObject(large_debug_overlay_ob2);
-	large_debug_overlay_ob2 = nullptr;
 
 	if(async_texture_loader)
 	{
@@ -1533,6 +1531,8 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
 	prog->uniform_locations.ssao_tex_location				= prog->getUniformLocation("ssao_tex");
 	prog->uniform_locations.ssao_specular_tex_location		= prog->getUniformLocation("ssao_specular_tex");
+	prog->uniform_locations.prepass_depth_tex_location		= prog->getUniformLocation("prepass_depth_tex");
+	prog->uniform_locations.prepass_normal_tex_location		= prog->getUniformLocation("prepass_normal_tex");
 	//prog->uniform_locations.snow_ice_normal_map_location	= prog->getUniformLocation("snow_ice_normal_map");
 
 	prog->uniform_locations.dynamic_depth_tex_location		= prog->getUniformLocation("dynamic_depth_tex");
@@ -1972,8 +1972,15 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 		// Load blue noise texture
 		{
-			const std::string blue_noise_map_path = gl_data_dir + "/LDR_LLL1_0.png";
+			const std::string blue_noise_map_path = gl_data_dir + "/HDR_RGBA_0.png";
 			Reference<Map2D> blue_noise_map = ImFormatDecoder::decodeImage(".", blue_noise_map_path);
+
+			// Convert to floating point. TODO: optimise
+			runtimeCheck(blue_noise_map.downcastToPtr<ImageMapUInt16>());
+			ImageMapFloatRef float_map = new ImageMapFloat(blue_noise_map->getMapWidth(), blue_noise_map->getMapHeight(), blue_noise_map->numChannels());
+			for(size_t i=0; i<float_map->getDataSize(); ++i)
+				float_map->getData()[i] = blue_noise_map.downcastToPtr<ImageMapUInt16>()->getData()[i] * (1 / 65535.f);
+
 
 			TextureParams params;
 			params.filtering = OpenGLTexture::Filtering_Nearest;
@@ -1981,7 +1988,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			params.allow_compression = false;
 			params.use_sRGB = false;
 			params.use_mipmaps = false;
-			this->blue_noise_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(blue_noise_map_path), *blue_noise_map, params);
+			params.convert_float_to_half = false;
+			this->blue_noise_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey(blue_noise_map_path), *float_map, params);
 		}
 
 		{
@@ -2402,18 +2410,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 				large_debug_overlay_ob->draw = false;
 
 				addOverlayObject(large_debug_overlay_ob);
-			}
-			// Create large tex overlay
-			{
-				large_debug_overlay_ob2 =  new OverlayObject();
-				large_debug_overlay_ob2->ob_to_world_matrix = Matrix4f::translationMatrix(-1.f, -1.f, 0) * Matrix4f::uniformScaleMatrix(2.f);
-				large_debug_overlay_ob2->mesh_data = this->unit_quad_meshdata;
-				large_debug_overlay_ob2->material.albedo_linear_rgb = Colour3f(1.f);
-				large_debug_overlay_ob2->material.shader_prog = this->overlay_prog;
-				
-				large_debug_overlay_ob2->draw = false;
-
-				addOverlayObject(large_debug_overlay_ob2);
 			}
 		}
 
@@ -2974,16 +2970,21 @@ OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shade
 
 OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg(const std::string& use_shader_dir)
 {
-	const std::string use_preprocessor_defines = preprocessor_defines;
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey("blur_ssao", ProgramKeyArgs()));
+
 	OpenGLProgramRef prog = new OpenGLProgram(
 		"blur_ssao",
-		new OpenGLShader(use_shader_dir + "/blur_ssao_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/blur_ssao_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+		new OpenGLShader(use_shader_dir + "/blur_ssao_vert_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/blur_ssao_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
 	getUniformLocations(prog);
 	addProgram(prog);
+	setStandardTextureUnitUniformsForProgram(*prog);
+
+	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
 	
 	return prog;
 }
@@ -3446,6 +3447,10 @@ void OpenGLEngine::createSSAOTextures()
 	const int prepass_xres = xres / 2;
 	const int prepass_yres = yres / 2;
 	const int prepass_msaa_samples = 1;
+
+
+	conPrint("Allocating SSAO buffers and textures with width " + toString(prepass_xres) + " and height " + toString(prepass_yres));
+
 #if 0
 	// SSAO
 	prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, col_buffer_format);
@@ -3529,10 +3534,10 @@ void OpenGLEngine::createSSAOTextures()
 		//texture_debug_preview_overlay_obs[5]->material.albedo_texture = blurred_ssao_texture;
 		//texture_debug_preview_overlay_obs[5]->material.overlay_show_just_tex_w = true;
 
-		large_debug_overlay_ob->material.albedo_texture = blurred_ssao_texture;
-		large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
+		//large_debug_overlay_ob->material.albedo_texture = blurred_ssao_texture;
+		//large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
 
-		large_debug_overlay_ob2->material.albedo_texture = blurred_ssao_specular_texture;
+		//large_debug_overlay_ob2->material.albedo_texture = blurred_ssao_specular_texture;
 	}
 }
 
@@ -6884,6 +6889,8 @@ void OpenGLEngine::draw()
 		const int xres = myMax(16, main_viewport_w);
 		const int yres = myMax(16, main_viewport_h);
 
+		bool main_texture_size_changed = false;
+
 		// If buffer textures are the incorrect resolution, free them, we will allocate larger ones below.
 		// Free any allocated textures first, to reduce max mem usage.
 		if(main_colour_copy_texture.nonNull() &&
@@ -6905,6 +6912,8 @@ void OpenGLEngine::draw()
 
 			main_render_framebuffer = NULL;
 			main_render_copy_framebuffer = NULL;
+
+			main_texture_size_changed = true;
 		}
 
 		if(main_colour_copy_texture.isNull())
@@ -7007,7 +7016,7 @@ void OpenGLEngine::draw()
 			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
 		}
 
-		if(settings.ssao && !ssao_texture)
+		if(settings.ssao && (!ssao_texture || main_texture_size_changed))
 		{
 			createSSAOTextures();
 			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
@@ -7233,7 +7242,7 @@ void OpenGLEngine::draw()
 
 	if(settings.ssao)
 	{
-		common_uniforms.mat_common_flags = (this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0); // Disable reading from SSAO output texture for the prepass
+		common_uniforms.mat_common_flags = (this->current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | DOING_SSAO_PREPASS_FLAG; // Disable reading from SSAO output texture (DO_SSAO_FLAG) for the prepass, set DOING_SSAO_PREPASS_FLAG.
 		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 		// drawDepthPrePass(view_matrix, proj_matrix);
@@ -9180,7 +9189,7 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 		glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
 		glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
 		//glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
-		glClearDepthf(use_reverse_z ? 0.0001f :0.9999f); // For reversed-z, the 'far' z value is 0, instead of 1.
+		glClearDepthf(use_reverse_z ? 0.000001f :0.9999f); // For reversed-z, the 'far' z value is 0, instead of 1.
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -9710,7 +9719,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				blur_ssao_gpu_timer->beginTimerQuery();
 
 			// Blur irradiance + AO texture
-			// Input: ssao_texture, prepass_depth_copy_texture
+			// Input: ssao_texture, prepass_depth_copy_texture, prepass_normal_copy_texture
 			// Output: blurred_ssao_texture (via blurred_ssao_framebuffer)
 			{
 				blurred_ssao_framebuffer->bindForDrawing();
@@ -9721,7 +9730,9 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				bindTextureUnitToSampler(*ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
 
 				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
-				bindTextureUnitToSampler(*prepass_depth_copy_texture, /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+				bindTextureUnitToSampler(*prepass_depth_copy_texture,  /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+				//assert(blur_ssao_prog->uniform_locations.main_normal_texture_location >= 0);
+				bindTextureUnitToSampler(*prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
 
 				// Draw quad
 				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
@@ -9741,6 +9752,8 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
 				bindTextureUnitToSampler(*prepass_depth_copy_texture, /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+				//assert(blur_ssao_prog->uniform_locations.main_normal_texture_location >= 0);
+				bindTextureUnitToSampler(*prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
 
 				// Draw quad
 				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
@@ -9753,7 +9766,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 			// unbind textures
 			//unbindTextureFromTextureUnit(*ssao_texture, SSAO_TEXTURE_UNIT_INDEX);
-			unbindTextureFromTextureUnit(*prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+			//unbindTextureFromTextureUnit(*prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
 
 			// restore bindings
 			bindTextureToTextureUnit(*blurred_ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX);
@@ -10507,6 +10520,9 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 
 	glUniform1i(program.uniform_locations.ssao_tex_location, SSAO_TEXTURE_UNIT_INDEX);
 	glUniform1i(program.uniform_locations.ssao_specular_tex_location, SSAO_SPECULAR_TEXTURE_UNIT_INDEX);
+
+	glUniform1i(program.uniform_locations.prepass_depth_tex_location, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.prepass_normal_tex_location, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX);
 
 	//glUniform1i(program.uniform_locations.snow_ice_normal_map_location, SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 }
@@ -11460,7 +11476,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 	else
 	{
 		const bool use_compression = params.allow_compression && this->DXTTextureCompressionSupportedAndEnabled() && params.use_mipmaps && OpenGLTexture::areTextureDimensionsValidForCompression(map2d); // The non mip-mapping code-path doesn't allow compression
-		texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), this->main_task_manager, use_compression, params.use_mipmaps);
+		texture_data = TextureProcessing::buildTextureData(&map2d, this->mem_allocator.ptr(), this->main_task_manager, use_compression, params.use_mipmaps, params.convert_float_to_half);
 	}
 
 	OpenGLTextureLoadingProgress loading_progress;
@@ -11759,17 +11775,50 @@ bool OpenGLEngine::openglDriverVendorIsATI() const
 }
 
 
-void OpenGLEngine::toggleShowTexDebug()
+void OpenGLEngine::toggleShowTexDebug(int index)
 {
 	if(large_debug_overlay_ob)
+	{
 		large_debug_overlay_ob->draw = !large_debug_overlay_ob->draw;
-}
 
+		large_debug_overlay_ob->material.overlay_show_just_tex_rgb = false;
+		large_debug_overlay_ob->material.overlay_show_just_tex_w = false;
 
-void OpenGLEngine::toggleShowTexDebug2()
-{
-	if(large_debug_overlay_ob2)
-		large_debug_overlay_ob2->draw = !large_debug_overlay_ob2->draw;
+		if(index == 0)
+		{
+			// AO
+			large_debug_overlay_ob->material.albedo_texture = this->ssao_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
+		}
+		else if(index == 1)
+		{
+			// blurred AO
+			large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
+		}
+		else if(index == 2)
+		{
+			// indirect illum
+			large_debug_overlay_ob->material.albedo_texture = this->ssao_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+		}
+		else if(index == 3)
+		{
+			// blurred indirect illum
+			large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+		}
+		else if(index == 4)
+		{
+			// specular refl
+			large_debug_overlay_ob->material.albedo_texture = this->ssao_specular_texture;
+		}
+		else if(index == 5)
+		{
+			// blurred specular refl
+			large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_specular_texture;
+		}
+	}
 }
 
 

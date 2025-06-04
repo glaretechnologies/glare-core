@@ -80,6 +80,12 @@ uniform sampler2D caustic_tex_b;
 
 uniform sampler2D ssao_tex;
 uniform sampler2D ssao_specular_tex;
+uniform sampler2D prepass_depth_tex; // SSAO prepass depth texture
+#if NORMAL_TEXTURE_IS_UINT
+uniform usampler2D prepass_normal_tex;// SSAO prepass normal texture
+#else
+uniform sampler2D prepass_normal_tex;// SSAO prepass normal texture
+#endif
 
 // uniform sampler2D snow_ice_normal_map;
 
@@ -175,21 +181,22 @@ layout(location = 1) out vec3 normal_out;
 
 
 
-
-
-
-
 #if DECAL
 // See 'Calculations for recovering depth values from depth buffer' in OpenGLEngine.cpp
 float getDepthFromDepthTexture(vec2 pos_ss)
 {
-#if USE_REVERSE_Z
-	return near_clip_dist / texture(main_depth_texture, pos_ss).x;
-#else
-	return -near_clip_dist / (texture(main_depth_texture, pos_ss).x - 1.0);
-#endif
+	return getDepthFromDepthTextureValue(near_clip_dist, texture(main_depth_texture, pos_ss).x);
 }
 #endif // DECAL
+
+vec3 readNormalFromPrepassNormalTexture(ivec2 px_coords)
+{
+#if NORMAL_TEXTURE_IS_UINT
+	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(prepass_normal_tex, px_coords, /*mip level=*/0))); // Read normal from normal texture
+#else
+	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(prepass_normal_tex, px_coords, /*mip level=*/0).xyz)); // Read normal from normal texture
+#endif
+}
 
 
 vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
@@ -591,7 +598,7 @@ void main()
 	refl_diffuse_col.xyz *= linear_vert_col;
 #endif
 
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 128.f)).x;
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 64.f)).x;
 	// Fade out (to fade in an imposter), if enabled.
 #if IMPOSTERABLE
 	float dist_alpha_factor = smoothstep(MAT_UNIFORM.begin_fade_out_distance, MAT_UNIFORM.end_fade_out_distance,  /*dist=*/-pos_cs.z);
@@ -635,11 +642,11 @@ void main()
 	float unclamped_roughness = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (use_roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : use_roughness;
 	float final_roughness = max(0.04, unclamped_roughness); // Avoid too small roughness values resulting in glare/bloom artifacts
 
-	//if((mat_common_flags & DO_SSAO_FLAG) == 0)
-	//{
-	//	// If this is the SSGI prepass:
-	//	final_roughness = max(0.3, unclamped_roughness);
-	//}
+	if((mat_common_flags & DOING_SSAO_PREPASS_FLAG) != 0)
+	{
+		// If this is the SSGI prepass, limit roughness so it can't get too small, to try and avoid small specular highlights that contribute to noise in the indirect illumination texture.
+		final_roughness = max(0.3, unclamped_roughness);
+	}
 
 	// final_roughness = mix(final_roughness, 0.6f, snow_frac);
 
@@ -786,15 +793,90 @@ void main()
 	// Reflect cam-to-fragment vector in ws normal
 	vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * dot(unit_normal_ws, unit_cam_to_pos_ws));
 
-	// Apply SSAO
 	vec4 spec_refl_light; // spectral radiance * 1.0e-9
 	if((mat_common_flags & DO_SSAO_FLAG) != 0)
 	{
-		const vec4 ssao_val = textureLod(ssao_tex, cameraToScreenSpace(pos_cs), 0.0);
+		// Apply SSAO
+	
+		vec2 frag_coords = gl_FragCoord.xy;
+		float frag_depth = -pos_cs.z;
+
+		// Get coordinates for the 4 SSAO texels surrounding the current fragment.
+		// Accumulate AO, indirect illumination and spec reflected radiance only from the surrounding texels that share similar depths and normals.
+		vec2 prepass_frag_coords = frag_coords * 0.5f;
+		ivec2 prepass_frag_coords_i = ivec2(int(prepass_frag_coords.x), int(prepass_frag_coords.y));
+		ivec2 prepass_frag_coords_other_i;
+		if(fract(prepass_frag_coords.x) < 0.5)
+			prepass_frag_coords_other_i.x = prepass_frag_coords_i.x - 1;
+		else
+			prepass_frag_coords_other_i.x = prepass_frag_coords_i.x + 1;
+
+		if(fract(prepass_frag_coords.y) < 0.5)
+			prepass_frag_coords_other_i.y = prepass_frag_coords_i.y - 1;
+		else
+			prepass_frag_coords_other_i.y = prepass_frag_coords_i.y + 1;
+
+		ivec2 a_texel_indices = prepass_frag_coords_i;
+		ivec2 b_texel_indices = ivec2(prepass_frag_coords_other_i.x, prepass_frag_coords_i.y);
+		ivec2 c_texel_indices = prepass_frag_coords_other_i;
+		ivec2 d_texel_indices = ivec2(prepass_frag_coords_i.x, prepass_frag_coords_other_i.y);
+
+		float prepass_depth_a = getDepthFromDepthTextureValue(near_clip_dist, texelFetch(prepass_depth_tex, a_texel_indices, /*lod=*/0).x);
+		float prepass_depth_b = getDepthFromDepthTextureValue(near_clip_dist, texelFetch(prepass_depth_tex, b_texel_indices, /*lod=*/0).x);
+		float prepass_depth_c = getDepthFromDepthTextureValue(near_clip_dist, texelFetch(prepass_depth_tex, c_texel_indices, /*lod=*/0).x);
+		float prepass_depth_d = getDepthFromDepthTextureValue(near_clip_dist, texelFetch(prepass_depth_tex, d_texel_indices, /*lod=*/0).x);
+
+		vec3 prepass_normal_a = readNormalFromPrepassNormalTexture(a_texel_indices);
+		vec3 prepass_normal_b = readNormalFromPrepassNormalTexture(b_texel_indices);
+		vec3 prepass_normal_c = readNormalFromPrepassNormalTexture(c_texel_indices);
+		vec3 prepass_normal_d = readNormalFromPrepassNormalTexture(d_texel_indices);
+
+		float V_dot_n = abs(dot(unit_cam_to_pos_ws, unit_normal_ws));
+		float depth_thresh = 0.005 * frag_depth / max(0.05, V_dot_n);
+
+		const float NORM_DOT_THRESHOLD = 0.7;
+		vec4 ssao_val = vec4(0.0);
+		spec_refl_light = vec4(0.0);
+		float weight = 0.0;
+		if((abs(prepass_depth_a - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_a, unit_normal_ws)) > NORM_DOT_THRESHOLD))
+		{
+			ssao_val        += texelFetch(ssao_tex,          a_texel_indices, /*lod=*/0);
+			spec_refl_light += texelFetch(ssao_specular_tex, a_texel_indices, /*lod=*/0);
+			weight += 1.0;
+		}
+		if((abs(prepass_depth_b - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_b, unit_normal_ws)) > NORM_DOT_THRESHOLD))
+		{
+			ssao_val        += texelFetch(ssao_tex,          b_texel_indices, /*lod=*/0);
+			spec_refl_light += texelFetch(ssao_specular_tex, b_texel_indices, /*lod=*/0);
+			weight += 1.0;
+		}
+		if((abs(prepass_depth_c - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_c, unit_normal_ws)) > NORM_DOT_THRESHOLD))
+		{
+			ssao_val        += texelFetch(ssao_tex,          c_texel_indices, /*lod=*/0);
+			spec_refl_light += texelFetch(ssao_specular_tex, c_texel_indices, /*lod=*/0);
+			weight += 1.0;
+		}
+		if((abs(prepass_depth_d - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_d, unit_normal_ws)) > NORM_DOT_THRESHOLD))
+		{
+			ssao_val        += texelFetch(ssao_tex,          d_texel_indices, /*lod=*/0);
+			spec_refl_light += texelFetch(ssao_specular_tex, d_texel_indices, /*lod=*/0);
+			weight += 1.0;
+		}
+
+		if(weight == 0.0)
+		{
+			ssao_val = vec4(0.0, 0.0, 0.0, 1.0);
+			spec_refl_light = vec4(0.0, 0.0, 0.0, 0.0);
+		}
+		else
+		{
+			ssao_val /= weight;
+			spec_refl_light /= weight;
+		}
+
+
 		sky_irradiance = sky_irradiance * ssao_val.w;
 		sky_irradiance.xyz += ssao_val.xyz;
-
-		spec_refl_light = textureLod(ssao_specular_tex, cameraToScreenSpace(pos_cs), 0.0);
 	}
 	else
 	{

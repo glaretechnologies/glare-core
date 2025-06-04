@@ -3,6 +3,11 @@
 uniform sampler2D albedo_texture; // source texture
 
 uniform sampler2D main_depth_texture;
+#if NORMAL_TEXTURE_IS_UINT
+uniform usampler2D main_normal_texture;
+#else
+uniform sampler2D main_normal_texture;
+#endif
 
 in vec2 pos; // [0, 1] x [0, 1]
 
@@ -12,40 +17,58 @@ out vec4 colour_out;
 // See 'Calculations for recovering depth values from depth buffer', OpenGLEngine.cpp.
 float getDepthFromDepthTexture(ivec2 px_coords)
 {
-	const float near_clip_dist = 0.1; // TEMP
-#if USE_REVERSE_Z
-	return near_clip_dist / texelFetch(main_depth_texture, px_coords, /*mip level=*/0).x;
+	return getDepthFromDepthTextureValue(near_clip_dist, texelFetch(main_depth_texture, px_coords, /*mip level=*/0).x);
+}
+
+vec3 readNormalFromNormalTexture(ivec2 px_coords)
+{
+#if NORMAL_TEXTURE_IS_UINT
+	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(main_normal_texture, px_coords, /*mip level=*/0))); // Read normal from normal texture
 #else
-	return -near_clip_dist / (texelFetch(main_depth_texture, px_coords, /*mip level=*/0).x - 1.0);
+	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(main_normal_texture, px_coords, /*mip level=*/0).xyz)); // Read normal from normal texture
 #endif
+}
+
+
+vec3 camSpaceFromScreenSpacePos(vec2 normed_pos_ss, float depth)
+{
+	return vec3(
+		(normed_pos_ss.x - 0.5) * depth / l_over_w,
+		(normed_pos_ss.y - 0.5) * depth / l_over_h,
+		-depth
+	);
 }
 
 
 void main()
 {
-	const ivec2 tex_res = textureSize(albedo_texture, /*mip level*/0);
+	ivec2 tex_res = textureSize(albedo_texture, /*mip level*/0);
 	
-	const ivec2 px_coords = ivec2(int(float(tex_res.x) * pos.x), int(float(tex_res.y) * pos.y));
+	ivec2 px_coords = ivec2(int(float(tex_res.x) * pos.x), int(float(tex_res.y) * pos.y));
 
-	const float centre_depth = getDepthFromDepthTexture(px_coords);
+	float centre_depth = getDepthFromDepthTexture(px_coords);
+	vec3 centre_n = readNormalFromNormalTexture(px_coords);
+	vec3 centre_p_cs = camSpaceFromScreenSpacePos(pos, centre_depth); // View/camera space 'fragment' position
+
+	vec3 centre_n_cs = normalize((frag_view_matrix * vec4(centre_n, 0)).xyz); // View/camera space 'fragment' normal
+	float V_dot_n = abs(dot(centre_n_cs, centre_p_cs)) / length(centre_p_cs);
+	float depth_thresh = 0.005 * centre_depth / max(0.05, V_dot_n);
 
 #if 0
 	vec4 val = texelFetch(albedo_texture, px_coords, /*mip level=*/0);
 #else
-	vec4 val = texelFetch(albedo_texture, px_coords, /*mip level=*/0);
-	float sum_weight = 1.0;
+	vec4 val = vec4(0.0);
+	float sum_weight = 0.0;
 
-
-
-	const int r = 4;
+	const int r = 3;
 	for(int y = px_coords.y-r; y <= px_coords.y + r; ++y)
 	for(int x = px_coords.x-r; x <= px_coords.x + r; ++x)
 	{
-		if(x >= 0 && x < tex_res.x && y >= 0 && y < tex_res.y &&
-			(x != px_coords.x || y != px_coords.y)) // we have already sampled the centre pixel.
+		if(x >= 0 && x < tex_res.x && y >= 0 && y < tex_res.y)
 		{
-			const float depth = getDepthFromDepthTexture(ivec2(x, y));
-			if(abs(depth - centre_depth) < 0.05) // TODO: make use normal or something
+			float depth = getDepthFromDepthTexture(ivec2(x, y));
+			vec3 normal = readNormalFromNormalTexture(ivec2(x, y));
+			if((abs(depth - centre_depth) < depth_thresh) && (dot(centre_n, normal) > 0.7))
 			{
 				val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0);
 				sum_weight += 1.0;

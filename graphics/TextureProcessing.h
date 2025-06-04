@@ -39,7 +39,7 @@ public:
 	// Builds compressed, mip-map level data, if applicable.
 	// Uses task_manager for multi-threading if non-null.
 	// May return a reference to imagemap in the returned TextureData.
-	static Reference<TextureData> buildTextureData(const Map2D* map2d, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression, bool build_mipmaps);
+	static Reference<TextureData> buildTextureData(const Map2D* map2d, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression, bool build_mipmaps, bool convert_float_to_half);
 
 private:
 	static Reference<TextureData> buildUInt8MapTextureData(const ImageMapUInt8* imagemap, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression, bool build_mipmaps);

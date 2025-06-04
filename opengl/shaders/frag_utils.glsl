@@ -51,7 +51,7 @@ float trowbridgeReitzPDF(float cos_theta, float alpha2)
 // See 'Some Fresnel curve approximations', https://forwardscattering.org/post/65
 float dielectricFresnelReflForIOR1_5(float cos_theta_i)
 {
-	const float cos_theta_2 = cos_theta_i*cos_theta_i;
+	float cos_theta_2 = cos_theta_i*cos_theta_i;
 	return 
 		(-2.4615278*cos_theta_2 +  3.473652*cos_theta_i + -1.9117112) /
 		(-13.303401*cos_theta_2 + -7.186081*cos_theta_i + -1.9189386);
@@ -59,7 +59,7 @@ float dielectricFresnelReflForIOR1_5(float cos_theta_i)
 
 float dielectricFresnelReflForIOR1_333(float cos_theta_i)
 {
-	const float cos_theta_2 = cos_theta_i*cos_theta_i;
+	float cos_theta_2 = cos_theta_i*cos_theta_i;
 	return 
 		(1.1040283f*cos_theta_2 + -1.6791086f*cos_theta_i + 0.86057293f) /
 		(9.739124f *cos_theta_2 + 3.293334f  *cos_theta_i + 0.8676968f);
@@ -67,7 +67,7 @@ float dielectricFresnelReflForIOR1_333(float cos_theta_i)
 
 float dielectricFresnelReflForIOR2(float cos_theta_i)
 {
-	const float cos_theta_2 = cos_theta_i*cos_theta_i;
+	float cos_theta_2 = cos_theta_i*cos_theta_i;
 	return 
 		(-2.703471f *cos_theta_2 + 2.4928381f*cos_theta_i + -1.932341f) /
 		(-8.6749525f*cos_theta_2 + -8.674303f*cos_theta_i + -1.9317712f);
@@ -433,4 +433,15 @@ vec3 ACESFilm(vec3 x)
 vec3 toneMapToNonLinear(vec3 col3)
 {
 	return toNonLinear(ACESFilm(col3 * 2.0));
+}
+
+
+// See 'Calculations for recovering depth values from depth buffer' in OpenGLEngine.cpp
+float getDepthFromDepthTextureValue(float near_clip_dist_, float val)
+{
+#if USE_REVERSE_Z
+	return near_clip_dist_ / val;
+#else
+	return -near_clip_dist_ / (val - 1.0);
+#endif
 }

@@ -105,6 +105,9 @@ public:
 	void buildMipMaps();
 
 	void setDebugName(const std::string& name);
+
+	void clearRegion2D(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, void* data);
+	void clearRegion3D(int mipmap_level, size_t x, size_t y, size_t z, size_t region_w, size_t region_h, size_t region_d, void* data);
 	//---------------------------------------------------------------------------------------------------------------------
 
 	void readBackTexture(int mipmap_level, ArrayRef<uint8> buffer);
@@ -128,6 +131,7 @@ public:
 
 	int getNumMipMapLevelsAllocated() const { return num_mipmap_levels_allocated; }
 
+	OpenGLTextureFormat getFormat() const { return format; }
 	GLint getInternalFormat() const { return gl_internal_format; }
 
 
@@ -211,11 +215,12 @@ public:
 
 struct TextureParams
 {
-	TextureParams() : allow_compression(true), use_sRGB(true), use_mipmaps(true), filtering(OpenGLTexture::Filtering_Fancy), wrapping(OpenGLTexture::Wrapping_Repeat) {}
+	TextureParams() : allow_compression(true), use_sRGB(true), use_mipmaps(true), convert_float_to_half(true), filtering(OpenGLTexture::Filtering_Fancy), wrapping(OpenGLTexture::Wrapping_Repeat) {}
 
 	bool allow_compression;
 	bool use_sRGB;
 	bool use_mipmaps;
+	bool convert_float_to_half;
 	OpenGLTexture::Filtering filtering;
 	OpenGLTexture::Wrapping wrapping;
 };

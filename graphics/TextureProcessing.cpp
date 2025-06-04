@@ -593,7 +593,7 @@ static Reference<ImageMapUInt8> convertUInt16ToUInt8ImageMap(const ImageMap<uint
 }
 
 
-Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression, bool build_mipmaps)
+Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, glare::Allocator* general_mem_allocator, glare::TaskManager* task_manager, bool allow_compression, bool build_mipmaps, bool convert_float_to_half)
 {
 	if(dynamic_cast<const ImageMapUInt8*>(map))
 	{
@@ -627,8 +627,8 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, gla
 	{
 		Reference<const Map2D> final_map = map;
 
-		// Convert 32-bit floating point images to half-precision floating point (16-bit) images.
-		if(dynamic_cast<const ImageMapFloat*>(map))
+		// Convert 32-bit floating point images to half-precision floating point (16-bit) images if requested.
+		if(convert_float_to_half && dynamic_cast<const ImageMapFloat*>(map))
 		{
 			const ImageMapFloat* const image_map_float = static_cast<const ImageMapFloat*>(map);
 			Reference<ImageMap<half, HalfComponentValueTraits> > half_image = new ImageMap<half, HalfComponentValueTraits>(map->getMapWidth(), map->getMapHeight(), map->numChannels(), general_mem_allocator);
@@ -650,14 +650,28 @@ Reference<TextureData> TextureProcessing::buildTextureData(const Map2D* map, gla
 		texture_data->frame_size_B = final_map->getByteSize();
 		texture_data->level_offsets.push_back(TextureData::LevelOffsetData(/*offset=*/0, texture_data->frame_size_B));
 
-		if(final_map->numChannels() == 1)
-			texture_data->format = OpenGLTextureFormat::Format_Greyscale_Half;
-		else if(final_map->numChannels() == 3)
-			texture_data->format = OpenGLTextureFormat::Format_RGB_Linear_Half;
-		else if(final_map->numChannels() == 4)
-			texture_data->format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
+		if(dynamic_cast<const ImageMapFloat*>(final_map.ptr()))
+		{
+			if(final_map->numChannels() == 1)
+				texture_data->format = OpenGLTextureFormat::Format_Greyscale_Float;
+			else if(final_map->numChannels() == 3)
+				texture_data->format = OpenGLTextureFormat::Format_RGB_Linear_Float;
+			else if(final_map->numChannels() == 4)
+				texture_data->format = OpenGLTextureFormat::Format_RGBA_Linear_Float;
+			else
+				throw glare::Exception("Unhandled number of components for floating-point image: " + toString(final_map->numChannels()));
+		}
 		else
-			throw glare::Exception("Unhandled number of components for floating-point image: " + toString(final_map->numChannels()));
+		{
+			if(final_map->numChannels() == 1)
+				texture_data->format = OpenGLTextureFormat::Format_Greyscale_Half;
+			else if(final_map->numChannels() == 3)
+				texture_data->format = OpenGLTextureFormat::Format_RGB_Linear_Half;
+			else if(final_map->numChannels() == 4)
+				texture_data->format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
+			else
+				throw glare::Exception("Unhandled number of components for float16 image: " + toString(final_map->numChannels()));
+		}
 
 		return texture_data;
 	}

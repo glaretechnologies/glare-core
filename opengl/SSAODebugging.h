@@ -38,5 +38,10 @@ public:
 
 	float computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& depth_querier);
 	void addDebugObjects(OpenGLEngine& gl_engine);
+	void drawSectors(OpenGLEngine& gl_engine, Vec3f p, uint32 bits_changed, Vec3f sampling_plane_n, Vec3f projected_n);
+	void drawSamplingPlane(OpenGLEngine& gl_engine, Vec3f p, Vec3f sampling_plane_n, Vec3f projected_n);
+	void drawPoint(OpenGLEngine& gl_engine, Vec3f p_cs, const Colour4f& col);
+
+	static void test();
 };
 

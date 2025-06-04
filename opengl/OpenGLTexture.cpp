@@ -232,6 +232,11 @@ void OpenGLTexture::getGLFormat(OpenGLTextureFormat format_, GLint& internal_for
 		gl_format = GL_RGB;
 		type = GL_HALF_FLOAT;
 		break;
+	case Format_RGBA_Linear_Float:
+		internal_format = GL_RGBA32F;
+		gl_format = GL_RGBA;
+		type = GL_FLOAT;
+		break;
 	case Format_RGBA_Linear_Half:
 		internal_format = GL_RGBA16F;
 		gl_format = GL_RGBA;
@@ -879,9 +884,26 @@ void OpenGLTexture::setDebugName(const std::string& name)
 }
 
 
+
+void OpenGLTexture::clearRegion2D(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, void* data)
+{
+	clearRegion3D(mipmap_level, x, y, /*z=*/0, region_w, region_h, /*region_d=*/1, data);
+}
+
+
+void OpenGLTexture::clearRegion3D(int mipmap_level, size_t x, size_t y, size_t z, size_t region_w, size_t region_h, size_t region_d, void* data)
+{
+#if defined(OSX) || defined(EMSCRIPTEN)
+	assert(0); // glClearTexSubImage is OpenGL 4.4+: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glClearTexSubImage.xhtml
+#else
+	glClearTexSubImage(texture_handle, mipmap_level, x, y, z, region_w, region_h, region_d, gl_format, gl_type, data);
+#endif
+}
+
+
 void OpenGLTexture::readBackTexture(int mipmap_level, ArrayRef<uint8> buffer)
 {
-	ZoneScopedN("TerrainScattering::rebuildDetailMaskMapSection"); // Tracy profiler
+	ZoneScopedN("OpenGLTexture::readBackTexture"); // Tracy profiler
 
 	bind();
 #if defined(EMSCRIPTEN)
@@ -889,6 +911,7 @@ void OpenGLTexture::readBackTexture(int mipmap_level, ArrayRef<uint8> buffer)
 #else
 	glGetTexImage(texture_target, mipmap_level, gl_format, gl_type, (void*)buffer.data());
 #endif
+	unbind();
 }
 
 

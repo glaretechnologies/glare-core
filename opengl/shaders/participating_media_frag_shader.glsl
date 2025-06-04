@@ -131,7 +131,7 @@ void main()
 
 	// Shadow mapping
 #if SHADOW_MAPPING
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 128.f)).x;
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 64.f)).x;
 
 	float sun_vis_factor = getShadowMappingSunVisFactor(shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, shadow_map_samples_xy_scale);
 #else

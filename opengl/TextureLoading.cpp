@@ -150,6 +150,13 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 				texture_params.filtering, texture_params.wrapping,  /*use_mipmaps=*/use_mipmaps
 			);
 		}
+		else if(imagemap->getN() == 4)
+		{
+			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
+				OpenGLTextureFormat::Format_RGBA_Linear_Float,
+				texture_params.filtering, texture_params.wrapping,  /*use_mipmaps=*/use_mipmaps
+			);
+		}
 		else
 			throw glare::Exception("Texture has unhandled number of components: " + toString(imagemap->getN()));
 	}
@@ -170,6 +177,13 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 		{
 			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
 				OpenGLTextureFormat::Format_RGB_Linear_Half,
+				texture_params.filtering, texture_params.wrapping, /*use_mipmaps=*/use_mipmaps
+			);
+		}
+		else if(imagemap->getN() == 4)
+		{
+			return new OpenGLTexture(map2d.getMapWidth(), map2d.getMapHeight(), opengl_engine.ptr(), /*tex data=*/ArrayRef<uint8>(NULL, 0),
+				OpenGLTextureFormat::Format_RGBA_Linear_Half,
 				texture_params.filtering, texture_params.wrapping, /*use_mipmaps=*/use_mipmaps
 			);
 		}

@@ -1388,3 +1388,55 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCuboidEdgeAABBMesh(Ve
 
 	return GLMeshBuilding::buildMeshRenderData(allocator, verts, indices);
 }
+
+
+
+ 
+/*
+           res=2           ____  v3
+                           /    \
+                     -----        \
+                   /              |
+            ------                 \
+        /                          |
+      _           _----------------\ v2
+    /         __/                   |
+   / ---------                       \
+  /                                  |
+----------------------------------------
+v0                                   v1
+
+
+*/
+
+Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCircleSector(VertexBufferAllocator& allocator, float total_angle/*, int num_segments*/)
+{
+	const int res = (int)ceil(total_angle * 64); // Number of tris
+
+	const int num_verts = (res + 2);
+	js::Vector<Vec3f, 16> verts(num_verts);
+	js::Vector<uint32, 16> indices(res * 3);
+
+	const Vec3f basis_i(1, 0, 0);
+	const Vec3f basis_j(0, 1, 0);
+
+	verts[0] = Vec3f(0,0,0);
+
+	for(int i=0; i<=res; ++i)
+	{
+		const float angle = i * total_angle / res;
+
+		const Vec3f v_i = cos(angle) * basis_i + sin(angle) * basis_j;
+		verts[1 + i] = v_i;
+
+		if(i < res)
+		{
+			// Add tri
+			indices[i*3 + 0] = 0;
+			indices[i*3 + 1] = i + 1;
+			indices[i*3 + 2] = i + 2;
+		}
+	}
+
+	return GLMeshBuilding::buildMeshRenderData(allocator, verts, indices);
+}
