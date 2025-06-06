@@ -60,18 +60,9 @@ const float PI   = 3.1415926535897932384626433832795;
 const float PI_2 = 1.5707963267948966192313216916398;
 
 
-//#define SECTOR_COUNT 32
 const uint SECTOR_COUNT = 32u;
 
-// From https://cdrinmatane.github.io/posts/ssaovb-code/
-//uint updateSectorBitMask(float minHorizon, float maxHorizon, uint globalOccludedBitfield)
-//{
-//    uint startHorizonInt = uint(minHorizon * SECTOR_COUNT);
-//    uint angleHorizonInt = uint(ceil((maxHorizon - minHorizon) * SECTOR_COUNT));
-//    uint angleHorizonBitfield = angleHorizonInt > 0u ? (0xFFFFFFFFu >> (SECTOR_COUNT - angleHorizonInt)) : 0u;
-//    uint currentOccludedBitfield = angleHorizonBitfield << startHorizonInt;
-//    return globalOccludedBitfield | currentOccludedBitfield;
-//}
+// Adapted from https://cdrinmatane.github.io/posts/ssaovb-code/
 uint occlusionBitMask(float minHorizon, float maxHorizon)
 {
 	uint startHorizonInt = uint(minHorizon * float(SECTOR_COUNT));
@@ -79,6 +70,7 @@ uint occlusionBitMask(float minHorizon, float maxHorizon)
 	uint angleHorizonBitfield = angleHorizonInt > 0u ? (0xFFFFFFFFu >> (SECTOR_COUNT - angleHorizonInt)) : 0u;
 	return angleHorizonBitfield << startHorizonInt;
 }
+
 
 // https://graphics.stanford.edu/%7Eseander/bithacks.html#CountBitsSetParallel | license: public domain
 uint countSetBits(uint v)
@@ -98,6 +90,15 @@ float heaviside(float x)
 vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
 {
 	return v - unit_dir * dot(v, unit_dir);
+}
+
+
+float sinForCos(float cos_x)
+{
+	// cos^2 x + sin^2 x = 1
+	// sin^2 x = 1 - cos^2 x
+	// sin x = sqrt(1 - cos^2 x)
+	return sqrt(max(0.0, 1.0 - cos_x*cos_x));
 }
 
 
@@ -146,12 +147,8 @@ void main()
 
 	const int N_d = 4; // num directions to sample
 
-	//float ao = 0.0; // Accumulated ambient occlusion. 1 = not occluded at all, 0 = totally occluded.
-	//float unocclusion = 0.0;
 	float uniform_irradiance = 0.0;
 	vec3 irradiance = vec3(0.0);
-	/*vec3 specular = vec3(0.0);
-	float uniform_specular_spec_rad = 0.0;*/
 
 	float aspect_ratio = l_over_h / l_over_w; // viewport width / height
 
@@ -163,8 +160,6 @@ void main()
 		vec3 offset_p_vs = p + d_i_vs * 1.0e-2;
 		vec2 offset_p_ss = cameraToScreenSpace(offset_p_vs);
 		vec2 d_i_ss = normalize(offset_p_ss - origin_ss);
-
-		//origin_ss += d_i_ss * (pixel_hash * step_size); // Randomly offset starting position
 #else
 		// Direction d_i is given by the view space direction (1,0,0) rotated around (0, 0, 1) by theta = 2pi * i / N_d
 		float theta = PI * (float(i) + pixel_hash.x) / float(N_d);
@@ -174,10 +169,8 @@ void main()
 
 		// d_i_vs = removeComponentInDir(d_i_vs, V);// d_i_vs - V * dot(V, d_i_vs); // Make d_i_vs orthogonal to view vector. NOTE: needed?
 
-		//vec3 d_i_vs_cross_v = normalize(cross(d_i_vs, V)); // NOTE: need normalize?  Get vector normal to sampling plane and orthogonal to view vector.
 		vec3 sampling_plane_n = normalize(cross(d_i_vs, V)); // Get vector normal to sampling plane and orthogonal to view vector.  Normalise needed for removeComponentInDir() below. (could use unnormalised version of function tho)
-		//vec3 projected_n_p = normalize(n_p - d_i_vs_cross_v * dot(n_p, d_i_vs_cross_v)); // fragment surface normal projected into sampling plane
-		vec3 projected_n = normalize(removeComponentInDir(n, sampling_plane_n));//  normalize(n_p - d_i_vs_cross_v * dot(n_p, d_i_vs_cross_v)); // fragment surface normal projected into sampling plane
+		vec3 projected_n = normalize(removeComponentInDir(n, sampling_plane_n)); // fragment surface normal projected into sampling plane
 
 		// Get angle between projected normal and view vector
 		float view_proj_n_angle = fastApproxACos(dot(projected_n, V));
@@ -189,13 +182,12 @@ void main()
 		float last_step_incr = step_incr;
 		float dist_ss = step_incr;// * pixel_hash; // Total distance stepped in screen space, before randomisation
 
+		// We will trace in one direction in screen space for N_s steps, then go back and trace in the reverse direction for another N_s steps.
 		// Say N_s = 4.
 		// q = 0, 1, 2, 3  are samples in one direction,
 		// q = 4, 5, 6, 7 are samples in the backwards direction
 		for(int q=0; q<N_s * 2; ++q)
 		{
-			//int j = q;
-			//float dir_sign = 1.0;
 			if(q == N_s)
 			{
 				// Reset, start walking in other direction
@@ -241,37 +233,16 @@ void main()
 				vec3 n_j_vs = readNormalFromNormalTexture(pos_j_ss);
 
 				float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
-				//if(n_j_cos_theta > -0.3) // dot(n_j_ss, p_to_pos_j_vs) < 0)
+
+				float sin_factor = sinForCos(cos_norm_angle);
+
+				float scalar_factors = cos_norm_angle * sin_factor * float(countSetBits(bits_changed));
+				uniform_irradiance += scalar_factors;
+
+				if(n_j_cos_theta > -0.3)
 				{
-					// cos^2 x = sin^2 x = 1
-					// sin^2 x = 1 - cos^2x
-					// sin x = sqrt(1 - cos^2 x)
-					//float norm_angle = acos(cos_norm_angle);
-					//float sin_factor = sin(norm_angle);
-					float sin_factor = sqrt(max(0.0, 1.0 - cos_norm_angle*cos_norm_angle));
-
-					//vec3 h = normalize(unit_p_to_pos_j_vs + V); // half-vector in view/camera space
-					//float h_cos_theta = max(0.0, dot(h, n_p));
-					//float alpha2 = alpha2ForRoughness(final_roughness);
-					//float D = trowbridgeReitzPDF(h_cos_theta, alpha2);// * specular_fresnel * shadow_factor;
-
-					//float smithMaskingShadowing(vec3 N, vec3 H, vec3 L, vec3 V)
-					//if(dot(h, unit_p_to_pos_j_vs) > 0.0 && dot(h, V) > 0.0) // heaviside(dot(H, L)) * heaviside(dot(H, V))
-					{
-						//float sin_factor = 1.f;
-						//if(texture_coords.x >= 0.49 && texture_coords.x <= 0.51 &&
-						//	texture_coords.y >= -0.1 && texture_coords.y <= 0.1)
-						{
-							float scalar_factors = cos_norm_angle * sin_factor * float(countSetBits(bits_changed));
-							uniform_irradiance += scalar_factors;
-
-							if(n_j_cos_theta > -0.3) // dot(n_j_ss, p_to_pos_j_vs) < 0)
-							{
-								vec3 common_factors = scalar_factors * textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
-								irradiance += /*n_j_cos_theta * */common_factors;
-							}
-						}
-					}
+					vec3 common_factors = scalar_factors * textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
+					irradiance += common_factors;
 				}
 			}
 
@@ -285,21 +256,12 @@ void main()
 			const float step_incr_factor = exp(log(2.0) / float(N_s));
 			step_incr *= step_incr_factor;
 		}
-
-		//ao += 1.0 - float(countSetBits(b_i)) * (1.0 / float(SECTOR_COUNT));
 	}
 
-	//ao       *= 1.0 / float(N_d);
 	uniform_irradiance        *= PI * PI / float(N_d * int(SECTOR_COUNT));
-	//uniform_specular_spec_rad *= PI * PI / float(N_d * SECTOR_COUNT);
 	irradiance                *= PI * PI / float(N_d * int(SECTOR_COUNT));
-	//specular                  *= PI * PI / float(N_d * SECTOR_COUNT);
-
-	// Mix in unoccluded environment lighting from env map
-	//vec3 sky_irradiance = texture(cosine_env_tex, src_normal_ws).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
 
 	float irradiance_scale = 1.0 - clamp(uniform_irradiance / PI, 0.0, 1.0);
-	//irradiance += irradiance_scale * sky_irradiance;
 
 	//========================= Do a traditional trace for specular reflection ===============================
 	// Reflect -V in n
@@ -396,8 +358,6 @@ void main()
 	//========================= Mix in unoccluded specular env light ============================
 	if(!hit_something)
 	{
-		//vec3 frag_dir_ws = (transpose(frag_view_matrix) * vec4(unit_p, 0.0)).xyz;
-		//vec3 reflected_dir_ws = reflect(frag_dir_ws, src_normal_ws);
 		vec3 reflected_dir_ws = (transpose(frag_view_matrix) * vec4(reflected_dir, 0.0)).xyz; // NOTE: transpose could be very slow
 
 		const float final_roughness = 0.3;
@@ -415,12 +375,9 @@ void main()
 		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)));
 		vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
 
-		//float env_scale = 1.0 - clamp(uniform_specular_spec_rad * 2.0, 0.0, 1.0);
-		//specular += env_scale * spec_refl_light.xyz;
 		spec_refl_col = spec_refl_light.xyz;
 	}
 
-//
 	// d_omega = sin(theta) dtheta dphi
 	// where dtheta = pi / SECTOR_COUNT = pi / SECTOR_COUNT
 	// and dphi = pi / N_d
@@ -435,24 +392,6 @@ void main()
 	// E = Integral(0, pi/2, Integral(0, pi, L_i |omega_i(phi, theta), n|  d phi) d theta)
 	// E = L_i pi					[ See https://pbr-book.org/3ed-2018/Color_and_Radiometry/Working_with_Radiometric_Integrals]
 
-	//float thickness = 0.01;
-	//uint N_b = 32; // bitmask size
-	//vec3 p = (frag_view_matrix * vec4(pos_ws, 1)).xyz; // View space fragment position
-
-
-	//colour_out = vec4(ao, ao, ao, 1.f);
-	//n_p.z = -n_p.z;
-	//colour_out = vec4(clamp(n_p.x, 0.0, 1.0), 1.f);
-	//colour_out = vec4(vec3(clamp(-n_p.z, 0.0, 1.0)), 1.f);
-	
-	
-	//irradiance_out = vec4(irradiance, 1.0);
 	irradiance_out = vec4(irradiance, irradiance_scale);
 	specular_spec_rad_out = spec_refl_col;
-	//colour_out = vec4(vec3(ao), 1.0);
-
-	//TEMP HACK:
-	//vec2 pos_j_ss = origin_ss; // step_j position in screen space
-	//vec3 pos_j_vs = viewSpaceFromScreenSpacePos(pos_j_ss); // step_j position in camera/view space
-	//vec3 pos_j_ss_col = textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
 }

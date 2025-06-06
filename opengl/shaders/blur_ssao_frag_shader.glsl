@@ -79,17 +79,5 @@ void main()
 	val /= sum_weight;
 #endif
 	
-	//// -1
-	//if((px_coords.x - 1) >= 0)
-	//{
-	//	val += texelFetch(albedo_texture, ivec2(px_coords.x - 1, px_coords.y), /*mip level=*/0);
-	//	sum_weight += 1.0;
-	//}
-	//if((px_coords.x - 1) >= 0)
-	//{
-	//	val += texelFetch(albedo_texture, ivec2(px_coords.x - 1, px_coords.y), /*mip level=*/0);
-	//	sum_weight += 1.0;
-	//}
-	
 	colour_out = val;
 }

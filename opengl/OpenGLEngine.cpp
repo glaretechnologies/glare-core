@@ -484,7 +484,11 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_anim_update_duration(0),
 	last_draw_CPU_time(0),
 	last_fps(0),
+#if BUILD_TESTS
+	query_profiling_enabled(true),
+#else
 	query_profiling_enabled(false),
+#endif
 	num_frames_since_fps_timer_reset(0),
 	last_num_prog_changes(0),
 	last_num_batches_bound(0),
@@ -506,6 +510,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_depth_pre_pass_GPU_time(0),
 	last_compute_ssao_GPU_time(0),
 	last_blur_ssao_GPU_time(0),
+	last_copy_prepass_buffers_GPU_time(0),
 	last_decal_copy_buffers_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	last_num_decal_batches_drawn(0),
@@ -1877,6 +1882,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->depth_pre_pass_gpu_timer = new Query();
 	this->compute_ssao_gpu_timer = new Query();
 	this->blur_ssao_gpu_timer = new Query();
+	this->copy_prepass_buffers_gpu_timer = new Query();
 	this->decal_copy_buffers_timer = new Query();
 
 	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh(*vert_buf_allocator);
@@ -7570,6 +7576,9 @@ void OpenGLEngine::draw()
 		if(blur_ssao_gpu_timer->waitingForResult() && blur_ssao_gpu_timer->checkResultAvailable())
 			last_blur_ssao_GPU_time = blur_ssao_gpu_timer->getTimeElapsed();
 
+		if(copy_prepass_buffers_gpu_timer->waitingForResult() && copy_prepass_buffers_gpu_timer->checkResultAvailable())
+			last_copy_prepass_buffers_GPU_time = copy_prepass_buffers_gpu_timer->getTimeElapsed();
+
 		if(decal_copy_buffers_timer->waitingForResult() && decal_copy_buffers_timer->checkResultAvailable())
 			last_decal_copy_buffers_GPU_time = decal_copy_buffers_timer->getTimeElapsed();
 	}
@@ -9189,7 +9198,7 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 		glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
 		glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
 		//glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
-		glClearDepthf(use_reverse_z ? 0.000001f :0.9999f); // For reversed-z, the 'far' z value is 0, instead of 1.
+		glClearDepthf(use_reverse_z ? 0.000001f :0.999999f); // For reversed-z, the 'far' z value is 0, instead of 1.
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -9638,11 +9647,11 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 			TracyGpuZone("computeSSAO");
 			DebugGroup debug_group("computeSSAO");
 		
-			if(query_profiling_enabled && current_scene->collect_stats && compute_ssao_gpu_timer->isIdle())
-				compute_ssao_gpu_timer->beginTimerQuery();
-		
-
+			
 			//---------------------- Blit from prepass_framebuffer to prepass_copy_framebuffer ----------------------
+			if(query_profiling_enabled && current_scene->collect_stats && copy_prepass_buffers_gpu_timer->isIdle())
+				copy_prepass_buffers_gpu_timer->beginTimerQuery();
+
 			prepass_framebuffer->bindForReading();
 			prepass_copy_framebuffer->bindForDrawing();
 
@@ -9669,8 +9678,14 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 			);
 
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
-			//--------------------------------------------------
 
+			if(query_profiling_enabled && copy_prepass_buffers_gpu_timer->isRunning())
+				copy_prepass_buffers_gpu_timer->endTimerQuery();
+			//-----------------------------------------------------------------------------------------------------
+
+
+			if(query_profiling_enabled && current_scene->collect_stats && compute_ssao_gpu_timer->isIdle())
+				compute_ssao_gpu_timer->beginTimerQuery();
 
 			glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
 
@@ -12047,6 +12062,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "dynamic depth draw: " + doubleToStringNSigFigs(last_dynamic_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "static depth draw : " + doubleToStringNSigFigs(last_static_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "pre-pass          : " + doubleToStringNSigFigs(last_depth_pre_pass_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "copy pre-pass bufs: " + doubleToStringNSigFigs(last_copy_prepass_buffers_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "compute SSAO      : " + doubleToStringNSigFigs(last_compute_ssao_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "blur SSAO         : " + doubleToStringNSigFigs(last_blur_ssao_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";

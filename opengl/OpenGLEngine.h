@@ -1486,6 +1486,7 @@ private:
 	QueryRef depth_pre_pass_gpu_timer;
 	QueryRef compute_ssao_gpu_timer;
 	QueryRef blur_ssao_gpu_timer;
+	QueryRef copy_prepass_buffers_gpu_timer;
 	QueryRef decal_copy_buffers_timer;
 	
 	uint32 last_num_prog_changes;
@@ -1509,6 +1510,7 @@ private:
 	double last_depth_pre_pass_GPU_time;
 	double last_compute_ssao_GPU_time;
 	double last_blur_ssao_GPU_time;
+	double last_copy_prepass_buffers_GPU_time;
 	double last_decal_copy_buffers_GPU_time;
 
 	uint32 last_num_animated_obs_processed;
