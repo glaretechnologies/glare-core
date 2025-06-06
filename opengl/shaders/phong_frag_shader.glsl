@@ -826,7 +826,7 @@ void main()
 		float prepass_depth_c = getDepthFromDepthTextureValue(near_clip_dist, texelFetch(prepass_depth_tex, c_texel_indices, /*lod=*/0).x);
 		float prepass_depth_d = getDepthFromDepthTextureValue(near_clip_dist, texelFetch(prepass_depth_tex, d_texel_indices, /*lod=*/0).x);
 
-		vec3 prepass_normal_a = readNormalFromPrepassNormalTexture(a_texel_indices);
+		vec3 prepass_normal_a = readNormalFromPrepassNormalTexture(a_texel_indices); // in cam space
 		vec3 prepass_normal_b = readNormalFromPrepassNormalTexture(b_texel_indices);
 		vec3 prepass_normal_c = readNormalFromPrepassNormalTexture(c_texel_indices);
 		vec3 prepass_normal_d = readNormalFromPrepassNormalTexture(d_texel_indices);
@@ -834,29 +834,31 @@ void main()
 		float V_dot_n = abs(dot(unit_cam_to_pos_ws, unit_normal_ws));
 		float depth_thresh = 0.005 * frag_depth / max(0.05, V_dot_n);
 
+		vec3 unit_normal_cs = normalize(frag_view_matrix * vec4(unit_normal_ws, 0.0)).xyz;
+
 		const float NORM_DOT_THRESHOLD = 0.7;
 		vec4 ssao_val = vec4(0.0);
 		spec_refl_light = vec4(0.0);
 		float weight = 0.0;
-		if((abs(prepass_depth_a - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_a, unit_normal_ws)) > NORM_DOT_THRESHOLD))
+		if((abs(prepass_depth_a - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_a, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          a_texel_indices, /*lod=*/0);
 			spec_refl_light += texelFetch(ssao_specular_tex, a_texel_indices, /*lod=*/0);
 			weight += 1.0;
 		}
-		if((abs(prepass_depth_b - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_b, unit_normal_ws)) > NORM_DOT_THRESHOLD))
+		if((abs(prepass_depth_b - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_b, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          b_texel_indices, /*lod=*/0);
 			spec_refl_light += texelFetch(ssao_specular_tex, b_texel_indices, /*lod=*/0);
 			weight += 1.0;
 		}
-		if((abs(prepass_depth_c - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_c, unit_normal_ws)) > NORM_DOT_THRESHOLD))
+		if((abs(prepass_depth_c - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_c, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          c_texel_indices, /*lod=*/0);
 			spec_refl_light += texelFetch(ssao_specular_tex, c_texel_indices, /*lod=*/0);
 			weight += 1.0;
 		}
-		if((abs(prepass_depth_d - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_d, unit_normal_ws)) > NORM_DOT_THRESHOLD))
+		if((abs(prepass_depth_d - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_d, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          d_texel_indices, /*lod=*/0);
 			spec_refl_light += texelFetch(ssao_specular_tex, d_texel_indices, /*lod=*/0);
@@ -1075,5 +1077,10 @@ void main()
 	colour_out.w = overall_alpha_factor;
 #endif
 
-	normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(unit_normal_ws));
+	vec3 unit_normal;
+	if((mat_common_flags & DOING_SSAO_PREPASS_FLAG) != 0) // If doing prepass:
+		unit_normal = normalize(frag_view_matrix * vec4(unit_normal_ws, 0.0)).xyz; // use cam space normal
+	else
+		unit_normal = unit_normal_ws;
+	normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(unit_normal));
 }

@@ -445,3 +445,13 @@ float getDepthFromDepthTextureValue(float near_clip_dist_, float val)
 	return -near_clip_dist_ / (val - 1.0);
 #endif
 }
+
+
+// See https://forwardscattering.org/post/66
+float fastApproxACos(float x)
+{
+	if(x < 0.f)
+		return 3.14159265f - ((x * 0.124605335f + 0.1570634f) * (0.99418175f + x) + sqrt(2.f + 2.f * x));
+	else
+		return (x * -0.124605335f + 0.1570634f) * (0.99418175f - x) + sqrt(2.f - 2.f * x);
+}

@@ -101,6 +101,17 @@ vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
 }
 
 
+// Returns normalised vector in cam space
+vec3 readNormalFromNormalTexture(vec2 use_tex_coords)
+{
+	// NOTE: oct_to_float32x3 returns a normalized vector
+#if NORMAL_TEXTURE_IS_UINT
+	return oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, use_tex_coords, 0.0)));
+#else
+	return oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, use_tex_coords, 0.0).xyz)); 
+#endif
+}
+
 
 // See "Screen Space Indirect Lighting with Visibility Bitmask", PDF: https://arxiv.org/pdf/2301.11376
 // See "SSAO using Visibility Bitmasks" blog post: https://cdrinmatane.github.io/posts/ssaovb-code/
@@ -110,36 +121,28 @@ void main()
 	vec2 pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 64.f)).xy;
 
 	// Read normal from normal texture
-#if NORMAL_TEXTURE_IS_UINT
-	vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, texture_coords, 0.0))); 
-#else
-	vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, texture_coords, 0.0).xyz));
-#endif
+	vec3 src_normal_cs = readNormalFromNormalTexture(texture_coords);
 
-	vec3 n = normalize((frag_view_matrix * vec4(src_normal_ws, 0)).xyz); // View/camera space 'fragment' normal
-	vec3 p = viewSpaceFromScreenSpacePos(texture_coords); // View/camera space 'fragment' position
+	vec3 n = src_normal_cs; // View/camera space surface normal
+	vec3 p = viewSpaceFromScreenSpacePos(texture_coords); // View/camera space surface position
 	if(p.z < -100000.0) // Don't do SSAO for the environment sphere
 	{
 		irradiance_out = vec4(0.0, 0.0, 0.0, 1.0);
 		specular_spec_rad_out = vec3(0.0);
 		return;
 	}
-	vec3 unit_p = normalize(p);
-	vec3 V = -unit_p; // View vector: vector from 'fragment' position to camera in view/camera space
+	vec3 V = -normalize(p); // View vector: vector from 'fragment' position to camera in view/camera space
 	
 	vec2 origin_ss = texture_coords; // Origin of stepping in screen space
-
 
 	// Form basis in camera/view space aligned with fragment surface
 	//vec3 tangent = normalize(removeComponentInDir(V, n));
 	//vec3 bitangent = cross(tangent, n);
 
-	//float final_roughness = 0.3; // TEMP
-
 	const float thickness = 0.2;
 	const float r = 0.2; // Total stepping radius in screen space
 	const int N_s = 22; // Number of steps per direction
-	const float step_size = r / float(N_s); // (float(N_s) + 1.0);
+	const float initial_step_size = r / float(N_s); // (float(N_s) + 1.0);
 
 	const int N_d = 4; // num directions to sample
 
@@ -149,10 +152,6 @@ void main()
 	vec3 irradiance = vec3(0.0);
 	/*vec3 specular = vec3(0.0);
 	float uniform_specular_spec_rad = 0.0;*/
-
-	vec3 debug_val = vec3(0.0);
-
-	debug_val = V;
 
 	float aspect_ratio = l_over_h / l_over_w; // viewport width / height
 
@@ -181,16 +180,14 @@ void main()
 		vec3 projected_n = normalize(removeComponentInDir(n, sampling_plane_n));//  normalize(n_p - d_i_vs_cross_v * dot(n_p, d_i_vs_cross_v)); // fragment surface normal projected into sampling plane
 
 		// Get angle between projected normal and view vector
-		float view_proj_n_angle = acos(dot(projected_n, V));
+		float view_proj_n_angle = fastApproxACos(dot(projected_n, V));
 		float view_alpha = PI_2 + sign(dot(cross(V, projected_n), sampling_plane_n)) * view_proj_n_angle;
 
 
 		uint b_i = 0u; // bitmask: each bit set to 1 if trace hit something in that sector.
-		//for(int j=1; j<=N_s; ++j) // For each step
-		float step_incr = r / float(N_s); // Distance in screen space to step, increases slightly each step.
+		float step_incr = initial_step_size; // Distance in screen space to step, increases slightly each step.
 		float last_step_incr = step_incr;
 		float dist_ss = step_incr;// * pixel_hash; // Total distance stepped in screen space, before randomisation
-		//for(int q=1; q<=N_s*2; ++q)
 
 		// Say N_s = 4.
 		// q = 0, 1, 2, 3  are samples in one direction,
@@ -202,36 +199,26 @@ void main()
 			if(q == N_s)
 			{
 				// Reset, start walking in other direction
-				//dist_ss = -step_incr;// * pixel_hash;
-				step_incr = -r / float(N_s);
+				step_incr = -initial_step_size;
 				last_step_incr = step_incr;
 				dist_ss = step_incr;
 			}
-			//else if(q > N_s)
-			//{
-			////	j = -(q - N_s);
-			//	//dir_sign = -1.0;
-			//}
-			//float dir_sign = (j % 2 == 0) ? 1.f : -1.f;
 			float cur_dist_ss = dist_ss - pixel_hash.y * last_step_incr;
 
-			//vec2 pos_j_ss = origin_ss + d_i_ss * /*dir_sign * */(step_size * (float(j) + (pixel_hash - 0.5))); // step_j position in screen space
 			vec2 pos_j_ss = origin_ss + d_i_ss * cur_dist_ss; // step_j position in screen space
-			if(!(pos_j_ss.x >= 0.0 && pos_j_ss.x <= 1.0 && pos_j_ss.y >= 0.0 && pos_j_ss.y <= 1.0))
+			if(!(pos_j_ss.x >= 0.0 && pos_j_ss.x <= 1.0 && pos_j_ss.y >= 0.0 && pos_j_ss.y <= 1.0)) // TODO: optimise
 				continue;
 			
 			vec3 pos_j = viewSpaceFromScreenSpacePos(pos_j_ss); // get step_j position in camera/view space
 
 			vec3 back_pos_j = pos_j - V * thickness; // position of guessed 'backside' of step position in camera/view space
 
-			//vec3 p_to_pos_j_vs = pos_j_vs - p; // Vector from fragment position to step position
-			//vec3 p_to_back_pos_j_vs = back_pos_j_vs - p;
 			vec3 unit_p_to_pos_j      = normalize(pos_j      - p); // normalised vector from fragment position to step position, in view/camera space
 			vec3 unit_p_to_back_pos_j = normalize(back_pos_j - p); // normalised vector from fragment position to step back position, in view/camera space
 			
 			// Convert to angles in [0, pi], the angle between the surface and frag-to-step_j position
-			float V_p_p_j_angle =      acos(dot(V, unit_p_to_pos_j)); // Angle between view vector and p to p_j.
-			float V_p_p_j_back_angle = acos(dot(V, unit_p_to_back_pos_j)); // Angle between view vector and p to p_back_j.
+			float V_p_p_j_angle =      fastApproxACos(dot(V, unit_p_to_pos_j)); // Angle between view vector and p to p_j.
+			float V_p_p_j_back_angle = fastApproxACos(dot(V, unit_p_to_back_pos_j)); // Angle between view vector and p to p_back_j.
 			float angle_add_sign = sign(dot(cross(unit_p_to_pos_j, V), sampling_plane_n));
 			float front_alpha = view_alpha + angle_add_sign * V_p_p_j_angle;
 			float back_alpha  = view_alpha + angle_add_sign * V_p_p_j_back_angle;
@@ -243,7 +230,7 @@ void main()
 			float min_alpha = min(front_alpha, back_alpha);
 			float max_alpha = max(front_alpha, back_alpha);
 
-			uint occlusion_mask = occlusionBitMask(min_alpha, max_alpha); // min_angle_from_proj_N_01, max_angle_from_proj_N_01);
+			uint occlusion_mask = occlusionBitMask(min_alpha, max_alpha);
 			uint new_b_i = b_i | occlusion_mask;
 			uint bits_changed = new_b_i & ~b_i;
 			b_i  = new_b_i;
@@ -251,15 +238,8 @@ void main()
 			float cos_norm_angle = dot(unit_p_to_pos_j, n);
 			if((cos_norm_angle > 0.01) && (bits_changed != 0u))
 			{
-				//vec3 n_j_encoded = textureLod(normal_tex, pos_j_ss, 0.0).xyz; // Encoded as a RGB8 texture (converted to floating point)
-				//vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(n_j_encoded)); // Read normal from normal texture
-#if NORMAL_TEXTURE_IS_UINT
-				vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, pos_j_ss, 0.0))); // Read normal from normal texture
-#else
-				vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, pos_j_ss, 0.0).xyz)); // Read normal from normal texture
-#endif
+				vec3 n_j_vs = readNormalFromNormalTexture(pos_j_ss);
 
-				vec3 n_j_vs = normalize((frag_view_matrix * vec4(n_j_ws, 0)).xyz);
 				float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
 				//if(n_j_cos_theta > -0.3) // dot(n_j_ss, p_to_pos_j_vs) < 0)
 				{
@@ -389,20 +369,14 @@ void main()
 
 		float pen_depth = cur_step_depth - cur_depth_buf_depth; // penetration depth
 
-#if NORMAL_TEXTURE_IS_UINT
-		vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, cur_ss, 0.0))); // Read normal from normal texture
-#else
-		vec3 n_j_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(textureLod(normal_tex, cur_ss, 0.0).xyz)); // Read normal from normal texture
-#endif
+		vec3 n_j_vs = readNormalFromNormalTexture(cur_ss);
 
-		vec3 n_j_vs = normalize((frag_view_matrix * vec4(n_j_ws, 0)).xyz);
-
-		vec3 p_cs = vec3(
-			(cur_ss.x - 0.5) * cur_depth_buf_depth / l_over_w,
-			(cur_ss.y - 0.5) * cur_depth_buf_depth / l_over_h,
-			-cur_depth_buf_depth
-		);
-		vec3 view_dir = normalize(-p_cs);
+		//vec3 p_cs = vec3(
+		//	(cur_ss.x - 0.5) * cur_depth_buf_depth / l_over_w,
+		//	(cur_ss.y - 0.5) * cur_depth_buf_depth / l_over_h,
+		//	-cur_depth_buf_depth
+		//);
+		//vec3 view_dir = normalize(-p_cs);
 
 
 		float thickness = 1.5 * clamp(cur_step_depth - prev_step_depth, 0.1, 10.0); // 0.1 / abs(dot(n_j_vs, view_dir));//*(t_1 - prev_t) * 2*/0.5 / max(abs(dot(n_j_vs, view_dir)), 0.01);
@@ -433,7 +407,7 @@ void main()
 		int map_higher = map_lower + 1;
 		float map_t = final_roughness * 6.9999 - float(map_lower);
 
-		float refl_theta = acos(reflected_dir_ws.z);
+		float refl_theta = fastApproxACos(reflected_dir_ws.z);
 		float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
 		vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
@@ -481,7 +455,4 @@ void main()
 	//vec2 pos_j_ss = origin_ss; // step_j position in screen space
 	//vec3 pos_j_vs = viewSpaceFromScreenSpacePos(pos_j_ss); // step_j position in camera/view space
 	//vec3 pos_j_ss_col = textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
-
-	//colour_out = vec4(vec3(debug_val * 0.1), 1.0);
-	//irradiance_out.xyz = debug_val;//TEMP
 }

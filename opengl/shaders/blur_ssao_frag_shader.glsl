@@ -20,12 +20,13 @@ float getDepthFromDepthTexture(ivec2 px_coords)
 	return getDepthFromDepthTextureValue(near_clip_dist, texelFetch(main_depth_texture, px_coords, /*mip level=*/0).x);
 }
 
+// Returns normalised vector in cam space
 vec3 readNormalFromNormalTexture(ivec2 px_coords)
 {
 #if NORMAL_TEXTURE_IS_UINT
 	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(main_normal_texture, px_coords, /*mip level=*/0))); // Read normal from normal texture
 #else
-	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(main_normal_texture, px_coords, /*mip level=*/0).xyz)); // Read normal from normal texture
+	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(main_normal_texture, px_coords, /*mip level=*/0).xyz)); // Read normal from normal texture.  oct_to_float32x3 returns a normalised vector
 #endif
 }
 
@@ -47,10 +48,9 @@ void main()
 	ivec2 px_coords = ivec2(int(float(tex_res.x) * pos.x), int(float(tex_res.y) * pos.y));
 
 	float centre_depth = getDepthFromDepthTexture(px_coords);
-	vec3 centre_n = readNormalFromNormalTexture(px_coords);
+	vec3 centre_n_cs = readNormalFromNormalTexture(px_coords);
 	vec3 centre_p_cs = camSpaceFromScreenSpacePos(pos, centre_depth); // View/camera space 'fragment' position
 
-	vec3 centre_n_cs = normalize((frag_view_matrix * vec4(centre_n, 0)).xyz); // View/camera space 'fragment' normal
 	float V_dot_n = abs(dot(centre_n_cs, centre_p_cs)) / length(centre_p_cs);
 	float depth_thresh = 0.005 * centre_depth / max(0.05, V_dot_n);
 
@@ -67,8 +67,8 @@ void main()
 		if(x >= 0 && x < tex_res.x && y >= 0 && y < tex_res.y)
 		{
 			float depth = getDepthFromDepthTexture(ivec2(x, y));
-			vec3 normal = readNormalFromNormalTexture(ivec2(x, y));
-			if((abs(depth - centre_depth) < depth_thresh) && (dot(centre_n, normal) > 0.7))
+			vec3 normal_cs = readNormalFromNormalTexture(ivec2(x, y));
+			if((abs(depth - centre_depth) < depth_thresh) && (dot(centre_n_cs, normal_cs) > 0.7))
 			{
 				val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0);
 				sum_weight += 1.0;
