@@ -2991,6 +2991,10 @@ OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg(const std::string& use_shader_d
 
 	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
+
+	assert(prog->user_uniform_info.size() == 0);
+	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "is_ssao_blur");
+	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "blur_x");
 	
 	return prog;
 }
@@ -3468,17 +3472,13 @@ void OpenGLEngine::createSSAOTextures()
 #else
 	// SSGI
 				
-#if EMSCRIPTEN
-	// NOTE: EXT_color_buffer_half_float is included in WebGL 2: See https://emscripten.org/docs/optimizing/Optimizing-WebGL.html#optimizing-load-times-and-other-best-practices
-	// However RGB16F is not supported as a render buffer format, just RGBA16F.  See https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/renderbufferStorage
-	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
-#else
-	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Half;
-#endif
+	// We will store roughness in colour w.
+	const OpenGLTextureFormat prepass_col_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
+
 	const OpenGLTextureFormat normal_buffer_format = normal_texture_is_uint ? OpenGLTextureFormat::Format_RGBA_Integer_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
 	const OpenGLTextureFormat depth_format = OpenGLTextureFormat::Format_Depth_Float;
 
-	prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, col_buffer_format);
+	prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, prepass_col_buffer_format);
 	prepass_normal_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, normal_buffer_format);
 	prepass_depth_renderbuffer  = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, depth_format);
 	prepass_framebuffer = new FrameBuffer();
@@ -3486,7 +3486,7 @@ void OpenGLEngine::createSSAOTextures()
 	prepass_framebuffer->attachRenderBuffer(*prepass_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
 	prepass_framebuffer->attachRenderBuffer(*prepass_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
 
-	prepass_colour_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	prepass_colour_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), prepass_col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	prepass_colour_copy_texture->setDebugName("prepass_colour_copy_texture");
 	prepass_normal_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), normal_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	prepass_normal_copy_texture->setDebugName("prepass_normal_copy_texture");
@@ -3505,6 +3505,10 @@ void OpenGLEngine::createSSAOTextures()
 		OpenGLTextureFormat::Format_RGBA_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	blurred_ssao_texture->setDebugName("blurred_ssao_texture");
 
+	blurred_ssao_texture_x = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
+		OpenGLTextureFormat::Format_RGBA_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	blurred_ssao_texture_x->setDebugName("blurred_ssao_texture_x");
+
 	ssao_specular_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
 		OpenGLTextureFormat::Format_RGB_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	ssao_specular_texture->setDebugName("ssao_specular_texture");
@@ -3522,6 +3526,9 @@ void OpenGLEngine::createSSAOTextures()
 
 	blurred_ssao_specular_framebuffer = new FrameBuffer();
 	blurred_ssao_specular_framebuffer->attachTexture(*blurred_ssao_specular_texture, GL_COLOR_ATTACHMENT0);
+
+	blurred_ssao_framebuffer_x = new FrameBuffer();
+	blurred_ssao_framebuffer_x->attachTexture(*blurred_ssao_texture_x, GL_COLOR_ATTACHMENT0);
 #endif
 
 	//TEMP:
@@ -9733,42 +9740,90 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 			if(query_profiling_enabled && current_scene->collect_stats && blur_ssao_gpu_timer->isIdle())
 				blur_ssao_gpu_timer->beginTimerQuery();
 
-			// Blur irradiance + AO texture
-			// Input: ssao_texture, prepass_depth_copy_texture, prepass_normal_copy_texture
-			// Output: blurred_ssao_texture (via blurred_ssao_framebuffer)
-			{
-				blurred_ssao_framebuffer->bindForDrawing();
-				glViewport(0, 0, (int)blurred_ssao_framebuffer->xRes(), (int)blurred_ssao_framebuffer->yRes()); // Set viewport to target texture size
+			blur_ssao_prog->useProgram();
+			glViewport(0, 0, (int)blurred_ssao_framebuffer_x->xRes(), (int)blurred_ssao_framebuffer_x->yRes()); // Set viewport to target texture size
+			assert(blurred_ssao_framebuffer->xRes() == blurred_ssao_framebuffer_x->xRes() && blurred_ssao_framebuffer->xRes() == blurred_ssao_specular_framebuffer->xRes());
 
-				blur_ssao_prog->useProgram();
+			// Blur irradiance + AO texture
+
+			// First blur in x direction
+			// Input: ssao_texture, prepass_colour_copy_texture (for roughness) prepass_depth_copy_texture, prepass_normal_copy_texture
+			// Output: blurred_ssao_texture_x (via blurred_ssao_framebuffer_x)
+			{
+				blurred_ssao_framebuffer_x->bindForDrawing();
 
 				bindTextureUnitToSampler(*ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
-
 				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
 				bindTextureUnitToSampler(*prepass_depth_copy_texture,  /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				//assert(blur_ssao_prog->uniform_locations.main_normal_texture_location >= 0);
 				bindTextureUnitToSampler(*prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*prepass_colour_copy_texture, /*texture_unit_index=*/PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
+
+				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/1); // set is_ssao_blur = 1
+				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/1); // set blur_x = 1
 
 				// Draw quad
 				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
 				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); 
 			}
 
+			// Do blur in y direction
+			// Input: blurred_ssao_texture_x, prepass textures
+			// Output: blurred_ssao_texture (via blurred_ssao_framebuffer)
+			{
+				blurred_ssao_framebuffer->bindForDrawing();
+
+				bindTextureUnitToSampler(*blurred_ssao_texture_x, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
+
+				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
+				bindTextureUnitToSampler(*prepass_depth_copy_texture,  /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+				bindTextureUnitToSampler(*prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*prepass_colour_copy_texture, /*texture_unit_index=*/PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
+
+				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/1); // set is_ssao_blur = 1
+				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/0); // set blur_x = 0
+
+				// Draw quad
+				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); 
+			}
+
+
 			// Blur specular texture
-			// Input: ssao_specular_texture, prepass_depth_copy_texture
+			
+			// First do blur in x direction
+			// Input: ssao_specular_texture, prepass textures
+			// Output: blurred_ssao_texture_x (via blurred_ssao_framebuffer_x)
+			{
+				blurred_ssao_framebuffer_x->bindForDrawing();
+
+				bindTextureUnitToSampler(*ssao_specular_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
+				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
+				bindTextureUnitToSampler(*prepass_depth_copy_texture, /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+				bindTextureUnitToSampler(*prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*prepass_colour_copy_texture, /*texture_unit_index=*/PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
+
+				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/0); // set is_ssao_blur = 0
+				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/1); // set blur_x = 1
+
+				// Draw quad
+				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); 
+			}
+
+			// Do blur in y direction
+			// Input: blurred_ssao_texture_x, prepass textures
 			// Output: blurred_ssao_specular_texture (via blurred_ssao_specular_framebuffer)
 			{
 				blurred_ssao_specular_framebuffer->bindForDrawing();
-				glViewport(0, 0, (int)blurred_ssao_specular_framebuffer->xRes(), (int)blurred_ssao_specular_framebuffer->yRes()); // Set viewport to target texture size
 
-				blur_ssao_prog->useProgram();
-
-				bindTextureUnitToSampler(*ssao_specular_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
-
+				bindTextureUnitToSampler(*blurred_ssao_texture_x, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
 				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
 				bindTextureUnitToSampler(*prepass_depth_copy_texture, /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				//assert(blur_ssao_prog->uniform_locations.main_normal_texture_location >= 0);
 				bindTextureUnitToSampler(*prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*prepass_colour_copy_texture, /*texture_unit_index=*/PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
+
+				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/0); // set is_ssao_blur = 0
+				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/0); // set blur_x = 0
 
 				// Draw quad
 				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;

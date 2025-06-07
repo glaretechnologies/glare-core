@@ -1406,9 +1406,11 @@ private:
 	OpenGLTextureRef ssao_specular_texture;
 
 	OpenGLTextureRef blurred_ssao_texture;
+	OpenGLTextureRef blurred_ssao_texture_x;
 	OpenGLTextureRef blurred_ssao_specular_texture;
-	Reference<FrameBuffer> blurred_ssao_framebuffer;
-	Reference<FrameBuffer> blurred_ssao_specular_framebuffer;
+	Reference<FrameBuffer> blurred_ssao_framebuffer; // Blurred in both directions:
+	Reference<FrameBuffer> blurred_ssao_framebuffer_x; // blurred in x direction
+	Reference<FrameBuffer> blurred_ssao_specular_framebuffer; // Blurred in both directions:
 
 
 	std::unordered_set<GLObject*> selected_objects;

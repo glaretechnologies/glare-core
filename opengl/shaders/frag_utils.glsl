@@ -38,13 +38,12 @@ float length2(vec2 v) { return dot(v, v); }
 
 float alpha2ForRoughness(float r)
 {
-	//return pow6(r);
 	return pow4(r);
 }
 
 float trowbridgeReitzPDF(float cos_theta, float alpha2)
 {
-	return cos_theta * alpha2 / (3.1415926535897932384626433832795 * square(square(cos_theta) * (alpha2 - 1.0) + 1.0));
+	return /*cos_theta **/ alpha2 / (3.1415926535897932384626433832795 * square(square(cos_theta) * (alpha2 - 1.0) + 1.0));
 }
 
 

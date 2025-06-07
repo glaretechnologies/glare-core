@@ -68,12 +68,14 @@ uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
+#if TERRAIN
 uniform sampler2D detail_tex_0; // rock
 uniform sampler2D detail_tex_1; // sediment
 uniform sampler2D detail_tex_2; // vegetation
 uniform sampler2D detail_tex_3;
 
 uniform sampler2D detail_heightmap_0; // rock
+#endif
 
 uniform sampler2D caustic_tex_a;
 uniform sampler2D caustic_tex_b;
@@ -218,6 +220,23 @@ vec2 cameraToScreenSpace(vec3 pos_cs)
 		pos_cs.y / -pos_cs.z * l_over_h + 0.5
 	);
 }
+
+
+// From https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.pdf, B.3.2. Specular BRDF
+// Note that we know dot(H, L) >= 0 and dot(H, V) >= from how we constructed H.
+float smithMaskingShadowingV(vec3 N, /*vec3 H, */vec3 L, vec3 V, float alpha2)
+{
+	float N_dot_L = dot(N, L);
+	float N_dot_V = dot(N, V);
+	if(N_dot_L <= 0.0 || N_dot_V <= 0.0)
+		return 0.0;
+
+	return 1.0 / (
+		(N_dot_L + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_L))) * 
+		(N_dot_V + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_V)))
+	);
+}
+
 
 
 vec4 computeFresnelReflectance(float h_cos_theta, vec4 refl_diffuse_col, float final_fresnel_scale, float final_metallic_frac)
@@ -713,14 +732,17 @@ void main()
 	vec3 h_ws = normalize(frag_to_cam_ws + sundir_ws.xyz);
 
 	vec4 specular = vec4(0.0);
-	if(light_cos_theta > -0.3)
+	if(light_cos_theta > 0.0)//> -0.3)
 	{
-		float shadow_factor = smoothstep(-0.3, 0.0, light_cos_theta);
-		//float h_cos_theta = max(0.0, dot(h, unit_normal_cs));
-		float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
+		float shadow_factor = light_cos_theta;//smoothstep(-0.3, 0.0, light_cos_theta);
+		float h_cos_theta = max(0.0, dot(h_ws, unit_normal_ws));
+
+		const float alpha2 = alpha2ForRoughness(final_roughness);
+		const float V = smithMaskingShadowingV(unit_normal_ws, sundir_ws.xyz, frag_to_cam_ws, alpha2);
+
 		vec4 specular_fresnel = computeFresnelReflectance(h_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
 
-		specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(final_roughness)) * specular_fresnel * shadow_factor;
+		specular = V * trowbridgeReitzPDF(h_cos_theta, alpha2) * specular_fresnel * shadow_factor;
 	}
 
 
@@ -792,14 +814,14 @@ void main()
 
 	// Reflect cam-to-fragment vector in ws normal
 	vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * dot(unit_normal_ws, unit_cam_to_pos_ws));
+	float frag_depth = -pos_cs.z;
 
-	vec4 spec_refl_light; // spectral radiance * 1.0e-9
+	vec4 spec_refl_light = vec4(0.0); // spectral radiance * 1.0e-9
 	if((mat_common_flags & DO_SSAO_FLAG) != 0)
 	{
 		// Apply SSAO
 	
 		vec2 frag_coords = gl_FragCoord.xy;
-		float frag_depth = -pos_cs.z;
 
 		// Get coordinates for the 4 SSAO texels surrounding the current fragment.
 		// Accumulate AO, indirect illumination and spec reflected radiance only from the surrounding texels that share similar depths and normals.
@@ -880,7 +902,8 @@ void main()
 		sky_irradiance = sky_irradiance * ssao_val.w;
 		sky_irradiance.xyz += ssao_val.xyz;
 	}
-	else
+
+	if(((mat_common_flags & DO_SSAO_FLAG) == 0) || (frag_depth > 80.0))
 	{
 		//========================= Do specular reflection of environment, weighted by fresnel factor ============================
 	
@@ -970,8 +993,8 @@ void main()
 	vec4 col =
 		sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
 		spec_refl_light * refl_fresnel + // Specular reflection of sky or local environment with SSR
-		sun_light * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * refl_diffuse_col * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor + //  Diffuse substrate part of BRDF * direct sun light
-		sun_light * specular + // direct sun light * specular microfacet terms
+		sun_light * refl_diffuse_col * ((1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor) + //  Diffuse substrate part of BRDF * direct sun light
+		sun_light * specular * sun_light_cos_theta_factor + // direct sun light radiance * specular BSDF * cos(theta)
 		local_light_radiance + // Reflected light from local light sources.
 		emission_col;
 
@@ -1079,7 +1102,10 @@ void main()
 
 	vec3 unit_normal;
 	if((mat_common_flags & DOING_SSAO_PREPASS_FLAG) != 0) // If doing prepass:
+	{
 		unit_normal = normalize(frag_view_matrix * vec4(unit_normal_ws, 0.0)).xyz; // use cam space normal
+		colour_out.w = unclamped_roughness;
+	}
 	else
 		unit_normal = unit_normal_ws;
 	normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(unit_normal));

@@ -360,7 +360,7 @@ void main()
 	{
 		vec3 reflected_dir_ws = (transpose(frag_view_matrix) * vec4(reflected_dir, 0.0)).xyz; // NOTE: transpose could be very slow
 
-		const float final_roughness = 0.3;
+		const float final_roughness = textureLod(diffuse_tex, texture_coords, 0.0).w;
 
 		// Look up env map for reflected dir
 		int map_lower = int(final_roughness * 6.9999);
