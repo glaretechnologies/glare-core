@@ -757,7 +757,7 @@ void main()
 #endif
 
 	if(sun_light_cos_theta_factor != 0.0) // Avoid doing shadow map lookups for faces facing away from sun.
-		sun_vis_factor = getShadowMappingSunVisFactor(final_shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, shadow_map_samples_xy_scale);
+		sun_vis_factor = getShadowMappingSunVisFactor(final_shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, shadow_map_samples_xy_scale, sun_light_cos_theta_factor);
 
 #else // else if !SHADOW_MAPPING:
 	sun_vis_factor = 1.0;

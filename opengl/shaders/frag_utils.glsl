@@ -227,10 +227,8 @@ float hexFracToEdge(in vec2 p)
 #if SHADOW_MAPPING
 
 
-#define VISUALISE_CASCADES 0
-
 float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEXTURES], in sampler2DShadow dynamic_depth_tex, in sampler2DShadow static_depth_tex,
-	float pixel_hash, vec3 pos_cs, float shadow_map_samples_xy_scale_)
+	float pixel_hash, vec3 pos_cs, float shadow_map_samples_xy_scale_, float to_light_dot_n)
 {
 	float sun_vis_factor = 1.0;
 	float pattern_theta = pixel_hash * 6.283185307179586f;
@@ -238,9 +236,12 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 
 	sun_vis_factor = 0.0;
 
-	float depth_map_0_bias = 8.0e-5f;
-	float depth_map_1_bias = 4.0e-4f;
-	float static_depth_map_bias = 2.2e-3f;
+	// These values are eyeballed to be approximately the smallest values without striping artifacts.
+	float depth_map_0_bias = 5.0e-5f / to_light_dot_n;
+	float depth_map_1_bias = 12.0e-5f / to_light_dot_n;
+	float static_depth_map_0_bias = 5.0e-4f / to_light_dot_n;
+	float static_depth_map_1_bias = 10.0e-4f / to_light_dot_n;
+	float static_depth_map_2_bias = 15.0e-4f / to_light_dot_n;
 
 	float dist = -pos_cs.z;
 	if(dist < DEPTH_TEXTURE_SCALE_MULT*DEPTH_TEXTURE_SCALE_MULT)
@@ -259,10 +260,6 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 			}
 			else
 				sun_vis_factor = tex_0_vis;
-
-#if VISUALISE_CASCADES
-			refl_diffuse_col.yz *= 0.5f;
-#endif
 		}
 		else
 		{
@@ -275,15 +272,11 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 			{
 				vec3 static_shadow_cds = final_shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES];
 
-				float static_sun_vis_factor = sampleStaticDepthMap(R, static_shadow_cds, static_depth_map_bias, static_depth_tex); // NOTE: had 0.999f cap and bias of 0.0005: min(static_shadow_cds.z, 0.999f) - bias
+				float static_sun_vis_factor = sampleStaticDepthMap(R, static_shadow_cds, static_depth_map_0_bias, static_depth_tex); // NOTE: had 0.999f cap and bias of 0.0005: min(static_shadow_cds.z, 0.999f) - bias
 
 				float blend_factor = smoothstep(edge_dist, DEPTH_TEXTURE_SCALE_MULT * DEPTH_TEXTURE_SCALE_MULT, dist);
 				sun_vis_factor = mix(sun_vis_factor, static_sun_vis_factor, blend_factor);
 			}
-
-#if VISUALISE_CASCADES
-			refl_diffuse_col.yz *= 0.75f;
-#endif
 		}
 	}
 	else
@@ -295,12 +288,15 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 			int static_depth_tex_index;
 			float cascade_end_dist;
 			vec3 shadow_cds, next_shadow_cds;
+			float bias, next_bias;
 			if(l1dist < 64.0)
 			{
 				static_depth_tex_index = 0;
 				cascade_end_dist = 64.0;
 				shadow_cds      = final_shadow_tex_coords[0 + NUM_DYNAMIC_DEPTH_TEXTURES];
 				next_shadow_cds = final_shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
+				bias = static_depth_map_0_bias;
+				next_bias = static_depth_map_1_bias;
 			}
 			else if(l1dist < 256.0)
 			{
@@ -308,6 +304,8 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 				cascade_end_dist = 256.0;
 				shadow_cds      = final_shadow_tex_coords[1 + NUM_DYNAMIC_DEPTH_TEXTURES];
 				next_shadow_cds = final_shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
+				bias      = static_depth_map_1_bias;
+				next_bias = static_depth_map_2_bias;
 			}
 			else
 			{
@@ -315,9 +313,11 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 				cascade_end_dist = 1024.0;
 				shadow_cds = final_shadow_tex_coords[2 + NUM_DYNAMIC_DEPTH_TEXTURES];
 				next_shadow_cds = vec3(0.0); // Suppress warning about being possibly uninitialised.
+				bias      = static_depth_map_2_bias;
+				next_bias = static_depth_map_2_bias;
 			}
 
-			sun_vis_factor = sampleStaticDepthMap(R, shadow_cds, static_depth_map_bias, static_depth_tex);
+			sun_vis_factor = sampleStaticDepthMap(R, shadow_cds, bias, static_depth_tex);
 
 #if DO_STATIC_SHADOW_MAP_CASCADE_BLENDING
 			if(static_depth_tex_index < NUM_STATIC_DEPTH_TEXTURES - 1)
@@ -327,16 +327,12 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 				// Blending with static shadow map static_depth_tex_index + 1
 				if(l1dist > edge_dist)
 				{
-					float next_sun_vis_factor = sampleStaticDepthMap(R, next_shadow_cds, static_depth_map_bias, static_depth_tex);
+					float next_sun_vis_factor = sampleStaticDepthMap(R, next_shadow_cds, next_bias, static_depth_tex);
 
 					float blend_factor = smoothstep(edge_dist, cascade_end_dist, l1dist);
 					sun_vis_factor = mix(sun_vis_factor, next_sun_vis_factor, blend_factor);
 				}
 			}
-#endif
-
-#if VISUALISE_CASCADES
-			refl_diffuse_col.xz *= float(static_depth_tex_index) / NUM_STATIC_DEPTH_TEXTURES;
 #endif
 		}
 		else

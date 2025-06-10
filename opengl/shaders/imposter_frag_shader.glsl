@@ -200,7 +200,7 @@ void main()
 
 	// Shadow mapping
 #if SHADOW_MAPPING
-	float sun_vis_factor = getShadowMappingSunVisFactor(shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, shadow_map_samples_xy_scale);
+	float sun_vis_factor = getShadowMappingSunVisFactor(shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, shadow_map_samples_xy_scale, sun_light_cos_theta_factor);
 #else
 	float sun_vis_factor = 1.0;
 #endif
