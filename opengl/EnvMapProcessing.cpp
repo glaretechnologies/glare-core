@@ -68,6 +68,7 @@ void run(const std::string& indigo_base_dir)
 	{
 		for(int theta_i=0; theta_i<100; ++theta_i)
 		{
+			conPrint("-------------------- theta_i: " + toString(theta_i) + "--------------------");
 			Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "C:\\programming\\indigo\\vs2022_build\\indigo_console\\sky_no_sun_" + toString(theta_i) + ".exr");
 			//Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "C:\\programming\\indigo\\output\\vs2022\\indigo_x64\\RelWithDebInfo\\sky_no_sun.exr");
 			//Map2DRef skymap_highres = ImFormatDecoder::decodeImage(".", "N:\\new_cyberspace\\trunk\\assets\\sky_no_sun.exr");
@@ -94,20 +95,21 @@ void run(const std::string& indigo_base_dir)
 				ImageMapFloatRef skymapf = skymap_lowres.downcast<ImageMapFloat>();
 
 				// For each face of the cubemap:
+				// See https://www.khronos.org/opengl/wiki/Cubemap_Texture
 				for(int face=0; face<6; ++face)
 				{
 					Vec4f origin, uvec, vvec;
 					if(face == 0) // GL_TEXTURE_CUBE_MAP_POSITIVE_X (right)
 					{
-						origin = Vec4f(1,  1, 1, 1); // origin = Vec4f(1, 1, -1, 1);
-						uvec   = Vec4f(0, 0,  -1, 0);
-						vvec   = Vec4f(0,  -1,  0, 0);
+						origin = Vec4f(1,  1, 1, 1);
+						uvec   = Vec4f(0, 0, -1, 0);
+						vvec   = Vec4f(0, -1, 0, 0);
 					}
 					else if(face == 1) // GL_TEXTURE_CUBE_MAP_NEGATIVE_X (left)
 					{
-						origin = Vec4f(-1, 1, -1, 1); // origin = Vec4f(-1, 1, 1, 1);
-						uvec   = Vec4f(0,   0,  1, 0); // seems to co
-						vvec   = Vec4f(0,   -1, 0 , 0); // vvec = Vec4f(0, -1, 0, 0);
+						origin = Vec4f(-1, 1, -1, 1);
+						uvec   = Vec4f(0,  0,  1, 0);
+						vvec   = Vec4f(0,  -1, 0 , 0);
 					}
 					else if(face == 2) // GL_TEXTURE_CUBE_MAP_POSITIVE_Y (top)
 					{
@@ -119,7 +121,7 @@ void run(const std::string& indigo_base_dir)
 					{
 						origin = Vec4f(-1, -1, 1, 1);
 						uvec   = Vec4f(1,  0,  0, 0);
-						vvec   = Vec4f( 0,  0,  -1, 0);
+						vvec   = Vec4f(0,  0, -1, 0);
 					}
 					else if(face == 4) // GL_TEXTURE_CUBE_MAP_POSITIVE_Z
 					{
@@ -146,27 +148,27 @@ void run(const std::string& indigo_base_dir)
 
 					for(int y=0; y<diff_H; ++y)
 					{
-						printVar(y);
+						//printVar(y);
 						for(int x=0; x<diff_W; ++x)
 						{
-							const float fx = (float)x / (float)(diff_W);
-							const float fy = (float)y / (float)(diff_H);
+							const float fx = (float)(x + 0.5f) / (float)(diff_W);
+							const float fy = (float)(y + 0.5f) / (float)(diff_H);
 
 							const Vec4f dir = normalise(origin - Vec4f(0, 0, 0, 1) + uvec * 2 * fx + vvec * 2 * fy);
 
-							Vec2f phi_theta = GeometrySampling::sphericalCoordsForDir(dir);
-
-							phi_theta.x -= 1.f; // Rotate in the same way as env map is in MainWindow.
-							const float dir_u = Maths::fract(-phi_theta.x / Maths::get2Pi<float>());
-							const float dir_v = Maths::fract(phi_theta.y / Maths::pi<float>());
-						
-							//TEMP:
-							//int sx = dir_u * skymap_lowresf->getWidth();
-							//int sy = dir_v * skymap_lowresf->getHeight();
-							//Colour3f sum = Colour3f(
-							//	skymap_lowresf->getPixel(sx, sy)[0], 
-							//	skymap_lowresf->getPixel(sx, sy)[1], 
-							//	skymap_lowresf->getPixel(sx, sy)[2]);
+						//	Vec2f phi_theta = GeometrySampling::sphericalCoordsForDir(dir);
+						//	//
+						//	////phi_theta.x -= 1.f; // Rotate in the same way as env map is in MainWindow.
+						//	const float dir_u = Maths::fract(-phi_theta.x / Maths::get2Pi<float>());
+						//	const float dir_v = Maths::fract(phi_theta.y / Maths::pi<float>());
+						//
+						//	//TEMP:
+						//	int sx = dir_u * skymap_lowresf->getWidth();
+						//	int sy = dir_v * skymap_lowresf->getHeight();
+						//	Colour3f sum = Colour3f(
+						//		skymap_lowresf->getPixel(sx, sy)[0], 
+						//		skymap_lowresf->getPixel(sx, sy)[1], 
+						//		skymap_lowresf->getPixel(sx, sy)[2]);
 
 						
 							// Compute integral of cosine-weighted pixel values from the sky map.
@@ -176,7 +178,7 @@ void run(const std::string& indigo_base_dir)
 								const float fsy = (float)sy / (float)(skymapf->getHeight());
 
 								const float theta = Maths::pi<float>() * fsy;
-								const float sin_theta = sin(theta);
+								//const float sin_theta = sin(theta);
 
 								for(int sx=0; sx<(int)skymapf->getWidth(); ++sx)
 								{
@@ -215,7 +217,7 @@ void run(const std::string& indigo_base_dir)
 			//=============================== End build cosine refl map =====================================
 
 			//=============================== Build specular refl map =====================================
-			if(true)
+			if(false)
 			{
 				::createGlobalSobolData(indigo_base_dir);
 				SobolSequence seq(16);
@@ -283,7 +285,7 @@ void run(const std::string& indigo_base_dir)
 
 								const Vec2f phi_theta = GeometrySampling::sphericalCoordsForDir(sampled_dir);
 
-								const Colour4f sky_col = skymapf->vec3SampleTiled(phi_theta.x / Maths::get2Pi<float>(), -phi_theta.y / Maths::pi<float>());
+								const Colour4f sky_col = skymapf->vec3Sample(phi_theta.x / Maths::get2Pi<float>(), -phi_theta.y / Maths::pi<float>(), /*wrap=*/true);
 
 								sum += Vec3d(sky_col[0], sky_col[1], sky_col[2]);
 							}

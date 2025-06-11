@@ -254,6 +254,12 @@ vec4 computeFresnelReflectance(float h_cos_theta, vec4 refl_diffuse_col, float f
 }
 
 
+float fastApproxAtan(float y, float x)
+{
+	return fastApproxACos(x) * sign(y);
+}
+
+
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
@@ -789,7 +795,16 @@ void main()
 	// glTexImage2D expects the start of the texture data to be the lower left of the image, whereas it is actually the upper left.  So flip y coord to compensate.
 	sky_irradiance = texture(LIGHTMAP_TEX, vec2(lightmap_coords.x, -lightmap_coords.y));
 #else
-	sky_irradiance = texture(cosine_env_tex, unit_normal_ws.xyz); // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
+	// cosine_env_tex assumes the sun is in the +x direction, so we need to rotate unit_normal_ws accordingly.
+	{
+		float neg_env_phi = -env_phi;
+		vec3 rot_norm = vec3(
+			cos(neg_env_phi) * unit_normal_ws.x - sin(neg_env_phi) * unit_normal_ws.y,
+			sin(neg_env_phi) * unit_normal_ws.x + cos(neg_env_phi) * unit_normal_ws.y,
+			unit_normal_ws.z
+		);
+		sky_irradiance = texture(cosine_env_tex, rot_norm); // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
+	}
 #endif
 
 
@@ -912,8 +927,8 @@ void main()
 		int map_higher = map_lower + 1;
 		float map_t = final_roughness * 6.9999 - float(map_lower);
 
-		float refl_theta = acos(reflected_dir_ws.z);
-		float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
+		float refl_theta = fastApproxACos(reflected_dir_ws.z);
+		float refl_phi = fastApproxAtan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
 		vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
 		vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
