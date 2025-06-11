@@ -565,6 +565,9 @@ OpenGLEngine::~OpenGLEngine()
 	removeOverlayObject(large_debug_overlay_ob);
 	large_debug_overlay_ob = nullptr;
 
+	removeOverlayObject(crosshair_overlay_ob);
+	crosshair_overlay_ob = nullptr;
+
 	if(async_texture_loader)
 	{
 		for(size_t i=0; i<loading_handles.size(); ++i)
@@ -1396,6 +1399,7 @@ void OpenGLEngine::loadMapsForSunDir()
 		tex_params.filtering = float_texture_filtering_support ? OpenGLTexture::Filtering_Bilinear : OpenGLTexture::Filtering_Nearest;
 		tex_params.use_mipmaps = false;
 		tex_params.allow_compression = false;
+		tex_params.wrapping = OpenGLTexture::Wrapping_MirroredRepeat; // We will use mirroring to reflect the one side of the sphere we have in the texture map.
 		this->specular_env_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("specular reflection map" + toString(sun_theta)), *specular_refl_map, tex_params);
 	}
 
@@ -1414,6 +1418,7 @@ void OpenGLEngine::loadMapsForSunDir()
 		tex_params.wrapping = OpenGLTexture::Wrapping_Repeat;
 		tex_params.allow_compression = false;
 		tex_params.use_mipmaps = false;
+		tex_params.wrapping = OpenGLTexture::Wrapping_MirroredRepeat; // We will use mirroring to reflect the one side of the sphere we have in the texture map.
 		this->current_scene->env_ob->materials[0].albedo_texture = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("hi res env map" + toString(sun_theta)), *env_map, tex_params);
 		this->current_scene->env_ob->materials[0].albedo_texture->setTWrappingEnabled(false); // Disable wrapping in vertical direction to avoid grey dot straight up.
 
@@ -2402,6 +2407,17 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			//	addOverlayObject(texture_debug_preview_overlay_ob);
 			//}
 		}
+
+		// Create crosshair marker
+		/*{
+			crosshair_overlay_ob =  new OverlayObject();
+			crosshair_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 0) * Matrix4f::uniformScaleMatrix(0.005f) * Matrix4f::translationMatrix(-0.5f, -0.5f, 0);
+			crosshair_overlay_ob->mesh_data = this->unit_quad_meshdata;
+			crosshair_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f, 0.f, 0.f);
+			crosshair_overlay_ob->material.shader_prog = this->overlay_prog;
+
+			addOverlayObject(crosshair_overlay_ob);
+		}*/
 
 		if(true)
 		{
@@ -6613,6 +6629,24 @@ void OpenGLEngine::draw()
 		building_progs.clear();
 
 		const std::string use_shader_dir = data_dir + "/shaders";
+
+		try
+		{
+			this->vert_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/vert_utils.glsl");
+			this->frag_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/frag_utils.glsl");
+
+			this->preprocessor_defines_with_common_vert_structs = preprocessor_defines;
+			preprocessor_defines_with_common_vert_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_vert_structures.glsl");
+			preprocessor_defines_with_common_vert_structs += vert_utils_glsl;
+
+			this->preprocessor_defines_with_common_frag_structs = preprocessor_defines;
+			preprocessor_defines_with_common_frag_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_frag_structures.glsl");
+			preprocessor_defines_with_common_frag_structs += frag_utils_glsl;
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading vert_utils_glsl etc.: " + e.what());
+		}
 
 		// Try and reload env shader
 		OpenGLProgramRef new_env_prog;

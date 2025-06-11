@@ -25,7 +25,8 @@ void main()
 	// Col = spectral radiance * 1.0e-9
 	vec4 col;
 	if(have_texture != 0)
-		col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x, texture_coords.y, 1.0)).xy);
+		// Multiply x coord by 2 since we just have one half of the sphere encoded in the env map.
+		col = texture(diffuse_tex, (texture_matrix * vec3(texture_coords.x * 2.0, texture_coords.y, 1.0)).xy);
 	else
 		col = diffuse_colour * 1.0e-9f;
 
