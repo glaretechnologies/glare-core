@@ -724,7 +724,11 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 			glTexParameteri(texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		}
-
+		else if(wrapping == Wrapping_MirroredRepeat)
+		{
+			glTexParameteri(texture_target, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+			glTexParameteri(texture_target, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+		}
 
 		if(filtering == Filtering_Nearest)
 		{

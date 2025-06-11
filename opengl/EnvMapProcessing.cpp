@@ -217,7 +217,7 @@ void run(const std::string& indigo_base_dir)
 			//=============================== End build cosine refl map =====================================
 
 			//=============================== Build specular refl map =====================================
-			if(false)
+			if(true)
 			{
 				::createGlobalSobolData(indigo_base_dir);
 				SobolSequence seq(16);
@@ -232,7 +232,7 @@ void run(const std::string& indigo_base_dir)
 				ImageMapFloatRef skymapf = skymap_highres.downcast<ImageMapFloat>();
 
 				const int diff_H = 64;
-				const int diff_W = diff_H * 2;
+				const int diff_W = diff_H;// * 2;
 				const int NUM_ROUGHNESSES = 8;
 
 				ImageMapFloatRef combined_map = new ImageMapFloat(diff_W, diff_H * NUM_ROUGHNESSES, 3);
@@ -264,13 +264,15 @@ void run(const std::string& indigo_base_dir)
 
 					for(int y=0; y<diff_H; ++y)
 					{
-						printVar(y);
+						//printVar(y);
 						for(int x=0; x<diff_W; ++x)
 						{
 							const float fx = (float)x / (float)(diff_W);
 							const float fy = (float)y / (float)(diff_H);
 
-							const Vec4f dir = GeometrySampling::dirForSphericalCoords(fx * Maths::get2Pi<float>(), fy * Maths::pi<float>());
+							// Take advantage of mirror symmetry between the two sides of the sphere, and just write out one side.
+							// Hence phi varies just from 0 to pi.
+							const Vec4f dir = GeometrySampling::dirForSphericalCoords(fx * Maths::pi<float>(), fy * Maths::pi<float>());
 
 							Matrix4f basis;
 							basis.constructFromVector(dir);

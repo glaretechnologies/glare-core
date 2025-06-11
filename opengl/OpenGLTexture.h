@@ -61,7 +61,8 @@ public:
 	enum Wrapping
 	{
 		Wrapping_Repeat,
-		Wrapping_Clamp
+		Wrapping_Clamp,
+		Wrapping_MirroredRepeat
 	};
 
 	OpenGLTexture();

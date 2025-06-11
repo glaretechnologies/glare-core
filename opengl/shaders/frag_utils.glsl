@@ -1,6 +1,10 @@
 // Common code used in various shaders
 
 
+const float PI   = 3.1415926535897932384626433832795;
+const float PI_2 = 1.5707963267948966192313216916398;
+
+
 // From SRGBUtils::fastApproxLinearSRGBToNonLinearSRGB().
 vec3 fastApproxLinearSRGBToNonLinearSRGB(vec3 c)
 {
@@ -43,7 +47,7 @@ float alpha2ForRoughness(float r)
 
 float trowbridgeReitzPDF(float cos_theta, float alpha2)
 {
-	return /*cos_theta **/ alpha2 / (3.1415926535897932384626433832795 * square(square(cos_theta) * (alpha2 - 1.0) + 1.0));
+	return /*cos_theta **/ alpha2 / (PI * square(square(cos_theta) * (alpha2 - 1.0) + 1.0));
 }
 
 
