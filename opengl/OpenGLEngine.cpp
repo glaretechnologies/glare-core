@@ -6908,7 +6908,7 @@ void OpenGLEngine::draw()
 	bindStandardTexturesToTextureUnits();
 
 
-	if(draw_aurora && current_scene->draw_aurora)
+	if(draw_aurora && current_scene->draw_aurora && (this->sun_dir[2] < 0.1))
 		drawAuroraTex();
 
 
@@ -10696,8 +10696,7 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 	if(this->detail_heightmap[0].nonNull())
 		bindTextureToTextureUnit(*this->detail_heightmap[0], /*texture_unit_index=*/DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
 
-	if(this->aurora_tex.nonNull())
-		bindTextureToTextureUnit(*this->aurora_tex, /*texture_unit_index=*/AURORA_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(aurora_tex ? *aurora_tex : *dummy_black_tex, /*texture_unit_index=*/AURORA_TEXTURE_UNIT_INDEX);
 	
 	bindTextureToTextureUnit(blurred_ssao_texture ? *blurred_ssao_texture : *dummy_black_tex, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX);
 	bindTextureToTextureUnit(blurred_ssao_specular_texture ? *blurred_ssao_specular_texture : *dummy_black_tex, /*texture_unit_index=*/SSAO_SPECULAR_TEXTURE_UNIT_INDEX);
