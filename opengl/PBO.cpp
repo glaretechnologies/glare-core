@@ -22,8 +22,8 @@ PBO::PBO(size_t size_, bool for_upload)
 	// Make buffer active
 	glBindBuffer(buffer_type, buffer_name);
 
-	// Upload vertex data to the video device
-	glBufferData(buffer_type, size, nullptr, for_upload ? GL_STREAM_DRAW : /*GL_STREAM_READ*/GL_STREAM_READ);
+	// Upload data to the GPU
+	glBufferData(buffer_type, size, nullptr, for_upload ? GL_STREAM_DRAW : GL_STREAM_READ);
 
 	// Unbind buffer
 	glBindBuffer(buffer_type, 0);
