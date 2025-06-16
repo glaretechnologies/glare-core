@@ -562,10 +562,12 @@ OpenGLEngine::~OpenGLEngine()
 		removeOverlayObject(texture_debug_preview_overlay_obs[i]);
 	texture_debug_preview_overlay_obs.clear();
 
-	removeOverlayObject(large_debug_overlay_ob);
+	if(large_debug_overlay_ob)
+		removeOverlayObject(large_debug_overlay_ob);
 	large_debug_overlay_ob = nullptr;
 
-	removeOverlayObject(crosshair_overlay_ob);
+	if(crosshair_overlay_ob)
+		removeOverlayObject(crosshair_overlay_ob);
 	crosshair_overlay_ob = nullptr;
 
 	if(async_texture_loader)
@@ -3122,6 +3124,7 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
 		prog->supports_MDI = true;
+		prog->uses_skinning = key.skinning;
 
 		progs[key] = prog;
 
@@ -3153,11 +3156,14 @@ void OpenGLEngine::doPostBuildForTransparentProgram(OpenGLProgramRef prog)
 
 		bindUniformBlockToProgram(prog, "PhongUniforms",			PHONG_UBO_BINDING_POINT_INDEX);
 		bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
+
+		if(prog->uses_skinning)
+			bindUniformBlockToProgram(prog, "JointMatrixUniforms",	JOINT_MATRICES_UBO_BINDING_POINT_INDEX);
 	}
 	else
 	{
 		bindShaderStorageBlockToProgram(prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
-		//bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
+		bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
 		bindShaderStorageBlockToProgram(prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
 		bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
 	}
@@ -4819,6 +4825,8 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 {
 	if(areShadersAssigned(ob))
 	{
+		mat.uniform_flags = computeUniformFlagsForMat(mat, *ob.mesh_data);
+
 		if(mat.material_data_index >= 0) // Object may have not been inserted into engine yet, so material_data_index might not have been set yet.
 		{
 			assert(use_multi_draw_indirect);
@@ -4831,8 +4839,6 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 
 		// Since texture may have changed from one with alpha to one without, or vice-versa, we may need to assign a new shader.
 		assignShaderProgToMaterial(mat, ob.mesh_data->has_vert_colours, /*uses instancing=*/ob.instance_matrix_vbo.nonNull(), ob.mesh_data->usesSkinning(), ob.mesh_data->has_vert_tangents, ob.mesh_data->position_w_is_oct16_normal);
-
-		mat.uniform_flags = computeUniformFlagsForMat(mat, *ob.mesh_data);
 
 		rebuildDenormalisedDrawData(ob);
 
