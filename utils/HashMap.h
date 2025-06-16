@@ -133,6 +133,7 @@ public:
 
 	iterator find(const Key& k)
 	{
+		assert(k != empty_key);
 		size_t bucket_i = hashKey(k);
 
 		// Search for bucket item is in
@@ -151,6 +152,7 @@ public:
 
 	const_iterator find(const Key& k) const
 	{
+		assert(k != empty_key);
 		size_t bucket_i = hashKey(k);
 
 		// Search for bucket item is in
@@ -174,6 +176,7 @@ public:
 	// This is also pretty much the same algorithm as 'Algorithm R (Deletion with linear probing)' in Section 6.4 of The Art of Computer Programming, Volume 3.
 	void erase(const Key& key)
 	{
+		assert(key != empty_key);
 		// Search for bucket item is in, or until we get to an empty bucket, which indicates the key is not in the map.
 		// Bucket i is the bucket we will finally mark as empty.
 		size_t i = hashKey(key);
@@ -283,6 +286,7 @@ public:
 
 	Value& operator [] (const Key& k)
 	{
+		assert(k != empty_key);
 		iterator i = find(k);
 		if(i == end())
 		{
