@@ -111,9 +111,12 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 	ZeroMemory(&procInfo, sizeof(procInfo));
 
 	std::wstring w_command_line = StringUtils::UTF8ToPlatformUnicodeEncoding(combined_args_string);
+	if(w_command_line.empty())
+		throw glare::Exception("command line was empty.");
+
 	if(CreateProcess(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(program_path).c_str(),		// application name
-		w_command_line.data(), // command line
+		&w_command_line[0], // command line
 		NULL,		// process security attributes
 		NULL,		// primary thread security attributes 
 		TRUE,		// handles are inherited 
