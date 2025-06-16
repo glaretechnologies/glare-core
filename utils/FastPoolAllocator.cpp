@@ -10,13 +10,14 @@ Copyright Glare Technologies Limited 2024 -
 #include "Lock.h"
 #include "StringUtils.h"
 #include "ConPrint.h"
+#include "BitUtils.h"
 
 
 glare::FastPoolAllocator::FastPoolAllocator(size_t ob_alloc_size_, size_t alignment_, size_t block_capacity_)
 :	ob_alloc_size(Maths::roundUpToMultipleOfPowerOf2<size_t>(ob_alloc_size_, alignment_)),
 	alignment(alignment_),
 	block_capacity(block_capacity_),
-	block_capacity_num_bits(BitUtils::highestSetBitIndex(block_capacity_)),
+	block_capacity_num_bits(BitUtils::highestSetBitIndex((uint64)block_capacity_)),
 	block_capacity_mask(block_capacity_ - 1)
 {
 	assert(Maths::isPowerOfTwo(alignment_));

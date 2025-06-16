@@ -1348,6 +1348,7 @@ private:
 	OverlayObjectRef clear_buf_overlay_ob;
 	std::vector<OverlayObjectRef> texture_debug_preview_overlay_obs;
 	OverlayObjectRef large_debug_overlay_ob;
+	OverlayObjectRef crosshair_overlay_ob;
 
 	double draw_time;
 	Timer draw_timer;
