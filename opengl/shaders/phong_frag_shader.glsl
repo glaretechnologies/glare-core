@@ -254,12 +254,6 @@ vec4 computeFresnelReflectance(float h_cos_theta, vec4 refl_diffuse_col, float f
 }
 
 
-float fastApproxAtan(float y, float x)
-{
-	return fastApproxACos(x) * sign(y);
-}
-
-
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT

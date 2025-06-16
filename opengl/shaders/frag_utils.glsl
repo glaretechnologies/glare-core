@@ -454,3 +454,9 @@ float fastApproxACos(float x)
 	else
 		return (x * -0.124605335f + 0.1570634f) * (0.99418175f - x) + sqrt(2.f - 2.f * x);
 }
+
+
+float fastApproxAtan(float y, float x)
+{
+	return fastApproxACos(x / sqrt(x*x + y*y)) * sign(y);
+}
