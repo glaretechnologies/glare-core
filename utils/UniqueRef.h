@@ -17,7 +17,7 @@ class UniqueRef
 public:
 	// Initialises to a null reference.
 	UniqueRef()
-	:	ob(0)
+	:	ob(nullptr)
 	{}
 
 	// Initialise as a reference to ob.
