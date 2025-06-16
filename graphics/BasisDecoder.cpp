@@ -113,6 +113,8 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 		const bool multi_frame = texture_type == basist::cBASISTexTypeVideoFrames; // Is this transcoded from an animated GIF?
 
 		CompressedImageRef image = new CompressedImage(image_0_info.m_orig_width, image_0_info.m_orig_height, format);
+		if(mem_allocator)
+			image->setAllocator(mem_allocator);
 		image->texture_data->num_frames = multi_frame ? num_images : 1;
 		image->texture_data->W = image_0_info.m_orig_width;
 		image->texture_data->H = image_0_info.m_orig_height;
@@ -155,6 +157,11 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 		// Allocate image data
 		image->texture_data->mipmap_data.resize(frame_total_size_B * image->texture_data->num_frames);
 		image->texture_data->frame_size_B = frame_total_size_B;
+
+		if(frame_total_size_B * image->texture_data->num_frames > 5'000'000)
+		{
+			conPrint("large basis alloc: " + toString(frame_total_size_B * image->texture_data->num_frames));
+		}
 
 		for(uint32 im = 0; im < num_images; ++im)
 		{
@@ -342,6 +349,21 @@ void BasisDecoder::test()
 
 	try
 	{
+		{
+			conPrint("----------------------");
+			Timer timer;
+			Reference<Map2D> im = BasisDecoder::decode("C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\Mn6q_gif_6064408626532220094.basis");
+			conPrint("Reading 73qh_gif_4680830356308779756.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
+		}
+		{
+			conPrint("----------------------");
+			Timer timer;
+			Reference<Map2D> im = BasisDecoder::decode("C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\Mn6q_gif_6064408626532220094_lod1.basis");
+			conPrint("Reading 73qh_gif_4680830356308779756_lod1.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
+		}
+		return;
+
+
 		// Write a basis image:
 		/*{
 			Timer timer;
