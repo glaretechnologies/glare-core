@@ -27,6 +27,8 @@ public:
 
 	FILE* getFile() { return f; }
 
+	int getFileDescriptor();
+
 private:
 	FileHandle(const FileHandle& );
 	FileHandle& operator = (const FileHandle& );

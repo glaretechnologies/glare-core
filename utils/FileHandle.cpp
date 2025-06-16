@@ -49,3 +49,18 @@ void FileHandle::open(const std::string& pathname, const std::string& openmode) 
 	if(!f)
 		throw glare::Exception("Failed to open file '" + pathname + "'.");
 }
+
+
+int FileHandle::getFileDescriptor()
+{
+	if(f)
+	{
+#if defined(_WIN32)
+		return _fileno(f);
+#else
+		return fileno(f);
+#endif
+	}
+	else
+		return -1;
+}
