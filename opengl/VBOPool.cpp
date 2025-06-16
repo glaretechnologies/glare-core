@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #include "VBO.h"
+#include "IncludeOpenGL.h"
 #include <utils/Lock.h>
 #include <utils/StringUtils.h>
 #include <utils/ConPrint.h>
@@ -29,10 +30,12 @@ VBOPool::~VBOPool()
 
 void VBOPool::init()
 {
+	const GLenum usage = GL_STREAM_DRAW;
+
 	for(int i=0; i<16; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 64 * 1024);
+		info.vbo = new VBO(nullptr, 64 * 1024, GL_ARRAY_BUFFER, usage);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -40,7 +43,7 @@ void VBOPool::init()
 	for(int i=0; i<32; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 512 * 1024);
+		info.vbo = new VBO(nullptr, 512 * 1024, GL_ARRAY_BUFFER, usage);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -48,7 +51,7 @@ void VBOPool::init()
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 1024 * 1024);
+		info.vbo = new VBO(nullptr, 1024 * 1024, GL_ARRAY_BUFFER, usage);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -56,7 +59,7 @@ void VBOPool::init()
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 4 * 1024 * 1024);
+		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, GL_ARRAY_BUFFER, usage);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -64,7 +67,7 @@ void VBOPool::init()
 	for(int i=0; i<4; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 8 * 1024 * 1024);
+		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, GL_ARRAY_BUFFER, usage);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -72,7 +75,7 @@ void VBOPool::init()
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 16 * 1024 * 1024);
+		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, GL_ARRAY_BUFFER, usage);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -80,7 +83,7 @@ void VBOPool::init()
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 32 * 1024 * 1024);
+		info.vbo = new VBO(nullptr, 32 * 1024 * 1024, GL_ARRAY_BUFFER, usage);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
