@@ -577,52 +577,58 @@ void main()
 
 #if DRAW_AURORA
 			// NOTE: code duplicated in env_frag_shader
-			vec3 dir_ws = reflected_dir_ws;
-			vec3 env_campos_ws = pos_ws;
-
-			float min_aurora_z = 1000.0;
-			float max_aurora_z = 8000.0;
-			float aurora_start_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, min_aurora_z);
-			float aurora_end_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, max_aurora_z);
-
-			int num_steps = 32;
-			float t_step = min(600.0, (aurora_end_ray_t - aurora_start_ray_t) / float(num_steps));
-			float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 64.f)).x;
-			float t_offset = pixel_hash * t_step;
-
-			vec3 aurora_up = normalize(vec3(0.3, 0.0, 1.0));
-			vec3 aurora_forw = normalize(cross(aurora_up, vec3(0,0,1))); // vector along aurora surface
-			vec3 aurora_right = cross(aurora_up, aurora_forw);
-
-			vec4 green_col = vec4(0, pow(0.79, 2.2), pow(0.47, 2.2), 0);
-			vec4 blue_col  = vec4(0, pow(0.1, 2.2),  pow(0.6, 2.2), 0);
-
-			for(int i=0; i<num_steps; ++i)
+			const float MAX_AURORA_SUNDIR_Z = 0.1;
+			if(sundir_ws.z < MAX_AURORA_SUNDIR_Z)
 			{
-				float ray_t = aurora_start_ray_t + t_offset + t_step * float(i);
-				vec3 p = env_campos_ws + dir_ws * ray_t;
+				float aurora_factor = 1.0 - smoothstep(0.0, MAX_AURORA_SUNDIR_Z, sundir_ws.z);
 
-				vec3 p_as = vec3(500.0 + dot(p, aurora_right), dot(p, aurora_forw), dot(p, aurora_up));
+				vec3 dir_ws = reflected_dir_ws;
+				vec3 env_campos_ws = pos_ws;
 
-				vec2 st = p_as.xy * 0.0001;
-				if(st.x > -1.0 && st.x <= 1.0 && st.y >= -1.0 && st.y <= 1.0)
+				float min_aurora_z = 1000.0;
+				float max_aurora_z = 8000.0;
+				float aurora_start_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, min_aurora_z);
+				float aurora_end_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, max_aurora_z);
+
+				int num_steps = 32;
+				float t_step = min(600.0, (aurora_end_ray_t - aurora_start_ray_t) / float(num_steps));
+				float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 64.f)).x;
+				float t_offset = pixel_hash * t_step;
+
+				vec3 aurora_up = normalize(vec3(0.3, 0.0, 1.0));
+				vec3 aurora_forw = normalize(cross(aurora_up, vec3(0,0,1))); // vector along aurora surface
+				vec3 aurora_right = cross(aurora_up, aurora_forw);
+
+				vec4 green_col = vec4(0, pow(0.79, 2.2), pow(0.47, 2.2), 0);
+				vec4 blue_col  = vec4(0, pow(0.1, 2.2),  pow(0.6, 2.2), 0);
+
+				for(int i=0; i<num_steps; ++i)
 				{
-					vec4 aurora_val = texture(aurora_tex, st);
+					float ray_t = aurora_start_ray_t + t_offset + t_step * float(i);
+					vec3 p = env_campos_ws + dir_ws * ray_t;
 
-					float aurora_start_z = 1000.0 + aurora_val.y * 1000.0;
-					if(p_as.z >= aurora_start_z)
+					vec3 p_as = vec3(500.0 + dot(p, aurora_right), dot(p, aurora_forw), dot(p, aurora_up));
+
+					vec2 st = p_as.xy * 0.0001;
+					if(st.x > -1.0 && st.x <= 1.0 && st.y >= -1.0 && st.y <= 1.0)
 					{
-						// Smoothly start aurora above aurora_start_z
-						float z_factor = smoothstep(aurora_start_z, aurora_start_z + 600.0, p_as.z);
+						vec4 aurora_val = texture(aurora_tex, st);
+
+						float aurora_start_z = 1000.0 + aurora_val.y * 1000.0;
+						if(p_as.z >= aurora_start_z)
+						{
+							// Smoothly start aurora above aurora_start_z
+							float z_factor = smoothstep(aurora_start_z, aurora_start_z + 600.0, p_as.z);
 				
-						// Smoothly decrease intensity as z increases
-						float z_ramp_intensity_factor = exp(-(p_as.z - 1200.0) * 0.001);
-						float high_freq_intensity_factor = 1.0 + 3.0 * z_ramp_intensity_factor * (aurora_val.y - 0.5);//(1.0 + aurora_val.y * 2.0 * ramp_intensity_factor*ramp_intensity_factor);
-						//float ramp_intensity_factor = max(0.0, 1000 / (p_as.z - 1100) - p_as.z * 0.001);
+							// Smoothly decrease intensity as z increases
+							float z_ramp_intensity_factor = exp(-(p_as.z - 1200.0) * 0.001);
+							float high_freq_intensity_factor = 1.0 + 3.0 * z_ramp_intensity_factor * (aurora_val.y - 0.5);//(1.0 + aurora_val.y * 2.0 * ramp_intensity_factor*ramp_intensity_factor);
+							//float ramp_intensity_factor = max(0.0, 1000 / (p_as.z - 1100) - p_as.z * 0.001);
 				
-						vec4 col_for_height = mix(green_col, blue_col, min(1.0, (p_as.z - aurora_start_z) * (1.0 / 2000.0)));
+							vec4 col_for_height = mix(green_col, blue_col, min(1.0, (p_as.z - aurora_start_z) * (1.0 / 2000.0)));
 				
-						spec_refl_light += (0.001 * t_step * col_for_height * aurora_val.r * z_ramp_intensity_factor * high_freq_intensity_factor * z_factor).xyz;
+							spec_refl_light += (0.001 * t_step * col_for_height * aurora_val.r * z_ramp_intensity_factor * high_freq_intensity_factor * z_factor).xyz * aurora_factor;
+						}
 					}
 				}
 			}
@@ -630,52 +636,10 @@ void main()
 
 
 			//-------------- clouds ---------------------
+			vec2 cloudfrac_cumulus_edge = getCloudFrac(pos_ws, reflected_dir_ws, time, fbm_tex, cirrus_tex);
+			float cloudfrac    = cloudfrac_cumulus_edge.x;
+			float cumulus_edge = cloudfrac_cumulus_edge.y;
 
-			//float d = dot(sundir_cs.xyz, reflected_dir_cs);
-			
-
-			// Get position ray hits cloud plane
-			float cirrus_cloudfrac = 0.0;
-			float cumulus_cloudfrac = 0.0;
-			float ray_t = rayPlaneIntersect(pos_ws, reflected_dir_ws, 6000.0);
-			//vec4 cumulus_col = vec4(0,0,0,0);
-			//float cumulus_alpha = 0;
-			float cumulus_edge = 0.0;
-			if(ray_t > 0.0)
-			{
-				vec3 hitpos = pos_ws + reflected_dir_ws * ray_t;
-				vec2 p = hitpos.xy * 0.0001;
-				p.x += time * 0.002;
-
-				vec2 coarse_noise_coords = vec2(p.x * 0.16, p.y * 0.20);
-				float course_detail = fbmMix(vec2(coarse_noise_coords), fbm_tex);
-
-				cirrus_cloudfrac = max(course_detail * 0.9, 0.f) * texture(cirrus_tex, p).x * 1.5;
-			}
-
-			{
-				float cumulus_ray_t = rayPlaneIntersect(pos_ws, reflected_dir_ws, 1000.0);
-				if(cumulus_ray_t > 0.0)
-				{
-					vec3 hitpos = pos_ws + reflected_dir_ws * cumulus_ray_t;
-					vec2 p = hitpos.xy * 0.0001;
-					p.x += time * 0.002;
-
-					vec2 cumulus_coords = vec2(p.x * 2.0 + 2.3453, p.y * 2.0 + 1.4354);
-
-					float cumulus_val = max(0.f, fbmMix(cumulus_coords, fbm_tex) - 0.3f);
-					//cumulus_alpha = max(0.f, cumulus_val - 0.7f);
-
-					cumulus_edge = smoothstep(0.0001, 0.1, cumulus_val) - smoothstep(0.2, 0.6, cumulus_val) * 0.5;
-
-					float dist_factor = 1.f - smoothstep(80000.0, 160000.0, ray_t);
-
-					//cumulus_col = vec4(cumulus_val, cumulus_val, cumulus_val, 1);
-					cumulus_cloudfrac = dist_factor * cumulus_val;
-				}
-			}
-
-			float cloudfrac = max(cirrus_cloudfrac, cumulus_cloudfrac);
 			vec3 cloudcol = sun_and_sky_av_spec_rad.xyz;
 			spec_refl_light = mix(spec_refl_light, cloudcol, max(0.f, cloudfrac));
 			vec3 suncloudcol = cloudcol * 2.5;

@@ -13,6 +13,7 @@ flat in ivec4 light_indices_1;
 
 uniform sampler2D specular_env_tex;
 uniform sampler2D fbm_tex;
+uniform sampler2D cirrus_tex;
 
 
 //----------------------------------------------------------------------------------------------------------------------------
@@ -258,28 +259,13 @@ void main()
 		vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
 
 
-		// Blend in reflection of cumulus clouds.  Skip cirrus clouds as an optimisation.
+		// Blend in reflection of cumulus clouds.  Old: Skip cirrus clouds as an optimisation.
 #if RENDER_SKY_AND_CLOUD_REFLECTIONS
-		float cumulus_cloudfrac = 0.0;
-		{
-			float cumulus_ray_t = rayPlaneIntersect(pos_ws, reflected_dir_ws, 1000.0);
-			if(cumulus_ray_t > 0.0)
-			{
-				vec3 hitpos = pos_ws + reflected_dir_ws * cumulus_ray_t;
-				vec2 p = hitpos.xy * 0.0001;
-				p.x += time * 0.002;
 
-				vec2 cumulus_coords = vec2(p.x * 2.0 + 2.3453, p.y * 2.0 + 1.4354);
+		vec2 cloudfrac_cumulus_edge = getCloudFrac(pos_ws, reflected_dir_ws, time, fbm_tex, cirrus_tex);
+		float cloudfrac    = cloudfrac_cumulus_edge.x;
+		float cumulus_edge = cloudfrac_cumulus_edge.y;
 
-				float cumulus_val = max(0.f, fbmMix(cumulus_coords, fbm_tex) - 0.3f);
-
-				float dist_factor = 1.f - smoothstep(80000.0, 160000.0, cumulus_ray_t);
-
-				cumulus_cloudfrac = dist_factor * cumulus_val;
-			}
-		}
-
-		float cloudfrac = cumulus_cloudfrac;
 		vec4 cloudcol = sun_and_sky_av_spec_rad;
 		spec_refl_light = mix(spec_refl_light, cloudcol, max(0.f, cloudfrac));
 #endif // RENDER_SKY_AND_CLOUD_REFLECTIONS

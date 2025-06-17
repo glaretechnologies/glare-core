@@ -34,8 +34,7 @@ vec3 fastApproxNonLinearSRGBToLinearSRGB(vec3 c)
 
 float square(float x) { return x*x; }
 float pow4(float x) { return (x*x)*(x*x); }
-float pow5(float x) { return x*x*x*x*x; }
-float pow6(float x) { return x*x*x*x*x*x; }
+float pow5(float x) { return (x*x)*(x*x)*x; }
 
 
 float length2(vec2 v) { return dot(v, v); }
@@ -459,4 +458,70 @@ float fastApproxACos(float x)
 float fastApproxAtan(float y, float x)
 {
 	return fastApproxACos(x / sqrt(x*x + y*y)) * sign(y);
+}
+
+
+// return (cloud frac, cumulus_edge)
+vec2 getCloudFrac(vec3 env_campos_ws, vec3 dir_ws, float time, in sampler2D fbm_tex, in sampler2D cirrus_tex)
+{
+	// Get position ray hits cloud plane
+	float cirrus_cloudfrac = 0.0;
+	float cumulus_cloudfrac = 0.0;
+	float ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 6000.0);
+	//vec4 cumulus_col = vec4(0,0,0,0);
+	//float cumulus_alpha = 0;
+	float cumulus_edge = 0.0;
+	if(ray_t > 0.0)
+	{
+		vec3 hitpos = env_campos_ws + dir_ws * ray_t;
+		vec2 p = hitpos.xy * 0.0001;
+		p.x += time * 0.002;
+	
+		vec2 coarse_noise_coords = vec2(p.x * 0.16, p.y * 0.20);
+		float course_detail = fbmMix(vec2(coarse_noise_coords), fbm_tex);
+
+		cirrus_cloudfrac = max(course_detail * 0.9, 0.f) * texture(cirrus_tex, p).x * 1.5;
+	}
+		
+	{
+		float cumulus_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 1000.0);
+		if(cumulus_ray_t > 0.0)
+		{
+			vec3 hitpos = env_campos_ws + dir_ws * cumulus_ray_t;
+			vec2 p = hitpos.xy * 0.0001;
+			p.x += time * 0.002;
+
+			vec2 cumulus_coords = vec2(p.x * 1.0 + 2.3453, p.y * 1.0 + 1.4354);
+			
+			float cumulus_val = max(0.f, min(1.0, fbmMix(cumulus_coords, fbm_tex) * 1.6 - 1.0f));
+			//cumulus_alpha = max(0.f, cumulus_val - 0.7f);
+
+			cumulus_edge = smoothstep(0.0001, 0.1, cumulus_val) - smoothstep(0.2, 0.6, cumulus_val) * 0.5;
+
+			float dist_factor = 1.f - smoothstep(20000.0, 40000.0, cumulus_ray_t);
+
+			//cumulus_col = vec4(cumulus_val, cumulus_val, cumulus_val, 1);
+			cumulus_cloudfrac = dist_factor * cumulus_val;
+		}
+	}
+
+	float cloudfrac = max(cirrus_cloudfrac, cumulus_cloudfrac);
+	return vec2(cloudfrac, cumulus_edge);
+}
+
+
+// return (cloud frac, cumulus_edge)
+float getCumulusTransparencyFactor(vec3 pos_ws, vec3 sundir_ws, float time, in sampler2D fbm_tex)
+{
+	// Compute position on cumulus cloud layer
+	vec3 cum_layer_pos = pos_ws + sundir_ws * (1000.f - pos_ws.z) / sundir_ws.z;
+	
+	vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
+	cum_tex_coords.x += time * 0.002;
+	
+	vec2 cumulus_coords = vec2(cum_tex_coords.x * 1.0 + 2.3453, cum_tex_coords.y * 1.0 + 1.4354);
+	float cumulus_val = max(0.f, fbmMix(cumulus_coords, fbm_tex) * 1.6 - 1.0f);
+	
+	float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
+	return cumulus_trans;
 }

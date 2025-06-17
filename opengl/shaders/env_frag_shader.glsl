@@ -100,48 +100,9 @@ void main()
 #endif
 
 
-	// Get position ray hits cloud plane
-	float cirrus_cloudfrac = 0.0;
-	float cumulus_cloudfrac = 0.0;
-	float ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 6000.0);
-	//vec4 cumulus_col = vec4(0,0,0,0);
-	//float cumulus_alpha = 0;
-	float cumulus_edge = 0.0;
-	if(ray_t > 0.0)
-	{
-		vec3 hitpos = env_campos_ws + dir_ws * ray_t;
-		vec2 p = hitpos.xy * 0.0001;
-		p.x += time * 0.002;
-	
-		vec2 coarse_noise_coords = vec2(p.x * 0.16, p.y * 0.20);
-		float course_detail = fbmMix(vec2(coarse_noise_coords), fbm_tex);
-
-		cirrus_cloudfrac = max(course_detail * 0.9, 0.f) * texture(cirrus_tex, p).x * 1.5;
-	}
-		
-	{
-		float cumulus_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 1000.0);
-		if(cumulus_ray_t > 0.0)
-		{
-			vec3 hitpos = env_campos_ws + dir_ws * cumulus_ray_t;
-			vec2 p = hitpos.xy * 0.0001;
-			p.x += time * 0.002;
-
-			vec2 cumulus_coords = vec2(p.x * 1.0 + 2.3453, p.y * 1.0 + 1.4354);
-			
-			float cumulus_val = max(0.f, min(1.0, fbmMix(cumulus_coords, fbm_tex) * 1.6 - 1.0f));
-			//cumulus_alpha = max(0.f, cumulus_val - 0.7f);
-
-			cumulus_edge = smoothstep(0.0001, 0.1, cumulus_val) - smoothstep(0.2, 0.6, cumulus_val) * 0.5;
-
-			float dist_factor = 1.f - smoothstep(20000.0, 40000.0, cumulus_ray_t);
-
-			//cumulus_col = vec4(cumulus_val, cumulus_val, cumulus_val, 1);
-			cumulus_cloudfrac = dist_factor * cumulus_val;
-		}
-	}
-
-	float cloudfrac = max(cirrus_cloudfrac, cumulus_cloudfrac);
+	vec2 cloudfrac_cumulus_edge = getCloudFrac(env_campos_ws, dir_ws, time, fbm_tex, cirrus_tex);
+	float cloudfrac    = cloudfrac_cumulus_edge.x;
+	float cumulus_edge = cloudfrac_cumulus_edge.y;
 	vec4 cloudcol = sun_and_sky_av_spec_rad;
 	col = mix(col, cloudcol, max(0.f, cloudfrac));
 	vec4 suncloudcol = cloudcol * 2.5;
