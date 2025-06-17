@@ -32,6 +32,8 @@ PBOPool::~PBOPool()
 
 void PBOPool::init()
 {
+	Lock lock(mutex);
+
 	// total size: 1 MB
 	for(int i=0; i<16; ++i)
 	{

@@ -44,10 +44,10 @@ public:
 	// Get number of threads that are being managed.
 	size_t getNumThreads();
 
-	Mutex& getMutex() { return mutex; }
+	Mutex& getMutex() RETURN_CAPABILITY(mutex) { return mutex; }
 
 	typedef std::set<Reference<MessageableThread> > THREAD_SET_TYPE;
-	THREAD_SET_TYPE& getThreads() { return threads; }
+	THREAD_SET_TYPE& getThreads() REQUIRES(mutex) { return threads; }
 
 	// Run unit tests
 	static void test();

@@ -1426,7 +1426,7 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCircleSector(VertexBu
 	{
 		const float angle = i * total_angle / res;
 
-		const Vec3f v_i = cos(angle) * basis_i + sin(angle) * basis_j;
+		const Vec3f v_i = std::cos(angle) * basis_i + std::sin(angle) * basis_j;
 		verts[1 + i] = v_i;
 
 		if(i < res)

@@ -30,6 +30,8 @@ VBOPool::~VBOPool()
 
 void VBOPool::init()
 {
+	Lock lock(mutex);
+
 	const GLenum usage = GL_STREAM_DRAW;
 
 	for(int i=0; i<16; ++i)
