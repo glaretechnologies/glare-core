@@ -23,20 +23,25 @@ AsyncGeometryUploader::~AsyncGeometryUploader()
 }
 
 
-void AsyncGeometryUploader::startUploadingGeometry(OpenGLMeshRenderDataRef meshdata, VBORef source_vbo, size_t vert_data_src_offset_B, size_t index_data_src_offset_B, size_t vert_data_size_B, size_t index_data_size_B)
+void AsyncGeometryUploader::startUploadingGeometry(OpenGLMeshRenderDataRef meshdata, VBORef source_vbo, /*VBORef dummy_vbo_, */
+	size_t vert_data_src_offset_B, size_t index_data_src_offset_B, size_t vert_data_size_B, size_t index_data_size_B, size_t total_geom_size_B)
 {
-//	VBORef dummy_vbo = new VBO(nullptr, source_vbo->getSize());
-//	glBindBuffer(GL_COPY_READ_BUFFER,  source_vbo->bufferName());
-//	glBindBuffer(GL_COPY_WRITE_BUFFER, dummy_vbo->bufferName());
-//	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/0, /*size=*/source_vbo->getSize());
+	//VBORef dummy_vbo = new VBO(nullptr, total_geom_size_B);
+	//glBindBuffer(GL_COPY_READ_BUFFER,  source_vbo->bufferName());
+	//glBindBuffer(GL_COPY_WRITE_BUFFER, dummy_vbo->bufferName());
+	//glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/0, /*size=*/total_geom_size_B);//source_vbo->getSize());
 
+	// Unbind
+	//glBindBuffer(GL_COPY_READ_BUFFER, 0);
+	//glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 
-	// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
+	// Insert fence object into stream. We can query this to see if the upload of the data to the VBO has completed.
 	GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
 
 	UploadingGeometry queue_item;
 	queue_item.meshdata = meshdata;
 	queue_item.source_vbo = source_vbo;
+	//queue_item.dummy_vbo = dummy_vbo;
 	queue_item.vert_data_src_offset_B = vert_data_src_offset_B;
 	queue_item.index_data_src_offset_B = index_data_src_offset_B;
 	queue_item.vert_data_size_B = vert_data_size_B;
@@ -59,14 +64,12 @@ void AsyncGeometryUploader::checkForUploadedGeometry(OpenGLEngine* opengl_engine
 		assert(wait_ret != GL_WAIT_FAILED);
 		if(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED)
 		{
-			// This texture has loaded from the PBO!
-			
 			AsyncUploadedGeometryInfo uploaded_info;
 			uploaded_info.meshdata = front_item.meshdata;
 			uploaded_info.vbo = front_item.source_vbo;
 			uploaded_geom_out.push_back(uploaded_info);
 
-			// Destroy sync objet
+			// Destroy sync object
 			glDeleteSync(front_item.sync_ob);
 
 			// Allocate space in vertex and index buffers
