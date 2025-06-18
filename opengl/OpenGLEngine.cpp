@@ -5921,11 +5921,18 @@ static inline void bindTextureToTextureUnit(const OpenGLTexture& texture, int te
 }
 
 
-static inline void unbindTextureFromTextureUnit(const OpenGLTexture& texture, int texture_unit_index)
+static inline void unbindTextureFromTextureUnit(GLenum texture_target, int texture_unit_index)
 {
 	glActiveTexture(GL_TEXTURE0 + texture_unit_index); // Specifies which texture unit to make active
-	glBindTexture(/*target=*/texture.getTextureTarget(), /*texture=*/0);
+	glBindTexture(/*target=*/texture_target, /*texture=*/0);
 	glActiveTexture(GL_TEXTURE0);
+}
+
+
+// Gets the texture target (type) from texture.
+static inline void unbindTextureFromTextureUnit(const OpenGLTexture& texture, int texture_unit_index)
+{
+	unbindTextureFromTextureUnit(/*target=*/texture.getTextureTarget(), texture_unit_index);
 }
 
 
@@ -5966,6 +5973,19 @@ static GLuint getBoundTexture2D(int texture_unit_index)
 
 	glActiveTexture(GL_TEXTURE0);
 	return tex_handle;
+}
+
+
+static int getNumBoundTextures(int max_texture_unit_index)
+{
+	int num_bound = 0;
+	for(int i=0; i<=max_texture_unit_index; ++i)
+	{
+		const bool tex_unit_bound = getBoundTexture2D(i) != 0;
+		if(tex_unit_bound)
+			num_bound++;
+	}
+	return num_bound;
 }
 #endif
 
@@ -7385,6 +7405,10 @@ void OpenGLEngine::draw()
 				blur_framebuffers_x[i] = NULL;
 				blur_framebuffers[i] = NULL;
 			}
+
+			FrameBuffer::unbind();
+			glDrawBuffers(0, nullptr);
+			glDepthMask(GL_FALSE); // Disable writing to depth buffer.  Do this before checking for framebuffer completeness below.
 
 #if EMSCRIPTEN
 			// Suppress 'drawElementsInstanced: Tex image TEXTURE_2D level 0 is incurring lazy initialization.' WebGL warning by passing some initial texture data.
@@ -9874,9 +9898,8 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				blur_ssao_gpu_timer->endTimerQuery();
 
 
-			// unbind textures
-			//unbindTextureFromTextureUnit(*ssao_texture, SSAO_TEXTURE_UNIT_INDEX);
-			//unbindTextureFromTextureUnit(*prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+			// unbind textures that aren't used by standard materials.
+			unbindTextureFromTextureUnit(*prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX);
 
 			// restore bindings
 			bindTextureToTextureUnit(*blurred_ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX);
@@ -10048,6 +10071,8 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 				
 			const size_t total_buffer_offset = outline_quad_meshdata->indices_vbo_handle.offset + outline_quad_meshdata->batches[0].prim_start_offset_B;
 			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->getIndexType(), (void*)total_buffer_offset, outline_quad_meshdata->vbo_handle.base_vertex);
+
+			unbindTextureFromTextureUnit(*outline_solid_tex, /*texture_unit_index=*/0);
 		}
 
 		OpenGLProgram::useNoPrograms();
@@ -10106,6 +10131,8 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 				
 			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
 			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+
+			unbindTextureFromTextureUnit(*opengl_mat.albedo_texture, /*texture_unit_index=*/0);
 		}
 
 		flushDrawCommandsAndUnbindPrograms();
@@ -10179,7 +10206,7 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 				glUniform2f(overlay_clip_min_coords_location, ob->clip_region.getMin().x, ob->clip_region.getMin().y);
 				glUniform2f(overlay_clip_max_coords_location, ob->clip_region.getMax().x, ob->clip_region.getMax().y);
 
-				if(opengl_mat.albedo_texture.nonNull())
+				if(opengl_mat.albedo_texture)
 				{
 					const GLfloat tex_elems[9] = {
 						opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
@@ -10193,6 +10220,9 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 				
 				const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
 				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+
+				if(opengl_mat.albedo_texture)
+					unbindTextureFromTextureUnit(*opengl_mat.albedo_texture, /*texture_unit_index=*/0);
 			}
 		}
 	}
@@ -10640,7 +10670,7 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 
 void OpenGLEngine::bindStandardShadowMappingDepthTextures()
 {
-	if(shadow_mapping.nonNull())
+	if(shadow_mapping)
 	{
 		bindTextureToTextureUnit(*this->shadow_mapping->dynamic_depth_tex,                                            /*texture_unit_index=*/DEPTH_TEX_TEXTURE_UNIT_INDEX);
 		bindTextureToTextureUnit(*this->shadow_mapping->static_depth_tex[this->shadow_mapping->cur_static_depth_tex], /*texture_unit_index=*/STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX);
@@ -10652,7 +10682,7 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 {
 	bindStandardShadowMappingDepthTextures();
 
-	if(cosine_env_tex.nonNull())
+	if(cosine_env_tex)
 	{
 		bindTextureToTextureUnit(*this->cosine_env_tex,    /*texture_unit_index=*/COSINE_ENV_TEXTURE_UNIT_INDEX);
 		bindTextureToTextureUnit(*this->specular_env_tex,  /*texture_unit_index=*/SPECULAR_ENV_TEXTURE_UNIT_INDEX);
@@ -10661,14 +10691,14 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 	bindTextureToTextureUnit(*this->fbm_tex,           /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
 
 
-	if(main_colour_copy_texture.nonNull())
+	if(main_colour_copy_texture)
 	{
 		bindTextureToTextureUnit(*main_colour_copy_texture, /*texture_unit_index=*/MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX);
 		bindTextureToTextureUnit(*main_normal_copy_texture, /*texture_unit_index=*/MAIN_NORMAL_COPY_TEXTURE_UNIT_INDEX);
 		bindTextureToTextureUnit(*main_depth_copy_texture,  /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX);
 	}
 
-	if(cirrus_tex.nonNull())
+	if(cirrus_tex)
 		bindTextureToTextureUnit(*this->cirrus_tex, /*texture_unit_index=*/CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
 	if(settings.render_water_caustics && !water_caustics_textures.empty())
@@ -10683,26 +10713,28 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 	}
 
 
-	if(this->detail_tex[0].nonNull())
-		bindTextureToTextureUnit(*this->detail_tex[0], /*texture_unit_index=*/DETAIL_0_TEXTURE_UNIT_INDEX);
-	if(this->detail_tex[1].nonNull())
+	//if(this->detail_tex[0])
+	//	bindTextureToTextureUnit(*this->detail_tex[0], /*texture_unit_index=*/DETAIL_0_TEXTURE_UNIT_INDEX); // Not used in fragment shader currently
+	if(this->detail_tex[1])
 		bindTextureToTextureUnit(*this->detail_tex[1], /*texture_unit_index=*/DETAIL_1_TEXTURE_UNIT_INDEX);
-	if(this->detail_tex[2].nonNull())
+	if(this->detail_tex[2])
 		bindTextureToTextureUnit(*this->detail_tex[2], /*texture_unit_index=*/DETAIL_2_TEXTURE_UNIT_INDEX);
-	if(this->detail_tex[3].nonNull())
-		bindTextureToTextureUnit(*this->detail_tex[3], /*texture_unit_index=*/DETAIL_3_TEXTURE_UNIT_INDEX);
+	//if(this->detail_tex[3])
+	//	bindTextureToTextureUnit(*this->detail_tex[3], /*texture_unit_index=*/DETAIL_3_TEXTURE_UNIT_INDEX); // Not used in fragment shader currently
 	
 	// NOTE: for now we will only use 1 detail heightmap (rock) in shader
-	if(this->detail_heightmap[0].nonNull())
-		bindTextureToTextureUnit(*this->detail_heightmap[0], /*texture_unit_index=*/DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
+	//if(this->detail_heightmap[0])
+	//	bindTextureToTextureUnit(*this->detail_heightmap[0], /*texture_unit_index=*/DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX); // Not used in fragment shader currently
 
 	bindTextureToTextureUnit(aurora_tex ? *aurora_tex : *dummy_black_tex, /*texture_unit_index=*/AURORA_TEXTURE_UNIT_INDEX);
+
+	// 15 textures bound before here
 	
 	bindTextureToTextureUnit(blurred_ssao_texture ? *blurred_ssao_texture : *dummy_black_tex, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX);
 	bindTextureToTextureUnit(blurred_ssao_specular_texture ? *blurred_ssao_specular_texture : *dummy_black_tex, /*texture_unit_index=*/SSAO_SPECULAR_TEXTURE_UNIT_INDEX);
 
-	if(prepass_colour_copy_texture)
-		bindTextureToTextureUnit(*prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX);
+	//if(prepass_colour_copy_texture)
+	//	bindTextureToTextureUnit(*prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX);
 	if(prepass_normal_copy_texture)
 		bindTextureToTextureUnit(*prepass_normal_copy_texture, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX);
 	if(prepass_depth_copy_texture)
@@ -10710,6 +10742,9 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 
 	//if(snow_ice_normal_map.nonNull())
 	//	bindTextureToTextureUnit(*snow_ice_normal_map, /*texture_unit_index=*/SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
+
+	//const int num_bound = getNumBoundTextures(/*max_texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+	//printVar(num_bound);
 }
 
 
@@ -10999,7 +11034,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		}
 
 		if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
-			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/shader_prog->albedo_texture_loc);
+			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/shader_prog->albedo_texture_loc);
 
 		// Set user uniforms
 		for(size_t i=0; i<shader_prog->user_uniform_info.size(); ++i)
@@ -11296,7 +11331,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 			}
 
 			if(prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
-				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/prog->albedo_texture_loc);
+				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/prog->albedo_texture_loc);
 
 			// Set user uniforms
 			for(size_t i=0; i<prog->user_uniform_info.size(); ++i)

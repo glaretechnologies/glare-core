@@ -74,12 +74,14 @@ uniform sampler2D detail_tex_1; // sediment
 uniform sampler2D detail_tex_2; // vegetation
 //uniform sampler2D detail_tex_3;
 
-uniform sampler2D detail_heightmap_0; // rock
+//uniform sampler2D detail_heightmap_0; // rock
 #endif // end #if TERRAIN
 
 uniform sampler2D caustic_tex_a;
 uniform sampler2D caustic_tex_b;
 
+#define SSAO_SUPPORT 1
+#ifdef SSAO_SUPPORT
 uniform sampler2D ssao_tex;
 uniform sampler2D ssao_specular_tex;
 uniform sampler2D prepass_depth_tex; // SSAO prepass depth texture
@@ -87,6 +89,7 @@ uniform sampler2D prepass_depth_tex; // SSAO prepass depth texture
 uniform usampler2D prepass_normal_tex;// SSAO prepass normal texture
 #else
 uniform sampler2D prepass_normal_tex;// SSAO prepass normal texture
+#endif
 #endif
 
 // uniform sampler2D snow_ice_normal_map;
@@ -191,6 +194,7 @@ float getDepthFromDepthTexture(vec2 pos_ss)
 }
 #endif // DECAL
 
+#ifdef SSAO_SUPPORT
 vec3 readNormalFromPrepassNormalTexture(ivec2 px_coords)
 {
 #if NORMAL_TEXTURE_IS_UINT
@@ -199,6 +203,7 @@ vec3 readNormalFromPrepassNormalTexture(ivec2 px_coords)
 	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(prepass_normal_tex, px_coords, /*mip level=*/0).xyz)); // Read normal from normal texture
 #endif
 }
+#endif
 
 
 vec3 removeComponentInDir(vec3 v, vec3 unit_dir)
@@ -816,6 +821,7 @@ void main()
 	float frag_depth = -pos_cs.z;
 
 	vec4 spec_refl_light = vec4(0.0); // spectral radiance * 1.0e-9
+#ifdef SSAO_SUPPORT
 	if((mat_common_flags & DO_SSAO_FLAG) != 0)
 	{
 		// Apply SSAO
@@ -901,6 +907,7 @@ void main()
 		sky_irradiance = sky_irradiance * ssao_val.w;
 		sky_irradiance.xyz += ssao_val.xyz;
 	}
+#endif // end if SSAO_SUPPORT
 
 	if(((mat_common_flags & DO_SSAO_FLAG) == 0) || (frag_depth > 80.0))
 	{
