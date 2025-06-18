@@ -39,7 +39,7 @@ uniform sampler2D main_normal_texture;
 #endif
 
 uniform sampler2D main_depth_texture;
-#endif
+#endif // end #if DECAL
 
 #if !USE_BINDLESS_TEXTURES
 uniform sampler2D diffuse_tex;
@@ -69,13 +69,13 @@ uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
 #if TERRAIN
-uniform sampler2D detail_tex_0; // rock
+//uniform sampler2D detail_tex_0; // rock
 uniform sampler2D detail_tex_1; // sediment
 uniform sampler2D detail_tex_2; // vegetation
-uniform sampler2D detail_tex_3;
+//uniform sampler2D detail_tex_3;
 
 uniform sampler2D detail_heightmap_0; // rock
-#endif
+#endif // end #if TERRAIN
 
 uniform sampler2D caustic_tex_a;
 uniform sampler2D caustic_tex_b;
@@ -737,8 +737,8 @@ void main()
 		float shadow_factor = light_cos_theta;//smoothstep(-0.3, 0.0, light_cos_theta);
 		float h_cos_theta = max(0.0, dot(h_ws, unit_normal_ws));
 
-		const float alpha2 = alpha2ForRoughness(final_roughness);
-		const float V = smithMaskingShadowingV(unit_normal_ws, sundir_ws.xyz, frag_to_cam_ws, alpha2);
+		float alpha2 = alpha2ForRoughness(final_roughness);
+		float V = smithMaskingShadowingV(unit_normal_ws, sundir_ws.xyz, frag_to_cam_ws, alpha2);
 
 		vec4 specular_fresnel = computeFresnelReflectance(h_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
 
