@@ -57,7 +57,7 @@ void TestSocket::readTo(void* buffer, size_t readlen)
 }
 
 
-void TestSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
+void TestSocket::readTo(void* buffer, size_t readlen, FractionListener* /*frac*/)
 {
 	while(readlen > 0) // While still bytes to read
 	{
@@ -94,13 +94,15 @@ void TestSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 }
 
 
-void TestSocket::writeInt32(int32 x)
+void TestSocket::writeInt32(int32 /*x*/)
 {
+	assert(0);
 }
 
 
-void TestSocket::writeUInt32(uint32 x)
+void TestSocket::writeUInt32(uint32 /*x*/)
 {
+	assert(0);
 }
 
 
