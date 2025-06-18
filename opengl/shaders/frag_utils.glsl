@@ -50,6 +50,22 @@ float trowbridgeReitzPDF(float cos_theta, float alpha2)
 }
 
 
+// From https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.pdf, B.3.2. Specular BRDF
+// Note that we know dot(H, L) >= 0 and dot(H, V) >= from how we constructed H.
+float smithMaskingShadowingV(vec3 N, /*vec3 H, */vec3 L, vec3 V, float alpha2)
+{
+	float N_dot_L = dot(N, L);
+	float N_dot_V = dot(N, V);
+	if(N_dot_L <= 0.0 || N_dot_V <= 0.0)
+		return 0.0;
+
+	return 1.0 / (
+		(N_dot_L + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_L))) * 
+		(N_dot_V + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_V)))
+	);
+}
+
+
 // See 'Some Fresnel curve approximations', https://forwardscattering.org/post/65
 float dielectricFresnelReflForIOR1_5(float cos_theta_i)
 {

@@ -174,12 +174,16 @@ void main()
 
 		vec3 unit_normal_ws = normalize(use_normal_ws);
 		if(dot(unit_normal_ws, cam_to_pos_ws) > 0.0)
+		{
 			unit_normal_ws = -unit_normal_ws;
+			unit_normal_cs = -unit_normal_cs;
+		}
 
 		vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
 
-		float roughness = 0.2;
-		float fresnel_scale = 1.0;
+		const float roughness = 0.15;
+		const float alpha2 = alpha2ForRoughness(roughness);
+		const float fresnel_scale = 1.0;
 
 		//----------------------- Direct lighting from interior lights ----------------------------
 		// Load indices into a local array, so we can iterate over the array in a for loop.  TODO: find a better way of doing this.
@@ -226,7 +230,7 @@ void main()
 				float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
 				vec4 specular_fresnel = vec4(dielectricFresnelReflForIOR2(h_cos_theta));
 
-				vec4 specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(roughness)) * fresnel_scale * specular_fresnel;
+				vec4 specular = trowbridgeReitzPDF(h_cos_theta, alpha2) * fresnel_scale * specular_fresnel;
 
 				vec3 bsdf = specular.xyz;
 				vec3 reflected_radiance = bsdf * cos_theta_term * light_emitted_radiance * dir_factor / pos_to_light_len2;
@@ -238,8 +242,11 @@ void main()
 
 		vec3 sunrefl_h = normalize(frag_to_cam + sundir_cs.xyz);
 		float sunrefl_h_cos_theta = abs(dot(sunrefl_h, unit_normal_cs));
+
 		
-		float sun_specular = trowbridgeReitzPDF(sunrefl_h_cos_theta, alpha2ForRoughness(roughness)) * 
+		float sun_V = smithMaskingShadowingV(unit_normal_cs, sundir_cs.xyz, frag_to_cam, alpha2);
+		
+		float sun_specular = trowbridgeReitzPDF(sunrefl_h_cos_theta, alpha2) * sun_V *
 			fresnel_scale * dielectricFresnelReflForIOR2(sunrefl_h_cos_theta); // NOTE: using an unrealistically high IOR for now to make glass reflections more visible.
 
 		// Reflect cam-to-fragment vector in ws normal

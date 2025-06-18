@@ -227,23 +227,6 @@ vec2 cameraToScreenSpace(vec3 pos_cs)
 }
 
 
-// From https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.pdf, B.3.2. Specular BRDF
-// Note that we know dot(H, L) >= 0 and dot(H, V) >= from how we constructed H.
-float smithMaskingShadowingV(vec3 N, /*vec3 H, */vec3 L, vec3 V, float alpha2)
-{
-	float N_dot_L = dot(N, L);
-	float N_dot_V = dot(N, V);
-	if(N_dot_L <= 0.0 || N_dot_V <= 0.0)
-		return 0.0;
-
-	return 1.0 / (
-		(N_dot_L + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_L))) * 
-		(N_dot_V + sqrt(alpha2 + (1.0 - alpha2)*square(N_dot_V)))
-	);
-}
-
-
-
 vec4 computeFresnelReflectance(float h_cos_theta, vec4 refl_diffuse_col, float final_fresnel_scale, float final_metallic_frac)
 {
 	//vec4 dielectric_fresnel = vec4(useFresnelApprox(h_cos_theta, 1.5) * final_fresnel_scale);
