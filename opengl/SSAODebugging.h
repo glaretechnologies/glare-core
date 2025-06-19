@@ -33,7 +33,7 @@ public:
 	public:
 		virtual float depthForPosSS(const Vec2f& pos_ss) = 0; // returns positive depth
 		//virtual Vec3f positionForPosSS(const Vec2f& pos_ss);
-		virtual Vec3f normalForPosSS(const Vec2f& pos_ss) = 0;
+		virtual Vec3f normalCSForPosSS(const Vec2f& pos_ss) = 0; // Return normal in camera space
 	};
 
 	float computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& depth_querier);
@@ -41,6 +41,7 @@ public:
 	void drawSectors(OpenGLEngine& gl_engine, Vec3f p, uint32 bits_changed, Vec3f sampling_plane_n, Vec3f projected_n);
 	void drawSamplingPlane(OpenGLEngine& gl_engine, Vec3f p, Vec3f sampling_plane_n, Vec3f projected_n);
 	void drawPoint(OpenGLEngine& gl_engine, Vec3f p_cs, const Colour4f& col);
+	void drawArrow(OpenGLEngine& gl_engine, Vec3f start_p_cs, Vec3f end_p_cs, const Colour4f& col);
 
 	static void test();
 };
