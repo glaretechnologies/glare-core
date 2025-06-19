@@ -256,11 +256,12 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 	sun_vis_factor = 0.0;
 
 	// These values are eyeballed to be approximately the smallest values without striping artifacts.
-	float depth_map_0_bias = 5.0e-5f / to_light_dot_n;
-	float depth_map_1_bias = 12.0e-5f / to_light_dot_n;
-	float static_depth_map_0_bias = 5.0e-4f / to_light_dot_n;
-	float static_depth_map_1_bias = 10.0e-4f / to_light_dot_n;
-	float static_depth_map_2_bias = 15.0e-4f / to_light_dot_n;
+	const float light_angle_factor = 1.0f / max(to_light_dot_n, 0.3);
+	float depth_map_0_bias        = 5.0e-5f  * light_angle_factor;
+	float depth_map_1_bias        = 12.0e-5f * light_angle_factor;
+	float static_depth_map_0_bias = 5.0e-4f  * light_angle_factor;
+	float static_depth_map_1_bias = 10.0e-4f * light_angle_factor;
+	float static_depth_map_2_bias = 15.0e-4f * light_angle_factor;
 
 	float dist = -pos_cs.z;
 	if(dist < DEPTH_TEXTURE_SCALE_MULT*DEPTH_TEXTURE_SCALE_MULT)
