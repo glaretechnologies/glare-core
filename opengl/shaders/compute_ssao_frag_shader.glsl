@@ -26,15 +26,21 @@ float getDepthFromDepthTexture(vec2 normed_pos_ss)
 }
 
 
-vec3 viewSpaceFromScreenSpacePos(vec2 normed_pos_ss)
+vec3 viewSpaceFromScreenSpacePosAndDepth(vec2 normed_pos_ss, float depth)
 {
-	float depth = getDepthFromDepthTexture(normed_pos_ss); // depth := -pos_cs.z
- 
 	return vec3(
 		(normed_pos_ss.x - 0.5) * depth / l_over_w,
 		(normed_pos_ss.y - 0.5) * depth / l_over_h,
 		-depth
 	);
+}
+
+
+vec3 viewSpaceFromScreenSpacePos(vec2 normed_pos_ss)
+{
+	float depth = getDepthFromDepthTexture(normed_pos_ss); // depth := -pos_cs.z
+ 
+	return viewSpaceFromScreenSpacePosAndDepth(normed_pos_ss, depth);
 }
 
 // Returns coords in [0, 1] for visible positions
@@ -56,8 +62,6 @@ vec2 rayDirCameraToScreenSpace(vec3 p, vec3 d)
 	);
 }
 
-const float PI   = 3.1415926535897932384626433832795;
-const float PI_2 = 1.5707963267948966192313216916398;
 
 
 const uint SECTOR_COUNT = 32u;
@@ -308,17 +312,19 @@ void main()
 	}
 
 	const float step_len = max_len / 128.0;
-	int num_steps = int(len / step_len);
+	const int num_steps = int(len / step_len);
 	vec3 spec_refl_col = vec3(0.0);
-	float last_step_incr = step_len;
-	float cur_dist_ss = last_step_incr * (pixel_hash.y + 0.35);
+	//float last_step_incr = step_len;
+	float last_dist_ss = 0.0;
+	float cur_dist_ss = 0.005;// + /*last_step_incr*/step_len * (0.0);
 	bool hit_something = false;
-	float prev_t = 0.0;
+	//float prev_t = 0.0;
 	float prev_step_depth = 0.0;
+
 	for(int i=0; i<num_steps; ++i)
 	{
 		vec2  cur_ss  = origin_ss    + dir_ss  * cur_dist_ss; // Compute current screen space position
-		float p_ss_xy = o_ss_xy      + d_ss_xy * cur_dist_ss;
+		float p_ss_xy = o_ss_xy      + d_ss_xy * cur_dist_ss; // Screen-space pos in x or y.
 
 		float t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
 		if(t_1 < 0.0) // TODO: solve for the distance to this singularity to avoid this branch.
@@ -326,32 +332,89 @@ void main()
 
 		float p_cs_z = p.z + dir_cs.z * t_1; // Z coordinate of point on camera-space ray that projects onto the current screen space point
 		float cur_step_depth = -p_cs_z;
-
 		float cur_depth_buf_depth = getDepthFromDepthTexture(cur_ss); // Get depth from depth buffer for current step position
+		float pen_depth = cur_step_depth - cur_depth_buf_depth; // penetration depth, > 0 if we have intersected a surface.
 
-		float pen_depth = cur_step_depth - cur_depth_buf_depth; // penetration depth
-
-		vec3 n_j_vs = readNormalFromNormalTexture(cur_ss);
-
-		//vec3 p_cs = vec3(
-		//	(cur_ss.x - 0.5) * cur_depth_buf_depth / l_over_w,
-		//	(cur_ss.y - 0.5) * cur_depth_buf_depth / l_over_h,
-		//	-cur_depth_buf_depth
-		//);
-		//vec3 view_dir = normalize(-p_cs);
-
-
-		float thickness = 1.5 * clamp(cur_step_depth - prev_step_depth, 0.1, 10.0); // 0.1 / abs(dot(n_j_vs, view_dir));//*(t_1 - prev_t) * 2*/0.5 / max(abs(dot(n_j_vs, view_dir)), 0.01);
-		if((pen_depth > 0.0) && (pen_depth < thickness)) //   && (cur_depth_buf_depth > intersection_depth_threshold)) // if we hit something:
+		//vec3 frag_pos_cs = viewSpaceFromScreenSpacePosAndDepth(cur_ss, cur_depth_buf_depth);
+		//float frag_pos_cs_len = length(frag_pos_cs);
+		//vec3 n_cs = readNormalFromNormalTexture(cur_ss);
+		//float frag_dot = abs(dot(n_cs, frag_pos_cs)) / frag_pos_cs_len;
+		float last_step_depth_delta = cur_step_depth - prev_step_depth;
+		float coarse_thickness = clamp(last_step_depth_delta * 2.0, /*minval=*/1.0, /*maxval=*/30.0); // max(0.1, max(frag_pos_cs_len * 0.02 / max(0.2, frag_dot), (cur_step_depth - prev_step_depth) * 1.0));// / max(0.5, frag_dot);// max(0.1, max(t_1 - prev_t, cur_step_depth - prev_step_depth));// * frag_pos_cs_len;// * frag_pos_cs_len / max(0.1, frag_dot);
+		if((pen_depth > 0.0) && (pen_depth < coarse_thickness) && (i > 0))
 		{
-			spec_refl_col = textureLod(diffuse_tex, cur_ss, 0.0).xyz;
-			hit_something = true;
-			break;
+			// Refine intersection point with binary search
+			float dist_ss_a = last_dist_ss;
+			float dist_ss_b = cur_dist_ss;
+			for(int z=0; z<4; ++z)
+			{
+				float mid_dist_ss = (dist_ss_a + dist_ss_b) * 0.5;
+				p_ss_xy = o_ss_xy + d_ss_xy * mid_dist_ss;
+				t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
+				p_cs_z = p.z + dir_cs.z * t_1;
+				cur_step_depth = -p_cs_z;
+
+				cur_ss = origin_ss + dir_ss * mid_dist_ss;
+				cur_depth_buf_depth = getDepthFromDepthTexture(cur_ss); // Get depth from depth buffer for interval midpoint position
+
+				if(cur_step_depth > cur_depth_buf_depth) // if intersected surface:
+					dist_ss_b = mid_dist_ss; // Use first half of interval
+				else // Else if didn't intersect surface:
+					dist_ss_a = mid_dist_ss; // Use second half of interval
+			}
+
+			//cur_ss = origin_ss    + dir_ss  * ((dist_ss_a + dist_ss_b) * 0.5);
+			cur_ss = origin_ss    + dir_ss  * dist_ss_b;
+			p_ss_xy = o_ss_xy     + d_ss_xy * dist_ss_b;
+			t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
+			p_cs_z = p.z + dir_cs.z * t_1;
+			cur_step_depth = -p_cs_z;
+			cur_depth_buf_depth = getDepthFromDepthTexture(cur_ss);
+			pen_depth = cur_step_depth - cur_depth_buf_depth; // recompute penetration depth
+			//frag_pos_cs = viewSpaceFromScreenSpacePosAndDepth(cur_ss, cur_depth_buf_depth);
+			//frag_pos_cs_len = length(frag_pos_cs);
+			//n_cs = readNormalFromNormalTexture(cur_ss);
+			//frag_dot = abs(dot(n_cs, frag_pos_cs)) / frag_pos_cs_lens;
+			//float thickness = 10.0;//0.05;//frag_pos_cs_len * 0.01 / max(0.05, frag_dot); // 1.5 * clamp(cur_step_depth - prev_step_depth, 0.1, 10.0); // 0.1 / abs(dot(n_j_vs, view_dir));//*(t_1 - prev_t) * 2*/0.5 / max(abs(dot(n_j_vs, view_dir)), 0.01);
+			float refined_thickness = clamp(last_step_depth_delta * 2.0, /*minval=*/0.1, /*maxval=*/2.0); // max(0.05, max(frag_pos_cs_len * 0.01 / max(0.2, frag_dot), (cur_step_depth - prev_step_depth) * 0.5));// / max(0.5, frag_dot);// max(0.1, max(t_1 - prev_t, cur_step_depth - prev_step_depth));// * frag_pos_cs_len;// * frag_pos_cs_len / max(0.1, frag_dot);
+			if(pen_depth < refined_thickness) // if we hit something:
+			{
+				spec_refl_col = textureLod(diffuse_tex, cur_ss, 0.0).xyz;
+				hit_something = true;
+				break;
+			}
 		}
 
-		prev_t = t_1;
+	//	vec3 n_j_vs = readNormalFromNormalTexture(cur_ss);
+	//
+	//	vec3 p_cs = vec3(
+	//		(cur_ss.x - 0.5) * cur_depth_buf_depth / l_over_w,
+	//		(cur_ss.y - 0.5) * cur_depth_buf_depth / l_over_h,
+	//		-cur_depth_buf_depth
+	//	);
+	//
+	//	//vec3 p_cs = viewSpaceFromScreenSpacePos(cur_ss);
+	//	vec3 view_dir = normalize(p_cs);
+
+		// Form plane at object surface
+		// intersect ray with plane
+		// project intersection point back
+
+		//debug_val = abs(dot(n_j_vs, view_dir));
+	//	debug_val = vec3(abs(dot(n_j_vs, view_dir)));
+
+		//float thickness = 0.1;// / max(0.6, abs(dot(n_j_vs, view_dir))); // 1.5 * clamp(cur_step_depth - prev_step_depth, 0.1, 10.0); // 0.1 / abs(dot(n_j_vs, view_dir));//*(t_1 - prev_t) * 2*/0.5 / max(abs(dot(n_j_vs, view_dir)), 0.01);
+		//if((pen_depth > 0.0) && (pen_depth < thickness)) //   && (cur_depth_buf_depth > intersection_depth_threshold)) // if we hit something:
+		//{
+		//	spec_refl_col = textureLod(diffuse_tex, cur_ss, 0.0).xyz;
+		//	hit_something = true;
+		//	break;
+		//}
+
+		//prev_t = t_1;
 		prev_step_depth = cur_step_depth;
-		cur_dist_ss += last_step_incr;
+		last_dist_ss = cur_dist_ss;
+		cur_dist_ss += step_len;//last_step_incr;
 	}
 
 
@@ -368,8 +431,9 @@ void main()
 		float map_t = final_roughness * 6.9999 - float(map_lower);
 
 		float refl_theta = fastApproxACos(reflected_dir_ws.z);
-		float refl_phi = atan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
-		vec2 refl_map_coords = vec2(refl_phi * (1.0 / 6.283185307179586), clamp(refl_theta * (1.0 / 3.141592653589793), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
+		float refl_phi = fastApproxAtan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
+		// Note: specular_env_tex is just one side of the sphere of directions, so phi varies from 0 to pi.
+		vec2 refl_map_coords = vec2(refl_phi * (1.0 / PI), clamp(refl_theta * (1.0 / PI), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
 		vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
 		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)));

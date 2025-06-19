@@ -25,12 +25,27 @@ static float dot(const Vec3f& a, const Vec3f& b)
 {
 	return dotProduct(a, b);
 }
+static Vec2f normalize(const Vec2f& v) { return normalise(v); }
 static Vec3f normalize(const Vec3f& v) { return normalise(v); }
 static inline float min(float x, float y) { return myMin(x, y); }
 static inline float max(float x, float y) { return myMax(x, y); }
 static inline float clamp(float x, float a, float b) { return myClamp(x, a, b); }
 
 static inline float sign(float x) { return Maths::sign(x); }
+
+static vec3 reflect(vec3 I, vec3 N)
+{
+	return I - N * 2.0 * dot(N, I);
+}
+
+vec2 rayDirCameraToScreenSpace(vec3 p, vec3 d, float l_over_w, float l_over_h)
+{
+	return vec2(
+		(p.x * d.z - p.z * d.x) * l_over_w,
+		(p.y * d.z - p.z * d.y) * l_over_h
+	);
+}
+
 
 
 #define SECTOR_COUNT 32
@@ -53,10 +68,8 @@ uint countSetBits(uint v)
 }
 
 
-vec3 viewSpaceFromScreenSpacePos(vec2 normed_pos_ss, OpenGLEngine& gl_engine, SSAODebugging::DepthQuerier& depth_querier)
+vec3 viewSpaceFromScreenSpacePosAndDepth(vec2 normed_pos_ss, OpenGLEngine& gl_engine, float depth)
 {
-	float depth = depth_querier.depthForPosSS(normed_pos_ss);// getDepthFromDepthTexture(normed_pos_ss);
- 
 	float l_over_w = gl_engine.getCurrentScene()->lens_sensor_dist / gl_engine.getCurrentScene()->use_sensor_width;
 	float l_over_h = gl_engine.getCurrentScene()->lens_sensor_dist / gl_engine.getCurrentScene()->use_sensor_height;
 
@@ -66,6 +79,24 @@ vec3 viewSpaceFromScreenSpacePos(vec2 normed_pos_ss, OpenGLEngine& gl_engine, SS
 		-depth
 	);
 }
+
+
+vec3 viewSpaceFromScreenSpacePos(vec2 normed_pos_ss, OpenGLEngine& gl_engine, SSAODebugging::DepthQuerier& depth_querier)
+{
+	float depth = depth_querier.depthForPosSS(normed_pos_ss);// getDepthFromDepthTexture(normed_pos_ss);
+ 
+	/*float l_over_w = gl_engine.getCurrentScene()->lens_sensor_dist / gl_engine.getCurrentScene()->use_sensor_width;
+	float l_over_h = gl_engine.getCurrentScene()->lens_sensor_dist / gl_engine.getCurrentScene()->use_sensor_height;
+
+	return vec3(
+		(normed_pos_ss.x - 0.5f) * depth / l_over_w,
+		(normed_pos_ss.y - 0.5f) * depth / l_over_h,
+		-depth
+	);*/
+	return viewSpaceFromScreenSpacePosAndDepth(normed_pos_ss, gl_engine, depth);
+}
+
+
 
 static vec3 rayPlaneIntersectPoint(vec3 p, vec3 dir, float plane_d, vec3 plane_n)
 {
@@ -80,11 +111,12 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 	Vec2f texture_coords(0.5, 0.5); // middle of screen
 	//vec3 src_normal_encoded = textureLod(normal_tex, texture_coords, 0.0).xyz; // Encoded as a RGB8 texture (converted to floating point)
 	//vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
-	vec3 src_normal_ws = depth_querier.normalForPosSS(texture_coords);
+	vec3 src_normal_cs = depth_querier.normalCSForPosSS(texture_coords);
 
 
 	//vec3 n_p = normalize((frag_view_matrix * vec4(src_normal_ws, 0)).xyz); // View space 'fragment' normal
-	vec3 n = Vec3f(normalise(gl_engine.getCurrentScene()->last_view_matrix * src_normal_ws.toVec4fVector()));
+	//vec3 n = Vec3f(normalise(gl_engine.getCurrentScene()->last_view_matrix * src_normal_ws.toVec4fVector()));
+	vec3 n = src_normal_cs;
 
 	vec3 p = viewSpaceFromScreenSpacePos(texture_coords, gl_engine, depth_querier); // View space 'fragment' position
 	vec3 unit_p = normalize(p);
@@ -112,6 +144,9 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 
 	const float pixel_hash = 0.5f;
 
+	const float l_over_w = gl_engine.getCurrentScene()->lens_sensor_dist / gl_engine.getCurrentScene()->use_sensor_width;
+	const float l_over_h = gl_engine.getCurrentScene()->lens_sensor_dist / gl_engine.getCurrentScene()->use_sensor_height;
+
 	float debug_val = 0.0;
 	for(int i=0; i<N_d; ++i) // For each direction:
 	{
@@ -135,7 +170,7 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 		const float view_proj_n_angle = acos(dot(projected_n, V));
 		const float view_alpha = PI_2 + sign(dot(cross(V, projected_n), sampling_plane_n)) * view_proj_n_angle;
 
-		drawSamplingPlane(gl_engine, p, sampling_plane_n, projected_n);
+		//drawSamplingPlane(gl_engine, p, sampling_plane_n, projected_n);
 
 		float step_incr = r / N_s; // Distance in screen space to step, increases slightly each step.
 		float last_step_incr = step_incr;
@@ -161,7 +196,7 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 
 			vec3 pos_j = viewSpaceFromScreenSpacePos(pos_j_ss, gl_engine, depth_querier); // step_j position in camera/view space
 
-			drawPoint(gl_engine, pos_j, Colour4f(1,1,0,1)); // Draw pos_j
+			//drawPoint(gl_engine, pos_j, Colour4f(1,1,0,1)); // Draw pos_j
 
 			vec3 back_pos_j = pos_j - V * thickness; // position of guessed 'backside' of step position in camera/view space
 
@@ -199,9 +234,10 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 			if((cos_norm_angle > 0.01f) && (bits_changed != 0))
 			{
 				// Draw sector
-				drawSectors(gl_engine, p, bits_changed, sampling_plane_n, projected_n);
+				//drawSectors(gl_engine, p, bits_changed, sampling_plane_n, projected_n);
 
-				vec3 n_j_vs = Vec3f(normalise(gl_engine.getCurrentScene()->last_view_matrix * depth_querier.normalForPosSS(pos_j_ss).toVec4fVector()));
+				//vec3 n_j_vs = Vec3f(normalise(gl_engine.getCurrentScene()->last_view_matrix * depth_querier.normalForPosSS(pos_j_ss).toVec4fVector()));
+				vec3 n_j_vs = depth_querier.normalCSForPosSS(pos_j_ss);
 				float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
 
 				const float sin_factor = sqrt(max(0.0f, 1.0f - cos_norm_angle*cos_norm_angle));
@@ -231,6 +267,164 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 
 
 	const float irradiance_scale = 1.0f - clamp(uniform_irradiance / PI, 0.0f, 1.0f);
+
+
+	//========================= Do a traditional trace for specular reflection ===============================
+	// Reflect -V in n
+	vec3 reflected_dir = reflect(-V, n);
+	vec3 dir_cs = reflected_dir;
+
+	vec2 dir_ss = normalize(rayDirCameraToScreenSpace(p, reflected_dir, l_over_w, l_over_h));
+
+	const float max_len = 0.7f;
+	float len = max_len; // distance to walk in screen space
+	
+	// Clip screen-space ray on screen edges.
+	// Clip against left or right edge of screen
+	{	
+		float x_clip_val = (dir_ss.x > 0.0) ? 1.f : 0.f;
+		float hit_len = (x_clip_val - origin_ss.x) / dir_ss.x;
+		len = min(len, hit_len);
+	}
+	// Clip against top or bottom of screen
+	{	
+		float y_clip_val = (dir_ss.y > 0.0) ? 1.f : 0.f;
+		float hit_len = (y_clip_val - origin_ss.y) / dir_ss.y;
+		len = min(len, hit_len);
+	}
+
+	
+	// Solve for t_1 using x or y coordinates, which ever one changes faster.
+	float o_ss_xy, d_ss_xy, l_over_w_factor, o_cs_xy, d_cs_xy;
+	if(abs(dir_ss.x) > abs(dir_ss.y))
+	{
+		o_ss_xy = origin_ss.x;
+		d_ss_xy = dir_ss.x;
+		l_over_w_factor = l_over_w;
+		o_cs_xy = p.x;
+		d_cs_xy = dir_cs.x;
+	}
+	else
+	{
+		o_ss_xy = origin_ss.y;
+		d_ss_xy = dir_ss.y;
+		l_over_w_factor = l_over_h;
+		o_cs_xy = p.y;
+		d_cs_xy = dir_cs.y;
+	}
+
+	const float step_len = max_len / 128.0;
+	const int num_steps = int(len / step_len);
+	//vec3 spec_refl_col = vec3(0.0);
+	//float last_step_incr = step_len;
+	float last_dist_ss = 0.0;
+	float cur_dist_ss = 0.005 + step_len * (/*pixel_hash*//*.y*/0.0 + 0.35);
+	bool hit_something = false;
+	//float prev_t = 0.0;
+	float prev_step_depth = 0.0;
+
+	for(int i=0; i<num_steps; ++i)
+	{
+		vec2  cur_ss  = origin_ss    + dir_ss  * cur_dist_ss; // Compute current screen space position
+		float p_ss_xy = o_ss_xy      + d_ss_xy * cur_dist_ss;
+
+		float t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
+		if(t_1 < 0.0) // TODO: solve for the distance to this singularity to avoid this branch.
+			break;
+
+		float p_cs_z = p.z + dir_cs.z * t_1; // Z coordinate of point on camera-space ray that projects onto the current screen space point
+		float cur_step_depth = -p_cs_z;
+		float cur_depth_buf_depth = depth_querier.depthForPosSS(cur_ss); // getDepthFromDepthTexture(cur_ss); // Get depth from depth buffer for current step position
+		float pen_depth = cur_step_depth - cur_depth_buf_depth; // penetration depth, > 0 if we have intersected a surface.
+
+		drawPoint(gl_engine, viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_step_depth), Colour4f(1,0,0,1)); // Draw step position
+		drawPoint(gl_engine, viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_depth_buf_depth), Colour4f(1,0,0,1)); // Draw fragment position (uses depth buffer depth)
+		drawArrow(gl_engine, viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_step_depth), viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_depth_buf_depth), Colour4f(1, 0.5, 0, 1));
+
+		//vec3 frag_pos_cs = viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_depth_buf_depth);
+		//vec3 n_cs = depth_querier.normalCSForPosSS(cur_ss);
+		//drawArrow(gl_engine, frag_pos_cs, frag_pos_cs + n_cs * 0.2f, Colour4f(0, 0.8, 0, 1));
+		//float frag_dot = abs(dot(n_cs, normalise(frag_pos_cs)));
+		float last_step_depth_delta = cur_step_depth - prev_step_depth;
+		float coarse_thickness = max(1.0, last_step_depth_delta * 2.0); // 0.5 / max(0.05, frag_dot);
+
+		conPrint("step " + toString(i));
+		printVar(pen_depth);
+		printVar(last_step_depth_delta);
+		if(pen_depth > 0.0)
+			int a = 0;	
+
+		if((pen_depth > 0.0) && (pen_depth < coarse_thickness))
+		{
+			// Refine intersection point with binary search
+			float dist_ss_a = last_dist_ss;
+			float dist_ss_b = cur_dist_ss;
+			for(int z=0; z<4; ++z)
+			{
+				float mid_dist_ss = (dist_ss_a + dist_ss_b) * 0.5;
+				p_ss_xy = o_ss_xy + d_ss_xy * mid_dist_ss;
+				t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
+				p_cs_z = p.z + dir_cs.z * t_1;
+				cur_step_depth = -p_cs_z;
+
+				cur_ss = origin_ss + dir_ss * mid_dist_ss;
+				cur_depth_buf_depth = depth_querier.depthForPosSS(cur_ss); // Get depth from depth buffer for interval midpoint position
+
+				if(cur_step_depth > cur_depth_buf_depth) // if intersected surface:
+					dist_ss_b = mid_dist_ss; // Use first half of interval
+				else // Else if didn't intersect surface:
+					dist_ss_a = mid_dist_ss; // Use second half of interval
+			}
+
+			//cur_ss = origin_ss    + dir_ss  * ((dist_ss_a + dist_ss_b) * 0.5);
+			cur_ss = origin_ss    + dir_ss  * dist_ss_b;
+			p_ss_xy = o_ss_xy     + d_ss_xy * dist_ss_b;
+			t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
+			p_cs_z = p.z + dir_cs.z * t_1;
+			cur_step_depth = -p_cs_z;
+			cur_depth_buf_depth = depth_querier.depthForPosSS(cur_ss);
+			pen_depth = cur_step_depth - cur_depth_buf_depth; // recompute penetration depth
+
+			float refined_thickness = 0.1;// / max(0.6, abs(dot(n_j_vs, view_dir))); // 1.5 * clamp(cur_step_depth - prev_step_depth, 0.1, 10.0); // 0.1 / abs(dot(n_j_vs, view_dir));//*(t_1 - prev_t) * 2*/0.5 / max(abs(dot(n_j_vs, view_dir)), 0.01);
+			if(pen_depth < refined_thickness) //   && (cur_depth_buf_depth > intersection_depth_threshold)) // if we hit something:
+			{
+				hit_something = true;
+				break;
+			}
+		}
+
+	//	vec3 n_j_vs = readNormalFromNormalTexture(cur_ss);
+	//
+	//	vec3 p_cs = vec3(
+	//		(cur_ss.x - 0.5) * cur_depth_buf_depth / l_over_w,
+	//		(cur_ss.y - 0.5) * cur_depth_buf_depth / l_over_h,
+	//		-cur_depth_buf_depth
+	//	);
+	//
+	//	//vec3 p_cs = viewSpaceFromScreenSpacePos(cur_ss);
+	//	vec3 view_dir = normalize(p_cs);
+
+		// Form plane at object surface
+		// intersect ray with plane
+		// project intersection point back
+
+		//debug_val = abs(dot(n_j_vs, view_dir));
+	//	debug_val = vec3(abs(dot(n_j_vs, view_dir)));
+
+		//float thickness = 0.1;// / max(0.6, abs(dot(n_j_vs, view_dir))); // 1.5 * clamp(cur_step_depth - prev_step_depth, 0.1, 10.0); // 0.1 / abs(dot(n_j_vs, view_dir));//*(t_1 - prev_t) * 2*/0.5 / max(abs(dot(n_j_vs, view_dir)), 0.01);
+		//if((pen_depth > 0.0) && (pen_depth < thickness)) //   && (cur_depth_buf_depth > intersection_depth_threshold)) // if we hit something:
+		//{
+		//	spec_refl_col = textureLod(diffuse_tex, cur_ss, 0.0).xyz;
+		//	hit_something = true;
+		//	break;
+		//}
+
+		//prev_t = t_1;
+		prev_step_depth = cur_step_depth;
+		last_dist_ss = cur_dist_ss;
+		cur_dist_ss += step_len;//last_step_incr;
+	}
+
 
 	//ao *= (1.0f / float(N_d));
 	//indirect *= (1.0f / float(N_d));
@@ -285,6 +479,21 @@ void SSAODebugging::drawPoint(OpenGLEngine& gl_engine, Vec3f p_cs, const Colour4
 	// Temp: add marker in opengl scene
 	GLObjectRef ob = gl_engine.makeSphereObject(1.f, col);//Colour4f(1,1,0,1));
 	ob->ob_to_world_matrix = Matrix4f::translationMatrix(p_ws) *  Matrix4f::uniformScaleMatrix(0.02f);
+	gl_engine.addObject(ob);
+}
+
+
+void SSAODebugging::drawArrow(OpenGLEngine& gl_engine, Vec3f start_p_cs, Vec3f end_p_cs, const Colour4f& col)
+{
+	Matrix4f cam_to_world;
+	bool res = gl_engine.getCurrentScene()->last_view_matrix.getInverseForAffine3Matrix(cam_to_world);
+	assert(res);
+
+	Vec4f start_p_ws           = cam_to_world * start_p_cs.toVec4fPoint();
+	Vec4f end_p_ws             = cam_to_world * end_p_cs.toVec4fPoint();
+	//Vec4f dir_ws         = cam_to_world * dir_cs.toVec4fVector();
+
+	GLObjectRef ob = gl_engine.makeArrowObject(start_p_ws, end_p_ws, col, /*radius scale=*/1.f);
 	gl_engine.addObject(ob);
 }
 
