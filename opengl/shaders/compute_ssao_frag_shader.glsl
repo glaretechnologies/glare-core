@@ -17,7 +17,7 @@ in vec2 texture_coords;
 
 
 layout(location = 0) out vec4 irradiance_out;
-layout(location = 1) out vec3 specular_spec_rad_out;
+layout(location = 1) out vec4 specular_spec_rad_out;
 
 
 float getDepthFromDepthTexture(vec2 normed_pos_ss)
@@ -133,7 +133,7 @@ void main()
 	if(p.z < -100000.0) // Don't do SSAO for the environment sphere
 	{
 		irradiance_out = vec4(0.0, 0.0, 0.0, 1.0);
-		specular_spec_rad_out = vec3(0.0);
+		specular_spec_rad_out = vec4(0.0);
 		return;
 	}
 	vec3 V = -normalize(p); // View vector: vector from 'fragment' position to camera in view/camera space
@@ -320,6 +320,7 @@ void main()
 	bool hit_something = false;
 	//float prev_t = 0.0;
 	float prev_step_depth = 0.0;
+	float final_trace_dist_ss = 0.0;
 
 	for(int i=0; i<num_steps; ++i)
 	{
@@ -380,6 +381,7 @@ void main()
 			if(pen_depth < refined_thickness) // if we hit something:
 			{
 				spec_refl_col = textureLod(diffuse_tex, cur_ss, 0.0).xyz;
+				final_trace_dist_ss = dist_ss_b;
 				hit_something = true;
 				break;
 			}
@@ -418,12 +420,14 @@ void main()
 	}
 
 
+	const float final_roughness = textureLod(diffuse_tex, texture_coords, 0.0).w;
+
 	//========================= Mix in unoccluded specular env light ============================
 	if(!hit_something)
 	{
-		vec3 reflected_dir_ws = (transpose(frag_view_matrix) * vec4(reflected_dir, 0.0)).xyz; // NOTE: transpose could be very slow
+		final_trace_dist_ss = max_len;
 
-		const float final_roughness = textureLod(diffuse_tex, texture_coords, 0.0).w;
+		vec3 reflected_dir_ws = (transpose(frag_view_matrix) * vec4(reflected_dir, 0.0)).xyz; // NOTE: transpose could be very slow
 
 		// Look up env map for reflected dir
 		int map_lower = int(final_roughness * 6.9999);
@@ -457,5 +461,5 @@ void main()
 	// E = L_i pi					[ See https://pbr-book.org/3ed-2018/Color_and_Radiometry/Working_with_Radiometric_Integrals]
 
 	irradiance_out = vec4(irradiance, irradiance_scale);
-	specular_spec_rad_out = spec_refl_col;
+	specular_spec_rad_out = vec4(spec_refl_col, final_roughness * final_trace_dist_ss);
 }

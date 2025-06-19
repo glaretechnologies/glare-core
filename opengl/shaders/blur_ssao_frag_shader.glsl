@@ -2,7 +2,7 @@
 
 uniform sampler2D albedo_texture; // source texture
 
-uniform sampler2D main_colour_texture; // prepass colour texture (for roughness)
+//uniform sampler2D main_colour_texture; // prepass colour texture (for roughness)
 uniform sampler2D main_depth_texture; // prepass depth texture
 #if NORMAL_TEXTURE_IS_UINT
 uniform usampler2D main_normal_texture; // prepass normal texture
@@ -90,8 +90,8 @@ void main()
 		radius = 5.0;
 	else // else if specular reflection blur:
 	{
-		float roughness = texelFetch(main_colour_texture, px_coords, /*mip level=*/0).w;
-		radius = max(3.0, roughness * 35);
+		float roughness_times_trace_dist = texelFetch(albedo_texture, px_coords, /*mip level=*/0).w;
+		radius = clamp(roughness_times_trace_dist * 200.0, 3.0, 25.0); // TODO: make radius calculation not ad hoc
 	}
 	int r = int(radius + 0.9999); // round up
 	float radius_scale = 2.f / radius;

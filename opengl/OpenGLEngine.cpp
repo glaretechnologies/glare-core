@@ -2411,7 +2411,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		}
 
 		// Create crosshair marker
-		/*{
+		if(false)
+		{
 			crosshair_overlay_ob =  new OverlayObject();
 			crosshair_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(0, 0, 0) * Matrix4f::uniformScaleMatrix(0.005f) * Matrix4f::translationMatrix(-0.5f, -0.5f, 0);
 			crosshair_overlay_ob->mesh_data = this->unit_quad_meshdata;
@@ -2419,7 +2420,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			crosshair_overlay_ob->material.shader_prog = this->overlay_prog;
 
 			addOverlayObject(crosshair_overlay_ob);
-		}*/
+		}
 
 		if(true)
 		{
@@ -3484,7 +3485,6 @@ void OpenGLEngine::createSSAOTextures()
 	conPrint("Allocating SSAO buffers and textures with width " + toString(prepass_xres) + " and height " + toString(prepass_yres));
 
 #if 0
-	// SSAO
 	prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, col_buffer_format);
 	prepass_depth_renderbuffer  = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, depth_format);
 	prepass_framebuffer = new FrameBuffer();
@@ -3492,8 +3492,6 @@ void OpenGLEngine::createSSAOTextures()
 	prepass_framebuffer->attachRenderBuffer(*prepass_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
 	prepass_framebuffer->attachRenderBuffer(*prepass_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
 #else
-	// SSGI
-				
 	// We will store roughness in colour w.
 	const OpenGLTextureFormat prepass_col_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
 
@@ -3531,8 +3529,9 @@ void OpenGLEngine::createSSAOTextures()
 		OpenGLTextureFormat::Format_RGBA_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	blurred_ssao_texture_x->setDebugName("blurred_ssao_texture_x");
 
+	// We will store the screen-space trace distance (used to determine amount of blurring) in w coord.
 	ssao_specular_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
-		OpenGLTextureFormat::Format_RGB_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+		OpenGLTextureFormat::Format_RGBA_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	ssao_specular_texture->setDebugName("ssao_specular_texture");
 
 	blurred_ssao_specular_texture = new OpenGLTexture(prepass_xres, prepass_yres, this, /*data=*/ArrayRef<uint8>(), 
@@ -3559,6 +3558,7 @@ void OpenGLEngine::createSSAOTextures()
 		texture_debug_preview_overlay_obs[0]->material.albedo_texture = prepass_colour_copy_texture;
 
 		texture_debug_preview_overlay_obs[1]->material.albedo_texture = ssao_specular_texture;//prepass_normal_copy_texture;
+		texture_debug_preview_overlay_obs[1]->material.overlay_show_just_tex_rgb = true;
 
 		texture_debug_preview_overlay_obs[2]->material.albedo_texture = ssao_texture;
 		texture_debug_preview_overlay_obs[2]->material.overlay_show_just_tex_rgb = true;
@@ -11956,11 +11956,16 @@ void OpenGLEngine::toggleShowTexDebug(int index)
 		{
 			// specular refl
 			large_debug_overlay_ob->material.albedo_texture = this->ssao_specular_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 		else if(index == 5)
 		{
+			// specular refl roughness * trace dist
+			large_debug_overlay_ob->material.albedo_texture = this->ssao_specular_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
+
 			// blurred specular refl
-			large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_specular_texture;
+			//large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_specular_texture;
 		}
 	}
 }
