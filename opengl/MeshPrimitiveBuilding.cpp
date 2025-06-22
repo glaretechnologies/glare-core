@@ -19,7 +19,7 @@ Copyright Glare Technologies Limited 2023 -
 // Make a cylinder from (0,0,0), to (0,0,1) with radius 1.
 Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::makeCylinderMesh(VertexBufferAllocator& allocator, bool end_caps)
 {
-	const int res = 16; // Number of quad faces around cylinder
+	const int res = 32; // Number of quad faces around cylinder
 
 	const int num_verts = end_caps ? (res * 4 + 2) : (res * 2);
 	js::Vector<Vec3f, 16> verts(num_verts);
