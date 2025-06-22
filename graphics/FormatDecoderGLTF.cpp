@@ -152,10 +152,12 @@ struct GLTFMaterial : public RefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLTFMaterial() : KHR_materials_pbrSpecularGlossiness_present(false) {}
+	GLTFMaterial() : KHR_materials_pbrSpecularGlossiness_present(false), doubleSided(false) {}
 
 	std::string name;
 	std::string alphaMode;
+
+	bool doubleSided;
 
 	//----------- From KHR_materials_pbrSpecularGlossiness extension:------------
 	bool KHR_materials_pbrSpecularGlossiness_present;
@@ -1511,6 +1513,8 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 	
 	if(mat.alphaMode == "OPAQUE")
 		mat_out.alpha = 1; // "The alpha value is ignored and the rendered output is fully opaque."
+
+	mat_out.double_sided = mat.doubleSided;
 }
 
 
@@ -1917,6 +1921,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				if(mat_node.hasChild("name")) mat->name = mat_node.getChildStringValue(parser, "name");
 				mat->alphaMode = mat_node.getChildStringValueWithDefaultVal(parser, "alphaMode", "OPAQUE");
+				mat->doubleSided = mat_node.getChildBoolValueWithDefaultVal(parser, "doubleSided", false);
 
 				if(mat_node.hasChild("extensions"))
 				{

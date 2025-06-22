@@ -42,6 +42,8 @@ struct GLTFResultMaterial
 
 	float roughness;
 	float metallic;
+
+	bool double_sided;
 };
 
 
