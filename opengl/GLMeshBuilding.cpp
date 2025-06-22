@@ -1404,5 +1404,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 
 	opengl_render_data->num_materials_referenced = largest_material_index + 1;
 
+	opengl_render_data->animation_data = mesh->animation_data;
+
 	return opengl_render_data;
 }
