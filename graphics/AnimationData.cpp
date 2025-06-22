@@ -516,6 +516,15 @@ int AnimationData::getNodeIndex(const std::string& name) // Returns -1 if not fo
 }
 
 
+int AnimationData::getNodeIndexWithNameSuffix(const std::string& name_suffix)
+{
+	for(size_t i=0; i<nodes.size(); ++i)
+		if(::hasSuffix(nodes[i].name, name_suffix))
+			return (int)i;
+	return -1;
+}
+
+
 // Load animation data from a GLB file from the stream.
 // Take the animation data, retarget it (adjust bone lengths etc.) and store in the current object.
 void AnimationData::loadAndRetargetAnim(InStream& stream)
@@ -770,7 +779,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		"rightIndexDistal",
 		"",
 		"rightLittleProximal",
-		"rightLittleProximal",
+		"rightLittleIntermediate",
 		"rightLittleDistal",
 		"",
 		"leftUpperLeg",
@@ -1191,7 +1200,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 }
 
 
-Vec4f AnimationData::getNodePositionModelSpace(const std::string& name, bool use_retarget_adjustment)
+Vec4f AnimationData::getNodePositionModelSpace(int node_index, bool use_retarget_adjustment)
 {
 	const size_t num_nodes = sorted_nodes.size();
 	js::Vector<Matrix4f, 16> node_matrices(num_nodes);
@@ -1213,10 +1222,26 @@ Vec4f AnimationData::getNodePositionModelSpace(const std::string& name, bool use
 
 		node_matrices[node_i] = node_transform;
 
-		if(node_data.name == name)
+		if(node_i == node_index)
 			return node_transform.getColumn(3);
 	}
 
+	assert(0);
+	return Vec4f(0,0,0,1);
+}
+
+
+Vec4f AnimationData::getNodePositionModelSpace(const std::string& name, bool use_retarget_adjustment)
+{
+	for(size_t n=0; n<sorted_nodes.size(); ++n)
+	{
+		const int node_i = sorted_nodes[n];
+		const AnimationNodeData& node_data = nodes[node_i];
+		if(node_data.name == name)
+			return getNodePositionModelSpace(node_i, use_retarget_adjustment);
+	}
+
+	assert(0);
 	return Vec4f(0,0,0,1);
 }
 
