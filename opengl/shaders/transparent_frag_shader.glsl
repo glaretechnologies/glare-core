@@ -182,7 +182,7 @@ void main()
 		vec3 unit_cam_to_pos_ws = normalize(cam_to_pos_ws);
 
 		const float roughness = 0.15;
-		const float alpha2 = alpha2ForRoughness(roughness);
+		float alpha2 = alpha2ForRoughness(roughness);
 		const float fresnel_scale = 1.0;
 
 		//----------------------- Direct lighting from interior lights ----------------------------

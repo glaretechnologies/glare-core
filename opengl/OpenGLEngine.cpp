@@ -2120,6 +2120,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 		preprocessor_defines += "#define NORMAL_TEXTURE_IS_UINT " + (normal_texture_is_uint ? std::string("1") : std::string("0")) + "\n";
 
+		preprocessor_defines += "#define SSAO_SUPPORT " + (settings.ssao_support ? std::string("1") : std::string("0")) + "\n";
+
 
 		if(use_bindless_textures)
 			preprocessor_defines += "#extension GL_ARB_bindless_texture : require\n";

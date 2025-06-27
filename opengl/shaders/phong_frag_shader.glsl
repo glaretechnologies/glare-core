@@ -80,8 +80,7 @@ uniform sampler2D detail_tex_2; // vegetation
 uniform sampler2D caustic_tex_a;
 uniform sampler2D caustic_tex_b;
 
-#define SSAO_SUPPORT 1
-#ifdef SSAO_SUPPORT
+#if SSAO_SUPPORT
 uniform sampler2D ssao_tex;
 uniform sampler2D ssao_specular_tex;
 uniform sampler2D prepass_depth_tex; // SSAO prepass depth texture
@@ -194,7 +193,7 @@ float getDepthFromDepthTexture(vec2 pos_ss)
 }
 #endif // DECAL
 
-#ifdef SSAO_SUPPORT
+#if SSAO_SUPPORT
 vec3 readNormalFromPrepassNormalTexture(ivec2 px_coords)
 {
 #if NORMAL_TEXTURE_IS_UINT
@@ -804,7 +803,7 @@ void main()
 	float frag_depth = -pos_cs.z;
 
 	vec4 spec_refl_light = vec4(0.0); // spectral radiance * 1.0e-9
-#ifdef SSAO_SUPPORT
+#if SSAO_SUPPORT
 	if((mat_common_flags & DO_SSAO_FLAG) != 0)
 	{
 		// Apply SSAO

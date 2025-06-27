@@ -465,7 +465,7 @@ public:
 
 	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), shadow_mapping_detail(ShadowMappingDetail_medium), compress_textures(false), render_to_offscreen_renderbuffers(true), screenspace_refl_and_refr(true), depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
 		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
-		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false), ssao(false) {}
+		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false), ssao_support(true), ssao(false) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -489,7 +489,8 @@ public:
 	// For working around a bug on Mac with changing the phong uniform buffer between rendering batches (see https://issues.chromium.org/issues/338348430)
 	bool use_multiple_phong_uniform_bufs;
 
-	bool ssao;
+	bool ssao_support; // Should shaders be compiled with SSAO support?
+	bool ssao; // Should SSAO be enabled? Can be toggled at runtime.
 };
 
 
