@@ -312,7 +312,7 @@ void main()
 	}
 
 	const float step_len = max_len / 128.0;
-	const int num_steps = int(len / step_len);
+	int num_steps = int(len / step_len);
 	vec3 spec_refl_col = vec3(0.0);
 	//float last_step_incr = step_len;
 	float last_dist_ss = 0.0;
@@ -420,7 +420,7 @@ void main()
 	}
 
 
-	const float final_roughness = textureLod(diffuse_tex, texture_coords, 0.0).w;
+	float final_roughness = textureLod(diffuse_tex, texture_coords, 0.0).w;
 
 	//========================= Mix in unoccluded specular env light ============================
 	if(!hit_something)
