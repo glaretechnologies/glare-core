@@ -7020,11 +7020,7 @@ void OpenGLEngine::draw()
 			);
 
 			const OpenGLTextureFormat transparent_accum_format = col_buffer_format;
-#if defined(EMSCRIPTEN)
-			const OpenGLTextureFormat total_transmittance_format = OpenGLTextureFormat::Format_RGBA_Linear_Uint8; // Shouldn't be used as we don't do order-independent transparency in Emscripten.
-#else
 			const OpenGLTextureFormat total_transmittance_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
-#endif
 
 			if(use_order_indep_transparency)
 			{
@@ -7408,8 +7404,6 @@ void OpenGLEngine::draw()
 				blur_framebuffers[i] = NULL;
 			}
 
-			FrameBuffer::unbind();
-			glDrawBuffers(0, nullptr);
 			glDepthMask(GL_FALSE); // Disable writing to depth buffer.  Do this before checking for framebuffer completeness below.
 
 #if EMSCRIPTEN
@@ -7430,8 +7424,7 @@ void OpenGLEngine::draw()
 				downsize_framebuffers[i] = new FrameBuffer();
 				downsize_framebuffers[i]->attachTexture(*downsize_target_textures[i], GL_COLOR_ATTACHMENT0);
 
-				GLenum is_complete = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-				if(is_complete != GL_FRAMEBUFFER_COMPLETE)
+				if(!downsize_framebuffers[i]->isComplete())
 				{
 					conPrint("Error: downsize_framebuffers: framebuffer is not complete.");
 					assert(0);
