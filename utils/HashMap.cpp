@@ -1,7 +1,7 @@
 /*=====================================================================
 HashMap.cpp
 ------------
-Copyright Glare Technologies Limited 2022 -
+Copyright Glare Technologies Limited 2025 -
 =====================================================================*/
 #include "HashMap.h"
 
@@ -15,8 +15,18 @@ Copyright Glare Technologies Limited 2022 -
 #include "TestUtils.h"
 #include "Timer.h"
 #include "Hasher.h"
+//#include "HashMapInsertOnly2.h"
+//#include "HashMap2.h"
 #include "StringUtils.h"
 #include "../maths/PCG32.h"
+#include "PlatformUtils.h"
+#include <map>
+#include <unordered_map>
+
+#if TEST_JOLT_UNORDERED_MAP
+#include <Jolt/Jolt.h>
+#include <Jolt/Core/UnorderedMap.h>
+#endif
 
 
 template <class K, class V, class H>
@@ -42,9 +52,221 @@ struct TestIdentityHashFunc
 };
 
 
+static void printTimingResult(const std::string& op_name, double elapsed, int N)
+{
+	conPrint(rightPad(op_name + " took", ' ', /*minwidth=*/40) + ::doubleToStringNSigFigs(elapsed * 1.0e3, 4) + " ms (" + 
+		doubleToStringNSigFigs(elapsed / N * 1.0e9, 4) + " ns / op, " + 
+		doubleToStringNSigFigs(N / elapsed * 1.0e-6, 4) + " M ops/s)");
+}
+
+
+static void testHashMapPerf(const std::vector<int>& testdata, int N, int NUM_LOOKUPS, bool do_reservation)
+{
+	// Test std::map
+	/*{
+		Timer timer;
+		std::map<int, int> m;
+
+		for(int i=0; i<N; ++i)
+		{
+			const int x = testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+
+		double elapsed = timer.elapsed();
+		printTimingResult("std::map insert", elapsed, N);
+
+		// Test lookup performance
+		timer.reset();
+		int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const int x = testdata[i];
+			std::map<int, int>::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+
+		elapsed = timer.elapsed();
+		printTimingResult("std::map lookups", elapsed, N);
+		TestUtils::silentPrint(toString(num_present));
+	}*/
+
+	// Test std::unordered_map
+	{
+		Timer timer;
+		std::unordered_map<int, int> m;
+		if(do_reservation)
+			m.reserve(N);
+
+		for(int i=0; i<N; ++i)
+		{
+			const int x = testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+
+		double elapsed = timer.elapsed();
+		printTimingResult("std::unordered_map insert", elapsed, N);
+
+		// Test lookup performance
+		timer.reset();
+		int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const int x = testdata[i];
+			std::unordered_map<int, int>::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+
+		elapsed = timer.elapsed();
+		printTimingResult("std::unordered_map lookups", elapsed, N);
+		TestUtils::silentPrint(toString(num_present));
+	}
+	
+	// Test HashMapInsertOnly2
+#if 0
+	{
+		Timer timer;
+		HashMapInsertOnly2<int, int> m(std::numeric_limits<int>::max(), /*expected num items=*/do_reservation ? N : 0);
+
+		for(int i=0; i<N; ++i)
+		{
+			const int x = testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+
+		double elapsed = timer.elapsed();
+		printTimingResult("HashMapInsertOnly2 insert", elapsed, N);
+
+		// Test lookup performance
+		timer.reset();
+		int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const int x = testdata[i];
+			HashMapInsertOnly2<int, int>::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+
+		elapsed = timer.elapsed();
+		printTimingResult("HashMapInsertOnly2 lookups", elapsed, N);
+		TestUtils::silentPrint(toString(num_present));
+	}
+#endif
+
+	{
+		Timer timer;
+		HashMap<int, int> m(std::numeric_limits<int>::max(), /*expected num items=*/do_reservation ? N : 0);
+		
+		for(int i=0; i<N; ++i)
+		{
+			const int x = testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+
+		double elapsed = timer.elapsed();
+		printTimingResult("HashMap insert", elapsed, N);
+
+		// Test lookup performance
+		timer.reset();
+		int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const int x = testdata[i];
+			HashMap<int, int>::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+
+		elapsed = timer.elapsed();
+		printTimingResult("HashMap lookups", elapsed, N);
+		TestUtils::silentPrint(toString(num_present));
+		printVar(m.buckets_size);
+	}
+
+	
+#if 0
+	// Test HashMap2 (experimental non-power-of-2 buckets)
+	{
+		Timer timer;
+		HashMap2<int, int> m(std::numeric_limits<int>::max(), /*expected num items=*/do_reservation ? N : 0);
+		
+		for(int i=0; i<N; ++i)
+		{
+			const int x = testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+
+		double elapsed = timer.elapsed();
+		printTimingResult("HashMap2 insert", elapsed, N);
+
+		// Test lookup performance
+		timer.reset();
+		int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const int x = testdata[i];
+			HashMap2<int, int>::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+
+		elapsed = timer.elapsed();
+		printTimingResult("HashMap2 lookups", elapsed, N);
+		TestUtils::silentPrint(toString(num_present));
+		printVar(m.buckets_size);
+	}
+#endif
+	
+	// Test Jolt hash table
+#if TEST_JOLT_UNORDERED_MAP
+	{
+		Timer timer;
+		JPH::UnorderedMap<int, int> m;//(std::numeric_limits<int>::max(), /*expected num items=*/do_reservation ? N : 0);
+		
+		if(do_reservation)
+			m.reserve(N);
+
+		for(int i=0; i<N; ++i)
+		{
+			const int x = testdata[i];
+			m.insert(std::make_pair(x, x));
+		}
+
+		double elapsed = timer.elapsed();
+		printTimingResult("JPH::UnorderedMap insert", elapsed, N);
+
+		// Test lookup performance
+		timer.reset();
+		int num_present = 0;
+		for(int i=0; i<NUM_LOOKUPS; ++i)
+		{
+			const int x = testdata[i];
+			JPH::UnorderedMap<int, int>::const_iterator it = m.find(x);
+			if(it != m.end())
+				num_present++;
+		}
+
+		elapsed = timer.elapsed();
+		printTimingResult("JPH::UnorderedMap lookups", elapsed, N);
+		TestUtils::silentPrint(toString(num_present));
+		//printVar(m.buckets_size);
+	}
+#endif // TEST_JOLT_UNORDERED_MAP
+}
+
+
 void testHashMap()
 {
 	conPrint("testHashMap()");
+
+
+	{
+		HashMap<int, int> m(/*empty key=*/std::numeric_limits<int>::max(), /*expected num items=*/33);
+		printVar(m.buckets_size);
+	}
 
 	// Test hash function performance
 	{
@@ -563,6 +785,34 @@ void testHashMap()
 			}
 		}
 	}
+
+	//======================= Test performance ===========================
+
+	const int N = 2100000;
+	//const int N = 34000000;
+	const int NUM_LOOKUPS = N;
+
+	std::vector<int> sparse_testdata(N); // Values that are mostly unique
+	std::vector<int> dense_testdata(N); // Values that will mostly be duplicated
+	PCG32 rng(1);
+	for(int i=0; i<N; ++i)
+		sparse_testdata[i] = (int)(rng.unitRandom() * 1.0e8f);
+	for(int i=0; i<N; ++i)
+		dense_testdata[i] = (int)(rng.unitRandom() * 1000.f);
+
+	conPrint("\nperf for mostly unique keys");
+	conPrint("-------------------------------------");
+	testHashMapPerf(sparse_testdata, N, NUM_LOOKUPS, /*do reservation=*/false);
+
+	conPrint("\nperf for mostly unique keys with size reservation");
+	conPrint("-------------------------------------");
+	testHashMapPerf(sparse_testdata, N, NUM_LOOKUPS, /*do reservation=*/true);
+	
+	conPrint("");
+	conPrint("\nperf for mostly duplicate keys");
+	conPrint("-------------------------------------");
+	testHashMapPerf(dense_testdata, N, NUM_LOOKUPS, /*do reservation=*/false);
+
 
 	conPrint("testHashMap() done.");
 }

@@ -1,7 +1,7 @@
 /*=====================================================================
 HashMap.h
 ---------
-Copyright Glare Technologies Limited 2022 -
+Copyright Glare Technologies Limited 2025 -
 =====================================================================*/
 #pragma once
 
@@ -46,10 +46,22 @@ public:
 	}
 
 
+	// Load factor = 3/4
+	static size_t multiplyByMaxLoadFactor(size_t x)
+	{
+		return x * 3 / 4; // The divide should be optimised into a mul by the compiler.
+	}
+
+	static size_t divideByMaxLoadFactor(size_t x)
+	{
+		return x * 4 / 3; // The divide should be optimised into a mul by the compiler.
+	}
+
+
 	HashMap(Key empty_key_, size_t expected_num_items)
 	:	num_items(0), empty_key(empty_key_)
 	{
-		buckets_size = myMax<size_t>(32ULL, Maths::roundToNextHighestPowerOf2(expected_num_items*2));
+		buckets_size = myMax<size_t>(32ULL, Maths::roundToNextHighestPowerOf2(divideByMaxLoadFactor(expected_num_items)));
 		
 		buckets = (std::pair<Key, Value>*)MemAlloc::alignedMalloc(sizeof(std::pair<Key, Value>) * buckets_size, 64);
 
@@ -253,35 +265,56 @@ public:
 	// If key was not already in map, inserts it, then returns iterator to new item and true.
 	std::pair<iterator, bool> insert(const std::pair<Key, Value>& key_val_pair)
 	{
+#if 1
+		checkForExpand(); // Check for expand with the current size.  This does a slightly inaccurate load factor comparison, but it shouldn't matter.
+
+		// Find
 		assert(key_val_pair.first != empty_key);
+		size_t bucket_i = hashKey(key_val_pair.first);
 
-		iterator find_res = find(key_val_pair.first);
-		if(find_res == end())
+		// Search for bucket item is in
+		while(1)
 		{
-			// Item is not already inserted, insert:
+			if(buckets[bucket_i].first == key_val_pair.first)
+				return std::make_pair(HashMapIterator<Key, Value, HashFunc>(this, buckets + bucket_i), /*inserted=*/false); // Already inserted
 
-			num_items++;
-			checkForExpand();
-
-			size_t bucket_i = hashKey(key_val_pair.first);
-			// Search for bucket item is in, or an empty bucket
-			while(1)
+			if(buckets[bucket_i].first == empty_key)
 			{
-				if(buckets[bucket_i].first == empty_key) // If bucket is empty:
-				{
-					buckets[bucket_i] = key_val_pair;
-					return std::make_pair(HashMapIterator<Key, Value, HashFunc>(this, buckets/*.begin()*/ + bucket_i), /*inserted=*/true);
-				}
-
-				// Else advance to next bucket, with wrap-around
-				bucket_i = (bucket_i + 1) & hash_mask; // bucket_i = (bucket_i + 1) % buckets.size();
+				buckets[bucket_i] = key_val_pair;
+				num_items++;
+				return std::make_pair(HashMapIterator<Key, Value, HashFunc>(this, buckets + bucket_i), /*inserted=*/true);
 			}
+
+			// Else advance to next bucket, with wrap-around
+			bucket_i = (bucket_i + 1) & hash_mask;
 		}
-		else
+#else
+
+	doInsert:
+		// Find
+		assert(key_val_pair.first != empty_key);
+		size_t bucket_i = hashKey(key_val_pair.first);
+
+		// Search for bucket item is in
+		while(1)
 		{
-			// Item was already in map: return (iterator to existing item, false)
-			return std::make_pair(find_res, /*inserted=*/false);
+			if(buckets[bucket_i].first == key_val_pair.first)
+				return std::make_pair(HashMapIterator<Key, Value, HashFunc>(this, buckets/*.begin()*/ + bucket_i), /*inserted=*/false); // Already inserted
+
+			if(buckets[bucket_i].first == empty_key)
+			{
+				const bool expanded = checkForExpand();
+				if(expanded)
+					goto doInsert;
+				buckets[bucket_i] = key_val_pair;
+				num_items++;
+				return std::make_pair(HashMapIterator<Key, Value, HashFunc>(this, buckets/*.begin()*/ + bucket_i), /*inserted=*/true);
+			}
+
+			// Else advance to next bucket, with wrap-around
+			bucket_i = (bucket_i + 1) & hash_mask;
 		}
+#endif
 	}
 
 	Value& operator [] (const Key& k)
@@ -343,13 +376,9 @@ private:
 	// Returns true if expanded
 	bool checkForExpand()
 	{
-		//size_t load_factor = num_items / buckets.size();
-		//const float load_factor = (float)num_items / buckets.size();
-
-		//if(load_factor > 0.5f)
-		if(num_items >= buckets_size / 2)
+		if(num_items >= multiplyByMaxLoadFactor(buckets_size))
 		{
-			expand(/*buckets.size() * 2*/);
+			expand();
 			return true;
 		}
 		else
@@ -359,7 +388,7 @@ private:
 	}
 
 
-	void expand(/*size_t new_num_buckets*/)
+	void expand()
 	{
 		// Get pointer to old buckets
 		const std::pair<Key, Value>* const old_buckets = this->buckets;
