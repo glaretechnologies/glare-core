@@ -226,15 +226,14 @@ vec2 cameraToScreenSpace(vec3 pos_cs)
 }
 
 
-vec4 computeFresnelReflectance(float h_cos_theta, vec4 refl_diffuse_col, float final_fresnel_scale, float final_metallic_frac)
+vec3 computeFresnelReflectance(float h_cos_theta, vec3 refl_diffuse_col, float final_fresnel_scale, float final_metallic_frac)
 {
 	//vec4 dielectric_fresnel = vec4(useFresnelApprox(h_cos_theta, 1.5) * final_fresnel_scale);
-	vec4 dielectric_fresnel = vec4(dielectricFresnelReflForIOR1_5(h_cos_theta) * final_fresnel_scale);
-	vec4 metal_fresnel = vec4(
+	vec3 dielectric_fresnel = vec3(dielectricFresnelReflForIOR1_5(h_cos_theta) * final_fresnel_scale);
+	vec3 metal_fresnel = vec3(
 		metallicFresnelApprox(h_cos_theta, refl_diffuse_col.r),
 		metallicFresnelApprox(h_cos_theta, refl_diffuse_col.g),
-		metallicFresnelApprox(h_cos_theta, refl_diffuse_col.b),
-		0);
+		metallicFresnelApprox(h_cos_theta, refl_diffuse_col.b));
 
 	// Blend between metal_fresnel and dielectric_fresnel based on final_metallic_frac.
 	return mix(dielectric_fresnel, metal_fresnel, final_metallic_frac);
@@ -475,18 +474,18 @@ void main()
 	vec3 frag_to_cam_ws = -unit_cam_to_pos_ws;
 
 
-	vec4 refl_diffuse_col = use_diffuse_colour; // Reflective linear colour of surface
-	vec4 trans_diffuse_col = vec4(MAT_UNIFORM.transmission_colour_r, MAT_UNIFORM.transmission_colour_g, MAT_UNIFORM.transmission_colour_b, 1.0); // Transmissive colour of surface
+	vec4 refl_diffuse_col = use_diffuse_colour; // Reflective linear colour of surface.  W coord is alpha.
+	vec3 trans_diffuse_col = vec3(MAT_UNIFORM.transmission_colour_r, MAT_UNIFORM.transmission_colour_g, MAT_UNIFORM.transmission_colour_b); // Transmissive colour of surface
 
 	float frag_to_cam_dot_normal = dot(frag_to_cam_ws, unit_normal_ws);
 
 	if((use_flags & HAVE_TEXTURE_FLAG) != 0)
 	{
 		vec4 refl_texture_diffuse_col;
-		vec4 trans_texture_diffuse_col;
+		vec3 trans_texture_diffuse_col;
 #if COMBINED
 		refl_texture_diffuse_col = texture(COMBINED_ARRAY_TEX, vec3(main_tex_coords, array_image_index));
-		trans_texture_diffuse_col = refl_texture_diffuse_col;
+		trans_texture_diffuse_col = refl_texture_diffuse_col.xyz;
 #else
 
 #if FANCY_DOUBLE_SIDED
@@ -503,22 +502,22 @@ void main()
 			//refl_texture_diffuse_col.xyz = vec3(0,1,0);//TEMP
 		}
 
-		trans_texture_diffuse_col = texture(TRANSMISSION_TEX, main_tex_coords);
+		trans_texture_diffuse_col = texture(TRANSMISSION_TEX, main_tex_coords).xyz;
 #else
 		refl_texture_diffuse_col = texture(DIFFUSE_TEX, main_tex_coords);
-		trans_texture_diffuse_col = refl_texture_diffuse_col;
+		trans_texture_diffuse_col = refl_texture_diffuse_col.xyz;
 #endif
 		if((use_flags & SWIZZLE_ALBEDO_TEX_R_TO_RGB_FLAG) != 0)
 		{
 			refl_texture_diffuse_col.xyz  = vec3(refl_texture_diffuse_col.x);
-			trans_texture_diffuse_col.xyz = vec3(trans_texture_diffuse_col.x);
+			trans_texture_diffuse_col     = vec3(trans_texture_diffuse_col.x);
 		}
 
 		if((use_flags & CONVERT_ALBEDO_FROM_SRGB_FLAG) != 0)
 		{
 			// Texture value is in non-linear sRGB, convert to linear sRGB.
 			refl_texture_diffuse_col.xyz  = fastApproxNonLinearSRGBToLinearSRGB(refl_texture_diffuse_col.xyz);
-			trans_texture_diffuse_col.xyz = fastApproxNonLinearSRGBToLinearSRGB(trans_texture_diffuse_col.xyz);
+			trans_texture_diffuse_col     = fastApproxNonLinearSRGBToLinearSRGB(trans_texture_diffuse_col);
 		}
 
 #endif // end if !COMBINED
@@ -532,9 +531,9 @@ void main()
 
 	// Reflective or transmissive colour of surface depending on if sun is on same side or other side as camera.
 #if FANCY_DOUBLE_SIDED
-	vec4 direct_sun_diffuse_col = (frag_to_cam_dot_normal * light_cos_theta <= 0.f) ? trans_diffuse_col : refl_diffuse_col; 
+	vec3 direct_sun_diffuse_col = (frag_to_cam_dot_normal * light_cos_theta <= 0.f) ? trans_diffuse_col : refl_diffuse_col.xyz; 
 #else
-	vec4 direct_sun_diffuse_col = refl_diffuse_col;
+	vec3 direct_sun_diffuse_col = refl_diffuse_col.xyz;
 #endif
 
 #if TERRAIN
@@ -588,8 +587,8 @@ void main()
 	texcol += detail_2_texval * veg_weight; // TEMP disabled colour variation.    * colour_variation_factor * veg_weight;
 	texcol.w = 1.0;
 
-	direct_sun_diffuse_col  = texcol;
-	refl_diffuse_col = texcol;
+	refl_diffuse_col        = texcol;
+	direct_sun_diffuse_col  = texcol.xyz;
 #endif
 
 	// float snow_tex = 0.5 + texture(snow_ice_normal_map, pos_ws.xy * 0.25).x;
@@ -601,9 +600,9 @@ void main()
 #if VERT_COLOURS
 	vec3 linear_vert_col = fastApproxNonLinearSRGBToLinearSRGB(vert_colour);
 
-	refl_diffuse_col.xyz       *= linear_vert_col;
-	trans_diffuse_col.xyz      *= linear_vert_col;
-	direct_sun_diffuse_col.xyz *= linear_vert_col;
+	refl_diffuse_col.xyz   *= linear_vert_col;
+	trans_diffuse_col      *= linear_vert_col;
+	direct_sun_diffuse_col *= linear_vert_col;
 #endif
 
 	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 64.f)).x;
@@ -635,7 +634,7 @@ void main()
 		fract(use_texture_coords.y) < border_w_v || fract(use_texture_coords.y) >= (1.0 - border_w_v))
 	{
 		refl_diffuse_col       = vec4(0.2f, 0.8f, 0.54f, 1.f);
-		direct_sun_diffuse_col = vec4(0.2f, 0.8f, 0.54f, 1.f);
+		direct_sun_diffuse_col = vec3(0.2f, 0.8f, 0.54f);
 	}
 #endif
 
@@ -672,7 +671,7 @@ void main()
 	indices[6] = light_indices_1.z;
 	indices[7] = light_indices_1.w;
 
-	vec4 local_light_radiance = vec4(0.f);
+	vec3 local_light_radiance = vec3(0.f);
 	for(int i=0; i<8; ++i)
 	{
 		int light_index = indices[i];
@@ -705,14 +704,14 @@ void main()
 			// Compute specular bsdf
 			vec3 h_ws = normalize(unit_pos_to_light - unit_cam_to_pos_ws);
 			float h_cos_theta = abs(dot(h_ws, unit_normal_ws));
-			vec4 specular_fresnel = computeFresnelReflectance(h_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
+			vec3 specular_fresnel = computeFresnelReflectance(h_cos_theta, refl_diffuse_col.xyz, final_fresnel_scale, final_metallic_frac);
 
-			vec4 specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(final_roughness)) * specular_fresnel;
+			vec3 specular = trowbridgeReitzPDF(h_cos_theta, alpha2ForRoughness(final_roughness)) * specular_fresnel;
 
 			vec3 bsdf = diffuse_bsdf + specular.xyz;
 			vec3 reflected_radiance = bsdf * cos_theta_term * light_emitted_radiance * dir_factor / pos_to_light_len2;
 
-			local_light_radiance.xyz += reflected_radiance;
+			local_light_radiance += reflected_radiance;
 		}
 	}
 
@@ -720,7 +719,7 @@ void main()
 	//------------- Compute specular microfacet terms for sun lighting --------------
 	vec3 h_ws = normalize(frag_to_cam_ws + sundir_ws.xyz);
 
-	vec4 specular = vec4(0.0);
+	vec3 specular = vec3(0.0);
 	if(light_cos_theta > 0.0)//> -0.3)
 	{
 		float shadow_factor = light_cos_theta;//smoothstep(-0.3, 0.0, light_cos_theta);
@@ -729,7 +728,7 @@ void main()
 		float alpha2 = alpha2ForRoughness(final_roughness);
 		float V = smithMaskingShadowingV(unit_normal_ws, sundir_ws.xyz, frag_to_cam_ws, alpha2);
 
-		vec4 specular_fresnel = computeFresnelReflectance(h_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
+		vec3 specular_fresnel = computeFresnelReflectance(h_cos_theta, refl_diffuse_col.xyz, final_fresnel_scale, final_metallic_frac);
 
 		specular = V * trowbridgeReitzPDF(h_cos_theta, alpha2) * specular_fresnel * shadow_factor;
 	}
@@ -763,10 +762,10 @@ void main()
 
 	
 
-	vec4 sky_irradiance;
+	vec3 sky_irradiance, transmission_sky_irradiance;
 #if LIGHTMAPPING
 	// glTexImage2D expects the start of the texture data to be the lower left of the image, whereas it is actually the upper left.  So flip y coord to compensate.
-	sky_irradiance = texture(LIGHTMAP_TEX, vec2(lightmap_coords.x, -lightmap_coords.y));
+	sky_irradiance = texture(LIGHTMAP_TEX, vec2(lightmap_coords.x, -lightmap_coords.y)).xyz;
 #else
 	// cosine_env_tex assumes the sun is in the +x direction, so we need to rotate unit_normal_ws accordingly.
 	{
@@ -776,25 +775,12 @@ void main()
 			sin(neg_env_phi) * unit_normal_ws.x + cos(neg_env_phi) * unit_normal_ws.y,
 			unit_normal_ws.z
 		);
-		sky_irradiance = texture(cosine_env_tex, rot_norm); // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
+		sky_irradiance = texture(cosine_env_tex, rot_norm).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
+	#if FANCY_DOUBLE_SIDED
+		transmission_sky_irradiance = texture(cosine_env_tex, -rot_norm).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
+	#endif
 	}
 #endif
-
-#if FANCY_DOUBLE_SIDED
-	vec4 transmission_irradiance;
-	// cosine_env_tex assumes the sun is in the +x direction, so we need to rotate unit_normal_ws accordingly.
-	{
-		vec3 transmission_normal = -unit_normal_ws;
-		float neg_env_phi = -env_phi;
-		vec3 rot_norm = vec3(
-			cos(neg_env_phi) * transmission_normal.x - sin(neg_env_phi) * transmission_normal.y,
-			sin(neg_env_phi) * transmission_normal.x + cos(neg_env_phi) * transmission_normal.y,
-			transmission_normal.z
-		);
-		transmission_irradiance = texture(cosine_env_tex, rot_norm); // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
-	}
-#endif
-
 
 
 #if BLOB_SHADOWS
@@ -819,7 +805,7 @@ void main()
 	vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * dot(unit_normal_ws, unit_cam_to_pos_ws));
 	float frag_depth = -pos_cs.z;
 
-	vec4 spec_refl_light = vec4(0.0); // spectral radiance * 1.0e-9
+	vec3 spec_refl_light = vec3(0.0); // spectral radiance * 1.0e-9
 #if SSAO_SUPPORT
 	if((mat_common_flags & DO_SSAO_FLAG) != 0)
 	{
@@ -864,37 +850,37 @@ void main()
 
 		const float NORM_DOT_THRESHOLD = 0.7;
 		vec4 ssao_val = vec4(0.0);
-		spec_refl_light = vec4(0.0);
+		spec_refl_light = vec3(0.0);
 		float weight = 0.0;
 		if((abs(prepass_depth_a - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_a, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          a_texel_indices, /*lod=*/0);
-			spec_refl_light += texelFetch(ssao_specular_tex, a_texel_indices, /*lod=*/0);
+			spec_refl_light += texelFetch(ssao_specular_tex, a_texel_indices, /*lod=*/0).xyz;
 			weight += 1.0;
 		}
 		if((abs(prepass_depth_b - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_b, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          b_texel_indices, /*lod=*/0);
-			spec_refl_light += texelFetch(ssao_specular_tex, b_texel_indices, /*lod=*/0);
+			spec_refl_light += texelFetch(ssao_specular_tex, b_texel_indices, /*lod=*/0).xyz;
 			weight += 1.0;
 		}
 		if((abs(prepass_depth_c - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_c, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          c_texel_indices, /*lod=*/0);
-			spec_refl_light += texelFetch(ssao_specular_tex, c_texel_indices, /*lod=*/0);
+			spec_refl_light += texelFetch(ssao_specular_tex, c_texel_indices, /*lod=*/0).xyz;
 			weight += 1.0;
 		}
 		if((abs(prepass_depth_d - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_d, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          d_texel_indices, /*lod=*/0);
-			spec_refl_light += texelFetch(ssao_specular_tex, d_texel_indices, /*lod=*/0);
+			spec_refl_light += texelFetch(ssao_specular_tex, d_texel_indices, /*lod=*/0).xyz;
 			weight += 1.0;
 		}
 
 		if(weight == 0.0)
 		{
 			ssao_val = vec4(0.0, 0.0, 0.0, 1.0);
-			spec_refl_light = vec4(0.0, 0.0, 0.0, 0.0);
+			spec_refl_light = vec3(0.0, 0.0, 0.0);
 		}
 		else
 		{
@@ -904,7 +890,7 @@ void main()
 
 
 		sky_irradiance = sky_irradiance * ssao_val.w;
-		sky_irradiance.xyz += ssao_val.xyz;
+		sky_irradiance += ssao_val.xyz;
 	}
 #endif // end if SSAO_SUPPORT
 
@@ -922,13 +908,13 @@ void main()
 		// Note: specular_env_tex is just one side of the sphere of directions, so phi varies from 0 to pi.
 		vec2 refl_map_coords = vec2(refl_phi * (1.0 / PI), clamp(refl_theta * (1.0 / PI), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
-		vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
-		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)));
+		vec3 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
+		vec3 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz;
 		spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
 	}
 
 	float fresnel_cos_theta = max(0.0, dot(reflected_dir_ws, unit_normal_ws));
-	vec4 refl_fresnel = computeFresnelReflectance(fresnel_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
+	vec3 refl_fresnel = computeFresnelReflectance(fresnel_cos_theta, refl_diffuse_col.xyz, final_fresnel_scale, final_metallic_frac);
 
 	//========================= Emission ============================
 	vec3 emission_col = vec3(MAT_UNIFORM.emission_colour_r, MAT_UNIFORM.emission_colour_g, MAT_UNIFORM.emission_colour_b);
@@ -944,7 +930,7 @@ void main()
 
 
 
-	vec4 sun_light = sun_spec_rad_times_solid_angle * sun_vis_factor; // sun_spec_rad_times_solid_angle is Sun spectral radiance multiplied by solid angle
+	vec3 sun_light = sun_spec_rad_times_solid_angle.xyz * sun_vis_factor; // sun_spec_rad_times_solid_angle is Sun spectral radiance multiplied by solid angle
 
 	
 #if MATERIALISE_EFFECT
@@ -996,16 +982,16 @@ void main()
 #endif // MATERIALISE_EFFECT
 
 
-	vec4 col =
-		sky_irradiance * refl_diffuse_col * (1.0 / PI) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // diffuse reflection part of BRDF * incoming radiance from sky
+	vec3 col =
+		sky_irradiance * refl_diffuse_col.xyz * (1.0 / PI) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // diffuse reflection part of BRDF * incoming radiance from sky
 		spec_refl_light * refl_fresnel + // Specular reflection of sky or local environment with SSR
 		sun_light * direct_sun_diffuse_col * ((1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * (1.0 / PI) * sun_light_cos_theta_factor) + //  Diffuse substrate part of BRDF * direct sun light
 		sun_light * specular * sun_light_cos_theta_factor + // direct sun light radiance * specular BSDF * cos(theta)
 		local_light_radiance + // Reflected light from local light sources.
-		vec4(emission_col, 0.0);
+		emission_col;
 
 #if FANCY_DOUBLE_SIDED
-	col += transmission_irradiance * trans_diffuse_col * (1.0 / PI);
+	col += transmission_sky_irradiance * trans_diffuse_col * (1.0 / PI);
 #endif
 
 	if((mat_common_flags & DO_SSAO_FLAG) == 0)
@@ -1020,8 +1006,8 @@ void main()
 	// Blend with background/fog colour
 	vec3 transmission = exp(air_scattering_coeffs.xyz * -cam_to_pos_dist);
 
-	col.xyz *= transmission;
-	col.xyz += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission); // Add in-scattered sky+sunlight
+	col *= transmission;
+	col += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission); // Add in-scattered sky+sunlight
 #endif
 
 	//------------------------------- Apply underwater effects ---------------------------
@@ -1069,7 +1055,7 @@ void main()
 			// If camera is above water:
 			// Don't apply absorption on the edge between object and camera, we will do that in water shader.
 
-			col = vec4(src_col, 1.0);
+			col = src_col;
 		}
 		else // Else if camera is underwater:
 		{
@@ -1081,7 +1067,7 @@ void main()
 	
 			vec3 attentuated_col = src_col * exp_optical_depth;
 
-			col = vec4(attentuated_col + inscattering, 1.0);
+			col = attentuated_col + inscattering;
 		}
 	}
 #endif // UNDERWATER_CAUSTICS
@@ -1097,9 +1083,9 @@ void main()
 #endif
 	
 #if DO_POST_PROCESSING
-	colour_out = vec4(col.xyz, alpha); // toNonLinear will be done after adding blurs etc.
+	colour_out = vec4(col, alpha); // toNonLinear will be done after adding blurs etc.
 #else
-	colour_out = vec4(toneMapToNonLinear(col.xyz), alpha);
+	colour_out = vec4(toneMapToNonLinear(col), alpha);
 #endif
 
 #if DECAL
