@@ -140,16 +140,16 @@ void main()
 
 	vec2 main_tex_coords = MAT_UNIFORM.texture_upper_left_matrix_col0 * use_texture_coords.x + MAT_UNIFORM.texture_upper_left_matrix_col1 * use_texture_coords.y + MAT_UNIFORM.texture_matrix_translation;
 
-	vec4 emission_col = MAT_UNIFORM.emission_colour;
+	vec3 emission_col = vec3(MAT_UNIFORM.emission_colour_r, MAT_UNIFORM.emission_colour_g, MAT_UNIFORM.emission_colour_b);
 	if((MAT_UNIFORM.flags & HAVE_EMISSION_TEX_FLAG) != 0)
 	{
 #if SDF_TEXT
 		float half_w = (fwidth(main_tex_coords.x) + fwidth(main_tex_coords.y)) * 30.0f;
-		vec4 emission_tex_col = texture(EMISSION_TEX, main_tex_coords);
+		vec3 emission_tex_col = texture(EMISSION_TEX, main_tex_coords).xyz;
 		float alpha = smoothstep(0.5f - half_w, 0.5f + half_w, emission_tex_col.w);
 		emission_col *= emission_tex_col * alpha;
 #else
-		emission_col *= texture(EMISSION_TEX, main_tex_coords);
+		emission_col *= texture(EMISSION_TEX, main_tex_coords).xyz;
 #endif
 	}
 
@@ -159,7 +159,7 @@ void main()
 #endif
 	if((MAT_UNIFORM.flags & IS_HOLOGRAM_FLAG) != 0)
 	{
-		col = emission_col;
+		col = vec4(emission_col, 0.0);
 #if ORDER_INDEPENDENT_TRANSPARENCY
 		transmittance_out = vec4(1, 1, 1, 1);
 #else
@@ -293,7 +293,7 @@ void main()
 		col = spec_refl_light * spec_refl_fresnel + 
 			sun_light * sun_specular + 
 			local_light_radiance + // Reflected light from local light sources.
-			emission_col;
+			vec4(emission_col, 0.0);
 
 #if ORDER_INDEPENDENT_TRANSPARENCY
 		float T = 1.f - spec_refl_fresnel; // transmittance

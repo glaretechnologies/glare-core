@@ -57,8 +57,13 @@ layout (std140) uniform MaterialCommonUniforms
 // Data that is specific to a single object.
 struct MaterialData
 {
-	vec4 diffuse_colour;
-	vec4 emission_colour;
+	vec4 diffuse_colour; // Alpha is stored in diffuse_colour.w
+	float transmission_colour_r; // Avoid padding rules for vec3
+	float transmission_colour_g;
+	float transmission_colour_b;
+	float emission_colour_r;
+	float emission_colour_g;
+	float emission_colour_b;
 	vec2 texture_upper_left_matrix_col0;
 	vec2 texture_upper_left_matrix_col1;
 	vec2 texture_matrix_translation;

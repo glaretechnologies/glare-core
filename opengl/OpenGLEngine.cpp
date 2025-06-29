@@ -10746,9 +10746,9 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 
 void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const
 {
-	uniforms.diffuse_colour  = Colour4f(opengl_mat.albedo_linear_rgb.r,   opengl_mat.albedo_linear_rgb.g,   opengl_mat.albedo_linear_rgb.b,   opengl_mat.alpha);
-	uniforms.emission_colour = Colour4f(opengl_mat.emission_linear_rgb.r, opengl_mat.emission_linear_rgb.g, opengl_mat.emission_linear_rgb.b, 1.f) * opengl_mat.emission_scale;
-	//setWToOne(uniforms.emission_colour); // Don't multiply alpha by emission_scale
+	uniforms.diffuse_colour      = Colour4f(opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, opengl_mat.alpha);
+	uniforms.transmission_colour = opengl_mat.transmission_albedo_linear_rgb;
+	uniforms.emission_colour     = opengl_mat.emission_linear_rgb * opengl_mat.emission_scale;
 
 	uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
 	uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
@@ -11252,7 +11252,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		}
 		else if(prog->is_depth_draw)
 		{
-			assert(!use_multi_draw_indirect); // If multi-draw-indirect was enabled, depth-draw mats would be handled in (use_MDI_and_prog_supports_MDI) branch above.
+			assert(!use_multi_draw_indirect); // If multi-draw-indirect was enabled, depth-draw mats would be handled in (use_MDI_and_prog_supports_MDI) branch.
 
 			// Slow, non-MDI path:
 			assert(batch.material_data_or_mat_index == ob.depth_draw_batches[batch_index].material_data_or_mat_index);

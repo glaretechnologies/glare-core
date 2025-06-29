@@ -107,6 +107,7 @@ public:
 	:	transparent(false),
 		hologram(false),
 		albedo_linear_rgb(0.7f, 0.7f, 0.7f),
+		transmission_albedo_linear_rgb(0.7f, 0.7f, 0.7f),
 		alpha(1.f),
 		emission_linear_rgb(0.7f, 0.7f, 0.7f),
 		emission_scale(0.f),
@@ -152,6 +153,7 @@ public:
 
 	Colour3f albedo_linear_rgb; // First approximation to material colour.  Linear sRGB.
 	float alpha; // Used for transparent mats.
+	Colour3f transmission_albedo_linear_rgb; // Linear sRGB.
 	Colour3f emission_linear_rgb; // Linear sRGB in [0, 1]
 	float emission_scale; // [0, inf).  Spectral radiance * 1.0e-9
 
@@ -718,8 +720,9 @@ struct BatchDrawInfoWithDist
 // Used for transparent mats also.
 struct PhongUniforms
 {
-	Colour4f diffuse_colour; // linear sRGB
-	Colour4f emission_colour; // linear sRGB, spectral radiance * 1.0e-9
+	Colour4f diffuse_colour; // linear sRGB.  // Alpha is stored in diffuse_colour.w
+	Colour3f transmission_colour; // linear sRGB
+	Colour3f emission_colour; // linear sRGB, spectral radiance * 1.0e-9
 	Vec2f texture_upper_left_matrix_col0;
 	Vec2f texture_upper_left_matrix_col1;
 	Vec2f texture_matrix_translation;

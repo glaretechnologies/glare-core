@@ -474,68 +474,68 @@ void main()
 	vec3 unit_cam_to_pos_ws = cam_to_pos_ws / cam_to_pos_dist;
 	vec3 frag_to_cam_ws = -unit_cam_to_pos_ws;
 
-	// We will get two diffuse colours - one for the sun contribution, and one for reflected light from the same hemisphere the camera is in.
-	// The sun contribution diffuse colour may use the transmission texture.  The reflected light colour may be the front or backface albedo texture.
 
+	vec4 refl_diffuse_col = use_diffuse_colour; // Reflective linear colour of surface
+	vec4 trans_diffuse_col = vec4(MAT_UNIFORM.transmission_colour_r, MAT_UNIFORM.transmission_colour_g, MAT_UNIFORM.transmission_colour_b, 1.0); // Transmissive colour of surface
 
-	vec4 sun_texture_diffuse_col;
-	vec4 refl_texture_diffuse_col;
+	float frag_to_cam_dot_normal = dot(frag_to_cam_ws, unit_normal_ws);
 
 	if((use_flags & HAVE_TEXTURE_FLAG) != 0)
 	{
+		vec4 refl_texture_diffuse_col;
+		vec4 trans_texture_diffuse_col;
 #if COMBINED
-	sun_texture_diffuse_col = texture(COMBINED_ARRAY_TEX, vec3(main_tex_coords, array_image_index));
-	refl_texture_diffuse_col = sun_texture_diffuse_col;
+		refl_texture_diffuse_col = texture(COMBINED_ARRAY_TEX, vec3(main_tex_coords, array_image_index));
+		trans_texture_diffuse_col = refl_texture_diffuse_col;
 #else
 
 #if FANCY_DOUBLE_SIDED
 		// Work out if we are seeing the front or back face of the material
-		float frag_to_cam_dot_normal = dot(frag_to_cam_ws, unit_normal_ws);
+		//float frag_to_cam_dot_normal = dot(frag_to_cam_ws, unit_normal_ws);
 		if(frag_to_cam_dot_normal < 0.f)
 		{
 			refl_texture_diffuse_col = texture(BACKFACE_ALBEDO_TEX, main_tex_coords); // backface
 			//refl_texture_diffuse_col.xyz = vec3(1,0,0);//TEMP
 		}
 		else
-			refl_texture_diffuse_col = texture(DIFFUSE_TEX,          main_tex_coords); // frontface
-
-
-		if(frag_to_cam_dot_normal * light_cos_theta <= 0.f) // If frag_to_cam_ws and sundir_ws are in different geometric hemispheres:
 		{
-			sun_texture_diffuse_col = texture(TRANSMISSION_TEX, main_tex_coords);
-			//sun_texture_diffuse_col.xyz = vec3(1,0,0);//TEMP
+			refl_texture_diffuse_col = texture(DIFFUSE_TEX,          main_tex_coords); // frontface
+			//refl_texture_diffuse_col.xyz = vec3(0,1,0);//TEMP
 		}
-		else
-			sun_texture_diffuse_col = refl_texture_diffuse_col; // Else sun is illuminating the face facing the camera.
+
+		trans_texture_diffuse_col = texture(TRANSMISSION_TEX, main_tex_coords);
 #else
-		sun_texture_diffuse_col = texture(DIFFUSE_TEX, main_tex_coords);
-		refl_texture_diffuse_col = sun_texture_diffuse_col;
+		refl_texture_diffuse_col = texture(DIFFUSE_TEX, main_tex_coords);
+		trans_texture_diffuse_col = refl_texture_diffuse_col;
 #endif
 		if((use_flags & SWIZZLE_ALBEDO_TEX_R_TO_RGB_FLAG) != 0)
 		{
-			sun_texture_diffuse_col.xyz  = vec3(sun_texture_diffuse_col.x);
-			refl_texture_diffuse_col.xyz = vec3(refl_texture_diffuse_col.x);
+			refl_texture_diffuse_col.xyz  = vec3(refl_texture_diffuse_col.x);
+			trans_texture_diffuse_col.xyz = vec3(trans_texture_diffuse_col.x);
 		}
 
 		if((use_flags & CONVERT_ALBEDO_FROM_SRGB_FLAG) != 0)
 		{
 			// Texture value is in non-linear sRGB, convert to linear sRGB.
-			sun_texture_diffuse_col.xyz  = fastApproxNonLinearSRGBToLinearSRGB(sun_texture_diffuse_col.xyz);
-			refl_texture_diffuse_col.xyz = fastApproxNonLinearSRGBToLinearSRGB(refl_texture_diffuse_col.xyz);
+			refl_texture_diffuse_col.xyz  = fastApproxNonLinearSRGBToLinearSRGB(refl_texture_diffuse_col.xyz);
+			trans_texture_diffuse_col.xyz = fastApproxNonLinearSRGBToLinearSRGB(trans_texture_diffuse_col.xyz);
 		}
 
 #endif // end if !COMBINED
+
+		refl_diffuse_col  *= refl_texture_diffuse_col;
+		trans_diffuse_col *= trans_texture_diffuse_col;
 	}
 	else
 	{
-		sun_texture_diffuse_col = vec4(1.f);
-		refl_texture_diffuse_col = vec4(1.f);
 	}
 
-	// Final diffuse colour = texture diffuse colour * constant diffuse colour
-	vec4 sun_diffuse_col  = sun_texture_diffuse_col  * use_diffuse_colour; // diffuse_colour is linear sRGB already.
-	vec4 refl_diffuse_col = refl_texture_diffuse_col * use_diffuse_colour;
-
+	// Reflective or transmissive colour of surface depending on if sun is on same side or other side as camera.
+#if FANCY_DOUBLE_SIDED
+	vec4 direct_sun_diffuse_col = (frag_to_cam_dot_normal * light_cos_theta <= 0.f) ? trans_diffuse_col : refl_diffuse_col; 
+#else
+	vec4 direct_sun_diffuse_col = refl_diffuse_col;
+#endif
 
 #if TERRAIN
 	// NOTE: Simplified a bit to stop crashing Chrome's GPU process.
@@ -588,7 +588,7 @@ void main()
 	texcol += detail_2_texval * veg_weight; // TEMP disabled colour variation.    * colour_variation_factor * veg_weight;
 	texcol.w = 1.0;
 
-	sun_diffuse_col  = texcol;
+	direct_sun_diffuse_col  = texcol;
 	refl_diffuse_col = texcol;
 #endif
 
@@ -600,8 +600,10 @@ void main()
 	// Apply vertex colour, if enabled.
 #if VERT_COLOURS
 	vec3 linear_vert_col = fastApproxNonLinearSRGBToLinearSRGB(vert_colour);
-	sun_diffuse_col.xyz *= linear_vert_col;
-	refl_diffuse_col.xyz *= linear_vert_col;
+
+	refl_diffuse_col.xyz       *= linear_vert_col;
+	trans_diffuse_col.xyz      *= linear_vert_col;
+	direct_sun_diffuse_col.xyz *= linear_vert_col;
 #endif
 
 	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 64.f)).x;
@@ -632,8 +634,8 @@ void main()
 	if(	fract(use_texture_coords.x) < border_w_u || fract(use_texture_coords.x) >= (1.0 - border_w_u) ||
 		fract(use_texture_coords.y) < border_w_v || fract(use_texture_coords.y) >= (1.0 - border_w_v))
 	{
-		refl_diffuse_col = vec4(0.2f, 0.8f, 0.54f, 1.f);
-		sun_diffuse_col = vec4(0.2f, 0.8f, 0.54f, 1.f);
+		refl_diffuse_col       = vec4(0.2f, 0.8f, 0.54f, 1.f);
+		direct_sun_diffuse_col = vec4(0.2f, 0.8f, 0.54f, 1.f);
 	}
 #endif
 
@@ -778,6 +780,21 @@ void main()
 	}
 #endif
 
+#if FANCY_DOUBLE_SIDED
+	vec4 transmission_irradiance;
+	// cosine_env_tex assumes the sun is in the +x direction, so we need to rotate unit_normal_ws accordingly.
+	{
+		vec3 transmission_normal = -unit_normal_ws;
+		float neg_env_phi = -env_phi;
+		vec3 rot_norm = vec3(
+			cos(neg_env_phi) * transmission_normal.x - sin(neg_env_phi) * transmission_normal.y,
+			sin(neg_env_phi) * transmission_normal.x + cos(neg_env_phi) * transmission_normal.y,
+			transmission_normal.z
+		);
+		transmission_irradiance = texture(cosine_env_tex, rot_norm); // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
+	}
+#endif
+
 
 
 #if BLOB_SHADOWS
@@ -914,13 +931,13 @@ void main()
 	vec4 refl_fresnel = computeFresnelReflectance(fresnel_cos_theta, refl_diffuse_col, final_fresnel_scale, final_metallic_frac);
 
 	//========================= Emission ============================
-	vec4 emission_col = MAT_UNIFORM.emission_colour;
+	vec3 emission_col = vec3(MAT_UNIFORM.emission_colour_r, MAT_UNIFORM.emission_colour_g, MAT_UNIFORM.emission_colour_b);
 	if((MAT_UNIFORM.flags & HAVE_EMISSION_TEX_FLAG) != 0)
 	{
-		vec4 emission_tex_col = texture(EMISSION_TEX, main_tex_coords);
+		vec3 emission_tex_col = texture(EMISSION_TEX, main_tex_coords).xyz;
 
 		if((MAT_UNIFORM.flags & CONVERT_ALBEDO_FROM_SRGB_FLAG) != 0) // TODO: use different flag for emission
-			emission_tex_col.xyz = fastApproxNonLinearSRGBToLinearSRGB(emission_tex_col.xyz);
+			emission_tex_col = fastApproxNonLinearSRGBToLinearSRGB(emission_tex_col);
 
 		emission_col *= emission_tex_col;
 	}
@@ -971,26 +988,30 @@ void main()
 		if(hex_interior_frac < materialise_pixel_hash + /*fill-in delay=*/0.7 + sweep_frac)
 			discard;
 
-		emission_col =  vec4(0.0,0.2,0.5, 0) * //vec4(MAT_UNIFORM.materialise_r, MAT_UNIFORM.materialise_g, MAT_UNIFORM.materialise_b, 0.0) * 
+		emission_col =  vec3(0.0,0.2,0.5) * //vec4(MAT_UNIFORM.materialise_r, MAT_UNIFORM.materialise_g, MAT_UNIFORM.materialise_b, 0.0) * 
 			smoothstep(0.8, 0.9, hex_frac) * 4.0;
 	}
 
-	emission_col += (band_1 * vec4(1,1,1.0,0)  + band_2 * vec4(0.0,1,0.5,0)) * 10.0;
+	emission_col += (band_1 * vec3(1,1,1.0)  + band_2 * vec3(0.0,1,0.5)) * 10.0;
 #endif // MATERIALISE_EFFECT
 
 
 	vec4 col =
-		sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // Diffuse substrate part of BRDF * incoming radiance from sky
+		sky_irradiance * refl_diffuse_col * (1.0 / PI) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac) +  // diffuse reflection part of BRDF * incoming radiance from sky
 		spec_refl_light * refl_fresnel + // Specular reflection of sky or local environment with SSR
-		sun_light * refl_diffuse_col * ((1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * (1.0 / 3.141592653589793) * sun_light_cos_theta_factor) + //  Diffuse substrate part of BRDF * direct sun light
+		sun_light * direct_sun_diffuse_col * ((1.0 - refl_fresnel) * (1.0 - final_metallic_frac) * (1.0 / PI) * sun_light_cos_theta_factor) + //  Diffuse substrate part of BRDF * direct sun light
 		sun_light * specular * sun_light_cos_theta_factor + // direct sun light radiance * specular BSDF * cos(theta)
 		local_light_radiance + // Reflected light from local light sources.
-		emission_col;
+		vec4(emission_col, 0.0);
+
+#if FANCY_DOUBLE_SIDED
+	col += transmission_irradiance * trans_diffuse_col * (1.0 / PI);
+#endif
 
 	if((mat_common_flags & DO_SSAO_FLAG) == 0)
 	{
 		// If this is the prepass:
-//		col += sky_irradiance * sun_diffuse_col * (1.0 / 3.141592653589793) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac);  // Diffuse substrate part of BRDF * incoming radiance from sky
+//		col += sky_irradiance * sun_diffuse_col * (1.0 / PI) * (1.0 - refl_fresnel) * (1.0 - final_metallic_frac);  // Diffuse substrate part of BRDF * incoming radiance from sky
 	}
 	
 	//vec4 col = (sun_light + 3000000000.0)  * diffuse_col;
