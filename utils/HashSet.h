@@ -259,34 +259,27 @@ public:
 	// If key was not already in set, inserts it, then returns iterator to new item and true.
 	std::pair<iterator, bool> insert(const Key& key)
 	{
+		checkForExpand(); // Check for expand with the current size.  This does a slightly inaccurate load factor comparison, but it shouldn't matter.
+
+		// Find
 		assert(key != empty_key);
+		size_t bucket_i = hashKey(key);
 
-		iterator find_res = find(key);
-		if(find_res == end())
+		// Search for bucket item is in
+		while(1)
 		{
-			// Item is not already inserted, insert:
+			if(buckets[bucket_i] == key)
+				return std::make_pair(HashSetIterator<Key, HashFunc>(this, buckets + bucket_i), /*inserted=*/false); // Already inserted
 
-			num_items++;
-			checkForExpand();
-
-			size_t bucket_i = hashKey(key);
-			// Search for bucket item is in, or an empty bucket
-			while(1)
+			if(buckets[bucket_i] == empty_key)
 			{
-				if(buckets[bucket_i] == empty_key) // If bucket is empty:
-				{
-					buckets[bucket_i] = key;
-					return std::make_pair(HashSetIterator<Key, HashFunc>(this, buckets/*.begin()*/ + bucket_i), /*inserted=*/true);
-				}
-
-				// Else advance to next bucket, with wrap-around
-				bucket_i = (bucket_i + 1) & hash_mask; // bucket_i = (bucket_i + 1) % buckets.size();
+				buckets[bucket_i] = key;
+				num_items++;
+				return std::make_pair(HashSetIterator<Key, HashFunc>(this, buckets + bucket_i), /*inserted=*/true);
 			}
-		}
-		else
-		{
-			// Item was already in set: return (iterator to existing item, false)
-			return std::make_pair(find_res, /*inserted=*/false);
+
+			// Else advance to next bucket, with wrap-around
+			bucket_i = (bucket_i + 1) & hash_mask;
 		}
 	}
 
