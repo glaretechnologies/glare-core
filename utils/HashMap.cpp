@@ -23,6 +23,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <map>
 #include <unordered_map>
 
+#define TEST_JOLT_UNORDERED_MAP 0
 #if TEST_JOLT_UNORDERED_MAP
 #include <Jolt/Jolt.h>
 #include <Jolt/Core/UnorderedMap.h>
@@ -93,6 +94,7 @@ static void testHashMapPerf(const std::vector<int>& testdata, int N, int NUM_LOO
 	}*/
 
 	// Test std::unordered_map
+	if(0)
 	{
 		Timer timer;
 		std::unordered_map<int, int> m;
@@ -183,7 +185,7 @@ static void testHashMapPerf(const std::vector<int>& testdata, int N, int NUM_LOO
 		elapsed = timer.elapsed();
 		printTimingResult("HashMap lookups", elapsed, N);
 		TestUtils::silentPrint(toString(num_present));
-		printVar(m.buckets_size);
+		//printVar(m.buckets_size);
 	}
 
 	
@@ -224,7 +226,7 @@ static void testHashMapPerf(const std::vector<int>& testdata, int N, int NUM_LOO
 #if TEST_JOLT_UNORDERED_MAP
 	{
 		Timer timer;
-		JPH::UnorderedMap<int, int> m;//(std::numeric_limits<int>::max(), /*expected num items=*/do_reservation ? N : 0);
+		JPH::UnorderedMap<int, int> m;
 		
 		if(do_reservation)
 			m.reserve(N);

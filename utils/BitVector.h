@@ -23,7 +23,7 @@ class BitVector
 public:
 	inline BitVector() : num_bits(0) {}
 
-	// Bits are intialised to zero.
+	// Bits are initialised to zero.
 	inline explicit BitVector(size_t num_bits_) : v(/*count=*/Maths::roundedUpDivide<size_t>(num_bits_, 32), /*val=*/0), num_bits(num_bits_) {}
 
 	inline bool operator == (const BitVector& other) const { return num_bits == other.num_bits && v == other.v; }

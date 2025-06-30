@@ -11,7 +11,8 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/SmallVector.h"
-#include "../utils/HashMapInsertOnly2.h"
+#include "../utils/HashMap.h"
+#include "../utils/Hasher.h"
 #include <unordered_set>
 
 //TEMP:
@@ -224,12 +225,12 @@ UVUnwrapper::Results UVUnwrapper::build(Indigo::Mesh& mesh, const Matrix4f& ob_t
 	// Build adjacency info, build polys vector.
 	{
 		const Indigo::Vec3f infv(std::numeric_limits<float>::infinity());
-		HashMapInsertOnly2<UnwrapperEdgeKey, int, UnwrapperEdgeKeyHash> edge_indices_map(UnwrapperEdgeKey(infv, infv),
+		HashMap<UnwrapperEdgeKey, int, UnwrapperEdgeKeyHash> edge_indices_map(UnwrapperEdgeKey(infv, infv),
 			(triangles_in_size + quads_in_size) * 2 // expected_num_items
 		);
 
 		const AxisAlignedEdgeKey empty_key(infv, 0);
-		HashMapInsertOnly2<AxisAlignedEdgeKey, int, AxisAlignedEdgeKeyHash> axis_aligned_edges_map(empty_key,
+		HashMap<AxisAlignedEdgeKey, int, AxisAlignedEdgeKeyHash> axis_aligned_edges_map(empty_key,
 			(triangles_in_size + quads_in_size) * 2 // expected_num_items
 		);
 

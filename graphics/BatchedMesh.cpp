@@ -19,7 +19,8 @@ Copyright Glare Technologies Limited 2020
 #include "../utils/FileInStream.h"
 #include "../utils/FileOutStream.h"
 #include "../utils/IncludeHalf.h"
-#include "../utils/HashMapInsertOnly2.h"
+#include "../utils/HashMap.h"
+#include "../utils/Hasher.h"
 #include "../utils/BufferViewInStream.h"
 #include "../utils/RuntimeCheck.h"
 #include "../meshoptimizer/src/meshoptimizer.h"
@@ -204,7 +205,7 @@ Reference<BatchedMesh> BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh
 	empty_key.normal = Indigo::Vec3f(std::numeric_limits<float>::infinity());
 	empty_key.uv0 = Indigo::Vec2f(0.f);
 	empty_key.uv1 = Indigo::Vec2f(0.f);
-	HashMapInsertOnly2<BMeshVertKey, uint32, BMeshVertKeyHash> vert_map(empty_key, // Map from vert data to merged index
+	HashMap<BMeshVertKey, uint32, BMeshVertKeyHash> vert_map(empty_key, // Map from vert data to merged index
 		/*expected_num_items=*/mesh->vert_positions.size()); 
 	
 

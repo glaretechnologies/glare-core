@@ -18,7 +18,8 @@ Code By Nicholas Chapman.
 #include "../utils/Parser.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Exception.h"
-#include "../utils/HashMapInsertOnly2.h"
+#include "../utils/HashMap.h"
+#include "../utils/Hasher.h"
 #include <unordered_map>
 
 
@@ -145,7 +146,7 @@ void FormatDecoderObj::loadModelFromBuffer(const uint8* data, size_t len, const 
 		empty_key.vert_i = std::numeric_limits<unsigned int>::max();
 		empty_key.norm_i = std::numeric_limits<unsigned int>::max();
 
-		HashMapInsertOnly2<Vert, unsigned int, VertHash> added_verts(empty_key,
+		HashMap<Vert, unsigned int, VertHash> added_verts(empty_key,
 			45000
 		);
 

@@ -16,7 +16,8 @@ Copyright Glare Technologies Limited 2024
 #include "../utils/TaskManager.h"
 #include "../utils/ShouldCancelCallback.h"
 #include "../utils/StandardPrintOutput.h"
-#include "../utils/HashMapInsertOnly2.h"
+#include "../utils/HashMap.h"
+#include "../utils/Hasher.h"
 #include "../simpleraytracer/raymesh.h"
 #include <algorithm>
 
@@ -541,7 +542,7 @@ BatchedMeshRef removeSmallComponents(const BatchedMeshRef mesh_, float target_er
 	const size_t triangles_in_size = mesh.numIndices() / 3;
 
 	const Vec3f inf_vec(std::numeric_limits<float>::infinity());
-	HashMapInsertOnly2<EdgeKey, int, EdgeKeyHash> edge_indices_map(EdgeKey(inf_vec, inf_vec),
+	HashMap<EdgeKey, int, EdgeKeyHash> edge_indices_map(EdgeKey(inf_vec, inf_vec),
 		triangles_in_size * 2 // expected_num_items
 	);
 
