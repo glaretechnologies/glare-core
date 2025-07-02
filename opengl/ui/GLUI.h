@@ -151,3 +151,15 @@ public:
 	};
 	virtual void setMouseCursor(MouseCursor cursor) = 0;
 };
+
+
+// Sets widget reference to null also.
+template <class WidgetTypeRef>
+inline void checkRemoveAndDeleteWidget(GLUIRef gl_ui, WidgetTypeRef& widget)
+{
+	if(widget)
+	{
+		gl_ui->removeWidget(widget);
+		widget = nullptr;
+	}
+}
