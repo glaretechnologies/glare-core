@@ -49,7 +49,9 @@ public:
 	// Returns true if object dequeued, false if timeout occured.
 	bool dequeueWithTimeout(double wait_time_seconds, T& t_out);
 
-	void dequeueAllItems(js::Vector<T, 16>& items_out); // Does not block
+	void dequeueAllQueuedItemsBlocking(js::Vector<T, 16>& items_out); // Blocks until can dequeue at least one item
+
+	void dequeueAnyQueuedItems(js::Vector<T, 16>& items_out); // Does not block
 
 	// Thread-safe:
 	inline bool empty() const;
@@ -240,7 +242,25 @@ bool ThreadSafeQueue<T>::dequeueWithTimeout(double wait_time_seconds, T& t_out)
 
 
 template<class T>
-inline void ThreadSafeQueue<T>::dequeueAllItems(js::Vector<T, 16>& items_out)
+void ThreadSafeQueue<T>::dequeueAllQueuedItemsBlocking(js::Vector<T, 16>& items_out) // Blocks until can dequeue at least one item
+{
+	Lock lock(mutex); // Lock queue
+
+	while(queue.empty())
+		nonempty.wait(mutex); // Suspend until queue is non-empty, or we get a spurious wake up.
+
+	items_out.resize(0);
+
+	while(!queue.empty())
+	{
+		items_out.push_back(queue.front());
+		queue.pop_front();
+	}
+}
+
+
+template<class T>
+void ThreadSafeQueue<T>::dequeueAnyQueuedItems(js::Vector<T, 16>& items_out)
 {
 	items_out.resize(0);
 
