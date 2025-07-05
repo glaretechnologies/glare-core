@@ -326,7 +326,7 @@ void Vector<T, alignment>::takeFrom(Vector& other)
 	capacity_ = other.capacity_;
 
 	if(old_e)
-		free(old_e);
+		MemAlloc::alignedFree(old_e);
 	other.e = NULL;
 	other.size_ = 0;
 	other.capacity_ = 0;
@@ -569,7 +569,7 @@ void Vector<T, alignment>::clearAndFreeMem() // Set size to zero, but also frees
 template<class T, size_t alignment>
 inline void Vector<T, alignment>::append(Vector& other)
 {
-	// NOTE: Could copy-construct new elements instead of constructing and using assignnment operator?
+	// NOTE: Could copy-construct new elements instead of constructing and using assignment operator?
 	const size_t s = size();
 	const size_t other_size = other.size();
 	resize(s + other_size);

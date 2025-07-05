@@ -831,6 +831,69 @@ void VectorUnitTests::test()
 		testAssert(v != v2);
 	}
 
+	//========================= swapWith =========================
+	{
+		Vector<int> v, v2;
+		v.push_back(123);
+
+		v2.swapWith(v);
+
+		testAssert(v.empty());
+		testAssert(v2.size() == 1);
+		testAssert(v2[0] == 123);
+	}
+
+	{
+		Vector<int> v, v2;
+		v.push_back(123);
+
+		v2.push_back(1);
+		v2.push_back(2);
+		v2.push_back(3);
+
+		v.swapWith(v2);
+
+		testAssert(v.size() == 3);
+		testAssert(v[0] == 1);
+		testAssert(v[1] == 2);
+		testAssert(v[2] == 3);
+
+		testAssert(v2.size() == 1);
+		testAssert(v2[0] == 123);
+	}
+
+	//========================= takeForm =========================
+	{
+		Vector<int> v, v2;
+		v.push_back(123);
+
+		v2.takeFrom(v);
+
+		testAssert(v.empty());
+		testAssert(v2.size() == 1);
+		testAssert(v2[0] == 123);
+	}
+
+	{
+		Vector<int> v, v2;
+		v.push_back(123);
+
+		v2.push_back(1);
+		v2.push_back(2);
+		v2.push_back(3);
+
+		v.takeFrom(v2);
+
+		testAssert(v.size() == 3);
+		testAssert(v[0] == 1);
+		testAssert(v[1] == 2);
+		testAssert(v[2] == 3);
+
+		testAssert(v2.empty());
+	}
+
+
+
 
 	//========================= Old tests =========================
 
