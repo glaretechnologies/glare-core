@@ -66,6 +66,15 @@ void PerAnimationNodeData::readFromStream(InStream& stream)
 }
 
 
+void AnimationDatum::copyFrom(const AnimationDatum& other)
+{
+	name = other.name;
+	per_anim_node_data = other.per_anim_node_data;
+	used_input_accessor_indices = other.used_input_accessor_indices;
+	anim_len = other.anim_len;
+}
+
+
 void AnimationDatum::writeToStream(OutStream& stream) const
 {
 	stream.writeStringLengthFirst(name);
@@ -330,7 +339,7 @@ void AnimationData::readFromStream(InStream& stream)
 
 			animations[i]->readFromStream(version, stream, old_keyframe_times, old_output_data);
 
-			// Do backwwards-compat handling
+			// Do backwards-compat handling
 			if(version == 1)
 			{
 				const int keyframe_times_offset = (int)keyframe_times.size();
@@ -401,6 +410,25 @@ void AnimationData::readFromStream(InStream& stream)
 	//	conPrint("sorted_nodes[ " + toString(i) + "]: " + toString(sorted_nodes[i]) + " (" + nodes[sorted_nodes[i]].name + ")");
 
 	build();
+}
+
+
+void AnimationData::operator =(const AnimationData& other)
+{
+	nodes = other.nodes;
+	sorted_nodes = other.sorted_nodes;
+	joint_nodes = other.joint_nodes;
+	keyframe_times = other.keyframe_times;
+	output_data = other.output_data;
+
+	animations.resize(other.animations.size());
+	for(size_t i=0; i<other.animations.size(); ++i)
+	{
+		animations[i] = new AnimationDatum();
+		animations[i]->copyFrom(*other.animations[i]);
+	}
+
+	vrm_data = other.vrm_data; // Note: shallow copy.
 }
 
 
@@ -1241,7 +1269,7 @@ Vec4f AnimationData::getNodePositionModelSpace(const std::string& name, bool use
 			return getNodePositionModelSpace(node_i, use_retarget_adjustment);
 	}
 
-	assert(0);
+//	assert(0);
 	return Vec4f(0,0,0,1);
 }
 

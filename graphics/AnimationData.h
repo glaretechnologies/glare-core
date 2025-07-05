@@ -74,6 +74,8 @@ struct AnimationDatum : public RefCounted
 {
 	AnimationDatum() : anim_len(-1) {}
 
+	void copyFrom(const AnimationDatum& other);
+
 	void writeToStream(OutStream& stream) const;
 	void readFromStream(uint32 file_version, InStream& stream, std::vector<KeyFrameTimeInfo>& old_keyframe_times_out, std::vector<js::Vector<Vec4f, 16> >& old_output_data);
 
@@ -109,6 +111,8 @@ typedef Reference<GLTFVRMExtension> GLTFVRMExtensionRef;
 struct AnimationData
 {
 	AnimationData() : retarget_adjustments_set(false) {}
+
+	void operator = (const AnimationData& other);
 
 	void build(); // Builds keyframe_times data, computes animation length.
 
