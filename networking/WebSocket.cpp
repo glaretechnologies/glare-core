@@ -22,6 +22,7 @@ WebSocket::WebSocket(SocketInterfaceRef underlying_socket_)
 	underlying_socket = underlying_socket_;
 
 	need_header_read = true;
+	payload_i = 0;
 }
 
 
@@ -101,6 +102,7 @@ if readlen is greater than the payload length, then we want to keep reading fram
 */
 void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 {
+	size_t buffer_write_i = 0;
 	size_t amount_still_to_read = readlen;
 	while(amount_still_to_read > 0)
 	{
@@ -164,6 +166,7 @@ void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 				masking_key[0] = masking_key[1] = masking_key[2] = masking_key[3] = 0;
 
 			this->payload_remaining = payload_len;
+			this->payload_i = 0;
 
 			need_header_read = false;
 		}
@@ -171,9 +174,10 @@ void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		{
 			assert(!need_header_read);
 
-			// TODO: handle continuation frames, which have an opcode of zero.
+			// Note that we aren't interested in the chunking of the underlying stream into messages that the websockets protocol provides.
+			// So we treat continuation frames the same as text and binary.
 
-			if(header_opcode == 0x1 || header_opcode == 0x2) // Text or binary frame:
+			if(header_opcode <= 0x2) // Continuation, text or binary frame:
 			{
 				// The calling code still desires amount_still_to_read bytes of data.
 				// Read that much, or the remaining payload size, whichever is less.
@@ -185,17 +189,22 @@ void WebSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 				while(offset < payload_len_to_read)
 				{
 					const size_t chunk_size = myMin<size_t>(2048ull, payload_len_to_read - offset);
+					
 					temp_buffer.resizeNoCopy(chunk_size);
 					underlying_socket->readData(temp_buffer.data(), chunk_size);
 
+					const size_t buffer_write_i_plus_offset = buffer_write_i + offset;
+					
+					runtimeCheck(buffer_write_i_plus_offset + chunk_size <= readlen);
 					for(size_t z=0; z<chunk_size; ++z)
-						((uint8*)buffer)[offset + z] = temp_buffer[z] ^ masking_key[z % 4]; // Copy unmasked data from temp_buffer to the out-buffer.
+						((uint8*)buffer)[buffer_write_i_plus_offset + z] = temp_buffer[z] ^ masking_key[(payload_i + z) % 4]; // Copy unmasked data from temp_buffer to the out-buffer.
 
 					offset += chunk_size;
+					payload_i += chunk_size;
 				}
 
 				payload_remaining -= payload_len_to_read;
-				buffer = (void*)(((uint8*)buffer) + payload_len_to_read); // Advance buffer pointer.
+				buffer_write_i += payload_len_to_read;
 				amount_still_to_read -= payload_len_to_read;
 
 				if(payload_remaining == 0)

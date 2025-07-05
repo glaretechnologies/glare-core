@@ -103,6 +103,7 @@ private:
 	bool need_header_read;
 	size_t payload_len;
 	size_t payload_remaining;
+	size_t payload_i;
 	uint32 header_opcode;
 
 	SocketInterfaceRef underlying_socket;
