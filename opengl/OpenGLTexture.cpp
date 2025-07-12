@@ -89,6 +89,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 
 	this->format = format_;
 	this->filtering = filtering_;
+	this->wrapping = wrapping_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
 	this->MSAA_samples = MSAA_samples_;
@@ -96,7 +97,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	// Work out gl_internal_format etc..
 	getGLFormat(format_, this->gl_internal_format, this->gl_format, this->gl_type);
 
-	doCreateTexture(tex_data, opengl_engine, wrapping_, has_mipmaps_);
+	doCreateTexture(tex_data, opengl_engine, has_mipmaps_);
 }
 
 
@@ -126,6 +127,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	this->gl_internal_format = gl_internal_format_;
 	this->gl_format = gl_format_;
 	this->filtering = filtering_;
+	this->wrapping = wrapping_;
 	this->xres = tex_xres;
 	this->yres = tex_yres;
 
@@ -135,7 +137,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	getGLFormat(format, dummy_gl_internal_format, dummy_gl_format, new_gl_type);
 	this->gl_type = new_gl_type;
 
-	doCreateTexture(tex_data, opengl_engine, wrapping_, /*use mipmaps=*/true);
+	doCreateTexture(tex_data, opengl_engine, /*use mipmaps=*/true);
 }
 
 
@@ -538,7 +540,6 @@ static int num_textures_created = 0;
 // Create texture, given that xres, yres, gl_internal_format etc. have been set.
 void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
-		Wrapping wrapping,
 		bool use_mipmaps
 	)
 {

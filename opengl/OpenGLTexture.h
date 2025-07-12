@@ -182,7 +182,6 @@ private:
 	// Create texture, given that xres, yres, MSAA_samples, gl_internal_format etc. have been set.
 	void doCreateTexture(ArrayRef<uint8> tex_data, 
 		const OpenGLEngine* opengl_engine, // May be null.  Used for querying stuff.
-		Wrapping wrapping,
 		bool has_mipmaps
 	);
 
@@ -192,6 +191,7 @@ private:
 	GLenum gl_type; // Type of pixel channel (GL_UNSIGNED_BYTE, GL_HALF_FLOAT etc..)
 
 	Filtering filtering;
+	Wrapping wrapping;
 
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
 	int num_array_images;
