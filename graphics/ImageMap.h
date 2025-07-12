@@ -512,8 +512,8 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelHighQual(Coord u, Coord v,
 	assert(channel < N);
 
 	// Get fractional normalised image coordinates
-	Vec4f normed_coords = Vec4f(u, -v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
-	Vec4f normed_frac_part = normed_coords - floor(normed_coords); // Fractional part of normed coords, in [0, 1].
+	Vec4f normed_coords = Vec4f(u, 1.f - v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
+	Vec4f normed_frac_part = wrap ? (normed_coords - floor(normed_coords)) : normed_coords; // Fractional part of normed coords, in [0, 1].
 
 	Vec4i dims((int)width, (int)height, 0, 0); // (width, height)		[int]
 	Vec4i dims_minus_1 = dims - Vec4i(1); // (width-1, height-1)		[int]
@@ -538,9 +538,11 @@ Map2D::Value ImageMap<V, VTraits>::sampleSingleChannelHighQual(Coord u, Coord v,
 	}
 	else // else if clamp mode:
 	{
+		f_pixels = clamp(f_pixels, Vec4f(0.f), toVec4f(dims));
+
 		wrapped_i_pixels_1 = min(i_pixels_clamped + Vec4i(1), dims_minus_1);
 		wrapped_i_pixels_2 = min(i_pixels_clamped + Vec4i(2), dims_minus_1);
-		wrapped_i_pixels_minus_1 = max(i_pixels_clamped - Vec4i(1), Vec4i(0));
+		wrapped_i_pixels_minus_1 = clamp(i_pixels_clamped - Vec4i(1), Vec4i(0), dims_minus_1);
 	}
 	
 
