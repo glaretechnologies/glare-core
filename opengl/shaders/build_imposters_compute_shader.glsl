@@ -33,6 +33,8 @@ struct ChunkInfo
 	int chunk_x_index;
 	int chunk_y_index;
 	float chunk_w_m;
+	int section_x; // unoffset
+	int section_y; // unoffset
 	float base_scale;
 	float imposter_width_over_height;
 	float terrain_scale_factor;
@@ -261,13 +263,15 @@ void main()
 	float nx = pos_x * chunk_info.terrain_scale_factor + 0.5; // Offset by 0.5 so that the central heightmap is centered at (0,0,0).
 	float ny = pos_y * chunk_info.terrain_scale_factor + 0.5;
 
-	float heightmap_terrain_z = sampleHeightmapHighQual(nx, ny);
+	float section_nx = nx - float(chunk_info.section_x); // Should be in [0, 1)
+	float section_ny = ny - float(chunk_info.section_y); // Should be in [0, 1)
 
-	vec4 mask_val = texture(terrain_mask_tex, vec2(nx + 0.5/1024, ny + 0.5/1024));
+	float heightmap_terrain_z = sampleHeightmapHighQual(section_nx, section_ny);
+
+	vec4 mask_val = texture(terrain_mask_tex, vec2(section_nx + 0.5/1024, section_ny + 0.5/1024));
 
 	vec2 main_tex_coords = vec2(pos_x * chunk_info.terrain_scale_factor, pos_y * chunk_info.terrain_scale_factor);
 
-	vec2 mask_coords = main_tex_coords + vec2(0.5 + 0.5 / 1024, 0.5 + 0.5 / 1024);
 	vec2 detail_map_2_uvs = main_tex_coords * (8.0 * 1024 / 4.0);
 	float beach_factor = 0;
 	float veg_frac = ((mask_val.z > fbmMix(detail_map_2_uvs * 0.2).x * 0.3 + 0.5 + beach_factor) ? 1.0 : 0.0);
