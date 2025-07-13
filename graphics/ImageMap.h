@@ -331,7 +331,7 @@ const Colour4f ImageMap<V, VTraits>::vec3Sample(Coord u, Coord v, bool wrap) con
 	Colour4f colour_out;
 
 	// Get fractional normalised image coordinates
-	Vec4f normed_coords = Vec4f(u, -v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
+	Vec4f normed_coords = Vec4f(u, 1.f - v, 0, 0); // Normalised coordinates with v flipped, to go from +v up to +v down.
 	Vec4f normed_frac_part = normed_coords - floor(normed_coords); // Fractional part of normed coords, in [0, 1].
 
 	Vec4i dims((int)width, (int)height, 0, 0); // (width, height)		[int]
