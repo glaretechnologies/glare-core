@@ -444,6 +444,10 @@ void main()
 			-dp_dt * norm_map_v.y +
 			use_normal_ws * norm_map_v.z
 		);
+
+		// Sanitise use_normal_ws, we may end up with NaNs from the code above.
+		if(isnan(use_normal_ws.x))
+			use_normal_ws = vec3(0,0,1);
 #endif
 	}
 
