@@ -21,6 +21,7 @@ class WorkUnit;
 class PrintOutput;
 class ThreadMessageSink;
 class DataStore;
+class Parser;
 
 
 namespace web
@@ -68,6 +69,9 @@ private:
 public:
 	static void parseRanges(const string_view field_value, std::vector<web::Range>& ranges_out); // Just public for testing
 	static void parseAcceptEncodings(const string_view field_value, bool& deflate_accept_encoding_out, bool& zstd_accept_encoding_out); // Just public for testing
+	static void parseQuotedHeaderValue(Parser& parser, std::string& header_value_out);
+	static void parseHeaderValueInString(Parser& parser, std::string& header_value_out);
+	static void parseHeaderValue(Parser& parser, std::string& header_value_out);
 private:
 
 	int thread_id;

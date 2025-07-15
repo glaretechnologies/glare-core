@@ -31,8 +31,8 @@ RequestInfo::~RequestInfo()
 UnsafeString RequestInfo::getPostField(const std::string& key) const
 {
 	for(size_t i=0; i<post_fields.size(); ++i)
-		if(post_fields[i].key == key)
-			return post_fields[i].value;
+		if(post_fields[i]->key == key)
+			return UnsafeString(std::string((const char*)post_fields[i]->content.data(), post_fields[i]->content.size()));
 	return "";
 }
 
@@ -86,6 +86,26 @@ int RequestInfo::getURLIntParam(const std::string& key) const // Throws WebsiteE
 	{
 		throw WebsiteExcep("value for key '" + key + "' could not be parsed as an int.");
 	}
+}
+
+
+Reference<FormField> RequestInfo::getPostFieldForName(const std::string& name) const
+{
+	for(size_t i=0; i<post_fields.size(); ++i)
+		if(post_fields[i]->key == name)
+			return post_fields[i];
+
+	throw WebsiteExcep("Could not find post field with name '" + name + "'");
+}
+
+
+Reference<FormField> RequestInfo::getPostFieldForNameIfPresent(const std::string& name) const
+{
+	for(size_t i=0; i<post_fields.size(); ++i)
+		if(post_fields[i]->key == name)
+			return post_fields[i];
+
+	throw Reference<FormField>();
 }
 
 

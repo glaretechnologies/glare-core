@@ -326,7 +326,7 @@ static void testRangeRequestAndResponse(web::Range range, const MemMappedFile& f
 			testAssert((int64)response.size() == range_size);
 
 			for(int64 i=range.start; i<range.start + range_size; ++i)
-				testAssert(((const char*)file.fileData())[i] == response[i - range.start]);
+				testAssert(((uint8*)file.fileData())[i] == response[i - range.start]);
 		}
 	}
 	catch(glare::Exception& e)
@@ -403,6 +403,39 @@ static void testAcceptEncodingParsing(const std::string& field_value, bool expec
 }
 
 
+static void testParseQuotedHeaderValue(const std::string& input, const std::string& expected_parsed_value)
+{
+	try
+	{
+		Parser parser(input);
+
+		std::string header_val;
+		WorkerThread::parseQuotedHeaderValue(parser, header_val);
+		testEqual(header_val, expected_parsed_value);
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+}
+
+
+static void testParseQuotedHeaderValueExcepExpected(const std::string& input)
+{
+	try
+	{
+		Parser parser(input);
+
+		std::string header_val;
+		WorkerThread::parseQuotedHeaderValue(parser, header_val);
+
+		failTest("Excep expected");
+	}
+	catch(glare::Exception&)
+	{
+	}
+}
+
 
 class TestDummyRequestHandler : public RequestHandler
 {
@@ -419,7 +452,8 @@ public:
 // Direct fuzzing of WorkerThread::handleSingleRequest()
 // Command line:
 // C:\fuzz_corpus\worker_thread_handle_single_request c:\code\glare-core\testfiles\fuzz_seeds\worker_thread_handle_single_request -max_len=1000000 -seed=1
-
+// or 
+// C:\fuzz_corpus\worker_thread_handle_single_request c:\code\glare-core\testfiles\fuzz_seeds\worker_thread_handle_single_request -max_len=1000000 -jobs=16
 static void testHandleSingleRequest(const uint8_t* data, size_t size)
 {
 	try
@@ -530,6 +564,21 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
 void WebWorkerThreadTests::test()
 {
+	//=========================== Test parseQuotedHeaderValue ===============================
+	{
+		testParseQuotedHeaderValue("\"\"", "");
+		testParseQuotedHeaderValue("\"a\"", "a");
+		testParseQuotedHeaderValue("\"abcdef\"", "abcdef");
+		testParseQuotedHeaderValue("\"abc\\Qdef\"", "abcQdef");
+		testParseQuotedHeaderValue("\"abc\\\"def\"", "abc\"def");
+
+		testParseQuotedHeaderValueExcepExpected("");
+		testParseQuotedHeaderValueExcepExpected("\""); // no terminating "
+		testParseQuotedHeaderValueExcepExpected("\"aaa"); // no terminating "
+		testParseQuotedHeaderValueExcepExpected("\"\\"); // backslash before last "
+	}
+
+
 	//=========================== Test accept-encoding parsing ===============================
 	{
 		testAcceptEncodingParsing("", /*expected_deflate_accept_encoding=*/false, /*expected_zstd_accept_encoding=*/false);

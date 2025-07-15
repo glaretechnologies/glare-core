@@ -25,6 +25,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <Parser.h>
 #include <MemMappedFile.h>
 #include <RuntimeCheck.h>
+#include <maths/CheckedMaths.h>
 #include <openssl/err.h>
 
 
@@ -143,6 +144,70 @@ void WorkerThread::parseAcceptEncodings(const string_view field_value, bool& def
 }
 
 
+// See https://datatracker.ietf.org/doc/html/rfc7230#section-3.2.6
+void WorkerThread::parseQuotedHeaderValue(Parser& parser, std::string& header_value_out)
+{
+	if(!parser.parseChar('"'))
+		throw glare::Exception("error while parsing quoted value.");
+
+	while(1)
+	{
+		if(parser.eof())
+			throw glare::Exception("EOF while parsing quoted value.");
+
+		if(parser.current() == '"')
+			break;
+
+		// Handle quoted char
+		if(parser.current() == '\\')
+		{
+			parser.advance();
+			if(parser.eof())
+				throw glare::Exception("Error parsing header value: backslash at end of quoted string.");
+		}
+		header_value_out.push_back(parser.current());
+		parser.advance();
+	}
+
+	parser.consume('"');
+}
+
+
+void WorkerThread::parseHeaderValueInString(Parser& parser, std::string& header_value_out)
+{
+	header_value_out.clear();
+
+	if(parser.currentIsChar('"'))
+	{
+		parseQuotedHeaderValue(parser, header_value_out);
+	}
+	else
+	{
+		string_view temp;
+		parser.parseToCharOrEOF(';', temp);
+		header_value_out = toString(temp);
+	}
+}
+
+
+void WorkerThread::parseHeaderValue(Parser& parser, std::string& header_value_out)
+{
+	header_value_out.clear();
+
+	if(parser.currentIsChar('"'))
+	{
+		parseQuotedHeaderValue(parser, header_value_out);
+	}
+	else
+	{
+		string_view temp;
+		if(!parser.parseToOneOfChars(';', '\r', temp))
+			throw glare::Exception("Error parsing header value: failed to find ; or \r.");
+		header_value_out = toString(temp);
+	}
+}
+
+
 // Handle a single HTTP request.
 // The request header is in [socket_buffer[request_start_index], socket_buffer[request_start_index + request_header_size])
 // Returns if should keep connection alive.
@@ -213,6 +278,10 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 	std::string websocket_key;
 	std::string websocket_protocol;
 	std::string encoded_websocket_reply_key;
+	std::string content_type;
+	std::string multipart_form_data_boundary;
+
+	std::string temp_header_value, temp_param_value;
 
 	int content_length = -1;
 	while(1)
@@ -226,17 +295,18 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		string_view field_name;
 		if(!parser.parseToChar(':', field_name))
 			throw WebsiteExcep("Parser error while parsing header fields");
-		parser.advance(); // Advance past ':'
+		parser.consume(':'); // Advance past ':'
 
-		// If there is a space, consume it
-		parser.parseChar(' ');
+		parser.parseWhiteSpace(); // Parse any whitespace
 		
 		// Parse the field value
 		string_view field_value;
 		if(!parser.parseToChar('\r', field_value))
 			throw WebsiteExcep("Parser error while parsing header fields");
 
-		parser.advance(); // Advance past \r
+		// TODO: trim optional trailing whitespace after field value? See https://datatracker.ietf.org/doc/html/rfc7230#section-3.2
+
+		parser.consume('\r'); // Advance past \r
 		if(!parser.parseChar('\n')) // Advance past \n
 			throw WebsiteExcep("Parse error");
 
@@ -244,6 +314,9 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		header.key = field_name;
 		header.value = field_value;
 		request_info.headers.push_back(header);
+
+		if(request_info.headers.size() > 256)
+			throw glare::Exception("Too many headers");
 
 		//conPrint(field_name + ": " + field_value);
 
@@ -256,6 +329,41 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			catch(StringUtilsExcep& e)
 			{
 				throw WebsiteExcep("Failed to parse content length: " + e.what());
+			}
+		}
+		else if(StringUtils::equalCaseInsensitive(field_name, "content-type"))
+		{
+			// Parse content type
+			// e.g. multipart/form-data; boundary=ExampleBoundaryString
+
+			Parser content_type_parser(field_value.data(), field_value.size());
+			
+			string_view value;
+			content_type_parser.parseToCharOrEOF(';', value);
+			content_type = toString(value);
+
+			// Parse parameters
+			while(content_type_parser.currentIsChar(';'))
+			{
+				content_type_parser.consume(';');
+				content_type_parser.parseWhiteSpace();
+
+				// Parse key
+				string_view key;
+				if(!content_type_parser.parseToChar('=', key))
+					throw WebsiteExcep("Parser error while parsing content type");
+				content_type_parser.consume('='); // Advance past '='
+
+				// Parse value
+				parseHeaderValueInString(content_type_parser, temp_param_value);
+
+				if(key == "boundary")
+				{
+					multipart_form_data_boundary = temp_param_value;
+
+					if(multipart_form_data_boundary.size() > 70)
+						throw glare::Exception("multipart_form_data_boundary too long"); // See https://datatracker.ietf.org/doc/html/rfc2046#section-5.1.1 "and must be no longer than 70 characters"
+				}
 			}
 		}
 		else if(StringUtils::equalCaseInsensitive(field_name, "accept-encoding"))
@@ -280,10 +388,9 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 				cookie_parser.consume('='); // Advance past '='
 
 				// Parse cookie value
-				string_view value;
-				cookie_parser.parseToCharOrEOF(';', value);
-				request_info.cookies.back().value = toString(value);
-						
+				parseHeaderValueInString(cookie_parser, temp_header_value);
+				request_info.cookies.back().value = temp_header_value;
+
 				if(cookie_parser.currentIsChar(';'))
 				{
 					cookie_parser.consume(';'); // Advance past ';'
@@ -427,39 +534,145 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 				socket->readDataChecked(socket_buffer, /*buf index=*/current_buf_size, /*num bytes=*/required_buffer_size - current_buf_size);
 			}
 
-			// Copy data to request_info.post_content.
-			request_info.post_content.resize(content_length);
-			checkedArrayRefMemcpy(
-				/*dest=*/request_info.post_content, /*dest start index=*/0, 
-				/*src=*/socket_buffer, /*src start index=*/request_start_index + request_header_size, /*size_B=*/content_length);
+			const size_t content_start_i = request_start_index + request_header_size;
+			const size_t content_end_i   = request_start_index + total_msg_size;
 
-			//conPrint("Read content:");
-			//conPrint(post_content);
+			runtimeCheck(content_start_i < socket_buffer.size());
+			runtimeCheck(content_end_i == content_start_i + (size_t)content_length);
+			runtimeCheck(content_end_i <= socket_buffer.size());
 
-			// Parse form data.  NOTE: We don't always want to do this presumably, we're not always handling form posts.
-			Parser form_parser((const char*)request_info.post_content.data(), request_info.post_content.size());
+			// conPrint("-----------Read content:-------------");
+			// conPrint(std::string((const char*)socket_buffer.data() + content_start_i, (size_t)content_length));
+			// conPrint("-----------End read content-------------");
 
-			while(!form_parser.eof())
+			if(content_type == "multipart/form-data")
 			{
-				request_info.post_fields.resize(request_info.post_fields.size() + 1);
+				runtimeCheck((content_start_i <= socket_buffer.size()) && (CheckedMaths::addUnsignedInts(content_start_i, (size_t)content_length) <= socket_buffer.size()));
+				Parser form_parser((const char*)socket_buffer.data() + content_start_i, (size_t)content_length);
 
-				// Parse key
-				string_view escaped_key;
-				if(!form_parser.parseToChar('=', escaped_key))
-					throw WebsiteExcep("Parser error while parsing URL params");
-				request_info.post_fields.back().key = Escaping::URLUnescape(toString(escaped_key));
+				const std::string dashdash_multipart_form_data_boundary = "--" + multipart_form_data_boundary;
 
-				form_parser.consume('='); // Advance past '='
+				if(!form_parser.parseString(dashdash_multipart_form_data_boundary))
+					throw glare::Exception("failed to parse dashdash_multipart_form_data_boundary while parsing multipart/form-data");
 
-				// Parse value
-				string_view escaped_value;
-				form_parser.parseToCharOrEOF('&', escaped_value);
-				request_info.post_fields.back().value = Escaping::URLUnescape(toString(escaped_value));
+				form_parser.parseSpacesAndTabs();
+				if(!form_parser.parseString(CRLF))
+					throw glare::Exception("failed to parse multipart/form-data");
+
+				while(1)
+				{
+					Reference<FormField> form_field = new FormField();
+
+					// Parse any headers for the form entity (see https://datatracker.ietf.org/doc/html/rfc2046#section-5.1)
+					while(form_parser.notEOF() && !form_parser.currentIsChar('\r'))
+					{
+						string_view header_key;
+						if(!form_parser.parseToChar(':', header_key))
+							throw WebsiteExcep("failed to parse multipart/form-data");
+
+						form_parser.consume(':');
+						form_parser.parseWhiteSpace();
+
+						parseHeaderValue(form_parser, temp_header_value);
+
+						if(StringUtils::equalCaseInsensitive(header_key, "content-type"))
+							form_field->content_type = temp_header_value;
+
+						// Parse header parameters
+						while(form_parser.currentIsChar(';'))
+						{
+							form_parser.consume(';'); // Advance past ';'
+							form_parser.parseWhiteSpace();
+
+							// Parse key
+							string_view param_key;
+							if(!form_parser.parseToChar('=', param_key))
+								throw WebsiteExcep("Parser error while parsing content type");
+							form_parser.consume('='); // Advance past '='
+
+							// Parse value
+							parseHeaderValue(form_parser, temp_param_value);
+
+							if(StringUtils::equalCaseInsensitive(header_key, "content-disposition") && (temp_header_value == "form-data"))
+							{
+								if(param_key == "name")
+									form_field->key = temp_param_value;
+								else if(param_key == "filename")
+									form_field->filename = temp_param_value;
+							}
+						}
+
+						if(!form_parser.parseString(CRLF))
+							throw glare::Exception("failed to parse CRLF while parsing multipart/form-data");
+					}
+
+					if(!form_parser.parseString(CRLF))
+						throw glare::Exception("failed to parse CRLF while parsing multipart/form-data");
+
+					// Parse the entity data/content
+					// Search for the next boundary marker string
+					const size_t form_data_start_i = form_parser.currentPos();
+					size_t last_boundary_check_pos = form_data_start_i;
+					std::string form_data;
+					while(1)
+					{
+						if(form_parser.currentPos() + 1 >= form_parser.getTextSize())
+							throw glare::Exception("failed to parse multipart/form-data");
+
+						last_boundary_check_pos = form_parser.currentPos();
+
+						if(form_parser.current() == '-' && form_parser.next() == '-')
+							if(form_parser.parseString(dashdash_multipart_form_data_boundary))
+								break;
+
+						form_parser.advance();
+					}
+					// We need to remove the last two chars to remove trailing CRLF before boundary marker
+					if(last_boundary_check_pos - form_data_start_i < 2)
+						throw glare::Exception("failed to parse multipart/form-data"); 
+					runtimeCheck((form_data_start_i <= form_parser.getTextSize()) && (last_boundary_check_pos >= 2) && (last_boundary_check_pos - 2 <= form_parser.getTextSize()));
+					form_field->content.assign(/*first=*/form_parser.getText() + form_data_start_i, /*last=*/form_parser.getText() + last_boundary_check_pos - 2);
+
+					request_info.post_fields.push_back(form_field);
+
+					if(form_parser.parseString("--")) // If this is the final form entity (marked by a "--" after the boundary string):
+						break;
+
+					form_parser.parseSpacesAndTabs();
+					if(!form_parser.parseString(CRLF))
+						throw glare::Exception("failed to parse multipart/form-data");
+				}
+			}
+			else if(content_type == "application/x-www-form-urlencoded")
+			{
+				// Parse form data.
+				Parser form_parser((const char*)socket_buffer.data() + content_start_i, (size_t)content_length);
+
+				while(!form_parser.eof())
+				{
+					Reference<FormField> form_field = new FormField();
+
+					// Parse key
+					string_view escaped_key;
+					if(!form_parser.parseToChar('=', escaped_key))
+						throw WebsiteExcep("Parser error while parsing URL params");
+					form_field->key = Escaping::URLUnescape(toString(escaped_key));
+
+					form_parser.consume('='); // Advance past '='
+
+					// Parse value
+					string_view escaped_value;
+					form_parser.parseToCharOrEOF('&', escaped_value);
+					const std::string unescaped_str = Escaping::URLUnescape(toString(escaped_value));
+					form_field->content.assign(unescaped_str.begin(), unescaped_str.end());
+
+					request_info.post_fields.push_back(form_field);
 						
-				if(form_parser.currentIsChar('&'))
-					form_parser.consume('&'); // Advance past '&'
-				else
-					break; // Finish parsing URL params.
+					if(form_parser.currentIsChar('&'))
+						form_parser.consume('&'); // Advance past '&'
+					else
+						break; // Finish parsing URL params.
+				}
 			}
 		}
 
@@ -478,7 +691,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 }
 
 /*
-moveToFrontOfBuffer():
+moveToFrontOfBufferAndTrimBuffer():
 
 Move bytes [request_start, socket_buffer.size()) to [0, socket_buffer.size() - request_start),
 then resize buffer to socket_buffer.size() - request_start.
@@ -499,9 +712,9 @@ then resize buffer to socket_buffer.size() - request_start.
 request start index    double_crlf_scan_position   socket_buffer.size()
 
 */
-static void moveToFrontOfBuffer(std::vector<uint8>& socket_buffer, size_t request_start)
+static void moveToFrontOfBufferAndTrimBuffer(std::vector<uint8>& socket_buffer, size_t request_start)
 {
-	runtimeCheck(request_start < socket_buffer.size());
+	runtimeCheck(request_start <= socket_buffer.size());
 
 	const size_t len = socket_buffer.size() - request_start; // num bytes to copy
 	for(size_t i=0; i<len; ++i)
@@ -526,7 +739,7 @@ void WorkerThread::handleWebsocketConnection(RequestInfo& request_info)
 }
 
 
-// This main loop code is in a separate function so we can easily return from it, while still excecuting the thread cleanup code in doRun().
+// This main loop code is in a separate function so we can easily return from it, while still executing the thread cleanup code in doRun().
 void WorkerThread::doRunMainLoop()
 {
 	request_start_index = 0; // Index in socket_buffer of the start of the current request.
@@ -574,13 +787,12 @@ void WorkerThread::doRunMainLoop()
 
 		runtimeCheck(double_crlf_scan_position >= request_start_index);
 			
-		// If the latest request does not start at byte zero in the buffer,
-		// And there is some data stored for the request to actually move,
-		// then move the remaining data in the buffer to the start of the buffer.
-		if(request_start_index > 0 && request_start_index < socket_buf_size)
+		// If the current request does not start at byte zero in the buffer,
+		// then move the remaining data (if any) in the buffer to the start of the buffer.
+		if(request_start_index > 0)
 		{
 			const size_t old_request_start_index = request_start_index;
-			moveToFrontOfBuffer(socket_buffer, request_start_index);
+			moveToFrontOfBufferAndTrimBuffer(socket_buffer, request_start_index);
 			request_start_index = 0;
 			double_crlf_scan_position -= old_request_start_index;
 		}

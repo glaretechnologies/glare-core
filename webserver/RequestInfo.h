@@ -8,8 +8,9 @@ Copyright Glare Technologies Limited 2021 -
 
 #include <networking/IPAddress.h>
 #include <UnsafeString.h>
-#include <Reference.h>
-#include <string_view.h>
+#include <utils/Reference.h>
+#include <utils/ThreadSafeRefCounted.h>
+#include <utils/string_view.h>
 #include <string>
 #include <vector>
 class OutStream;
@@ -26,11 +27,17 @@ public:
 	UnsafeString value;
 };
 
-class FormField
+
+class FormField : public ThreadSafeRefCounted
 {
 public:
-	std::string key;
-	UnsafeString value;
+	UnsafeString key; // Also name
+
+	UnsafeString filename;
+	UnsafeString content_type;
+	std::vector<uint8> content;
+
+	UnsafeString getContentAsString() { return UnsafeString(std::string((const char*)content.data(), content.size())); }
 };
 
 
@@ -77,6 +84,9 @@ public:
 	UnsafeString getURLParam(const std::string& key) const; // Returns empty string if key not present.
 	int getURLIntParam(const std::string& key) const; // Throws WebsiteExcep on failure
 
+	Reference<FormField> getPostFieldForName(const std::string& name) const; // Throws WebsiteExcep on failure
+	Reference<FormField> getPostFieldForNameIfPresent(const std::string& name) const; // Returns null ref if not present
+
 	std::string getHostHeader() const; // Returns host header, or empty string if not present.
 
 	std::string verb;
@@ -84,10 +94,8 @@ public:
 
 	std::vector<Header> headers;
 	std::vector<URLParam> URL_params;
-	std::vector<FormField> post_fields;
+	std::vector<Reference<FormField>> post_fields;
 	std::vector<Cookie> cookies;
-
-	std::vector<uint8> post_content; // For POST request type.
 
 	std::vector<Range> ranges;
 

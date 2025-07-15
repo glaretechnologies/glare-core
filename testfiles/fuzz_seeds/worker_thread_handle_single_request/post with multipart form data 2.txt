@@ -1,0 +1,14 @@
+POST / HTTP/1.1
+Content-Length: 144
+Content-Type: multipart/form-data;boundary=AAA
+
+--AAA
+Content-Disposition: form-data; name="avatar"; filename="bike.png"
+Content-Type: image/png
+
+kjdskdjfghdkfjghkfjd
+--AAA
+
+sdfsdfds
+--AAA--
+
