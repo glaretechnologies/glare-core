@@ -541,6 +541,12 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			runtimeCheck(content_end_i == content_start_i + (size_t)content_length);
 			runtimeCheck(content_end_i <= socket_buffer.size());
 
+			// Copy data to request_info.post_content.
+			request_info.post_content.resize(content_length);
+			checkedArrayRefMemcpy(
+				/*dest=*/request_info.post_content, /*dest start index=*/0, 
+				/*src=*/socket_buffer, /*src start index=*/content_start_i, /*size_B=*/content_length);
+
 			// conPrint("-----------Read content:-------------");
 			// conPrint(std::string((const char*)socket_buffer.data() + content_start_i, (size_t)content_length));
 			// conPrint("-----------End read content-------------");

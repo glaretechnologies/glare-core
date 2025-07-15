@@ -97,6 +97,8 @@ public:
 	std::vector<Reference<FormField>> post_fields;
 	std::vector<Cookie> cookies;
 
+	std::vector<uint8> post_content; // For POST request type.
+
 	std::vector<Range> ranges;
 
 	// Accept-encodings specified in header: (just the ones we are interested in)
