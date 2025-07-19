@@ -128,9 +128,14 @@ void LRUCache<Key, Value, Hash>::itemWasUsed(const Key& key)
 		LRUCacheItem<Key, Value>& item = res->second;
 		assert(item.item_list_it != item_list.end());
 		
-		item_list.erase(item.item_list_it);
-		item_list.push_front(key);
-		item.item_list_it = item_list.begin();
+		// Move item to front of list
+		item_list.splice(
+			item_list.begin(), // position - item will be inserted before here.
+			item_list, // the list the item comes from
+			item.item_list_it // the element to transfer
+		);
+
+		assert(item.item_list_it == item_list.begin());
 	}
 
 	assert(items.size() == item_list.size());
