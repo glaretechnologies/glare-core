@@ -33,18 +33,20 @@ void testLRUCache()
 	// Test insert, itemWasUsed, removeLRUUnusedItem
 	{
 		LRUCache<std::string, int> cache;
-		cache.insert("a", 1);
+		cache.insert("a", 1, sizeof(int));
 		cache.itemWasUsed("a");
 
-		cache.insert("b", 2);
+		cache.insert("b", 2, sizeof(int));
 		cache.itemWasUsed("b");
 
 		testAssert(cache.numItems() == 2);
+		testAssert(cache.totalValueSizeB() == sizeof(int)*2);
 
 		cache.itemWasUsed("a");
 		cache.itemWasUsed("b");
 
 		testAssert(cache.numItems() == 2);
+		testAssert(cache.totalValueSizeB() == sizeof(int)*2);
 
 		std::string removed_key;
 		int removed_val;
@@ -53,20 +55,23 @@ void testLRUCache()
 		testAssert(removed_key == "a");
 		testEqual(removed_val, 1);
 		testAssert(cache.numItems() == 1);
+		testAssert(cache.totalValueSizeB() == sizeof(int));
 
 		removed = cache.removeLRUItem(removed_key, removed_val);
 		testAssert(removed);
 		testAssert(removed_key == "b");
 		testEqual(removed_val, 2);
 		testAssert(cache.numItems() == 0);
+		testAssert(cache.totalValueSizeB() == 0);
 
 		removed = cache.removeLRUItem(removed_key, removed_val);
 		testAssert(!removed);
 		testAssert(cache.numItems() == 0);
+		testAssert(cache.totalValueSizeB() == 0);
 
-		cache.insert("a", 1);
-		cache.insert("b", 2);
-		cache.insert("c", 3);
+		cache.insert("a", 1, sizeof(int));
+		cache.insert("b", 2, sizeof(int));
+		cache.insert("c", 3, sizeof(int));
 		// item_list: [c, b, a]
 
 		cache.itemWasUsed("a"); // item_list: [a, c, b]
@@ -78,6 +83,7 @@ void testLRUCache()
 		testAssert(removed_key == "b");
 		testEqual(removed_val, 2);
 		testAssert(cache.numItems() == 2);
+		testAssert(cache.totalValueSizeB() == sizeof(int)*2);
 
 		 // item_list: [a, c]
 
@@ -85,6 +91,7 @@ void testLRUCache()
 		testAssert(removed_key == "c");
 		testEqual(removed_val, 3);
 		testAssert(cache.numItems() == 1);
+		testAssert(cache.totalValueSizeB() == sizeof(int));
 
 		testAssert(cache.isInserted("a"));
 	}
@@ -92,13 +99,14 @@ void testLRUCache()
 	// Test find and erase
 	{
 		LRUCache<std::string, int> cache;
-		cache.insert("a", 1);
-		cache.insert("b", 2);
+		cache.insert("a", 1, sizeof(int));
+		cache.insert("b", 2, sizeof(int));
 
 		cache.itemWasUsed("a");
 		cache.itemWasUsed("b");
 
 		testAssert(cache.numItems() == 2);
+		testAssert(cache.totalValueSizeB() == sizeof(int)*2);
 
 		testAssert(cache.find("z") == cache.end());
 		auto res = cache.find("a");
@@ -108,33 +116,63 @@ void testLRUCache()
 		testAssert(cache.find("a") == cache.end());
 
 		testAssert(cache.numItems() == 1);
+		testAssert(cache.totalValueSizeB() == sizeof(int));
 	}
 
 	// Test duplicate insert (second insert has no effect, like std::map)
 	{
 		LRUCache<std::string, int> cache;
-		cache.insert("a", 1);
+		cache.insert("a", 1, sizeof(int));
 		testAssert(cache.numItems() == 1);
+		testAssert(cache.totalValueSizeB() == sizeof(int));
 		testAssert(cache.find("a")->second.value == 1);
-		cache.insert("a", 2);
+		cache.insert("a", 2, sizeof(int));
 		testAssert(cache.numItems() == 1);
+		testAssert(cache.totalValueSizeB() == sizeof(int));
 		testAssert(cache.find("a")->second.value == 1);
 	}
 
 	// Test calling itemWasUsed with the same key multiple times.
 	{
 		LRUCache<std::string, int> cache;
-		cache.insert("a", 1);
+		cache.insert("a", 1, sizeof(int));
 		cache.itemWasUsed("a");
 		cache.itemWasUsed("a");
 		cache.itemWasUsed("a");
+	}
+
+	// Test removeLRUItemsUntilSizeLessEqualN
+	{
+		LRUCache<std::string, int> cache;
+		cache.insert("a", 1, sizeof(int));
+		cache.insert("b", 2, sizeof(int));
+		cache.insert("c", 3, sizeof(int));
+
+		cache.removeLRUItemsUntilSizeLessEqualN(1000);
+
+		testAssert(cache.numItems() == 3);
+		testAssert(cache.totalValueSizeB() == sizeof(int)*3);
+
+		cache.removeLRUItemsUntilSizeLessEqualN(sizeof(int));
+
+		testAssert(cache.numItems() == 1);
+		testAssert(cache.totalValueSizeB() == sizeof(int));
+		testAssert(cache.isInserted("c"));
+
+		cache.removeLRUItemsUntilSizeLessEqualN(0);
+
+		testAssert(cache.numItems() == 0);
+		testAssert(cache.totalValueSizeB() == 0);
+
+		cache.removeLRUItemsUntilSizeLessEqualN(0);
+		cache.removeLRUItemsUntilSizeLessEqualN(1000);
 	}
 
 	// Test with a refcounted class as a value.
 	{
 		LRUCache<int, Reference<LRUCacheTestItem> > cache;
 		Reference<LRUCacheTestItem> item_0 = new LRUCacheTestItem(0);
-		cache.insert(0, item_0);
+		cache.insert(0, item_0, sizeof(LRUCacheTestItem));
 	}
 
 	// Test with a refcounted class as a value.
@@ -143,7 +181,7 @@ void testLRUCache()
 
 		Reference<LRUCacheTestItem> item_0 = new LRUCacheTestItem(0);
 
-		cache.insert(0, item_0);
+		cache.insert(0, item_0, sizeof(LRUCacheTestItem));
 		
 		testAssert(item_0->getRefCount() == 2); // cache should hold one ref, one is in this scope.
 
@@ -162,7 +200,7 @@ void testLRUCache()
 
 		Reference<LRUCacheTestItem> item_0 = new LRUCacheTestItem(0);
 
-		cache.insert(0, item_0);
+		cache.insert(0, item_0, sizeof(LRUCacheTestItem));
 
 		testAssert(item_0->getRefCount() == 2); // cache should hold one ref, one is in this scope.
 
@@ -175,7 +213,7 @@ void testLRUCache()
 
 		Reference<LRUCacheTestItem> item_0 = new LRUCacheTestItem(0);
 
-		cache.insert(0, item_0);
+		cache.insert(0, item_0, sizeof(LRUCacheTestItem));
 
 		testAssert(item_0->getRefCount() == 2); // cache should hold one ref, one is in this scope.
 	}
@@ -187,7 +225,7 @@ void testLRUCache()
 		const int N = 1000; // Can't actually do that many inserts because std::list is rediculously slow in debug mode in VS2019 (O(n^2) checking?)
 		LRUCache<int, int> cache;
 		for(int i=0; i<N; ++i)
-			cache.insert(i, i);
+			cache.insert(i, i, sizeof(int));
 
 		for(int i=0; i<N; ++i)
 			cache.itemWasUsed(i);
