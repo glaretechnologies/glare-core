@@ -2550,7 +2550,6 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 		"#define IMPOSTER " + toString(key.imposter) + "\n" +
 		"#define IMPOSTERABLE " + toString(key.imposterable) + "\n" +
 		"#define USE_WIND_VERT_SHADER " + toString(key.use_wind_vert_shader) + "\n" + 
-		"#define SIMPLE_DOUBLE_SIDED " + toString(key.simple_double_sided) + "\n" + 
 		"#define FANCY_DOUBLE_SIDED " + toString(key.fancy_double_sided) + "\n" + 
 		"#define MATERIALISE_EFFECT " + toString(key.materialise_effect) + "\n" + 
 		"#define BLOB_SHADOWS " + toString(1) + "\n" +
@@ -3304,7 +3303,6 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 	key.draw_planar_uv_grid = false;
 	// relevant: key.skinning
 	// relevant: use_wind_vert_shader
-	key.simple_double_sided = false; // for now
 	key.fancy_double_sided = false; // for now
 	key.terrain = false;
 
@@ -3913,7 +3911,6 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.imposter = material.imposter;
 	key_args.imposterable = material.imposterable;
 	key_args.use_wind_vert_shader = material.use_wind_vert_shader;
-	key_args.simple_double_sided = material.simple_double_sided;
 	key_args.fancy_double_sided = material.fancy_double_sided;
 	key_args.materialise_effect = material.materialise_effect;
 	key_args.terrain = material.terrain;

@@ -328,7 +328,7 @@ void main()
 			discard;
 
 
-		if((MAT_UNIFORM.flags & SIMPLE_DOUBLE_SIDED_FLAG) == 0) // If not double-sided:
+		if((MAT_UNIFORM.flags & SIMPLE_DOUBLE_SIDED_FLAG) == 0) // If not simple double-sided:
 		{
 			// Only faces with normals oriented in the +z direction should receive the decal.
 			vec3 src_normal_decal_space = normalize((world_to_ob * vec4(src_normal_ws, 0.0)).xyz);
@@ -465,9 +465,16 @@ void main()
 
 	vec3 unit_normal_ws = normalize(use_normal_ws);
 
+	if((MAT_UNIFORM.flags & SIMPLE_DOUBLE_SIDED_FLAG) != 0) // If simple double-sided:
+	{
+		// Flip normal if needed so points into the halfspace that the camera is in.
+		if(dot(unit_normal_ws, cam_to_pos_ws) > 0.0)
+			unit_normal_ws = -unit_normal_ws;
+	}
+
 	float light_cos_theta = dot(unit_normal_ws, sundir_ws.xyz);
 
-#if SIMPLE_DOUBLE_SIDED || FANCY_DOUBLE_SIDED
+#if FANCY_DOUBLE_SIDED
 	float sun_light_cos_theta_factor = abs(light_cos_theta);
 #else
 	float sun_light_cos_theta_factor = max(0.f, light_cos_theta);
