@@ -20,15 +20,18 @@ GLUITextButton::CreateArgs::CreateArgs()
 	font_size_px = 14;
 
 	background_colour           = Colour3f(1.f);
+	toggled_background_colour   = toLinearSRGB(Colour3f(0.7f, 0.8f, 1.f));
 	mouseover_background_colour = toLinearSRGB(Colour3f(0.8f));
 
 	text_colour           = toLinearSRGB(Colour3f(0.1f));
+	toggled_text_colour   = toLinearSRGB(Colour3f(0.1f));
 	mouseover_text_colour = toLinearSRGB(Colour3f(0.1f));
 }
 
 
-GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& button_text_, const Vec2f& botleft, const Vec2f& /*dims*/, const CreateArgs& args_)
-:	handler(NULL)
+GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& button_text_, const Vec2f& botleft, const CreateArgs& args_)
+:	handler(NULL),
+	toggled(false)
 {
 	glui = &glui_;
 	opengl_engine = opengl_engine_;
@@ -82,15 +85,31 @@ void GLUITextButton::doHandleMouseMoved(MouseEvent& mouse_event)
 
 	if(rect.inOpenRectangle(coords)) // If mouse over widget:
 	{
-		text_view->setBackgroundColour(args.mouseover_background_colour);
-		text_view->setTextColour(args.mouseover_text_colour);
+		if(toggled)
+		{
+			text_view->setBackgroundColour(args.toggled_background_colour);
+			text_view->setTextColour(args.toggled_text_colour);
+		}
+		else
+		{
+			text_view->setBackgroundColour(args.mouseover_background_colour);
+			text_view->setTextColour(args.mouseover_text_colour);
+		}
 
 		mouse_event.accepted = true;
 	}
 	else
 	{
-		text_view->setBackgroundColour(args.background_colour);
-		text_view->setTextColour(args.text_colour);
+		if(toggled)
+		{
+			text_view->setBackgroundColour(args.toggled_background_colour);
+			text_view->setTextColour(args.toggled_text_colour);
+		}
+		else
+		{
+			text_view->setBackgroundColour(args.background_colour);
+			text_view->setTextColour(args.text_colour);
+		}
 	}
 }
 
@@ -130,6 +149,16 @@ void GLUITextButton::setPos(const Vec2f& botleft)
 	text_view->setPos(*glui, botleft + Vec2f(text_view->getPaddingWidth()));
 
 	rect = text_view->getBackgroundRect();
+}
+
+
+void GLUITextButton::setToggled(bool toggled_)
+{
+	this->toggled = toggled_;
+
+	// NOTE: ignoring mouseover state
+	text_view->setBackgroundColour(toggled ? args.toggled_background_colour : args.background_colour);
+	text_view->setTextColour(toggled ? args.toggled_text_colour : args.text_colour);
 }
 
 

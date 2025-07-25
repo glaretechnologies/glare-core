@@ -34,11 +34,14 @@ public:
 		Colour3f background_colour;
 		Colour3f text_colour;
 
+		Colour3f toggled_background_colour;
+		Colour3f toggled_text_colour;
+
 		Colour3f mouseover_background_colour;
 		Colour3f mouseover_text_colour;
 	};
 
-	GLUITextButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& button_text, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args);
+	GLUITextButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& button_text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUITextButton();
 
 	virtual void handleMousePress(MouseEvent& event) override;
@@ -48,6 +51,8 @@ public:
 	void rebuild();
 
 	void setPos(const Vec2f& botleft);
+
+	void setToggled(bool toggled_);
 
 	void setVisible(bool visible);
 
@@ -65,6 +70,8 @@ private:
 	CreateArgs args;
 	Vec2f m_botleft;
 	std::string button_text;
+
+	bool toggled;
 };
 
 
