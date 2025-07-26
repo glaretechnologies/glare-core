@@ -1219,7 +1219,7 @@ private:
 	void addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int num_clip_planes_used);
 	void renderToShadowMapDepthBuffer();
 	void doBloomPostProcess();
-	void doImaging();
+	void doFinalImaging();
 	void drawUIOverlayObjects(const Matrix4f& reverse_z_matrix);
 	void generateOutlineTexture(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawOutlinesAroundSelectedObjects();

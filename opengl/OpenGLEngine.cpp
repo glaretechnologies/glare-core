@@ -7460,10 +7460,10 @@ void OpenGLEngine::draw()
 		//================= Do postprocess bloom =================
 		doBloomPostProcess();
 		
-		//================= Do imaging, which reads from main_render_framebuffer and writes to the output framebuffer =================
+		//================= Do final imaging =================
 		// Final imaging is order-independent transparency compositing, adding together bloom results, and doing tonemapping.
 		// See final_imaging_frag_shader.glsl
-		doImaging();
+		doFinalImaging();
 
 	} // End if(current_scene->render_to_main_render_framebuffer)
 
@@ -7565,10 +7565,9 @@ inline static std::string faceCullingBitsDescrip(uint32 culling_bits)
 }
 
 
-// Do imaging, which reads from main_render_framebuffer and writes to the output framebuffer
 // Final imaging is order-independent transparency compositing, adding together bloom results, and doing tonemapping.
 // See final_imaging_frag_shader.glsl
-void OpenGLEngine::doImaging()
+void OpenGLEngine::doFinalImaging()
 {
 	DebugGroup debug_group3("imaging");
 	TracyGpuZone("imaging");
