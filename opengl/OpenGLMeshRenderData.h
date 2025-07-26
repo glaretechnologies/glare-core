@@ -52,6 +52,8 @@ public:
 	uint32 computeIndexTypeBits(GLenum the_index_type) const { return (the_index_type == /*GL_UNSIGNED_BYTE=*/0x1401) ? 0 : ((the_index_type == /*GL_UNSIGNED_SHORT=*/0x1403) ? 1 : 2); }
 	void updateIndexTypeBits() { index_type_bits = computeIndexTypeBits(index_type); }
 
+	size_t getBatch0IndicesTotalBufferOffset() const { return indices_vbo_handle.offset + batches[0].prim_start_offset_B; }
+
 	js::AABBox aabb_os; // Should go first as is aligned.
 
 	glare::AllocatorVector<uint8, 16> vert_data;

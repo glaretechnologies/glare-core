@@ -5526,9 +5526,7 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 	
 	glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, clear_buf_overlay_ob->ob_to_world_matrix.e);
 
-	const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
-
-	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)mesh_data.getBatch0IndicesTotalBufferOffset(), mesh_data.vbo_handle.base_vertex);
 }
 
 
@@ -7360,10 +7358,10 @@ void OpenGLEngine::draw()
 		---------------> full buffer -------------> downsize_framebuffers[0] ------------> blur_framebuffers_x[0] -----------> blur_framebuffers[0]
 		 render scene                 downsize            |                     blur x                              blur y       
 		                                                  |
-		                                                  |------------------> low res buffer 1 -----------> blur_framebuffers_x[1] ------------>  blur_framebuffers[1]
+		                                                  |--------------> downsize_framebuffers[1] -------> blur_framebuffers_x[1] ------------>  blur_framebuffers[1]
 		                                                       downsize               |             blur x                             blur y
 		                                                                              |
-		                                                                              ------------------> low res buffer 2 -----------> blur_framebuffers_x[2] ------------>  blur_framebuffers[2]
+		                                                                              -----------> downsize_framebuffers[2] -----------> blur_framebuffers_x[2] ------------>  blur_framebuffers[2]
 		                                                                                  downsize              |             blur x                             blur y
 		
 		All blurred low res buffers are then read from and added to the resulting buffer.
@@ -7601,13 +7599,12 @@ void OpenGLEngine::doFinalImaging()
 
 	glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
 
-	// Bind downsize_target_textures
+	// Bind blur_target_textures
 	// We need to bind these textures even when bloom_strength == 0, or we get runtime opengl errors.
 	for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 		bindTextureUnitToSampler(*blur_target_textures[i], /*texture_unit_index=*/4 + i, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc);
 
-	const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
-	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex);
+	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), unit_quad_meshdata->vbo_handle.base_vertex);
 
 	OpenGLProgram::useNoPrograms();
 
@@ -7659,7 +7656,7 @@ void OpenGLEngine::doBloomPostProcess()
 
 		bindMeshData(*unit_quad_meshdata);
 		assert(unit_quad_meshdata->batches.size() == 1);
-		const size_t unit_quad_total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
+		const size_t unit_quad_total_buffer_offset = unit_quad_meshdata->getBatch0IndicesTotalBufferOffset();
 
 		for(int i=0; i<(int)downsize_target_textures.size(); ++i)
 		{
@@ -9788,8 +9785,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				bindTextureUnitToSampler(*prepass_normal_copy_texture, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, compute_ssao_normal_tex_location);
 				bindTextureUnitToSampler(*prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, compute_ssao_depth_tex_location);
 
-				const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)mesh_data.getBatch0IndicesTotalBufferOffset(), mesh_data.vbo_handle.base_vertex);
 			}
 
 			flushDrawCommandsAndUnbindPrograms();
@@ -9831,8 +9827,8 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/1); // set blur_x = 1
 
 				// Draw quad
-				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); 
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
+					unit_quad_meshdata->vbo_handle.base_vertex); 
 			}
 
 			// Do blur in y direction
@@ -9852,8 +9848,8 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/0); // set blur_x = 0
 
 				// Draw quad
-				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); 
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
+					unit_quad_meshdata->vbo_handle.base_vertex); 
 			}
 
 
@@ -9875,8 +9871,8 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/1); // set blur_x = 1
 
 				// Draw quad
-				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); 
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
+					unit_quad_meshdata->vbo_handle.base_vertex); 
 			}
 
 			// Do blur in y direction
@@ -9895,8 +9891,8 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/0); // set blur_x = 0
 
 				// Draw quad
-				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); 
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
+					unit_quad_meshdata->vbo_handle.base_vertex); 
 			}
 
 			if(query_profiling_enabled && blur_ssao_gpu_timer->isRunning())
@@ -10074,8 +10070,8 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 			glUniform4fv(edge_extract_col_location, 1, outline_colour.x);
 			glUniform1f(edge_extract_line_width_location, this->outline_width_px);
 				
-			const size_t total_buffer_offset = outline_quad_meshdata->indices_vbo_handle.offset + outline_quad_meshdata->batches[0].prim_start_offset_B;
-			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->getIndexType(), (void*)total_buffer_offset, outline_quad_meshdata->vbo_handle.base_vertex);
+			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)outline_quad_meshdata->batches[0].num_indices, outline_quad_meshdata->getIndexType(), (void*)outline_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
+				outline_quad_meshdata->vbo_handle.base_vertex);
 
 			unbindTextureFromTextureUnit(*outline_solid_tex, /*texture_unit_index=*/0);
 		}
@@ -10134,8 +10130,7 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 
 			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
 				
-			const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
-			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)mesh_data.getBatch0IndicesTotalBufferOffset(), mesh_data.vbo_handle.base_vertex);
 
 			unbindTextureFromTextureUnit(*opengl_mat.albedo_texture, /*texture_unit_index=*/0);
 		}
@@ -10223,8 +10218,7 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 					bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
 				}
 				
-				const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + mesh_data.batches[0].prim_start_offset_B;
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)total_buffer_offset, mesh_data.vbo_handle.base_vertex);
+				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)mesh_data.getBatch0IndicesTotalBufferOffset(), mesh_data.vbo_handle.base_vertex);
 
 				if(opengl_mat.albedo_texture)
 					unbindTextureFromTextureUnit(*opengl_mat.albedo_texture, /*texture_unit_index=*/0);
@@ -10301,8 +10295,8 @@ void OpenGLEngine::drawAuroraTex()
 #endif
 	bindTextureToTextureUnit(*this->fbm_tex, FBM_TEXTURE_UNIT_INDEX);
 
-	const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
-	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
+	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
+		unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
 
 
 	OpenGLProgram::useNoPrograms();
