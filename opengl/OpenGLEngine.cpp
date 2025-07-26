@@ -7457,156 +7457,13 @@ void OpenGLEngine::draw()
 
 		
 
-		//------------------- Do postprocess bloom ---------------------
-	
-		// // Code to Compute gaussian blur weights:
-		// float sum = 0;
-		// for(int x=-2; x<=2; ++x)
-		// 	sum += Maths::eval1DGaussian(x, /*standard dev=*/1.0);
-	   
-		// for(int x=-2; x<=2; ++x)
-		// {
-		// 	const float weight = Maths::eval1DGaussian(x, /*standard dev=*/1.0);
-		// 	const float normed_weight = weight / sum;
-		// 	conPrintStr(" " + toString(normed_weight));
-		// }
-
-		if(current_scene->bloom_strength > 0)
-		{
-			DebugGroup debug_group2("bloom");
-			TracyGpuZone("bloom");
-
-			glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
-			glDisable(GL_DEPTH_TEST); // Don't depth test
-
-			bindMeshData(*unit_quad_meshdata);
-			assert(unit_quad_meshdata->batches.size() == 1);
-
-			for(int i=0; i<(int)downsize_target_textures.size(); ++i)
-			{
-				//-------------------------------- Execute downsize shader --------------------------------
-				// Reads from current_framebuf_textures or downsize_target_textures[i-1], writes to downsize_framebuffers[i]
-
-				OpenGLTexture* src_texture = (i == 0) ? main_colour_copy_texture.ptr() : downsize_target_textures[i - 1].ptr();
-
-				downsize_framebuffers[i]->bindForDrawing(); // Target downsize_framebuffers[i]
+		//================= Do postprocess bloom =================
+		doBloomPostProcess();
 		
-				glViewport(0, 0, (int)downsize_framebuffers[i]->xRes(), (int)downsize_framebuffers[i]->yRes()); // Set viewport to target texture size
-
-				OpenGLProgram* use_downsize_prog = (i == 0) ? downsize_from_main_buf_prog.ptr() : downsize_prog.ptr();
-				use_downsize_prog->useProgram();
-
-				bindTextureUnitToSampler(*src_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/use_downsize_prog->albedo_texture_loc);
-
-				if((i == 0) && use_order_indep_transparency)
-				{
-					bindTextureUnitToSampler(*transparent_accum_copy_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
-					bindTextureUnitToSampler(*total_transmittance_copy_texture,  /*texture_unit_index=*/2, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
-				}
-
-				const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
-
-
-				//-------------------------------- Execute blur shader in x direction --------------------------------
-				// Reads from downsize_target_textures[i], writes to blur_framebuffers_x[i]/blur_target_textures_x[i].
-
-				blur_framebuffers_x[i]->bindForDrawing(); // Target blur_framebuffers_x[i]
-
-				gaussian_blur_prog->useProgram();
-
-				glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/1); // Set blur_x = 1
-
-				bindTextureUnitToSampler(*downsize_target_textures[i], /*texture_unit_index=*/0, /*sampler_uniform_location=*/gaussian_blur_prog->albedo_texture_loc);
-
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
-
-
-				//-------------------------------- Execute blur shader in y direction --------------------------------
-				// Reads from blur_target_textures_x[i], writes to blur_framebuffers[i]/blur_target_textures[i].
-
-				blur_framebuffers[i]->bindForDrawing(); // Target blur_framebuffers[i]
-
-				glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/0); // Set blur_x = 0
-
-				bindTextureUnitToSampler(*blur_target_textures_x[i], /*texture_unit_index=*/0, /*sampler_uniform_location=*/gaussian_blur_prog->albedo_texture_loc);
-
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
-			}
-
-			OpenGLProgram::useNoPrograms();
-			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
-			glEnable(GL_DEPTH_TEST);
-	
-			glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
-		}
-
-		// Do imaging, which reads from main_render_framebuffer and writes to the output framebuffer
-		DebugGroup debug_group3("imaging");
-
-		// Bind requested target frame buffer as output buffer
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-
-		{
-			TracyGpuZone("imaging");
-
-			glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
-			glDisable(GL_DEPTH_TEST); // Don't depth test
-
-			final_imaging_prog->useProgram();
-
-			bindMeshData(*unit_quad_meshdata);
-			assert(unit_quad_meshdata->batches.size() == 1);
-
-			// Bind main_colour_texture as albedo_texture with texture unit 0
-			bindTextureUnitToSampler(*main_colour_copy_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/final_imaging_prog->albedo_texture_loc);
-
-			if(use_order_indep_transparency)
-			{
-				// Bind transparent_accum_texture as texture_2 with texture unit 1
-				bindTextureUnitToSampler(*transparent_accum_copy_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
-
-				// Bind total_transmittance_texture as texture_2 with texture unit 2
-				bindTextureUnitToSampler(*total_transmittance_copy_texture, /*texture_unit_index=*/2, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
-			}
-			
-			// Bind water_colour_texture with texture unit 3
-		//	bindTextureUnitToSampler(*water_colour_texture, /*texture_unit_index=*/3, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_WATER_COLOUR_TEX_UNIFORM_INDEX].loc);
-
-
-			glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
-
-			// Bind downsize_target_textures
-			// We need to bind these textures even when bloom_strength == 0, or we get runtime opengl errors.
-			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
-				bindTextureUnitToSampler(*blur_target_textures[i], /*texture_unit_index=*/4 + i, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc);
-
-			const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
-			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex);
-
-			OpenGLProgram::useNoPrograms();
-
-			glEnable(GL_DEPTH_TEST);
-			glDepthMask(GL_TRUE); // Restore writing to z-buffer.
-
-
-			// Unbind textures from texture units.  Otherwise we get errors in Chrome: "GL_INVALID_OPERATION: Feedback loop formed between Framebuffer and active Texture."
-			unbindTextureFromTextureUnit(*main_colour_copy_texture, /*texture_unit_index=*/0);
-			if(use_order_indep_transparency)
-			{
-				unbindTextureFromTextureUnit(*transparent_accum_copy_texture, /*texture_unit_index=*/1);
-				unbindTextureFromTextureUnit(*total_transmittance_copy_texture, /*texture_unit_index=*/2);
-			}
-			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
-				unbindTextureFromTextureUnit(*blur_target_textures[i], /*texture_unit_index=*/4 + i);
-		}
-
-		// Now that we are done rendering, and we have run the final imaging pass that writes to target framebuffer, we don't need
-		// the contents of main_render_framebuffer or main_render_copy_framebuffer any more.
-		// NOTE: code disabled until it will actually be used (e.g. offscreen rendering is done on mobile)
-		// main_render_framebuffer     ->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
-		// main_render_copy_framebuffer->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
-		// glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0); // Restore framebuffer binding
+		//================= Do imaging, which reads from main_render_framebuffer and writes to the output framebuffer =================
+		// Final imaging is order-independent transparency compositing, adding together bloom results, and doing tonemapping.
+		// See final_imaging_frag_shader.glsl
+		doImaging();
 
 	} // End if(current_scene->render_to_main_render_framebuffer)
 
@@ -7705,6 +7562,163 @@ inline static std::string faceCullingBitsDescrip(uint32 culling_bits)
 	}
 	else
 		return "No culling";
+}
+
+
+// Do imaging, which reads from main_render_framebuffer and writes to the output framebuffer
+// Final imaging is order-independent transparency compositing, adding together bloom results, and doing tonemapping.
+// See final_imaging_frag_shader.glsl
+void OpenGLEngine::doImaging()
+{
+	DebugGroup debug_group3("imaging");
+	TracyGpuZone("imaging");
+
+	// Bind requested target frame buffer as output buffer
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
+
+	glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+	glDisable(GL_DEPTH_TEST); // Don't depth test
+
+	final_imaging_prog->useProgram();
+
+	bindMeshData(*unit_quad_meshdata);
+	assert(unit_quad_meshdata->batches.size() == 1);
+
+	// Bind main_colour_texture as albedo_texture with texture unit 0
+	bindTextureUnitToSampler(*main_colour_copy_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/final_imaging_prog->albedo_texture_loc);
+
+	if(use_order_indep_transparency)
+	{
+		// Bind transparent_accum_texture as texture_2 with texture unit 1
+		bindTextureUnitToSampler(*transparent_accum_copy_texture, /*texture_unit_index=*/1, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
+
+		// Bind total_transmittance_texture as texture_2 with texture unit 2
+		bindTextureUnitToSampler(*total_transmittance_copy_texture, /*texture_unit_index=*/2, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
+	}
+			
+	// Bind water_colour_texture with texture unit 3
+//	bindTextureUnitToSampler(*water_colour_texture, /*texture_unit_index=*/3, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_WATER_COLOUR_TEX_UNIFORM_INDEX].loc);
+
+
+	glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
+
+	// Bind downsize_target_textures
+	// We need to bind these textures even when bloom_strength == 0, or we get runtime opengl errors.
+	for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
+		bindTextureUnitToSampler(*blur_target_textures[i], /*texture_unit_index=*/4 + i, /*sampler_uniform_location=*/final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i].loc);
+
+	const size_t total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
+	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex);
+
+	OpenGLProgram::useNoPrograms();
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE); // Restore writing to z-buffer.
+
+
+	// Unbind textures from texture units.  Otherwise we get errors in Chrome: "GL_INVALID_OPERATION: Feedback loop formed between Framebuffer and active Texture."
+	unbindTextureFromTextureUnit(*main_colour_copy_texture, /*texture_unit_index=*/0);
+	if(use_order_indep_transparency)
+	{
+		unbindTextureFromTextureUnit(*transparent_accum_copy_texture, /*texture_unit_index=*/1);
+		unbindTextureFromTextureUnit(*total_transmittance_copy_texture, /*texture_unit_index=*/2);
+	}
+	for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
+		unbindTextureFromTextureUnit(*blur_target_textures[i], /*texture_unit_index=*/4 + i);
+	
+
+	// Now that we are done rendering, and we have run the final imaging pass that writes to target framebuffer, we don't need
+	// the contents of main_render_framebuffer or main_render_copy_framebuffer any more.
+	// NOTE: code disabled until it will actually be used (e.g. offscreen rendering is done on mobile)
+	// main_render_framebuffer     ->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
+	// main_render_copy_framebuffer->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
+	// glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0); // Restore framebuffer binding
+}
+
+
+void OpenGLEngine::doBloomPostProcess()
+{
+	// // Code to Compute gaussian blur weights:
+	// float sum = 0;
+	// for(int x=-2; x<=2; ++x)
+	// 	sum += Maths::eval1DGaussian(x, /*standard dev=*/1.0);
+	   
+	// for(int x=-2; x<=2; ++x)
+	// {
+	// 	const float weight = Maths::eval1DGaussian(x, /*standard dev=*/1.0);
+	// 	const float normed_weight = weight / sum;
+	// 	conPrintStr(" " + toString(normed_weight));
+	// }
+
+	if(current_scene->bloom_strength > 0)
+	{
+		DebugGroup debug_group2("bloom");
+		TracyGpuZone("bloom");
+
+		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+		glDisable(GL_DEPTH_TEST); // Don't depth test
+
+		bindMeshData(*unit_quad_meshdata);
+		assert(unit_quad_meshdata->batches.size() == 1);
+		const size_t unit_quad_total_buffer_offset = unit_quad_meshdata->indices_vbo_handle.offset + unit_quad_meshdata->batches[0].prim_start_offset_B;
+
+		for(int i=0; i<(int)downsize_target_textures.size(); ++i)
+		{
+			//-------------------------------- Execute downsize shader --------------------------------
+			// Reads from current_framebuf_textures or downsize_target_textures[i-1], writes to downsize_framebuffers[i]
+
+			downsize_framebuffers[i]->bindForDrawing(); // Target downsize_framebuffers[i]
+			glViewport(0, 0, (int)downsize_framebuffers[i]->xRes(), (int)downsize_framebuffers[i]->yRes()); // Set viewport to target texture size
+
+			OpenGLProgram* use_downsize_prog = (i == 0) ? downsize_from_main_buf_prog.ptr() : downsize_prog.ptr();
+			use_downsize_prog->useProgram();
+
+			OpenGLTexture* src_texture = (i == 0) ? main_colour_copy_texture.ptr() : downsize_target_textures[i - 1].ptr();
+			bindTextureUnitToSampler(*src_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/use_downsize_prog->albedo_texture_loc);
+
+			if((i == 0) && use_order_indep_transparency)
+			{
+				bindTextureUnitToSampler(*transparent_accum_copy_texture,    /*texture_unit_index=*/1, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX].loc);
+				bindTextureUnitToSampler(*total_transmittance_copy_texture,  /*texture_unit_index=*/2, /*sampler_uniform_location=*/use_downsize_prog->user_uniform_info[DOWNSIZE_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX].loc);
+			}
+			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
+
+
+			//-------------------------------- Execute blur shader in x direction --------------------------------
+			// Reads from downsize_target_textures[i], writes to blur_framebuffers_x[i]/blur_target_textures_x[i].
+
+			blur_framebuffers_x[i]->bindForDrawing(); // Target blur_framebuffers_x[i]
+
+			gaussian_blur_prog->useProgram();
+
+			glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/1); // Set blur_x = 1
+
+			bindTextureUnitToSampler(*downsize_target_textures[i], /*texture_unit_index=*/0, /*sampler_uniform_location=*/gaussian_blur_prog->albedo_texture_loc);
+
+			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
+
+
+			//-------------------------------- Execute blur shader in y direction --------------------------------
+			// Reads from blur_target_textures_x[i], writes to blur_framebuffers[i]/blur_target_textures[i].
+
+			blur_framebuffers[i]->bindForDrawing(); // Target blur_framebuffers[i]
+
+			glUniform1i(gaussian_blur_prog->user_uniform_info[0].loc, /*val=*/0); // Set blur_x = 0
+
+			bindTextureUnitToSampler(*blur_target_textures_x[i], /*texture_unit_index=*/0, /*sampler_uniform_location=*/gaussian_blur_prog->albedo_texture_loc);
+
+			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_total_buffer_offset, unit_quad_meshdata->vbo_handle.base_vertex); // Draw quad
+		}
+
+		unbindTextureFromTextureUnit(GL_TEXTURE_2D, /*texture_unit_index=*/0);
+		unbindTextureFromTextureUnit(GL_TEXTURE_2D, /*texture_unit_index=*/1);
+		unbindTextureFromTextureUnit(GL_TEXTURE_2D, /*texture_unit_index=*/2);
+		OpenGLProgram::useNoPrograms();
+		glDepthMask(GL_TRUE); // Restore writing to z-buffer.
+		glEnable(GL_DEPTH_TEST);
+	
+		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
+	}
 }
 
 
