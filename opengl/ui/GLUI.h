@@ -31,6 +31,9 @@ x=-1 = left of window, x = +1 = right of window.
 For a square window, y=-1 = bottom of window, y =+1 = top of window.
 For a non-square window, y will be != 1 at top of window, rather
 y = window height / window width (unlike OpenGL coords).
+
+z=-1 is the near clip plane, z=1 is the far clip plane.
+(from Overlay object coords in OpenGLEngine)
 =====================================================================*/
 class GLUI : public RefCounted
 {
@@ -153,6 +156,7 @@ public:
 };
 
 
+// Removes a widget from the GLUI if the widget reference is non-null.
 // Sets widget reference to null also.
 template <class WidgetTypeRef>
 inline void checkRemoveAndDeleteWidget(GLUIRef gl_ui, WidgetTypeRef& widget)

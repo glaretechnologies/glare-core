@@ -32,6 +32,14 @@ public:
 };
 
 
+class GLUISliderValueChangedEvent : public GLUICallbackEvent
+{
+public:
+	GLUISliderValueChangedEvent() {}
+
+	double value;
+};
+
 
 class GLUICallbackHandler// : public RefCounted
 {
@@ -41,6 +49,8 @@ public:
 	virtual void eventOccurred(GLUICallbackEvent& /*event*/) = 0;
 
 	virtual void mouseWheelEventOccurred(GLUICallbackMouseWheelEvent& /*event*/) {}
+
+	virtual void sliderValueChangedEventOccurred(GLUISliderValueChangedEvent& /*event*/) {}
 };
 
 
