@@ -47,6 +47,8 @@ public:
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
 
+	void setValue(double new_val); // Set value but don't emit a value changed event.
+
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
 
 	void setVisible(bool visible);
