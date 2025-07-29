@@ -101,8 +101,9 @@ void GLUIImage::doHandleMouseMoved(MouseEvent& mouse_event)
 }
 
 
-bool GLUIImage::doHandleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& wheel_event)
+void GLUIImage::doHandleMouseWheelEvent(MouseWheelEvent& wheel_event)
 {
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(wheel_event.gl_coords);
 	if(rect.inOpenRectangle(coords))
 	{
 		if(handler)
@@ -112,10 +113,9 @@ bool GLUIImage::doHandleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWhee
 			event.wheel_event = &wheel_event;
 			handler->mouseWheelEventOccurred(event);
 			if(event.accepted)
-				return true;
+				wheel_event.accepted = true;
 		}
 	}
-	return false;
 }
 
 

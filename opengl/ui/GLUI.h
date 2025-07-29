@@ -58,7 +58,7 @@ public:
 	void handleMousePress(MouseEvent& event);
 	void handleMouseRelease(MouseEvent& event);
 	void handleMouseDoubleClick(MouseEvent& event);
-	bool handleMouseWheelEvent(const Vec2f& gl_coords, const GLUIMouseWheelEvent& event);
+	bool handleMouseWheelEvent(MouseWheelEvent& event);
 	bool handleMouseMoved(MouseEvent& mouse_event);
 	void handleKeyPressedEvent(KeyEvent& key_event);
 	void handleTextInputEvent(TextInputEvent& text_input_event);
@@ -132,13 +132,6 @@ private:
 
 
 typedef Reference<GLUI> GLUIRef;
-
-
-class GLUIMouseWheelEvent
-{
-public:
-	int angle_delta_y;
-};
 
 
 class GLUICallbacks

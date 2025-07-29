@@ -18,13 +18,13 @@ GLUIWidget::~GLUIWidget()
 
 void GLUIWidget::handleMouseMoved(MouseEvent& mouse_event)
 {
-	return doHandleMouseMoved(mouse_event);
+	doHandleMouseMoved(mouse_event);
 }
 
 
-bool GLUIWidget::handleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event)
+void GLUIWidget::handleMouseWheelEvent(MouseWheelEvent& event)
 {
-	return doHandleMouseWheelEvent(coords, event);
+	doHandleMouseWheelEvent(event);
 }
 
 

@@ -158,15 +158,15 @@ void GLUI::handleMouseDoubleClick(MouseEvent& event)
 }
 
 
-bool GLUI::handleMouseWheelEvent(const Vec2f& gl_coords, const GLUIMouseWheelEvent& event)
+bool GLUI::handleMouseWheelEvent(MouseWheelEvent& event)
 {
-	const Vec2f coords = UICoordsForOpenGLCoords(gl_coords);
+	const Vec2f coords = UICoordsForOpenGLCoords(event.gl_coords);
 
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
-		const bool accepted = widget->handleMouseWheelEvent(coords, event);
-		if(accepted)
+		widget->handleMouseWheelEvent(event);
+		if(event.accepted)
 			return true;
 	}
 

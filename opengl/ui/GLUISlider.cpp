@@ -23,6 +23,8 @@ GLUISlider::CreateArgs::CreateArgs()
 	min_value = 0.0;
 	max_value = 1.0;
 	initial_value = 0.5;
+
+	scroll_speed = 1.0;
 }
 
 
@@ -135,6 +137,30 @@ void GLUISlider::doHandleMouseMoved(MouseEvent& mouse_event)
 	}
 
 	updateKnobColour(coords);
+}
+
+
+void GLUISlider::doHandleMouseWheelEvent(MouseWheelEvent& event)
+{
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
+	if(rect.inOpenRectangle(coords))
+	{
+		cur_value = myClamp(cur_value + (args.max_value - args.min_value) * 0.0025 * args.scroll_speed * event.angle_delta.y, args.min_value, args.max_value);
+
+		// Emit slider value changed event
+		if(handler)
+		{
+			GLUISliderValueChangedEvent callback_event;
+			callback_event.widget = this;
+			callback_event.value = cur_value;
+			handler->sliderValueChangedEventOccurred(callback_event);
+		}
+
+		// Update knob transform
+		setPosAndDims(m_botleft, m_dims);
+
+		event.accepted = true;
+	}
 }
 
 

@@ -45,7 +45,7 @@ public:
 	virtual bool isVisible() override;
 
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
-	virtual bool doHandleMouseWheelEvent(const Vec2f& coords, const GLUIMouseWheelEvent& event) override;
+	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
 
 	OverlayObjectRef overlay_ob;
 

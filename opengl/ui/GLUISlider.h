@@ -29,6 +29,8 @@ public:
 		double max_value;
 		double initial_value;
 
+		double scroll_speed;
+
 		std::string tooltip;
 
 		Colour3f knob_colour;
@@ -43,6 +45,7 @@ public:
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
+	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
 
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
 

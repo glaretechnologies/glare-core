@@ -146,7 +146,7 @@ public:
 
 	Vec2i cursor_pos; // GLWidget physical pixel coordinates
 	Vec2f gl_coords;
-	Vec2i angle_delta;
+	Vec2f angle_delta; // in degrees
 	uint32 modifiers;
 
 	bool accepted;

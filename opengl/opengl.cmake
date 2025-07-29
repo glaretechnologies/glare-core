@@ -102,6 +102,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUILineEdit.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUILineEdit.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/TextEditingUtils.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/TextEditingUtils.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUISlider.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUISlider.h
 )
 
 
