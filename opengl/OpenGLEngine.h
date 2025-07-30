@@ -567,6 +567,11 @@ public:
 
 	float water_level_z; // Default = 0.  Controls drawing of underwater caustics.
 
+	float dof_blur_strength; // Default = 0.
+	float dof_blur_focus_distance; // Default = 1.
+
+	float exposure_factor; // Default = 1
+
 	js::Vector<Vec4f, 16> blob_shadow_locations;
 	Vec4f grass_pusher_sphere_pos;
 public:
@@ -1218,8 +1223,10 @@ private:
 	int allocPerObVertDataBufferSpot();
 	void addDebugVisForShadowFrustum(const Vec4f frustum_verts_ws[8], float max_shadowing_dist, const Planef clip_planes[18], int num_clip_planes_used);
 	void renderToShadowMapDepthBuffer();
-	void doBloomPostProcess();
-	void doFinalImaging();
+	void doOITCompositing();
+	void doDOFBlur(OpenGLTexture* colour_tex_input);
+	void doBloomPostProcess(OpenGLTexture* colour_tex_input);
+	void doFinalImaging(OpenGLTexture* colour_tex_input);
 	void drawUIOverlayObjects(const Matrix4f& reverse_z_matrix);
 	void generateOutlineTexture(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawOutlinesAroundSelectedObjects();
@@ -1303,6 +1310,8 @@ private:
 	Reference<OpenGLTexture> cirrus_tex; // May be NULL, set by setCirrusTexture().
 	Reference<OpenGLTexture> aurora_tex;
 	Reference<OpenGLTexture> dummy_black_tex;
+	Reference<OpenGLTexture> cosine_env_tex;
+	Reference<OpenGLTexture> specular_env_tex;
 	//Reference<OpenGLTexture> snow_ice_normal_map;
 
 	std::vector<Reference<OpenGLTexture>> water_caustics_textures;
@@ -1341,6 +1350,12 @@ private:
 	Reference<OpenGLProgram> draw_aurora_tex_prog;
 
 	Reference<OpenGLProgram> blur_ssao_prog;
+
+	Reference<OpenGLProgram> OIT_composite_prog;
+	Reference<OpenGLProgram> dof_blur_prog;
+	int dof_blur_depth_tex_location;
+	int dof_blur_strength_location;
+	int dof_blur_focus_distance_location;
 
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
@@ -1395,6 +1410,13 @@ private:
 	OpenGLTextureRef total_transmittance_copy_texture;
 
 
+	Reference<FrameBuffer> pre_dof_framebuffer;
+	OpenGLTextureRef pre_dof_colour_texture;
+
+	Reference<FrameBuffer> post_dof_framebuffer;
+	OpenGLTextureRef post_dof_colour_texture;
+
+
 	// Prepass will render to prepass_framebuffer, prepass_colour_renderbuffer, prepass_depth_renderbuffer.
 	// Then blit to prepass_copy_framebuffer, prepass_colour_copy_texture, prepass_colour_depth_texture
 	// Then SSAO is computed, reading from prepass_copy_framebuffer and writing to compute_ssao_output_framebuffer.
@@ -1431,8 +1453,6 @@ private:
 
 	std::vector<GLObjectRef> debug_draw_obs;
 
-	Reference<OpenGLTexture> cosine_env_tex;
-	Reference<OpenGLTexture> specular_env_tex;
 
 	float current_time;
 

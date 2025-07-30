@@ -78,7 +78,7 @@ void main()
 
 	vec4 col;
 
-#if DOWNSIZE_FROM_MAIN_BUF && ORDER_INDEPENDENT_TRANSPARENCY
+#if 0 // DOWNSIZE_FROM_MAIN_BUF && ORDER_INDEPENDENT_TRANSPARENCY
 	// Add order-independent transparency terms.
 	vec4 accum_texcol_0 =	resolveTransAccumTextureSample(px_coords + ivec2(0, 0));
 	vec4 accum_texcol_1 =	resolveTransAccumTextureSample(px_coords + ivec2(1, 0));
