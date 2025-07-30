@@ -1272,7 +1272,7 @@ private:
 
 	int viewport_w, viewport_h;
 	
-	js::Vector<OverlayObject*, 16> temp_obs;
+	js::Vector<const OverlayObject*, 16> temp_obs;
 
 
 	//uint64 num_face_groups_submitted;

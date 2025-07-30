@@ -5590,7 +5590,7 @@ void OpenGLEngine::partiallyClearBuffer(const Vec2f& begin, const Vec2f& end)
 // Sorts objects into descending z order based on object-to-world z translation component.
 struct OverlayObjectZComparator
 {
-	inline bool operator() (OverlayObject* a, OverlayObject* b) const
+	inline bool operator() (const OverlayObject* a, const OverlayObject* b) const
 	{
 		return a->ob_to_world_matrix.e[14] > b->ob_to_world_matrix.e[14];
 	}
@@ -10386,8 +10386,12 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 	temp_obs.resizeNoCopy(current_scene->overlay_objects.size());
 	size_t q = 0;
 	for(auto it = current_scene->overlay_objects.begin(); it != current_scene->overlay_objects.end(); ++it)
-		temp_obs[q++] = it->ptr();
-
+	{
+		const OverlayObject* ob = it->ptr();
+		if(ob->draw) // Only sort objects we are actually drawing.
+			temp_obs[q++] = ob;
+	}
+	temp_obs.resize(q);
 	std::sort(temp_obs.begin(), temp_obs.end(), OverlayObjectZComparator());
 
 	/*for(size_t i=0; i<temp_obs.size(); ++i)
@@ -10399,50 +10403,47 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 	for(size_t i=0; i<temp_obs.size(); ++i)
 	{
 		const OverlayObject* const ob = temp_obs[i];
-		if(ob->draw)
+		const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
+		bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
+		for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
 		{
-			const OpenGLMeshRenderData& mesh_data = *ob->mesh_data;
-			bindMeshData(mesh_data); // Bind the mesh data, which is the same for all batches.
-			for(uint32 z = 0; z < mesh_data.batches.size(); ++z)
+			const OpenGLMaterial& opengl_mat = ob->material;
+
+			assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
+
+			checkUseProgram(opengl_mat.shader_prog.ptr());
+
+			glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, opengl_mat.alpha);
+
+			const Matrix4f ob_to_cam = reverse_z_matrix * current_scene->overlay_world_to_camera_space_matrix * ob->ob_to_world_matrix;
+
+			glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob_to_cam.e);
+			const int overlay_flags = 
+				(opengl_mat.albedo_texture              ? OVERLAY_HAVE_TEXTURE_FLAG        : 0) |
+				(opengl_mat.overlay_target_is_nonlinear ? OVERLAY_TARGET_IS_NONLINEAR_FLAG : 0) |
+				(opengl_mat.overlay_show_just_tex_rgb   ? OVERLAY_SHOW_JUST_TEX_RGB_FLAG   : 0) |
+				(opengl_mat.overlay_show_just_tex_w     ? OVERLAY_SHOW_JUST_TEX_W_FLAG     : 0);
+			glUniform1i(this->overlay_flags_location, overlay_flags);
+
+			glUniform2f(overlay_clip_min_coords_location, ob->clip_region.getMin().x, ob->clip_region.getMin().y);
+			glUniform2f(overlay_clip_max_coords_location, ob->clip_region.getMax().x, ob->clip_region.getMax().y);
+
+			if(opengl_mat.albedo_texture)
 			{
-				const OpenGLMaterial& opengl_mat = ob->material;
+				const GLfloat tex_elems[9] = {
+					opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
+					opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
+					opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
+				};
+				glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 
-				assert(opengl_mat.shader_prog.getPointer() == this->overlay_prog.getPointer());
-
-				checkUseProgram(opengl_mat.shader_prog.ptr());
-
-				glUniform4f(overlay_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, opengl_mat.alpha);
-
-				const Matrix4f ob_to_cam = reverse_z_matrix * current_scene->overlay_world_to_camera_space_matrix * ob->ob_to_world_matrix;
-
-				glUniformMatrix4fv(opengl_mat.shader_prog->model_matrix_loc, 1, false, ob_to_cam.e);
-				const int overlay_flags = 
-					(opengl_mat.albedo_texture              ? OVERLAY_HAVE_TEXTURE_FLAG        : 0) |
-					(opengl_mat.overlay_target_is_nonlinear ? OVERLAY_TARGET_IS_NONLINEAR_FLAG : 0) |
-					(opengl_mat.overlay_show_just_tex_rgb   ? OVERLAY_SHOW_JUST_TEX_RGB_FLAG   : 0) |
-					(opengl_mat.overlay_show_just_tex_w     ? OVERLAY_SHOW_JUST_TEX_W_FLAG     : 0);
-				glUniform1i(this->overlay_flags_location, overlay_flags);
-
-				glUniform2f(overlay_clip_min_coords_location, ob->clip_region.getMin().x, ob->clip_region.getMin().y);
-				glUniform2f(overlay_clip_max_coords_location, ob->clip_region.getMax().x, ob->clip_region.getMax().y);
-
-				if(opengl_mat.albedo_texture)
-				{
-					const GLfloat tex_elems[9] = {
-						opengl_mat.tex_matrix.e[0], opengl_mat.tex_matrix.e[2], 0,
-						opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
-						opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
-					};
-					glUniformMatrix3fv(overlay_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
-
-					bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
-				}
-				
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)mesh_data.getBatch0IndicesTotalBufferOffset(), mesh_data.vbo_handle.base_vertex);
-
-				if(opengl_mat.albedo_texture)
-					unbindTextureFromTextureUnit(*opengl_mat.albedo_texture, /*texture_unit_index=*/0);
+				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
 			}
+				
+			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)mesh_data.getBatch0IndicesTotalBufferOffset(), mesh_data.vbo_handle.base_vertex);
+
+			if(opengl_mat.albedo_texture)
+				unbindTextureFromTextureUnit(*opengl_mat.albedo_texture, /*texture_unit_index=*/0);
 		}
 	}
 
