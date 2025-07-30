@@ -168,6 +168,15 @@ void GLUISlider::setValue(double new_val) // Set value but don't emit a value ch
 {
 	cur_value = myClamp(new_val, args.min_value, args.max_value);
 
+	// Emit slider value changed event
+	if(handler)
+	{
+		GLUISliderValueChangedEvent callback_event;
+		callback_event.widget = this;
+		callback_event.value = cur_value;
+		handler->sliderValueChangedEventOccurred(callback_event);
+	}
+
 	// Update knob transform
 	setPosAndDims(m_botleft, m_dims);
 }
