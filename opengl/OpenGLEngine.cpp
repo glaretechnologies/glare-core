@@ -350,6 +350,7 @@ size_t OpenGLMeshRenderData::getNumTris() const
 
 
 OverlayObject::OverlayObject()
+:	ob_to_world_matrix(Matrix4f::uniformScaleMatrix(0.f))
 {
 	material.albedo_linear_rgb = Colour3f(1.f);
 	clip_region = Rect2f(Vec2f(-100.f), Vec2f(100.f));
@@ -365,6 +366,8 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	alpha_blended_objects(NULL),
 	water_objects(NULL),
 	decal_objects(NULL),
+	always_visible_objects(NULL),
+	overlay_objects(NULL),
 	overlay_world_to_camera_space_matrix(Matrix4f::identity()),
 	collect_stats(true)
 {
@@ -4493,6 +4496,9 @@ void OpenGLEngine::addObjectAndLoadTexturesImmediately(const Reference<GLObject>
 
 void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
 {
+	assert(object->ob_to_world_matrix.e[14] > -10000.0);
+	assert(isFinite(object->ob_to_world_matrix.e[14]));
+
 	// Check object material indices are in-bounds.
 	for(size_t i=0; i<object->mesh_data->batches.size(); ++i)
 		if(object->mesh_data->batches[i].material_index >= 1)
@@ -4795,7 +4801,7 @@ bool OpenGLEngine::isObjectAdded(const Reference<GLObject>& object) const
 {
 	return 
 		current_scene->objects.contains(object) || 
-		(current_scene->always_visible_objects.find(object) != current_scene->always_visible_objects.end()); // Always-visible objects aren't in objects set.
+		current_scene->always_visible_objects.contains(object); // Always-visible objects aren't in objects set.
 }
 
 
@@ -10383,6 +10389,12 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 		temp_obs[q++] = it->ptr();
 
 	std::sort(temp_obs.begin(), temp_obs.end(), OverlayObjectZComparator());
+
+	/*for(size_t i=0; i<temp_obs.size(); ++i)
+	{
+		conPrint("overlay temp_obs[" + toString(i) + "]: z: " + toString(temp_obs[i]->ob_to_world_matrix.e[14]));
+		assert(isFinite(temp_obs[i]->ob_to_world_matrix.e[14]));
+	}*/
 
 	for(size_t i=0; i<temp_obs.size(); ++i)
 	{

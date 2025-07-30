@@ -159,7 +159,7 @@ void GLUITextView::updateOverlayObTransforms()
 {
 	recomputeRect();
 
-	if(background_overlay_ob.nonNull() && !glui_texts.empty())
+	if(background_overlay_ob)
 	{
 		const Rect2f background_rect = computeBackgroundRect();
 

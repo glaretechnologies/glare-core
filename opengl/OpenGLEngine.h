@@ -604,8 +604,8 @@ public:
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> alpha_blended_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> water_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> decal_objects;
-	std::set<Reference<GLObject>> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
-	std::set<Reference<OverlayObject>> overlay_objects; // UI overlays
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
+	glare::LinearIterSet<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
 	std::set<Reference<GLObject>> materialise_objects; // Objects currently playing materialise effect
 	
 	GLObjectRef env_ob;
