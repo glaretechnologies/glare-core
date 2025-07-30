@@ -44,6 +44,7 @@ public:
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
+	virtual void handleMouseDoubleClick(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
 
@@ -61,6 +62,7 @@ private:
 	GLARE_DISABLE_COPY(GLUISlider);
 	void updateKnobColour(const Vec2f mouse_ui_coords);
 	Rect2f computeKnobRect();
+	void handleClickOnTrack(const Vec2f mouse_ui_coords);
 
 	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;
