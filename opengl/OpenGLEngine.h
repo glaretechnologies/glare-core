@@ -572,6 +572,8 @@ public:
 
 	float exposure_factor; // Default = 1
 
+	float saturation_multiplier; // Default = 1
+
 	js::Vector<Vec4f, 16> blob_shadow_locations;
 	Vec4f grass_pusher_sphere_pos;
 public:
@@ -1193,6 +1195,7 @@ private:
 	OpenGLProgramRef buildAuroraProgram(const std::string& use_shader_dir);
 	OpenGLProgramRef buildComputeSSAOProg(const std::string& use_shader_dir);
 	OpenGLProgramRef buildBlurSSAOProg(const std::string& use_shader_dir);
+	OpenGLProgramRef buildFinalImagingProg(const std::string& use_shader_dir);
 public:
 	OpenGLProgramRef buildProgram(const std::string& shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	uint32 getAndIncrNextProgramIndex() { return next_program_index++; }

@@ -385,6 +385,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	dof_blur_strength = 0.f;
 	dof_blur_focus_distance = 1.0f;
 	exposure_factor = 1.0f;
+	saturation_multiplier = 1.0f;
 	grass_pusher_sphere_pos = Vec4f(-1.0e10, -1.0e10, -1.0e10, 1);
 	shadow_mapping = true;
 	draw_water = true;
@@ -1676,7 +1677,8 @@ void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* name, in
 
 static const int FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX = 0;
 static const int FINAL_IMAGING_EXPOSURE_FACTOR_UNIFORM_INDEX = 1;
-static const int FINAL_IMAGING_BLUR_TEX_UNIFORM_START = 2;
+static const int FINAL_IMAGING_SATURATION_MULTIPLIER_UNIFORM_INDEX = 2;
+static const int FINAL_IMAGING_BLUR_TEX_UNIFORM_START = 3;
 
 static const int OIT_COMPOSITE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX = 0;
 static const int OIT_COMPOSITE_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX = 1;
@@ -2738,42 +2740,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
 		
 		//------------------------------------------- Build final_imaging_prog -------------------------------------------
-		{
-			const std::string key_defs = preprocessorDefsForKey(ProgramKey("final_imaging", ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
-			final_imaging_prog = new OpenGLProgram(
-				"final_imaging",
-				new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
-				getAndIncrNextProgramIndex(),
-				/*wait for build to complete=*/true
-			);
-			addProgram(final_imaging_prog);
-			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
-			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
-			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
-
-			final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "exposure_factor");
-			assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_EXPOSURE_FACTOR_UNIFORM_INDEX);
-			assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
-
-			// Note that even if use_order_indep_transparency is false, we still need to create these user uniforms, because FINAL_IMAGING_BLUR_TEX_UNIFORM_START is hard-coded and refers to user uniforms past these.
-			//final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
-			//assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
-			//if(use_order_indep_transparency)
-			//	assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
-			//
-			//final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "total_transmittance_texture");
-			//assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX);
-			//if(use_order_indep_transparency)
-			//	assert(final_imaging_prog->user_uniform_info.back().loc >= 0);
-
-			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
-			{
-				final_imaging_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "blur_tex_" + toString(i));
-				assert(final_imaging_prog->user_uniform_info.back().index == FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i);
-			}
-		}
-
+		final_imaging_prog = buildFinalImagingProg(use_shader_dir);
+		
 		//------------------------------------------- Build OIT_composite_prog -------------------------------------------
 		{
 			const std::string key_defs = preprocessorDefsForKey(ProgramKey("OIT_composite", ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
@@ -3070,6 +3038,50 @@ OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg(const std::string& use_shader_d
 	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "is_ssao_blur");
 	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "blur_x");
 	
+	return prog;
+}
+
+
+OpenGLProgramRef OpenGLEngine::buildFinalImagingProg(const std::string& use_shader_dir)
+{
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey("final_imaging", ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"final_imaging",
+		new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	addProgram(prog);
+	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "bloom_strength");
+	assert(prog->user_uniform_info.back().index == FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX);
+	assert(prog->user_uniform_info.back().loc >= 0);
+
+	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "exposure_factor");
+	assert(prog->user_uniform_info.back().index == FINAL_IMAGING_EXPOSURE_FACTOR_UNIFORM_INDEX);
+	assert(prog->user_uniform_info.back().loc >= 0);
+
+	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Float, "saturation_multiplier");
+	assert(prog->user_uniform_info.back().index == FINAL_IMAGING_SATURATION_MULTIPLIER_UNIFORM_INDEX);
+	assert(prog->user_uniform_info.back().loc >= 0);
+
+	// Note that even if use_order_indep_transparency is false, we still need to create these user uniforms, because FINAL_IMAGING_BLUR_TEX_UNIFORM_START is hard-coded and refers to user uniforms past these.
+	//prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
+	//assert(prog->user_uniform_info.back().index == FINAL_IMAGING_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
+	//if(use_order_indep_transparency)
+	//	assert(prog->user_uniform_info.back().loc >= 0);
+	//
+	//prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "total_transmittance_texture");
+	//assert(prog->user_uniform_info.back().index == FINAL_IMAGING_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX);
+	//if(use_order_indep_transparency)
+	//	assert(prog->user_uniform_info.back().loc >= 0);
+
+	for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
+	{
+		prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "blur_tex_" + toString(i));
+		assert(prog->user_uniform_info.back().index == FINAL_IMAGING_BLUR_TEX_UNIFORM_START + i);
+	}
+
 	return prog;
 }
 
@@ -6763,6 +6775,16 @@ void OpenGLEngine::draw()
 		{
 			conPrint("Error while reloading build SSAO prog: " + e.what());
 		}
+		
+		// Try and reload final_imaging_prog
+		try
+		{
+			this->final_imaging_prog = buildFinalImagingProg(use_shader_dir);
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading build final_imaging_prog: " + e.what());
+		}
 
 		// Reload shaders on all objects
 		for(auto z = scenes.begin(); z != scenes.end(); ++z)
@@ -7895,6 +7917,7 @@ void OpenGLEngine::doFinalImaging(OpenGLTexture* colour_tex_input)
 
 	glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_BLOOM_STRENGTH_UNIFORM_INDEX].loc, current_scene->bloom_strength); // Set bloom_strength uniform
 	glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_EXPOSURE_FACTOR_UNIFORM_INDEX].loc, current_scene->exposure_factor); // Set exposure_factor uniform
+	glUniform1f(final_imaging_prog->user_uniform_info[FINAL_IMAGING_SATURATION_MULTIPLIER_UNIFORM_INDEX].loc, current_scene->saturation_multiplier); // Set saturation_multiplier uniform
 
 	// Bind blur_target_textures
 	// We need to bind these textures even when bloom_strength == 0, or we get runtime opengl errors.
