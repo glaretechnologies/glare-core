@@ -80,7 +80,8 @@ public:
 	float getDevIndepPixelWidthForUIWidth(float ui_width);
 
 	OpenGLTextureRef makeToolTipTexture(const std::string& text);
-
+	void hideTooltip();
+	void unhideTooltip();
 
 	TextRendererFontFace* getFont(int font_size_px, bool emoji);
 

@@ -230,6 +230,15 @@ void GLUISlider::setValue(double new_val) // Set value but don't emit a value ch
 }
 
 
+void GLUISlider::setValueNoEvent(double new_val)
+{
+	cur_value = myClamp(new_val, args.min_value, args.max_value);
+
+	// Update knob transform
+	setPosAndDims(m_botleft, m_dims);
+}
+
+
 void GLUISlider::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
 {
 	m_botleft = botleft;

@@ -50,6 +50,7 @@ public:
 
 	double getValue() const { return cur_value; }
 	void setValue(double new_val); // Set value and emit a value changed event.
+	void setValueNoEvent(double new_val); // Set value and don't emit a value changed event.
 
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
 

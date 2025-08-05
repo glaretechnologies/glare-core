@@ -353,6 +353,20 @@ OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 }
 
 
+void GLUI::hideTooltip()
+{
+	if(tooltip_overlay_ob)
+		tooltip_overlay_ob->draw = false;
+}
+
+
+void GLUI::unhideTooltip()
+{
+	if(tooltip_overlay_ob)
+		tooltip_overlay_ob->draw = true;
+}
+
+
 TextRendererFontFace* GLUI::getFont(int font_size_px, bool emoji)
 {
 	if(emoji)
