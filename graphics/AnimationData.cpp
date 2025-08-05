@@ -19,7 +19,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <tracy/Tracy.hpp>
 
 
-AnimationNodeData::AnimationNodeData() : retarget_adjustment(Matrix4f::identity())/*, is_joint_node(false)*/ {}
+AnimationNodeData::AnimationNodeData() : retarget_adjustment(Matrix4f::identity()) {}
 
 
 void AnimationNodeData::writeToStream(OutStream& stream) const
@@ -365,6 +365,7 @@ void AnimationData::readFromStream(InStream& stream)
 	}
 
 	// Read VRM data, if present
+	vrm_data = nullptr;
 	if(version >= 3)
 	{
 		const uint32 vrm_data_present = stream.readUInt32();
@@ -385,30 +386,8 @@ void AnimationData::readFromStream(InStream& stream)
 		}
 	}
 
+	checkDataIsValid();
 	
-
-	// Bounds-check data
-	for(size_t i=0; i<sorted_nodes.size(); ++i)
-		checkProperty(sorted_nodes[i] >= 0 && sorted_nodes[i] < (int)nodes.size(), "invalid sorted_nodes index");
-
-	for(size_t i=0; i<joint_nodes.size(); ++i)
-		checkProperty(joint_nodes[i] >= 0 && joint_nodes[i] < (int)nodes.size(), "invalid joint_nodes index");
-
-	for(size_t i=0; i<nodes.size(); ++i)
-		checkProperty(nodes[i].parent_index >= -1 && nodes[i].parent_index < (int)nodes.size(), "invalid parent_index index"); // parent_index of -1 is valid.
-
-	// Rebuild is_joint_node booleans
-	/*for(size_t i=0; i<joint_nodes.size(); ++i)
-	{
-		nodes[joint_nodes[i]].is_joint_node = true;
-	}*/
-
-	//for(size_t i=0; i<nodes.size(); ++i)
-	//	conPrint("Node " + toString(i) + ": " + nodes[i].name + " , is_joint_node: " + toString(nodes[i].is_joint_node));
-	//
-	//for(size_t i=0; i<sorted_nodes.size(); ++i)
-	//	conPrint("sorted_nodes[ " + toString(i) + "]: " + toString(sorted_nodes[i]) + " (" + nodes[sorted_nodes[i]].name + ")");
-
 	build();
 }
 
@@ -429,6 +408,55 @@ void AnimationData::operator =(const AnimationData& other)
 	}
 
 	vrm_data = other.vrm_data; // Note: shallow copy.
+}
+
+
+void AnimationData::checkDataIsValid()
+{
+	// Bounds-check data
+	for(size_t i=0; i<sorted_nodes.size(); ++i)
+		checkProperty(sorted_nodes[i] >= 0 && sorted_nodes[i] < (int)nodes.size(), "invalid sorted_nodes index");
+
+	for(size_t i=0; i<joint_nodes.size(); ++i)
+		checkProperty(joint_nodes[i] >= 0 && joint_nodes[i] < (int)nodes.size(), "invalid joint_nodes index");
+
+	for(size_t i=0; i<nodes.size(); ++i)
+		checkProperty((nodes[i].parent_index >= -1) && (nodes[i].parent_index < (int)nodes.size()) && (nodes[i].parent_index != (int)i), "invalid parent_index index"); // parent_index of -1 is valid.
+
+	if(sorted_nodes.size() != nodes.size())
+		throw glare::Exception("sorted_nodes.size() != nodes.size()");
+
+	// Check sorted nodes are indeed sorted
+	{
+		// Make map from node index to index in sorted_nodes
+		std::vector<int> in_sorted_nodes_index(nodes.size(), -1);
+		for(size_t i=0; i<sorted_nodes.size(); ++i)
+		{
+			const int node_i = sorted_nodes[i];
+			if(in_sorted_nodes_index[node_i] != -1)
+				throw glare::Exception("node appears twice in sorted_nodes");
+			in_sorted_nodes_index[node_i] = (int)i;
+		}
+
+		for(size_t i=0; i<sorted_nodes.size(); ++i)
+		{
+			const int node_i = sorted_nodes[i];
+			if(nodes[node_i].parent_index != -1)
+			{
+				const int parent_i_in_sorted_nodes = in_sorted_nodes_index[nodes[node_i].parent_index];
+				if(parent_i_in_sorted_nodes == -1)
+					throw glare::Exception("Parent is not in sorted nodes");
+				if(parent_i_in_sorted_nodes > i)
+					throw glare::Exception("Parent is after in sorted nodes");
+			}
+		}
+	}
+
+	for(size_t a=0; a<animations.size(); ++a)
+	{
+		const AnimationDatum* datum = animations[a].ptr();
+		datum->checkData(this->keyframe_times, this->output_data);
+	}
 }
 
 

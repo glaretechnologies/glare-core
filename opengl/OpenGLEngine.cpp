@@ -6342,8 +6342,6 @@ public:
 					}
 				}
 
-				// We only support 256 joint matrices for now.  Currently we just don't upload more than 256 matrices.
-
 				node_matrices.resizeNoCopy(anim_data.sorted_nodes.size()); // A temp buffer to store node transforms that we can look up parent node transforms in.
 
 				for(size_t n=0; n<anim_data.sorted_nodes.size(); ++n)
@@ -6479,7 +6477,7 @@ public:
 			{
 				if(!anim_data.joint_nodes.empty()) // If we have a skin, but no animations, just use the default trans, rot, scales.
 				{
-					const size_t num_nodes = anim_data.sorted_nodes.size();
+					const size_t num_nodes = anim_data.nodes.size();
 					node_matrices.resizeNoCopy(num_nodes);
 					ob->anim_node_data.resize(num_nodes);
 
@@ -6521,19 +6519,16 @@ public:
 				}
 			}
 
-			if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
+			const size_t joint_nodes_size = anim_data.joint_nodes.size();
+			if(!anim_data.animations.empty() || (joint_nodes_size > 0))
 			{
-				ob->joint_matrices.resizeNoCopy(anim_data.joint_nodes.size());
+				ob->joint_matrices.resizeNoCopy(joint_nodes_size);
 
-				// NOTE: we should maybe just store the nodes in the joint_nodes order, to avoid this indirection.
-				for(size_t i=0; i<anim_data.joint_nodes.size(); ++i)
+				for(size_t i=0; i<joint_nodes_size; ++i)
 				{
 					const int node_i = anim_data.joint_nodes[i];
 
-					// TODO: can remove anim_node_data from ob, just make it a temp local vector
-
-					ob->joint_matrices[i] = /*mesh_data.animation_data.skeleton_root_transform * */ob->anim_node_data[node_i].node_hierarchical_to_object * 
-						anim_data.nodes[node_i].inverse_bind_matrix;
+					ob->joint_matrices[i] = node_matrices[node_i] * anim_data.nodes[node_i].inverse_bind_matrix;
 
 					//conPrint("joint_matrices[" + toString(i) + "]: (joint node: " + toString(node_i) + ", '" + anim_data.nodes[node_i].name + "')");
 					//conPrint(ob->joint_matrices[i].toString());

@@ -114,6 +114,8 @@ struct AnimationData
 
 	void operator = (const AnimationData& other);
 
+	void checkDataIsValid(); // Check indices are in-bounds etc.  Throws glare::Exception if not.
+
 	void build(); // Builds keyframe_times data, computes animation length.
 
 	void writeToStream(OutStream& stream) const;
@@ -133,6 +135,7 @@ struct AnimationData
 
 	size_t getTotalMemUsage() const;
 	
+	// NOTE: update operator = if changing fields.
 	std::vector<AnimationNodeData> nodes;
 	std::vector<int> sorted_nodes; // Indices of nodes, sorted such that children always come after parents.
 
