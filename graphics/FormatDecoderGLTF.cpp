@@ -698,7 +698,7 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 	const bool statically_apply_transform = data.skins.empty();
 
 	const Matrix4f trans = Matrix4f::translationMatrix(node.translation.x, node.translation.y, node.translation.z);
-	const Matrix4f rot = node.rotation.toMatrix();
+	const Matrix4f rot = normalise(node.rotation).toMatrix();
 	const Matrix4f scale = Matrix4f::scaleMatrix(node.scale.x, node.scale.y, node.scale.z);
 	const Matrix4f node_transform = parent_transform * node.matrix * trans * rot * scale; // Matrix and T,R,S transforms should be mutually exclusive in GLTF files.  Just multiply them together however.
 
@@ -719,8 +719,8 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 			if(!data.skins.empty() && (node.skin == std::numeric_limits<size_t>::max())) // If we have a skin, and if this is a mesh node that doesn't use a skin, then this node uses rigid-body animation.
 			{
 				// Use the skin-based animation system for it - add this node to the list of joints.
-				use_joint_index = (uint16)data.skins[0]->joints.size();
-				data.skins[0]->joints.push_back((int)node_index);
+				use_joint_index = (uint16)data.skins.back()->joints.size();
+				data.skins.back()->joints.push_back((int)node_index);
 			}
 
 			
@@ -1235,7 +1235,7 @@ static void processNode(GLTFData& data, GLTFNode& node, size_t node_index, const
 			{
 				if(data.attr_present.joints_present)
 				{
-					// Pad with zeroes.  This is a bit of a hack, needed because we only have one vertex layout per mesh.
+					// Pad with use_joint_index
 					const BatchedMesh::VertAttribute& joint_attr = mesh_out.getAttribute(BatchedMesh::VertAttribute_Joints);
 					const size_t dest_vert_stride_B = mesh_out.vertexSize();
 					const size_t dest_attr_offset_B = joint_attr.offset_B;
@@ -1622,8 +1622,6 @@ static void processSkin(GLTFData& data, const GLTFSkin& skin, const std::string&
 		const int node_i = skin.joints[i];
 		checkProperty(node_i >= 0 && node_i < (int)data.nodes.size(), "node_index was invalid");
 		anim_data.nodes[node_i].inverse_bind_matrix = ibms[i];
-
-		//anim_data.nodes[node_i].is_joint_node = true; // "A node object does not specify whether it is a joint. Client implementations may need to traverse the skins array first, marking each joint node."  (https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#joint-hierarchy)
 	}
 
 	anim_data.joint_nodes = skin.joints;
@@ -2508,18 +2506,18 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	//-------------------- Process animations ---------------------------
 	// Write out nodes
 
-	AnimationData& anim_data_out = batched_mesh->animation_data;
-	anim_data_out.nodes.resize(data.nodes.size());
+	AnimationData& batched_mesh_anim_data = batched_mesh->animation_data;
+	batched_mesh_anim_data.nodes.resize(data.nodes.size());
 	for(size_t i=0; i<data.nodes.size(); ++i)
 	{
-		anim_data_out.nodes[i].parent_index = -1;
-		anim_data_out.nodes[i].inverse_bind_matrix = Matrix4f::identity();
+		batched_mesh_anim_data.nodes[i].parent_index = -1;
+		batched_mesh_anim_data.nodes[i].inverse_bind_matrix = Matrix4f::identity();
 
-		anim_data_out.nodes[i].trans = data.nodes[i]->translation.toVec4fVector();
-		anim_data_out.nodes[i].rot   = data.nodes[i]->rotation;
-		anim_data_out.nodes[i].scale = data.nodes[i]->scale.toVec4fVector();
+		batched_mesh_anim_data.nodes[i].trans = data.nodes[i]->translation.toVec4fVector();
+		batched_mesh_anim_data.nodes[i].rot   = data.nodes[i]->rotation;
+		batched_mesh_anim_data.nodes[i].scale = data.nodes[i]->scale.toVec4fVector();
 
-		anim_data_out.nodes[i].name         = data.nodes[i]->name;
+		batched_mesh_anim_data.nodes[i].name         = data.nodes[i]->name;
 	}
 
 	// Set parent indices in data_out.nodes
@@ -2530,8 +2528,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		for(size_t z=0; z<node.children.size(); ++z)
 		{
 			const size_t child_index = node.children[z];
-			checkProperty(child_index < anim_data_out.nodes.size(), "invalid child_index");
-			anim_data_out.nodes[child_index].parent_index = (int)i;
+			checkProperty(child_index < batched_mesh_anim_data.nodes.size(), "invalid child_index");
+			batched_mesh_anim_data.nodes[child_index].parent_index = (int)i;
 		}
 	}
 	
@@ -2541,7 +2539,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 	// Initialise node_stack with roots
 	for(size_t i=0; i<data.nodes.size(); ++i)
-		if(anim_data_out.nodes[i].parent_index == -1)
+		if(batched_mesh_anim_data.nodes[i].parent_index == -1)
 			node_stack.push_back(i);
 
 	std::set<int> sorted_nodes_set;
@@ -2556,7 +2554,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			throw glare::Exception("Nodes are not a strict tree");
 		sorted_nodes_set.insert(node_i);
 
-		anim_data_out.sorted_nodes.push_back(node_i);
+		batched_mesh_anim_data.sorted_nodes.push_back(node_i);
 
 		// Add child nodes of the current node
 		const GLTFNode& node = *data.nodes[node_i];
@@ -2620,8 +2618,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		}
 	}
 
-	anim_data_out.keyframe_times.resize(cur_new_input_index  + 1);
-	anim_data_out.output_data   .resize(cur_new_output_index + 1);
+	batched_mesh_anim_data.keyframe_times.resize(cur_new_input_index  + 1);
+	batched_mesh_anim_data.output_data   .resize(cur_new_output_index + 1);
 
 
 	// Process channel input accessor data
@@ -2632,7 +2630,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		if(new_i != -1) // If used:
 		{
 			// Read keyframe time values from the input accessor, write to time_vals vector.
-			std::vector<float>& time_vals = anim_data_out.keyframe_times[new_i].times;
+			std::vector<float>& time_vals = batched_mesh_anim_data.keyframe_times[new_i].times;
 			const GLTFAccessor& input_accessor = getAccessor(data, old_accessor_i);
 
 			// input should be "a set of floating point scalar values representing linear time in seconds"
@@ -2663,7 +2661,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		{
 			const GLTFAccessor& output_accessor = getAccessor(data, old_accessor_i);
 
-			js::Vector<Vec4f, 16>& output_data = anim_data_out.output_data[new_i];
+			js::Vector<Vec4f, 16>& output_data = batched_mesh_anim_data.output_data[new_i];
 
 			// NOTE: GLTF translations and scales must be FLOAT.  But rotation can be a bunch of stuff, BYTE etc..  TODO: handle.
 			if(output_accessor.component_type != GLTF_COMPONENT_TYPE_FLOAT)
@@ -2702,22 +2700,20 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 	}
 
 
-	anim_data_out.animations.resize(data.animations.size());
+	batched_mesh_anim_data.animations.resize(data.animations.size());
 	for(size_t i=0; i<data.animations.size(); ++i)
 	{
-		anim_data_out.animations[i] = new AnimationDatum();
-		processAnimation(data, *data.animations[i], gltf_base_dir, new_input_index, new_output_index, anim_data_out, *anim_data_out.animations[i]);
+		batched_mesh_anim_data.animations[i] = new AnimationDatum();
+		processAnimation(data, *data.animations[i], gltf_base_dir, new_input_index, new_output_index, batched_mesh_anim_data, *batched_mesh_anim_data.animations[i]);
 	}
 
-	// Process skins
-	for(size_t i=0; i<data.skins.size(); ++i)
-	{
-		processSkin(data, *data.skins[i], gltf_base_dir, anim_data_out);
-	}
-
-	anim_data_out.build();
+	// Process skins.  Use last skin if there is more than 1.
+	if(!data.skins.empty())
+		processSkin(data, *data.skins.back(), gltf_base_dir, batched_mesh_anim_data);
 
 	batched_mesh->animation_data.vrm_data = data.vrm_data;
+
+	batched_mesh->animation_data.build();
 
 	return batched_mesh;
 }
@@ -3409,6 +3405,16 @@ void FormatDecoderGLTF::test()
 	}
 
 	return;*/
+
+	//-----------------------------------  -----------------------------------
+	/*try
+	{
+		GLTFLoadedData data;
+		Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\Alotta Money Artifex.glb", data);
+		testAssert(mesh->numIndices() == 6046 * 3);
+	}
+	catch(glare::Exception&)
+	{}*/
 
 	//----------------------------------- Test handling of a GLB file with misaligned BIN chunk -----------------------------------
 	try
