@@ -160,6 +160,9 @@ public:
 	inline void blitToImage(ImageMap<V, ComponentValueTraits>& dest, int dest_start_x, int dest_start_y) const;
 	inline void blitToImage(int src_start_x, int src_start_y, int src_end_x, int src_end_y, ImageMap<V, ComponentValueTraits>& dest, int dest_start_x, int dest_start_y) const;
 
+	inline Reference<ImageMap<V, ComponentValueTraits> > cropImage(int start_x, int start_y, int cropped_width, int cropped_height) const;
+
+
 	inline void addImage(const ImageMap<V, ComponentValueTraits>& other);
 
 	inline void copyToImageMapUInt8(ImageMap<uint8, UInt8ComponentValueTraits>& image_out) const;
@@ -1191,6 +1194,22 @@ void ImageMap<V, VTraits>::blitToImage(int src_start_x, int src_start_y, int src
 		for(size_t c=0; c<N; ++c)
 			dest.getPixel(dx, dy)[c] = getPixel(sx, sy)[c];
 	}
+}
+
+
+template<class V, class ComponentValueTraits>
+inline Reference<ImageMap<V, ComponentValueTraits>> ImageMap<V, ComponentValueTraits>::cropImage(int start_x, int start_y, int cropped_width, int cropped_height) const
+{
+	if(cropped_width < 0 || (start_x + cropped_width) > width)
+		throw glare::Exception("invalid cropped_width");
+	if(cropped_height < 0 || (start_y + cropped_height) > height)
+		throw glare::Exception("invalid cropped_height");
+
+	Reference<ImageMap<V, ComponentValueTraits>> cropped_im = new ImageMap<V, ComponentValueTraits>(cropped_width, cropped_height, N);
+
+	blitToImage(/*src start_x=*/start_x, /*src start y=*/start_y, /*src end x=*/start_x + cropped_width, /*src end y=*/start_y + cropped_height, /*dest=*/*cropped_im, /*dest start x=*/0, /*dest start y=*/0);
+
+	return cropped_im;
 }
 
 

@@ -86,6 +86,7 @@ public:
 	// Return a new, resized version of this image.
 	// Scaling is assumed to be mostly the same in each dimension.
 	// Resizing is medium quality, as it needs to be fast for large images (env maps)
+	// task_manager can be null, in which case the resizing is done on the calling thread.
 	virtual Reference<Map2D> resizeMidQuality(const int new_width, const int new_height, glare::TaskManager* task_manager) const = 0;
 #endif
 
