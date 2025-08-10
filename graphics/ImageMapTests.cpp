@@ -22,6 +22,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/TestUtils.h"
 #include "../utils/Plotter.h"
 #include "../utils/TaskManager.h"
+#include "../utils/TestExceptionUtils.h"
 
 
 #if 0 // If do perf tests
@@ -173,6 +174,45 @@ static void testResizeMidQuality(int new_w, int new_h)
 void ImageMapTests::test()
 {
 	conPrint("ImageMapTests::test()");
+
+
+	//======================================== Test cropImage() =======================================
+	{
+		ImageMapUInt8 map(100, 100, 3);
+		for(int x=0; x<100; ++x)
+		for(int y=0; y<100; ++y)
+		for(int c=0; c<3; ++c)
+		{
+			map.getPixel(x, y)[0] = (uint8)x;
+			map.getPixel(x, y)[1] = (uint8)y;
+			map.getPixel(x, y)[2] = 100;
+		}
+
+		ImageMapUInt8Ref cropped = map.cropImage(/*start x=*/20, /*start y=*/30, /*cropped_width=*/80, /*cropped_height=*/70);
+		testEqual((int)cropped->getMapWidth(), 80);
+		testEqual((int)cropped->getMapHeight(), 70);
+		for(int x=0; x<80; ++x)
+		for(int y=0; y<70; ++y)
+		for(int c=0; c<3; ++c)
+		{
+			testEqual((int)cropped->getPixel(x, y)[0], x + 20);
+			testEqual((int)cropped->getPixel(x, y)[1], y + 30);
+			testEqual((int)cropped->getPixel(x, y)[2], 100);
+		}
+
+
+		cropped = map.cropImage(/*start x=*/0, /*start y=*/0, /*cropped_width=*/100, /*cropped_height=*/100);
+		testAssert(*cropped == map);
+
+
+		testExceptionExpected([&]() { map.cropImage(/*start x=*/120, /*start y=*/30, /*cropped_width=*/80, /*cropped_height=*/70); }); // start x out of bounds
+		testExceptionExpected([&]() { map.cropImage(/*start x=*/-20, /*start y=*/30, /*cropped_width=*/80, /*cropped_height=*/70); }); // start x out of bounds
+		testExceptionExpected([&]() { map.cropImage(/*start x=*/20, /*start y=*/130, /*cropped_width=*/80, /*cropped_height=*/70); }); // start y out of bounds
+		testExceptionExpected([&]() { map.cropImage(/*start x=*/20, /*start y=*/-30, /*cropped_width=*/80, /*cropped_height=*/70); }); // start y out of bounds
+		
+		testExceptionExpected([&]() { map.cropImage(/*start x=*/0, /*start y=*/0, /*cropped_width=*/101, /*cropped_height=*/70); }); // cropped_width too large 
+		testExceptionExpected([&]() { map.cropImage(/*start x=*/0, /*start y=*/0, /*cropped_width=*/100, /*cropped_height=*/101); }); // cropped height too large 
+	}
 
 
 	// Test rotateCounterClockwise
@@ -579,6 +619,9 @@ void ImageMapTests::test()
 
 		// Test on a small image (num rows < num threads)
 		testResizeMidQuality(4, 4);
+
+		// Test on a zero-height image (avoid divide by zero)
+		testResizeMidQuality(10, 0);
 	}
 
 	// Test resizing of an image loaded from disk
