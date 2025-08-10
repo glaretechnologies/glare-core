@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 GLUIWidget::GLUIWidget()
+:	m_z(0.f)
 {
 }
 

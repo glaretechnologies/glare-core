@@ -49,6 +49,7 @@ public:
 	virtual void doHandleTextInputEvent(TextInputEvent& /*text_input_event*/) {}
 
 	virtual bool isVisible() = 0;
+	virtual void setVisible(bool visible) = 0;
 
 	// Called when e.g. the viewport changes size
 	virtual void updateGLTransform(GLUI& glui);
@@ -62,6 +63,7 @@ public:
 	std::string tooltip;
 
 	Rect2f rect;
+	float m_z; // z=-1 is the near clip plane, z=1 is the far clip plane.
 private:
 	GLARE_DISABLE_COPY(GLUIWidget);
 };

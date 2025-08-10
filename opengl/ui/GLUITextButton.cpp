@@ -26,6 +26,8 @@ GLUITextButton::CreateArgs::CreateArgs()
 	text_colour           = toLinearSRGB(Colour3f(0.1f));
 	toggled_text_colour   = toLinearSRGB(Colour3f(0.1f));
 	mouseover_text_colour = toLinearSRGB(Colour3f(0.1f));
+
+	z = 0.f;
 }
 
 
@@ -37,6 +39,7 @@ GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engi
 	opengl_engine = opengl_engine_;
 	tooltip = args_.tooltip;
 	args = args_;
+	m_z = args_.z;
 	m_botleft = botleft;
 	button_text = button_text_;
 
@@ -46,6 +49,7 @@ GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engi
 	text_args.padding_px = 8;
 	text_args.text_selectable = false;
 	text_args.font_size_px = args.font_size_px;
+	text_args.z = args.z;
 	text_view = new GLUITextView(glui_, opengl_engine_, button_text, botleft, text_args);
 	glui->addWidget(text_view);
 
@@ -135,6 +139,7 @@ void GLUITextButton::rebuild()
 	text_args.padding_px = 8;
 	text_args.text_selectable = false;
 	text_args.font_size_px = args.font_size_px;
+	text_args.z = args.z;
 	text_view = new GLUITextView(*glui, opengl_engine, button_text, m_botleft, text_args);
 	text_view->setVisible(old_visible);
 	glui->addWidget(text_view);

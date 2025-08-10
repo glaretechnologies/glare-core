@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "GLUI.h"
 
 
+#include "GLUIInertWidget.h"
 #include <graphics/SRGBUtils.h>
 #include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
@@ -112,23 +113,48 @@ float GLUI::OpenGLYScaleForUIYScale(float y_scale)
 }
 
 
-void GLUI::handleMousePress(MouseEvent& event)
+// Sorts objects into ascending z order
+struct GLUIWidgetZComparator
 {
+	inline bool operator() (const GLUIWidget* a, const GLUIWidget* b) const
+	{
+		return a->m_z < b->m_z;
+	}
+};
+
+
+// Get list of widgets whose rectangle contains ui_coords, sorted by widget z.
+static void getSortedWidgetsAtEventPos(const std::set<GLUIWidgetRef>& widgets, const Vec2f ui_coords, std::vector<GLUIWidget*>& temp_widgets_out)
+{
+	temp_widgets_out.clear();
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
-		widget->handleMousePress(event);
+		if(widget->rect.inClosedRectangle(ui_coords))
+			temp_widgets_out.push_back(widget);
+	}
+
+	std::sort(temp_widgets_out.begin(), temp_widgets_out.end(), GLUIWidgetZComparator());
+}
+
+
+void GLUI::handleMousePress(MouseEvent& event)
+{
+	const Vec2f ui_coords = UICoordsForOpenGLCoords(event.gl_coords);
+	
+	getSortedWidgetsAtEventPos(widgets, ui_coords, temp_widgets);
+
+	for(size_t i=0; i<temp_widgets.size(); ++i)
+	{
+		temp_widgets[i]->handleMousePress(event);
 		if(event.accepted)
 		{
-			if(widget != key_focus_widget.ptr())
+			if(temp_widgets[i] != key_focus_widget.ptr())
 				setKeyboardFocusWidget(NULL); // A widget that wasn't the one with keyboard focus accepted the click.  Remove keyboard focus from any widgets that had it.
 
 			return;
 		}
 	}
-
-	// No widget accepted the click event.  Remove keyboard focus from any widgets that had it.
-	setKeyboardFocusWidget(NULL);
 }
 
 
@@ -146,26 +172,26 @@ void GLUI::handleMouseRelease(MouseEvent& event)
 
 void GLUI::handleMouseDoubleClick(MouseEvent& event)
 {
-	for(auto it = widgets.begin(); it != widgets.end(); ++it)
+	const Vec2f ui_coords = UICoordsForOpenGLCoords(event.gl_coords);
+	getSortedWidgetsAtEventPos(widgets, ui_coords, temp_widgets);
+
+	for(size_t i=0; i<temp_widgets.size(); ++i)
 	{
-		GLUIWidget* widget = it->ptr();
-		widget->handleMouseDoubleClick(event);
+		temp_widgets[i]->handleMouseDoubleClick(event);
 		if(event.accepted)
-		{
 			return;
-		}
 	}
 }
 
 
 bool GLUI::handleMouseWheelEvent(MouseWheelEvent& event)
 {
-	const Vec2f coords = UICoordsForOpenGLCoords(event.gl_coords);
-
-	for(auto it = widgets.begin(); it != widgets.end(); ++it)
+	const Vec2f ui_coords = UICoordsForOpenGLCoords(event.gl_coords);
+	
+	getSortedWidgetsAtEventPos(widgets, ui_coords, temp_widgets);
+	for(size_t i=0; i<temp_widgets.size(); ++i)
 	{
-		GLUIWidget* widget = it->ptr();
-		widget->handleMouseWheelEvent(event);
+		temp_widgets[i]->handleMouseWheelEvent(event);
 		if(event.accepted)
 			return true;
 	}

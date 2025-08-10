@@ -42,6 +42,7 @@ public:
 		float rounded_corner_radius_px;
 
 		float width; // In GL UI coords
+		float z;
 	};
 
 	GLUILineEdit(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const Vec2f& botleft, const CreateArgs& args);
@@ -56,7 +57,7 @@ public:
 
 	void clear();
 
-	void setVisible(bool visible);
+	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
 	//const Vec2f getDims() const;

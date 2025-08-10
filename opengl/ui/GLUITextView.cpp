@@ -24,6 +24,7 @@ GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 	args = args_;
 	opengl_engine = opengl_engine_;
 	tooltip = args.tooltip;
+	m_z = args_.z;
 
 	selection_start = selection_end = -1;
 	selection_start_text_index = selection_end_text_index = 0;
@@ -136,6 +137,7 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 			text_create_args.colour = args.text_colour;
 			text_create_args.font_size_px = args.font_size_px;
 			text_create_args.alpha = args.text_alpha;
+			text_create_args.z = args.z;
 			GLUITextRef glui_text = new GLUIText(glui_, opengl_engine, toString(line_string), botleft, text_create_args);
 
 			// Compute position of current text line
@@ -164,7 +166,7 @@ void GLUITextView::updateOverlayObTransforms()
 		const Rect2f background_rect = computeBackgroundRect();
 
 		const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
-		const float z = 0.1f;
+		const float z = args.z + 0.001f;
 		background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(background_rect.getMin().x, background_rect.getMin().y * y_scale, z) * 
 			Matrix4f::scaleMatrix(background_rect.getWidths().x, background_rect.getWidths().y * y_scale, 1);
 	}
@@ -191,7 +193,7 @@ void GLUITextView::updateOverlayObTransforms()
 			try
 			{
 				const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
-				const float z = -0.1f;
+				const float z = args.z - 0.001f;
 				selection_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(selection_lower_left_pos.x, (selection_lower_left_pos.y - h * extra_half_h_factor) * y_scale, z) * Matrix4f::scaleMatrix(w, h * y_scale, 1);
 
 				selection_overlay_ob->draw = true;
@@ -486,5 +488,6 @@ GLUITextView::CreateArgs::CreateArgs():
 	font_size_px(14),
 	line_0_x_offset(0),
 	max_width(100000),
-	text_selectable(true)
+	text_selectable(true),
+	z(0.f)
 {}

@@ -41,7 +41,7 @@ public:
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z = -0.9f);
 	void setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z = -0.9f);
 
-	void setVisible(bool visible);
+	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
@@ -59,7 +59,6 @@ private:
 	Colour3f colour;
 	Colour3f mouseover_colour;
 	Vec2f pos; // Position of bottom left of image
-	float z;
 };
 
 

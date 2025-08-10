@@ -22,6 +22,7 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 	glui = &glui_;
 
 	args = args_;
+	this->m_z = args_.z;
 	opengl_engine = opengl_engine_;
 	tooltip = args.tooltip;
 
@@ -117,10 +118,13 @@ const std::string& GLUILineEdit::getText() const
 
 void GLUILineEdit::setWidth(float width)
 {
-	args.width = width;
+	if(width != args.width)
+	{
+		args.width = width;
 
-	this->last_viewport_dims = Vec2i(0); // Force recreate rounded-corner rect
-	updateOverlayObTransforms();
+		this->last_viewport_dims = Vec2i(0); // Force recreate rounded-corner rect
+		updateOverlayObTransforms();
+	}
 }
 
 
@@ -154,7 +158,7 @@ void GLUILineEdit::updateOverlayObTransforms()
 		}
 
 		const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
-		const float z = 0.1f;
+		const float z = args.z + 0.001f;
 		background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(1, y_scale, 1);
 
 		rect = Rect2f(botleft, botleft + Vec2f(args.width, background_h));
@@ -173,7 +177,7 @@ void GLUILineEdit::updateOverlayObTransforms()
 		{
 			const Vec2f cursor_lower_left_pos = glui_text->getCharPos(*glui, cursor_pos); // Work out position of cursor in text
 			const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
-			const float z = -0.1f;
+			const float z = args.z - 0.001f;
 			cursor_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(cursor_lower_left_pos.x, (cursor_lower_left_pos.y - h * extra_half_h_factor) * y_scale, z) * Matrix4f::scaleMatrix(w, h * y_scale, 1);
 		}
 		catch(glare::Exception& e)
@@ -204,7 +208,7 @@ void GLUILineEdit::updateOverlayObTransforms()
 			try
 			{
 				const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
-				const float z = -0.1f;
+				const float z = args.z - 0.001f;
 				selection_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(selection_lower_left_pos.x, (selection_lower_left_pos.y - h * extra_half_h_factor) * y_scale, z) * Matrix4f::scaleMatrix(w, h * y_scale, 1);
 
 				selection_overlay_ob->draw = true;
@@ -230,6 +234,7 @@ void GLUILineEdit::recreateTextWidget()
 	text_create_args.colour = args.text_colour;
 	text_create_args.font_size_px = args.font_size_px;
 	text_create_args.alpha = args.text_alpha;
+	text_create_args.z = args.z;
 	glui_text = new GLUIText(*glui, opengl_engine, text, /*botleft=*/Vec2f(0.f), text_create_args);
 
 	// Set clip region so text doesn't draw outside of line edit.
@@ -602,5 +607,6 @@ GLUILineEdit::CreateArgs::CreateArgs():
 	padding_px(10),
 	font_size_px(14),
 	width(0.2f),
-	rounded_corner_radius_px(8)
+	rounded_corner_radius_px(8),
+	z(0.f)
 {}

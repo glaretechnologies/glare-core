@@ -31,14 +31,16 @@ public:
 		std::string tooltip;
 		int font_size_px; // default = 14 pixels.
 
-		Colour3f background_colour;
-		Colour3f text_colour;
+		Colour3f background_colour; // Colour3f(1.f);
+		Colour3f text_colour; // toLinearSRGB(Colour3f(0.1f)
 
 		Colour3f toggled_background_colour;
 		Colour3f toggled_text_colour;
 
 		Colour3f mouseover_background_colour;
 		Colour3f mouseover_text_colour;
+
+		float z;
 	};
 
 	GLUITextButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& button_text, const Vec2f& botleft, const CreateArgs& args);
@@ -52,10 +54,10 @@ public:
 
 	void setPos(const Vec2f& botleft);
 
+	bool isToggled() const { return toggled; }
 	void setToggled(bool toggled_);
 
-	void setVisible(bool visible);
-
+	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
 	GLUICallbackHandler* handler;

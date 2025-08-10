@@ -57,8 +57,7 @@ public:
 
 	void setToggled(bool toggled_);
 
-	void setVisible(bool visible);
-
+	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
 	GLUICallbackHandler* handler;

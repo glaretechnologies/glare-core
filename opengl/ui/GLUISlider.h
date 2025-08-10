@@ -54,7 +54,7 @@ public:
 
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
 
-	void setVisible(bool visible);
+	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
 	GLUICallbackHandler* handler;

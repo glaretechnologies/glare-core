@@ -129,6 +129,8 @@ private:
 	bool mouse_over_text_input_widget;
 
 	Vec2f last_mouse_ui_coords;
+
+	std::vector<GLUIWidget*> temp_widgets;
 };
 
 

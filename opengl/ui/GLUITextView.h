@@ -43,6 +43,8 @@ public:
 		float max_width; // Max width in UI coords.  Text will word-wrap to not be wider than this.
 
 		bool text_selectable; // True by default
+
+		float z;
 	};
 
 	GLUITextView(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
@@ -62,8 +64,7 @@ public:
 
 	void setClipRegion(const Rect2f& rect);
 
-	void setVisible(bool visible);
-
+	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
 	//const Vec2f getDims() const;

@@ -247,13 +247,13 @@ void GLUISlider::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
-	const float track_z = -0.9f;
+	const float track_z = 0.f;
 	const float track_h = glui->getUIWidthForDevIndepPixelWidth(6);
 	const float track_vert_margin = (dims.y - track_h) / 2;
 	track_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, (botleft.y + track_vert_margin) * y_scale, track_z) * Matrix4f::scaleMatrix(dims.x, track_h * y_scale, 1);
 
 	const Rect2f knob_rect = computeKnobRect();
-	const float knob_z = -0.91f;
+	const float knob_z = -0.01f;
 	knob_ob->ob_to_world_matrix = Matrix4f::translationMatrix(knob_rect.getMin().x, knob_rect.getMin().y * y_scale, knob_z) * Matrix4f::scaleMatrix(knob_rect.getWidths().x, knob_rect.getWidths().y * y_scale, 1);
 }
 
