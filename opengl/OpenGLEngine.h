@@ -553,6 +553,8 @@ public:
 	bool draw_water; // True by default
 	bool draw_aurora; // False by default
 
+	bool draw_overlay_objects; // Can be toggled at runtime.  True by default.
+
 	// If true, the scene is rendered to an offscreen and internally allocated framebuffer.  This allows for bloom effects etc.
 	// If false, the scene is rendered directly to the framebuffer set by setTargetFrameBuffer().
 	bool render_to_main_render_framebuffer; // True by default

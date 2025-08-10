@@ -369,7 +369,8 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	always_visible_objects(NULL),
 	overlay_objects(NULL),
 	overlay_world_to_camera_space_matrix(Matrix4f::identity()),
-	collect_stats(true)
+	collect_stats(true),
+	draw_overlay_objects(true)
 {
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -7611,7 +7612,8 @@ void OpenGLEngine::draw()
 
 	//================= Draw UI overlay objects =================
 	// We will do this after the final imaging shader runs above, so that the UI is drawn over transparent objects.
-	drawUIOverlayObjects(reverse_z_matrix);
+	if(current_scene->draw_overlay_objects)
+		drawUIOverlayObjects(reverse_z_matrix);
 
 
 	VAO::unbind(); // Unbind any bound VAO, so that its vertex and index buffers don't get accidentally overridden.
