@@ -155,6 +155,9 @@ void GLUI::handleMousePress(MouseEvent& event)
 			return;
 		}
 	}
+
+	// No widget accepted the click event.  Remove keyboard focus from any widgets that had it.
+	setKeyboardFocusWidget(NULL);
 }
 
 
