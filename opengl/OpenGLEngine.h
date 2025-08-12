@@ -1101,7 +1101,9 @@ public:
 	//----------------------------------- Readback -------------------------------------------
 	float getPixelDepth(int pixel_x, int pixel_y);
 
-	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > getRenderedColourBuffer();
+	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > getRenderedColourBuffer(size_t xres, size_t yres, bool buffer_has_alpha);
+
+	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > drawToBufferAndReturnImageMap();
 	//----------------------------------------------------------------------------------------
 
 

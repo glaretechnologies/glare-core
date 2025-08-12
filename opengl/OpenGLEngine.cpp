@@ -11951,28 +11951,127 @@ float OpenGLEngine::getPixelDepth(int pixel_x, int pixel_y)
 }
 
 
-Reference<ImageMap<uint8, UInt8ComponentValueTraits> > OpenGLEngine::getRenderedColourBuffer()
+Reference<ImageMap<uint8, UInt8ComponentValueTraits> > OpenGLEngine::getRenderedColourBuffer(size_t xres, size_t yres, bool buffer_has_alpha)
 {
-	const bool capture_alpha = false;
+	const bool capture_alpha = buffer_has_alpha;
+
+	// Get current byte alignment for the start of each row in memory, this is needed for reading as GL_RGB since the row size may not be a multiple of 4 bytes (which GL_PACK_ALIGNMENT probably is).
+	GLint alignment;
+	glGetIntegerv(GL_PACK_ALIGNMENT, &alignment);
 
 	const int N = capture_alpha ? 4 : 3;
-	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > map = new ImageMap<uint8, UInt8ComponentValueTraits>(viewport_w, viewport_h, N);
-	js::Vector<uint8, 16> data(viewport_w * viewport_h * N);
+	ImageMapUInt8Ref map = new ImageMapUInt8(xres, yres, N);
+
+	runtimeCheck((alignment > 0) && Maths::isPowerOfTwo(alignment));
+	const size_t row_B = Maths::roundUpToMultipleOfPowerOf2(xres * N, (size_t)alignment);
+	js::Vector<uint8, 16> data(yres * row_B);
+
 	glReadPixels(0, 0, // x, y
-		viewport_w, viewport_h,  // width, height
+		xres, yres,  // width, height
 		capture_alpha ? GL_RGBA : GL_RGB,
 		GL_UNSIGNED_BYTE,
 		data.data()
 	);
 	
-	// Flip image upside down.
-	for(int dy=0; dy<viewport_h; ++dy)
+	// Copy from data to map, while flipping image upside down.
+	for(int dy=0; dy<yres; ++dy)
 	{
-		const int sy = viewport_h - dy - 1;
-		std::memcpy(/*dest=*/map->getPixel(0, dy), /*src=*/&data[sy*viewport_w*N], /*size=*/viewport_w*N);
+		const int sy = yres - dy - 1;
+		std::memcpy(/*dest=*/map->getPixel(0, dy), /*src=*/&data[sy * row_B], /*size=*/xres * N);
 	}
 
 	return map;
+}
+
+
+// Creates some off-screen render buffers, sets as target_frame_buffer, draws the current scene.
+// Then captures the draw result using glReadPixels() in getRenderedColourBuffer() and returns as an ImageMapUInt8.
+Reference<ImageMap<uint8, UInt8ComponentValueTraits>> OpenGLEngine::drawToBufferAndReturnImageMap()
+{
+	// Save target_frame_buffer
+	Reference<FrameBuffer> old_target_frame_buffer = this->target_frame_buffer;
+
+#if EMSCRIPTEN
+	// NOTE: EXT_color_buffer_half_float is included in WebGL 2: See https://emscripten.org/docs/optimizing/Optimizing-WebGL.html#optimizing-load-times-and-other-best-practices
+	// However RGB16F is not supported as a render buffer format, just RGBA16F.  See https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/renderbufferStorage
+	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
+#else
+	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Half;
+#endif
+	const OpenGLTextureFormat depth_format = OpenGLTextureFormat::Format_Depth_Float;
+
+	const int xres = myMax(16, main_viewport_w);
+	const int yres = myMax(16, main_viewport_h);
+	const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
+
+	// Allocate renderbuffers.  Note that these must have the same format as the textures, otherwise the glBlitFramebuffer copies will fail in WebGL.
+	RenderBufferRef colour_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, col_buffer_format);
+	RenderBufferRef depth_renderbuffer  = new RenderBuffer(xres, yres, msaa_samples, depth_format);
+
+	FrameBufferRef render_framebuffer = new FrameBuffer();
+	render_framebuffer->attachRenderBuffer(*colour_renderbuffer, GL_COLOR_ATTACHMENT0);
+	render_framebuffer->attachRenderBuffer(*depth_renderbuffer, GL_DEPTH_ATTACHMENT);
+	assert(render_framebuffer->isComplete());
+
+	// Create render_copy_framebuffer.  This is similar to render_framebuffer except it doesn't use MSAA (is not clear to me how glReadPixels works with MSAA)
+	// So we will blit from render_framebuffer to colour_copy_texture to resolve the MSAA.
+	OpenGLTextureRef colour_copy_texture = new OpenGLTexture(xres, yres, this,
+		ArrayRef<uint8>(), // data
+		col_buffer_format,
+		OpenGLTexture::Filtering_Nearest,
+		OpenGLTexture::Wrapping_Clamp,
+		false, // has_mipmaps
+		/*MSAA_samples=*/1
+	);
+
+	OpenGLTextureRef depth_copy_texture = new OpenGLTexture(xres, yres, this,
+		ArrayRef<uint8>(), // data
+		depth_format,
+		OpenGLTexture::Filtering_Nearest,
+		OpenGLTexture::Wrapping_Clamp,
+		false, // has_mipmaps
+		/*MSAA_samples=*/1
+	);
+
+	FrameBufferRef render_copy_framebuffer = new FrameBuffer();
+	render_copy_framebuffer->attachTexture(*colour_copy_texture, GL_COLOR_ATTACHMENT0);
+	render_copy_framebuffer->attachTexture(*depth_copy_texture, GL_DEPTH_ATTACHMENT);
+	assert(render_copy_framebuffer->isComplete());
+
+
+
+	this->target_frame_buffer = render_framebuffer;
+
+	this->draw(); // Render the scene
+
+
+	//=============== Copy from render_framebuffer to render_copy_framebuffer ============
+	render_framebuffer->bindForReading();
+	render_copy_framebuffer->bindForDrawing();
+
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+	glBlitFramebuffer(
+		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)render_framebuffer->xRes(), /*srcY1=*/(int)render_framebuffer->yRes(), 
+		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)render_framebuffer->xRes(), /*dstY1=*/(int)render_framebuffer->yRes(), 
+		GL_COLOR_BUFFER_BIT, // We need the depth buffer only when doing DOF blur.
+		GL_NEAREST
+	);
+
+	// Capture render_copy_framebuffer as an ImageMapUInt8
+	render_copy_framebuffer->bindForReading();
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	ImageMapUInt8Ref image = getRenderedColourBuffer(xres, yres, /*buffer has alpha=*/numChannels(col_buffer_format) == 4); // Capture the framebuffer
+
+	// Free the framebuffers we just made
+	render_framebuffer = nullptr;
+	render_copy_framebuffer = nullptr;
+	this->target_frame_buffer = nullptr; 
+	
+	// Restore target_frame_buffer
+	this->target_frame_buffer = old_target_frame_buffer;
+
+	return image;
 }
 
 
