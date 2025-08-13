@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/FileUtils.h"
 #include "../utils/FileHandle.h"
 #include "../utils/Exception.h"
+#include "../utils/FileOutStream.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Timer.h"
 #include <jpeglib.h>
@@ -24,6 +25,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <functional>
 
 
 // We use libjpeg-turbo for loading and saving JPEGs.
@@ -306,14 +308,10 @@ public:
 };
 
 
-// Saves a JPEG in the sRGB colour space. (embeds an ICC sRGB colour profile)
-void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string& path, const SaveOptions& options)
+void doSave(const Reference<ImageMapUInt8>& image, const JPEGDecoder::SaveOptions& options, const std::function<void (struct jpeg_compress_struct&)>& set_dest_func)
 {
 	try
 	{
-		// Open file to write to.
-		FileHandle file_handle(path, "wb");
-
 		JpegCompress compress;
 		jpeg_compress_struct& cinfo = compress.cinfo;
 	
@@ -326,10 +324,9 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 		
 		cinfo.err = &error_manager; // Set error manager
 
-
 		jpeg_create_compress(&cinfo); // Create compress struct.  Should come after we set the error handler above.
 
-		jpeg_stdio_dest(&cinfo, file_handle.getFile());
+		set_dest_func(cinfo);
 		
 		cinfo.image_width = (JDIMENSION)image->getWidth(); // image width and height, in pixels
 		cinfo.image_height = (JDIMENSION)image->getHeight();
@@ -423,6 +420,45 @@ void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string&
 }
 
 
+void JPEGDecoder::saveToStream(const Reference<ImageMapUInt8>& image, const SaveOptions& options, OutStream& stream)
+{
+	unsigned char* buffer = nullptr;
+	try
+	{
+		unsigned long buflen = 0;
+
+		doSave(image, options, [&buffer, &buflen](struct jpeg_compress_struct& cinfo) { jpeg_mem_dest(&cinfo, &buffer, &buflen); });
+
+		stream.writeData(buffer, buflen);
+
+		free(buffer);
+	}
+	catch(glare::Exception& e)
+	{
+		free(buffer);
+
+		throw ImFormatExcep(e.what());
+	}
+}
+
+
+// Saves a JPEG in the sRGB colour space. (embeds an ICC sRGB colour profile)
+void JPEGDecoder::save(const Reference<ImageMapUInt8>& image, const std::string& path, const SaveOptions& options)
+{
+	try
+	{
+		// Open file to write to.
+		FileHandle file_handle(path, "wb");
+
+		doSave(image, options, [&file_handle](struct jpeg_compress_struct& cinfo) { jpeg_stdio_dest(&cinfo, file_handle.getFile()); });
+	}
+	catch(glare::Exception& e)
+	{
+		throw ImFormatExcep(e.what());
+	}
+}
+
+
 #if BUILD_TESTS
 
 
@@ -451,6 +487,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
 #include "../utils/TestUtils.h"
 #include "../utils/PlatformUtils.h"
+#include "../utils/BufferOutStream.h"
 
 
 void JPEGDecoder::test(const std::string& base_dir_path)
@@ -534,10 +571,20 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 			JPEGDecoder::save(im.downcast<ImageMapUInt8>(), save_path, JPEGDecoder::SaveOptions());
 
 			// Load it again to check it is valid.
-			im = JPEGDecoder::decode(base_dir_path, save_path);
-			testAssert(im->getMapWidth() == 750);
-			testAssert(im->getMapHeight() == 1152);
-			testAssert(im->numChannels() == 3);
+			Reference<Map2D> loaded_im = JPEGDecoder::decode(base_dir_path, save_path);
+			testAssert(loaded_im->getMapWidth() == 750);
+			testAssert(loaded_im->getMapHeight() == 1152);
+			testAssert(loaded_im->numChannels() == 3);
+
+			// Test saveToStream()
+			BufferOutStream stream;
+			JPEGDecoder::saveToStream(im.downcast<ImageMapUInt8>(), JPEGDecoder::SaveOptions(), stream);
+
+			// Check the result of saveToStream() is the same as the result of JPEGDecoder::save().
+			std::vector<unsigned char> loaded_file;
+			FileUtils::readEntireFile(save_path, loaded_file);
+			testAssert(stream.buf.size() == loaded_file.size());
+			testAssert(memcmp(stream.buf.data(), loaded_file.data(), loaded_file.size()) == 0);
 		}
 		catch(ImFormatExcep& e)
 		{
