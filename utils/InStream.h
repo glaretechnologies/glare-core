@@ -48,5 +48,5 @@ public:
 	virtual bool endOfStream() = 0;
 
 
-	const std::string readStringLengthFirst(size_t max_string_length);
+	[[nodiscard]] const std::string readStringLengthFirst(size_t max_string_length);
 };
