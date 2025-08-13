@@ -37,7 +37,7 @@ vec3 rgb2hsv(vec3 c)
 	float delta = m_max - m_min;
 
 	float H;
-	if(delta == 0)
+	if(delta == 0.0)
 		H = 0.0;
 	else if(m_max == c.r)
 		H = (c.g - c.b) / delta;
@@ -59,9 +59,9 @@ vec3 hsv2rgb(vec3 c)
 	float H = fract(c.r * (1.0/6.0)) * 6.0; // H = c.r mod 6
 	float S = c.g;
 	float V = c.b;
-	float alpha = V * (1 - S);
-	float beta = V * (1 - fract(H) * S);
-	float gamma = V * (1 - (1 - fract(H)) * S);
+	float alpha = V * (1.0 - S);
+	float beta = V * (1.0 - fract(H) * S);
+	float gamma = V * (1.0 - (1.0 - fract(H)) * S);
 	if(H < 1.0)
 		return vec3(V, gamma, alpha);
 	else if(H < 2.0)
