@@ -497,6 +497,7 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 	try
 	{
 #if EMSCRIPTEN
+
 		// Do Performance test
 		if(false)
 		{
@@ -519,34 +520,7 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 			conPrint("Time to load anewSquares_JPG_17115529236124618104.JPG: " + doubleToStringNSigFigs(min_time * 1.0e3, 4) + " ms.");
 		}
 
-
-
 #else // else if !EMSCRIPTEN:
-
-		// Perf test
-		if(false)
-		{
-			{
-				Timer timer;
-				Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testscenes/world.200401.3x5400x2700.jpg");
-				testAssert(im->getMapWidth() == 5400 && im->getMapHeight() == 2700);
-				conPrint("Elapsed time for 'world.200401.3x5400x2700.jpg': " + timer.elapsedStringNSigFigs(5));
-			}
-			{
-				Timer timer;
-				Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testscenes/brickwork_normal-map.jpg");
-				testAssert(im->getMapWidth() == 512 && im->getMapHeight() == 512);
-				conPrint("Elapsed time for 'brickwork_normal-map.jpg':   " + timer.elapsedStringNSigFigs(5));
-			}
-			{
-				Timer timer;
-				Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testscenes/preview_squaretile.jpg");
-				testAssert(im->getMapWidth() == 400 && im->getMapHeight() == 400);
-				conPrint("Elapsed time for 'preview_squaretile.jpg':     " + timer.elapsedStringNSigFigs(5));
-			}
-		}
-
-
 
 		const std::string tempdir = PlatformUtils::getTempDirPath() + "/jpeg_temp_testing_dir";
 		if(FileUtils::fileExists(tempdir))
@@ -687,6 +661,21 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 		{
 		}
 
+		// Try saveToStream() on an image that can't be saved as a valid JPEG. (5 components)
+		conPrint("test 6");
+		try
+		{
+			Reference<ImageMapUInt8> im = new ImageMapUInt8(10, 10, 5); // 5 components
+
+			BufferOutStream stream;
+			JPEGDecoder::saveToStream(im.downcast<ImageMapUInt8>(), JPEGDecoder::SaveOptions(), stream);
+
+			failTest("Expected failure.");
+		}
+		catch(ImFormatExcep&)
+		{
+		}
+
 		// Try saving an image that can't be saved as a valid JPEG. (zero width and height)
 		conPrint("test 7");
 		try
@@ -701,6 +690,29 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 		}
 		catch(ImFormatExcep&)
 		{
+		}
+
+		// Perf test
+		if(false)
+		{
+			{
+				Timer timer;
+				Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testscenes/world.200401.3x5400x2700.jpg");
+				testAssert(im->getMapWidth() == 5400 && im->getMapHeight() == 2700);
+				conPrint("Elapsed time for 'world.200401.3x5400x2700.jpg': " + timer.elapsedStringNSigFigs(5));
+			}
+			{
+				Timer timer;
+				Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testscenes/brickwork_normal-map.jpg");
+				testAssert(im->getMapWidth() == 512 && im->getMapHeight() == 512);
+				conPrint("Elapsed time for 'brickwork_normal-map.jpg':   " + timer.elapsedStringNSigFigs(5));
+			}
+			{
+				Timer timer;
+				Reference<Map2D> im = JPEGDecoder::decode(base_dir_path, TestUtils::getTestReposDir() + "/testscenes/preview_squaretile.jpg");
+				testAssert(im->getMapWidth() == 400 && im->getMapHeight() == 400);
+				conPrint("Elapsed time for 'preview_squaretile.jpg':     " + timer.elapsedStringNSigFigs(5));
+			}
 		}
 
 #endif // end if !EMSCRIPTEN
