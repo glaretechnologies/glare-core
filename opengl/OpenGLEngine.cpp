@@ -11991,13 +11991,10 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits>> OpenGLEngine::drawToBuffer
 	// Save target_frame_buffer
 	Reference<FrameBuffer> old_target_frame_buffer = this->target_frame_buffer;
 
-#if EMSCRIPTEN
-	// NOTE: EXT_color_buffer_half_float is included in WebGL 2: See https://emscripten.org/docs/optimizing/Optimizing-WebGL.html#optimizing-load-times-and-other-best-practices
-	// However RGB16F is not supported as a render buffer format, just RGBA16F.  See https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/renderbufferStorage
-	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
-#else
-	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGB_Linear_Half;
-#endif
+	// Use an 8-bit format, as float formats don't seem to work with glReadPixels in WebGL.
+	// And we are reading to an 8-bit image format so it makes sense.
+	const OpenGLTextureFormat col_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
+
 	const OpenGLTextureFormat depth_format = OpenGLTextureFormat::Format_Depth_Float;
 
 	const int xres = myMax(16, main_viewport_w);
