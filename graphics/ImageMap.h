@@ -149,7 +149,7 @@ public:
 	inline virtual size_t getByteSize() const override;
 
 	// This image must have >= 3 channels.
-	inline Reference<ImageMap<V, ComponentValueTraits> > extract3ChannelImage() const;
+	inline Reference<ImageMap<V, ComponentValueTraits> > extract3ChannelImage() const; // Remove alpha
 
 	inline Reference<ImageMap<V, ComponentValueTraits> > rotateClockwise() const; // Returns a new image - the image rotated 90 degrees clockwise.
 
