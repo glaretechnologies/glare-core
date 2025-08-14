@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "BasicOpenGLTypes.h"
-#include "../utils/RefCounted.h"
+#include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/Platform.h"
 #include <stdlib.h>
@@ -18,7 +18,7 @@ VBO
 ---
 Vertex buffer object
 =====================================================================*/
-class VBO : public RefCounted
+class VBO : public ThreadSafeRefCounted
 {
 public:
 	// data can be NULL
@@ -32,6 +32,8 @@ public:
 
 	void* map();
 	void unmap();
+
+	void flushRange(size_t offset, size_t range_size);
 
 	void* getMappedPtr() { return mapped_ptr; }
 

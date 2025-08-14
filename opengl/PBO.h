@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #include "BasicOpenGLTypes.h"
-#include "../utils/RefCounted.h"
+#include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include <stddef.h> // for size_t
 
@@ -17,7 +17,7 @@ PBO
 ---
 Pixel buffer object
 =====================================================================*/
-class PBO : public RefCounted
+class PBO : public ThreadSafeRefCounted
 {
 public:
 	// data can be NULL

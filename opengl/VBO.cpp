@@ -89,6 +89,8 @@ void* VBO::map()
 
 	bind();
 	mapped_ptr = glMapBuffer(buffer_type, GL_WRITE_ONLY);
+	//mapped_ptr = glMapBufferRange(buffer_type, /*offset=*/0, /*length=*/this->size, /*access=*/GL_MAP_WRITE_BIT | /*GL_MAP_INVALIDATE_BUFFER_BIT*//*GL_MAP_PERSISTENT_BIT*/ GL_MAP_FLUSH_EXPLICIT_BIT);
+	assert(mapped_ptr);
 	unbind();
 	return mapped_ptr;
 #endif
@@ -106,6 +108,20 @@ void VBO::unmap()
 	glUnmapBuffer(buffer_type);
 	unbind();
 	mapped_ptr = nullptr;
+#endif
+}
+
+
+void VBO::flushRange(size_t offset, size_t range_size)
+{
+#if EMSCRIPTEN
+	assert(!"VBO::flushRange() not supported in emscripten.");
+#else
+	assert(mapped_ptr);
+
+	bind();
+	glFlushMappedBufferRange(buffer_type, offset, range_size);
+	unbind();
 #endif
 }
 
