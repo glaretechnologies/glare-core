@@ -8,7 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "../maths/vec3.h"
 #include "../maths/Quat.h"
-#include "../utils/RefCounted.h"
+#include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/Vector.h"
 #include <string>
@@ -70,7 +70,7 @@ struct KeyFrameTimeInfo
 };
 
 
-struct AnimationDatum : public RefCounted
+struct AnimationDatum : public ThreadSafeRefCounted
 {
 	AnimationDatum() : anim_len(-1) {}
 
@@ -98,7 +98,7 @@ struct VRMBoneInfo
 	int node_index;
 };
 
-struct GLTFVRMExtension : public RefCounted
+struct GLTFVRMExtension : public ThreadSafeRefCounted
 {
 	GLTFVRMExtension() {}
 
