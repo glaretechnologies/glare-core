@@ -1,7 +1,7 @@
 /*=====================================================================
 RefCounted.h
 ------------
-Copyright Glare Technologies Limited 2021 - 
+Copyright Glare Technologies Limited 2025 - 
 =====================================================================*/
 // Not using pragma once since we copy this file and pragma once is path based
 #ifndef GLARE_REFCOUNTED_H
@@ -9,6 +9,9 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Platform.h"
+#ifndef NDEBUG
+#include "PlatformUtils.h"
+#endif
 #include <cassert>
 
 
@@ -19,18 +22,29 @@ Copyright Glare Technologies Limited 2021 -
 #endif
 
 
-///
-/// This is a 'mixin' class that adds a refcount and a few methods to increment and decrement the ref count etc..
-/// Derive from this to make a class reference-counted.
-///
+/*=====================================================================
+RefCounted
+----------
+This is a 'mixin' class that adds a reference count and a few methods to increment and decrement the reference count etc..
+Derive from this to make a class reference-counted.
+
+This class is for objects that are only ever accessed from a single thread.
+Use ThreadSafeRefCounted for objects accessed by multiple threads.
+=====================================================================*/
 class RefCounted
 {
 public:
-	RefCounted() : refcount(0) {}
+	RefCounted() : refcount(0)
+	{
+#ifndef NDEBUG
+		initial_thread_id = PlatformUtils::getCurrentThreadID(); // Store the Id of the thread this object was allocated on.  Used later in checkOnInitialThread().
+#endif
+	}
 
 	// We don't want a virtual destructor in this class as we don't want to force derived classes to be polymorphic (e.g. to require a vtable).
 	~RefCounted()
 	{
+		checkOnInitialThread();
 		assert(refcount == 0 || refcount == RC_NOT_INDEP_HEAP_ALLOC_REFVAL);
 	}
 
@@ -38,12 +52,14 @@ public:
 	inline void incRefCount() const
 	{ 
 		assert(refcount >= 0);
+		checkOnInitialThread();
 		refcount++; 
 	}
 
 	/// Returns previous reference count
 	inline int64 decRefCount() const
 	{ 
+		checkOnInitialThread();
 		const int64 prev_ref_count = refcount;
 		refcount--;
 		assert(refcount >= 0);
@@ -70,7 +86,18 @@ private:
 	// as these may cause memory leaks when refcount is copied directly.
 	GLARE_DISABLE_COPY(RefCounted)
 
+	inline void checkOnInitialThread() const
+	{
+#ifndef NDEBUG
+		assert(PlatformUtils::getCurrentThreadID() == this->initial_thread_id);
+#endif
+	}
+
 	mutable int64 refcount;
+
+#ifndef NDEBUG
+	uint64 initial_thread_id;
+#endif
 };
 
 #endif // GLARE_REFCOUNTED_H
