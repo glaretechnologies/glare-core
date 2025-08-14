@@ -305,6 +305,7 @@ void TaskManager::removeQueuedTasks()
 	while(task_queue_head)
 	{
 		TaskRef task = task_queue_head; // Make a reference that can destroy the object if needed.
+		task->removedFromQueue();
 		task_queue_head->decRefCount(); // Remove queue reference
 		task_queue_head = task_queue_head->next;
 

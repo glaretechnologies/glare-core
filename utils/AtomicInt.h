@@ -139,6 +139,7 @@ inline atomic_int AtomicInt::operator-- (int)
 //----------------- End Define an atomicAdd function ---------------
 
 
+// Returns old value
 inline atomic_int AtomicInt::increment()
 {
 	return val.fetch_add(1, std::memory_order_acq_rel);
@@ -146,6 +147,7 @@ inline atomic_int AtomicInt::increment()
 }
 
 
+// Returns old value
 inline atomic_int AtomicInt::decrement()
 {
 	return val.fetch_add(-1, std::memory_order_acq_rel);

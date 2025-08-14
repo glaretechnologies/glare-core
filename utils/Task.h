@@ -42,7 +42,9 @@ public:
 
 	virtual void run(size_t thread_index) = 0;
 
-	virtual void cancelTask() {} 
+	virtual void cancelTask() {} // Called to interrupt a task currently running.
+
+	virtual void removedFromQueue() {} // Called when the task is removed from the task queue, before running.
 
 	TaskAllocator* allocator; // If non-null, Reference calls destroyAndFreeOb which calls allocator->destroyAndFree to destroy this object.
 	
