@@ -511,8 +511,10 @@ struct LightGPUData
 
 struct GLLight : public ThreadSafeRefCounted
 {
+	js::AABBox aabb_ws;
 	LightGPUData gpu_data;
 	int buffer_index;
+	float max_light_dist;
 };
 
 typedef Reference<GLLight> GLLightRef;
@@ -1158,8 +1160,10 @@ private:
 	void updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index);
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out) const;
 	void assignLightsToObject(GLObject& ob);
-	void assignLightsToAllObjects();
+	void rebuildObjectLightInfoForNewLight(const GLLight& light);
 	void setObjectTransformData(GLObject& object); // Sets object ob_to_world_normal_matrix, ob_to_world_matrix_determinant and aabb_ws, then updates object data on GPU.
+	void updateObjectDataOnGPU(GLObject& object);
+	void updateObjectLightDataOnGPU(GLObject& object);
 public:
 	void assignShaderProgToMaterial(OpenGLMaterial& material, bool use_vert_colours, bool uses_instancing, bool uses_skinning, bool use_vert_tangents, bool position_w_is_oct16_normal);
 private:
@@ -1171,6 +1175,7 @@ private:
 	void createSSAOTextures();
 private:
 	void addDebugSphere(const Vec4f& centre, float radius, const Colour4f& col);
+	void addDebugAABB(const js::AABBox& aabb, const Colour4f& col);
 	void addDebugLine(const Vec4f& start_point, const Vec4f& end_point, float radius, const Colour4f& col);
 	void addDebugPlane(const Vec4f& point_on_plane, const Vec4f& plane_normal, float plane_draw_width, const Colour4f& col);
 	void addDebugLinesForFrustum(const Vec4f* frustum_verts_ws, const Vec4f& t, float line_rad, const Colour4f& line_col);

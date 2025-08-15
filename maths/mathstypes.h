@@ -487,6 +487,19 @@ GLARE_STRONG_INLINE T tanForCos(T cos_theta)
 }
 
 
+template <class T>
+float sinForCos(T cos_x)
+{
+	static_assert(!std::numeric_limits<T>::is_integer, "Template param can't be an integer");
+	assert(cos_x >= (T)-1.0 && cos_x <= (T)1.0);
+
+	// cos^2 x + sin^2 x = 1
+	// sin^2 x = 1 - cos^2 x
+	// sin x = sqrt(1 - cos^2 x)
+	return sqrt(myMax((T)0.0, (T)1.0 - cos_x*cos_x));
+}
+
+
 // Returns ceil(x / N), for signed or unsigned integers x and N.
 // Note: this can overflow, and only works for x >= 0
 template <class T>

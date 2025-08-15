@@ -359,7 +359,7 @@ OverlayObject::OverlayObject()
 
 
 OpenGLScene::OpenGLScene(OpenGLEngine& engine)
-:	light_grid(64.0, /*num buckets=*/1024, /*expected_num_items_per_bucket=*/4, /*empty key=*/NULL),
+:	light_grid(/*cell_w=*/64.0, /*num buckets=*/1024, /*expected_num_items_per_bucket=*/4, /*empty key=*/NULL),
 	objects(NULL),
 	animated_objects(NULL),
 	transparent_objects(NULL),
@@ -3763,66 +3763,12 @@ void OpenGLEngine::setObjectTransformData(GLObject& object)
 
 	assignLightsToObject(object);
 
-	// Update object data on GPU
-	if(use_multi_draw_indirect)
-	{
-		PerObjectVertUniforms uniforms;
-		uniforms.model_matrix = object.ob_to_world_matrix;
-		uniforms.normal_matrix = object.ob_to_world_normal_matrix;
-		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
-			uniforms.light_indices[i] = object.light_indices[i];
-		uniforms.depth_draw_depth_bias = object.depth_draw_depth_bias;
-		uniforms.model_matrix_upper_left_det = upper_left_det;
-		uniforms.uv0_scale = object.mesh_data->uv0_scale;
-		uniforms.uv1_scale = object.mesh_data->uv1_scale;
-		uniforms.dequantise_scale = object.dequantise_scale;
-		uniforms.dequantise_translation = object.dequantise_translation;
-
-		assert(object.per_ob_vert_data_index >= 0);
-		if(object.per_ob_vert_data_index >= 0)
-		{
-			// Add update to back of data_updates_buffer, if we are using a scatter shader for updating per_ob_vert_data_buffer.
-			if(use_scatter_shader)
-			{
-				DataUpdateStruct data_update;
-				data_update.data = uniforms;
-				data_update.write_index = object.per_ob_vert_data_index;
-
-				const size_t write_i = data_updates_buffer.size();
-				if(write_i < data_updates_ssbo->byteSize())
-				{
-					data_updates_buffer.resize(write_i + sizeof(DataUpdateStruct));
-					std::memcpy(&data_updates_buffer[write_i], &data_update, sizeof(DataUpdateStruct));
-				}
-				else
-					conPrint("Can't add data update to data_updates_buffer, is full");
-			}
-			else
-			{
-				per_ob_vert_data_buffer->updateData(/*dest offset=*/object.per_ob_vert_data_index * sizeof(PerObjectVertUniforms), /*src data=*/&uniforms, /*src size=*/sizeof(PerObjectVertUniforms));
-			}
-		}
-	}
+	updateObjectDataOnGPU(object);
 }
 
 
-// Updates object ob_to_world_inv_transpose_matrix and aabb_ws etc.
-void OpenGLEngine::updateObjectTransformData(GLObject& object)
+void OpenGLEngine::updateObjectDataOnGPU(GLObject& object)
 {
-	// If the determinant sign changes, then we need to change back-face culling to front-face culling and vice versa.
-	// That is done in rebuildDenormalisedDrawData().
-	const bool old_det_positive = object.ob_to_world_matrix_determinant >= 0.f;
-
-	setObjectTransformData(object);
-
-	if((object.ob_to_world_matrix_determinant >= 0.f) != old_det_positive)
-		rebuildDenormalisedDrawData(object);
-}
-
-
-void OpenGLEngine::objectTransformDataChanged(GLObject& object)
-{
-	// Update object data on GPU
 	if(use_multi_draw_indirect)
 	{
 		PerObjectVertUniforms uniforms;
@@ -3862,28 +3808,109 @@ void OpenGLEngine::objectTransformDataChanged(GLObject& object)
 			}
 		}
 	}
+}
+
+
+void OpenGLEngine::updateObjectLightDataOnGPU(GLObject& object)
+{
+	if(use_multi_draw_indirect)
+	{
+		PerObjectVertUniforms uniforms;
+		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+			uniforms.light_indices[i] = object.light_indices[i];
+
+		static_assert(offsetof(PerObjectVertUniforms, light_indices) == sizeof(Matrix4f)*2 + sizeof(Vec4f)*2);
+
+		assert(object.per_ob_vert_data_index >= 0);
+		if(object.per_ob_vert_data_index >= 0)
+		{
+			assert(!use_scatter_shader);
+			
+			per_ob_vert_data_buffer->updateData(/*dest offset=*/object.per_ob_vert_data_index * sizeof(PerObjectVertUniforms) + offsetof(PerObjectVertUniforms, light_indices), /*src data=*/uniforms.light_indices, 
+				/*src size=*/sizeof(PerObjectVertUniforms::light_indices));
+		}
+	}
+}
+
+
+// Updates object ob_to_world_inv_transpose_matrix and aabb_ws etc.
+void OpenGLEngine::updateObjectTransformData(GLObject& object)
+{
+	// If the determinant sign changes, then we need to change back-face culling to front-face culling and vice versa.
+	// That is done in rebuildDenormalisedDrawData().
+	const bool old_det_positive = object.ob_to_world_matrix_determinant >= 0.f;
+
+	setObjectTransformData(object);
+
+	if((object.ob_to_world_matrix_determinant >= 0.f) != old_det_positive)
+		rebuildDenormalisedDrawData(object);
+}
+
+
+void OpenGLEngine::objectTransformDataChanged(GLObject& object)
+{
+	updateObjectDataOnGPU(object);
 
 	// TODO: call assignLightsToObject as well here.  Investigate perf tho because this is called by evalObjectScript().
 }
 
 
-static inline js::AABBox lightAABB(const GLLight& light)
+
+
+/*
+Computing the AABB of a cone light.
+Note that this does not quite capture the curved base of the cone, but should be approximately correct.
+                   x 
+                  /
+                /
+              /
+            /
+          /
+        /         op
+      /
+    /
+  /
+/  cone angle
+------------------|---------------|----> dir
+       a
+<----------- max_light_dist ----->
+
+
+
+cos(cone_angle) = a/h = a/max_light_dist
+a = max_light_dist * cos(cone_angle)
+*/
+static inline js::AABBox computelightAABB(const GLLight& light)
 {
-	const float half_w = 20.0f;
-	return js::AABBox(
-		light.gpu_data.pos - Vec4f(half_w, half_w, half_w, 0),
-		light.gpu_data.pos + Vec4f(half_w, half_w, half_w, 0)
-	);
+	const Matrix4f m = Matrix4f::constructFromVectorStatic(light.gpu_data.dir);
+	const Vec4f v1 = m.getColumn(0);
+	const Vec4f v2 = m.getColumn(1);
+
+	const float max_light_dist = light.max_light_dist;
+
+	const float a = max_light_dist * light.gpu_data.cone_cos_angle_end;
+	const float op = max_light_dist * Maths::sinForCos(light.gpu_data.cone_cos_angle_end);
+
+	js::AABBox aabb(light.gpu_data.pos, light.gpu_data.pos);
+	aabb.enlargeToHoldPoint(light.gpu_data.pos + light.gpu_data.dir*a + v1 * op + v2 * op);
+	aabb.enlargeToHoldPoint(light.gpu_data.pos + light.gpu_data.dir*a - v1 * op + v2 * op);
+	aabb.enlargeToHoldPoint(light.gpu_data.pos + light.gpu_data.dir*a + v1 * op - v2 * op);
+	aabb.enlargeToHoldPoint(light.gpu_data.pos + light.gpu_data.dir*a - v1 * op - v2 * op);
+	aabb.enlargeToHoldPoint(light.gpu_data.pos + light.gpu_data.dir*max_light_dist);
+
+	return aabb;
 }
 
 
 void OpenGLEngine::assignLightsToObject(GLObject& object)
 {
 	// Assign lights to object
-	const Vec4i min_bucket_i = current_scene->light_grid.bucketIndicesForPoint(object.aabb_ws.min_);
-	const Vec4i max_bucket_i = current_scene->light_grid.bucketIndicesForPoint(object.aabb_ws.max_);
+	const js::AABBox ob_aabb_ws = object.aabb_ws;
 
-	if(!object.aabb_ws.min_.isFinite() || !object.aabb_ws.max_.isFinite())
+	const Vec4i min_bucket_i = current_scene->light_grid.bucketIndicesForPoint(ob_aabb_ws.min_);
+	const Vec4i max_bucket_i = current_scene->light_grid.bucketIndicesForPoint(ob_aabb_ws.max_);
+
+	if(!ob_aabb_ws.min_.isFinite() || !ob_aabb_ws.max_.isFinite())
 		return;
 
 	const int MAX_LIGHTS = 128; // Max number of lights to consider
@@ -3895,8 +3922,6 @@ void OpenGLEngine::assignLightsToObject(GLObject& object)
 	if(x_num_buckets > 256 || y_num_buckets > 256 || z_num_buckets > 256 || (x_num_buckets * y_num_buckets * z_num_buckets) > 256)
 		return;
 
-	const js::AABBox ob_aabb_ws = object.aabb_ws;
-
 	int num_lights = 0;
 	for(int x=min_bucket_i[0]; x <= max_bucket_i[0]; ++x)
 	for(int y=min_bucket_i[1]; y <= max_bucket_i[1]; ++y)
@@ -3907,14 +3932,13 @@ void OpenGLEngine::assignLightsToObject(GLObject& object)
 		for(auto it = bucket.objects.begin(); it != bucket.objects.end(); ++it)
 		{
 			const GLLight* light = *it;
-			const js::AABBox light_aabb = lightAABB(*light);
-			if(light_aabb.intersectsAABB(ob_aabb_ws) && num_lights < MAX_LIGHTS)
+			if(light->aabb_ws.intersectsAABB(ob_aabb_ws) && num_lights < MAX_LIGHTS)
 				lights[num_lights++] = light;
 		}
 	}
 
 	// Sort lights based on distance from object centre
-	const Vec4f use_ob_pos = object.aabb_ws.centroid();
+	const Vec4f use_ob_pos = ob_aabb_ws.centroid();
 	LightDistComparator comparator(use_ob_pos);
 	std::sort(lights, lights + num_lights, comparator);
 
@@ -3939,16 +3963,31 @@ void OpenGLEngine::assignLightsToObject(GLObject& object)
 
 // This is linear-time on the number of objects in the scene.
 // Could make it sub-linear by using an acceleration structure for the objects.
-void OpenGLEngine::assignLightsToAllObjects()
+void OpenGLEngine::rebuildObjectLightInfoForNewLight(const GLLight& light)
 {
-	//Timer timer;
-	for(auto it = current_scene->objects.begin(); it != current_scene->objects.end(); ++it)
-	{
-		GLObject* ob = it->ptr();
+	const js::AABBox light_aabb = light.aabb_ws;
 
-		assignLightsToObject(*ob);
+	//Timer timer;
+	//int num_obs_updated = 0;
+	GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
+	const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+	for(size_t q=0; q<current_scene_obs_size; ++q)
+	{
+		// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
+		if(q + 16 < current_scene_obs_size)
+			_mm_prefetch((const char*)(&current_scene_obs[q + 16]->aabb_ws), _MM_HINT_T0);
+	
+		GLObject* ob = current_scene_obs[q].ptr();
+		if(light_aabb.intersectsAABB(ob->aabb_ws))
+		{
+			assignLightsToObject(*ob);
+
+			updateObjectLightDataOnGPU(*ob);
+
+			//num_obs_updated++;
+		}
 	}
-	//conPrint("assignLightsToAllObjects() for " + toString(current_scene->objects.size()) + " objects took " + timer.elapsedStringNSigFigs(3));
+	//conPrint("OpenGLEngine::rebuildObjectLightInfoForNewLight(): Assigning lights for " + toString(current_scene->objects.size()) + " objects with " + toString(num_obs_updated) + " updates took " + timer.elapsedStringMSWIthNSigFigs(3));
 }
 
 
@@ -4560,12 +4599,14 @@ void OpenGLEngine::addLight(GLLightRef light)
 	}
 	light->buffer_index = free_index;
 
-
-	const js::AABBox light_aabb = lightAABB(*light);
+	const js::AABBox light_aabb = computelightAABB(*light);
+	light->aabb_ws = light_aabb;
 
 	current_scene->light_grid.insert(light.ptr(), light_aabb);
 
-	assignLightsToAllObjects(); // NOTE: slow
+	rebuildObjectLightInfoForNewLight(*light);
+
+	// addDebugAABB(light_aabb, Colour4f(1.f, 0.2f, 0.2f, 0.2f));
 }
 
 
@@ -4579,9 +4620,7 @@ void OpenGLEngine::removeLight(GLLightRef light)
 		light->buffer_index = -1;
 	}
 
-	const js::AABBox light_aabb = lightAABB(*light);
-
-	current_scene->light_grid.remove(light.ptr(), light_aabb);
+	current_scene->light_grid.remove(light.ptr(), light->aabb_ws);
 }
 
 
@@ -4602,9 +4641,10 @@ void OpenGLEngine::lightUpdated(GLLightRef light)
 
 void OpenGLEngine::setLightPos(GLLightRef light, const Vec4f& new_pos)
 {
-	const js::AABBox& old_aabb_ws = lightAABB(*light);
+	const js::AABBox old_aabb_ws = light->aabb_ws;
 	light->gpu_data.pos = new_pos;
-	const js::AABBox new_aabb_ws = lightAABB(*light);
+	const js::AABBox new_aabb_ws = computelightAABB(*light);
+	light->aabb_ws = new_aabb_ws;
 
 	// See if the object has changed grid cells
 	const Vec4i old_min_bucket_i = current_scene->light_grid.bucketIndicesForPoint(old_aabb_ws.min_);
@@ -5508,6 +5548,14 @@ void OpenGLEngine::addDebugSphere(const Vec4f& centre, float radius, const Colou
 {
 	GLObjectRef ob = makeSphereObject(radius, col);
 	ob->ob_to_world_matrix = Matrix4f::translationMatrix(centre) * Matrix4f::uniformScaleMatrix(radius);
+	debug_draw_obs.push_back(ob);
+	addObject(ob);
+}
+
+
+void OpenGLEngine::addDebugAABB(const js::AABBox& aabb, const Colour4f& col)
+{
+	GLObjectRef ob = makeAABBObject(aabb.min_, aabb.max_, col);
 	debug_draw_obs.push_back(ob);
 	addObject(ob);
 }
