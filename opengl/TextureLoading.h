@@ -30,6 +30,7 @@ struct OpenGLTextureLoadingProgress
 	bool done() { return next_mip_level >= num_mip_levels; }
 
 	std::string path;
+	std::string URL;
 	Reference<TextureData> tex_data;
 	Reference<OpenGLTexture> opengl_tex;
 

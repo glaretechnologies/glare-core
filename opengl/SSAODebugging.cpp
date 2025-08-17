@@ -454,7 +454,7 @@ void SSAODebugging::drawSamplingPlane(OpenGLEngine& gl_engine, Vec3f p_cs, Vec3f
 	}
 
 	{
-		GLObjectRef ob = new GLObject();
+		GLObjectRef ob = gl_engine.allocateObject();
 		ob->mesh_data = MeshPrimitiveBuilding::makeCircleSector(*gl_engine.vert_buf_allocator, /*angle=*/Maths::pi<float>());
 		ob->ob_to_world_matrix = /*Matrix4f::translationMatrix(p.x, p.y, p.z) * */Matrix4f(tangent, projected_n_ws, sampling_plane_n_ws, 
 			Vec4f(p_ws[0], p_ws[1], p_ws[2], 1));
@@ -516,7 +516,7 @@ void SSAODebugging::drawSectors(OpenGLEngine& gl_engine, vec3 p_cs, uint32 bits_
 			for(int z=0; z<2; ++z)
 			{
 				Vec4f use_p_ws = p_ws + sampling_plane_n_ws * (-0.5f + z) * 0.001f;
-				GLObjectRef ob = new GLObject();
+				GLObjectRef ob = gl_engine.allocateObject();
 				ob->mesh_data = MeshPrimitiveBuilding::makeCircleSector(*gl_engine.vert_buf_allocator, /*angle=*/0.85f * (Maths::pi<float>() / 32)); // Make slightly narrower to distinguish each individual sector
 				ob->ob_to_world_matrix = /*Matrix4f::translationMatrix(p.x, p.y, p.z) * */Matrix4f(tangent, projected_n_ws, sampling_plane_n_ws, 
 					Vec4f(use_p_ws[0], use_p_ws[1], use_p_ws[2], 1)) * Matrix4f::rotationAroundZAxis((i + 0.075f) * Maths::pi<float>() / 32);

@@ -38,6 +38,8 @@ public:
 	inline void resize(size_t new_size); // Resize to size N, using default constructor if N > size().
 	inline void resize(size_t new_size, const T& val); // Resize to size new_size, using copies of val if new_size > size().
 
+	inline bool operator == (const SmallArray& other) const; 
+
 	inline size_t size() const;
 	inline bool empty() const;
 
@@ -318,6 +320,20 @@ void SmallArray<T, N>::resize(size_t new_size, const T& val)
 
 		size_ = new_size;
 	}
+}
+
+
+template<class T, int N>
+inline bool SmallArray<T, N>::operator==(const SmallArray& other) const
+{
+	if(size_ != other.size_)
+		return false;
+
+	for(size_t i=0; i<size_; ++i)
+		if((*this)[i] != other[i])
+			return false;
+	
+	return true;
 }
 
 

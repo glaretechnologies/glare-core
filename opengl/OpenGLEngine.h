@@ -298,6 +298,14 @@ struct GLObjectBatchDrawInfo
 
 	inline uint32 getProgramIndex()               const { return program_index_and_flags & ISOLATE_PROG_INDEX_MASK; }
 	inline uint32 getProgramIndexAndFaceCulling() const { return program_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK; }
+	inline bool operator != (const GLObjectBatchDrawInfo& other) const
+	{ 
+		return 
+			program_index_and_flags != other.program_index_and_flags ||
+			material_data_or_mat_index != other.material_data_or_mat_index ||
+			prim_start_offset_B != other.prim_start_offset_B ||
+			num_indices != other.num_indices;
+	}
 };
 
 
@@ -917,7 +925,7 @@ public:
 
 	// Add object to world.  Doesn't load textures for object.
 	void addObject(const Reference<GLObject>& object);
-	void addObjectAndLoadTexturesImmediately(const Reference<GLObject>& object);
+	//void addObjectAndLoadTexturesImmediately(const Reference<GLObject>& object);
 	void removeObject(const Reference<GLObject>& object);
 	bool isObjectAdded(const Reference<GLObject>& object) const;
 
@@ -1227,7 +1235,6 @@ private:
 	void flushDrawCommandsAndUnbindPrograms();
 	void sortBatchDrawInfoWithDists();
 	int getCameraShadowMappingPlanesAndAABB(float near_dist, float far_dist, float max_shadowing_dist, Planef* shadow_clip_planes_out, js::AABBox& shadow_vol_aabb_out);
-	void assignLoadedTextureToObMaterials(const std::string& path, Reference<OpenGLTexture> opengl_texture);
 	void expandPerObVertDataBuffer();
 	void expandPhongBuffer();
 	void expandJointMatricesBuffer(size_t min_extra_needed);
@@ -1511,8 +1518,8 @@ private:
 
 	uint64 last_num_obs_in_frustum;
 
-	js::Vector<BatchDrawInfo, 16> batch_draw_info;
 	js::Vector<BatchDrawInfo, 16> temp_batch_draw_info;
+	js::Vector<BatchDrawInfo, 16> temp2_batch_draw_info; // Used for temporary working space while sorting temp_batch_draw_info
 	js::Vector<BatchDrawInfoWithDist, 16> batch_draw_info_dist;
 	js::Vector<BatchDrawInfoWithDist, 16> temp_batch_draw_info_dist;
 	std::vector<uint32> temp_counts;
@@ -1625,7 +1632,7 @@ public:
 	Reference<glare::Allocator> mem_allocator;
 
 private:
-	glare::PoolAllocator object_pool_allocator;
+	//glare::PoolAllocator object_pool_allocator;
 
 	SSBORef light_buffer; // SSBO
 	UniformBufObRef light_ubo; // UBO for Mac.

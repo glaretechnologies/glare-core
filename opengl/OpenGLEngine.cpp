@@ -218,7 +218,7 @@ void doDestroyGLOb(GLObject* ob)
 	/*if(ob->allocator)
 	{
 		glare::PoolAllocator* allocator = ob->allocator;
-		const int allocation_index = ob->allocation_index;
+		const int allocation_index = ob->allocation_index; // Copy allocation_index into a local variable before we destroy the object.
 		ob->~GLObject(); // Call destructor
 		allocator->free(allocation_index); // Free memory
 	}
@@ -527,7 +527,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	use_multi_draw_indirect(false),
 	use_reverse_z(true),
 	use_scatter_shader(false),
-	object_pool_allocator(sizeof(GLObject), /*alignment=*/16, /*block capacity=*/1024),
+	//object_pool_allocator(sizeof(GLObject), /*alignment=*/16, /*block capacity=*/1024),
 	running_in_renderdoc(false),
 	loaded_maps_for_sun_dir(false),
 	add_debug_obs(false),
@@ -3970,7 +3970,7 @@ void OpenGLEngine::rebuildObjectLightInfoForNewLight(const GLLight& light)
 	//Timer timer;
 	//int num_obs_updated = 0;
 	GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
-	const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+	const size_t current_scene_obs_size  = current_scene->objects.vector.size();
 	for(size_t q=0; q<current_scene_obs_size; ++q)
 	{
 		// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
@@ -4525,6 +4525,7 @@ void OpenGLEngine::updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index)
 }
 
 
+#if 0
 void OpenGLEngine::addObjectAndLoadTexturesImmediately(const Reference<GLObject>& object)
 {
 	for(size_t i=0; i<object->materials.size(); ++i)
@@ -4544,6 +4545,7 @@ void OpenGLEngine::addObjectAndLoadTexturesImmediately(const Reference<GLObject>
 
 	addObject(object);
 }
+#endif
 
 
 void OpenGLEngine::addOverlayObject(const Reference<OverlayObject>& object)
@@ -4668,105 +4670,6 @@ void OpenGLEngine::setLightPos(GLLightRef light, const Vec4f& new_pos)
 		{
 			assert(light_ubo.nonNull());
 			light_ubo->updateData(sizeof(LightGPUData) * light->buffer_index, &light->gpu_data, sizeof(LightGPUData));
-		}
-	}
-}
-
-
-void OpenGLEngine::assignLoadedTextureToObMaterials(const std::string& path, Reference<OpenGLTexture> opengl_texture)
-{
-	assert(opengl_texture.nonNull());
-	
-	for(auto z = scenes.begin(); z != scenes.end(); ++z)
-	{
-		OpenGLScene* scene = z->ptr();
-
-		for(auto it = scene->objects.begin(); it != scene->objects.end(); ++it)
-		{
-			GLObject* const object = it->ptr();
-
-			for(size_t i=0; i<object->materials.size(); ++i)
-			{
-				OpenGLMaterial& mat = object->materials[i];
-
-				if((mat.tex_path == path) && (mat.albedo_texture != opengl_texture)) // If this texture should be assigned to this material, and it is not already assigned:
-				{
-					// conPrint("Assigning texture '" + path + "'.");
-
-					mat.albedo_texture = opengl_texture;
-
-					// Texture may have an alpha channel, in which case we want to assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
-						object->mesh_data->position_w_is_oct16_normal);
-
-					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
-
-					rebuildDenormalisedDrawData(*object);
-
-					//if(use_multi_draw_indirect) 
-						updateMaterialDataOnGPU(*object, /*mat index=*/i);
-				}
-
-				if(object->materials[i].metallic_roughness_tex_path == path)
-				{
-					mat.metallic_roughness_texture = opengl_texture;
-
-					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
-
-					//if(use_multi_draw_indirect) 
-						updateMaterialDataOnGPU(*object, /*mat index=*/i);
-				}
-
-				if(object->materials[i].normal_map_path == path)
-				{
-					mat.normal_map = opengl_texture;
-
-					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
-
-					updateMaterialDataOnGPU(*object, /*mat index=*/i);
-				}
-
-				if((object->materials[i].lightmap_path == path) && (mat.lightmap_texture != opengl_texture)) // If this lightmap texture should be assigned to this material, and it is not already assigned:
-				{
-					// conPrint("\tOpenGLEngine::assignLoadedTextureToObMaterials(): Found object using lightmap '" + path + "'.");
-
-					mat.lightmap_texture = opengl_texture;
-
-					// Now that we have a lightmap, assign a different shader.
-					assignShaderProgToMaterial(mat, object->mesh_data->has_vert_colours, /*uses instancing=*/object->instance_matrix_vbo.nonNull(), object->mesh_data->usesSkinning(), object->mesh_data->has_vert_tangents,
-						object->mesh_data->position_w_is_oct16_normal);
-
-					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
-
-					rebuildDenormalisedDrawData(*object);
-
-					//if(use_multi_draw_indirect) 
-						updateMaterialDataOnGPU(*object, /*mat index=*/i);
-				}
-
-				if(object->materials[i].emission_tex_path == path)
-				{
-					mat.emission_texture = opengl_texture;
-
-					mat.uniform_flags = computeUniformFlagsForMat(mat, *object->mesh_data);
-
-					//if(use_multi_draw_indirect) 
-						updateMaterialDataOnGPU(*object, /*mat index=*/i);
-				}
-			}
-		}
-
-		// Assign to overlay objects
-		for(auto it = scene->overlay_objects.begin(); it != scene->overlay_objects.end(); ++it)
-		{
-			OverlayObject* const object = it->ptr();
-
-			if(object->material.tex_path == path)
-			{
-				// conPrint("Assigning texture '" + path + "' to overlay object");
-
-				object->material.albedo_texture = opengl_texture;
-			}
 		}
 	}
 }
@@ -5580,7 +5483,7 @@ void OpenGLEngine::addDebugPlane(const Vec4f& point_on_plane, const Vec4f& plane
 	addObject(debug_draw_obs.back());
 
 	// Add plane quad
-	GLObjectRef ob = new GLObject();
+	GLObjectRef ob = allocateObject();
 	ob->mesh_data = getUnitQuadMeshData(); // A quad from (0, 0, 0) to (1, 1, 0)
 	ob->materials.resize(1);
 	ob->materials[0].albedo_linear_rgb = Colour3f(col[0], col[1], col[2]);
@@ -5668,12 +5571,12 @@ void OpenGLEngine::sortBatchDrawInfos()
 {
 	ZoneScopedN("sortBatchDrawInfos"); // Tracy profiler
 
-	temp_batch_draw_info.resizeNoCopy(batch_draw_info.size());
+	temp2_batch_draw_info.resizeNoCopy(temp_batch_draw_info.size());
 
 	const int num_buckets = 6144; // As required by radixSort32BitKey().
 	temp_counts.resize(num_buckets);
 	
-	Sort::radixSort32BitKey(batch_draw_info.data(), temp_batch_draw_info.data(), temp_batch_draw_info.size(), BatchDrawInfoGetKey(), temp_counts.data(), temp_counts.size());
+	Sort::radixSort32BitKey/*data=*/(temp_batch_draw_info.data(), /*working_space=*/temp2_batch_draw_info.data(), /*num_items=*/temp_batch_draw_info.size(), BatchDrawInfoGetKey(), temp_counts.data(), temp_counts.size());
 }
 
 
@@ -8127,8 +8030,8 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 
 			// Draw fully opaque batches - batches with a material that is not transparent and doesn't use alpha testing.
 
-			batch_draw_info.reserve(current_scene->objects.size());
-			batch_draw_info.resize(0);
+			temp_batch_draw_info.reserve(current_scene->objects.size());
+			temp_batch_draw_info.resize(0);
 
 			const Vec4f size_threshold_v = Vec4f((sun_space_bounds.max_[0] - sun_space_bounds.min_[0]) * 0.002f);
 
@@ -8168,7 +8071,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 							ob, // object ptr
 							(uint32)z // batch index
 						);
-						batch_draw_info.push_back(info);
+						temp_batch_draw_info.push_back(info);
 					}
 					//num_drawn++;
 				}
@@ -8183,8 +8086,8 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
 
-			const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-			const size_t batch_draw_info_size = batch_draw_info.size();
+			const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
+			const size_t batch_draw_info_size = temp_batch_draw_info.size();
 			for(size_t z=0; z<batch_draw_info_size; ++z)
 			{
 				const BatchDrawInfo& info = batch_draw_info_data[z];
@@ -8420,8 +8323,8 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 				}
 
 
-				batch_draw_info.reserve(current_scene->objects.size());
-				batch_draw_info.resize(0);
+				temp_batch_draw_info.reserve(current_scene->objects.size());
+				temp_batch_draw_info.resize(0);
 
 				const Vec4f size_threshold_v = Vec4f((sun_space_bounds.max_[0] - sun_space_bounds.min_[0]) * 0.001f);
 				
@@ -8463,7 +8366,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 									ob, // object ptr
 									(uint32)z // batch index
 								);
-								batch_draw_info.push_back(info);
+								temp_batch_draw_info.push_back(info);
 							}
 							//num_drawn++;
 						}
@@ -8479,8 +8382,8 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 				glEnable(GL_CULL_FACE);
 				glCullFace(GL_BACK);
 
-				const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-				const size_t batch_draw_info_size = batch_draw_info.size();
+				const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
+				const size_t batch_draw_info_size = temp_batch_draw_info.size();
 				for(size_t z=0; z<batch_draw_info_size; ++z)
 				{
 					const BatchDrawInfo& info = batch_draw_info_data[z];
@@ -8751,7 +8654,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 		ZoneScopedN("Draw decal obs"); // Tracy profiler
 
 		//Timer timer;
-		batch_draw_info.resize(0);
+		temp_batch_draw_info.resize(0);
 
 		{
 			const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
@@ -8801,7 +8704,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 								ob, // object ptr
 								(uint32)z // batch_i
 							);
-							batch_draw_info.push_back(info);
+							temp_batch_draw_info.push_back(info);
 						}
 					}
 				}
@@ -8809,7 +8712,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 		}
 		//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
 
-		if(batch_draw_info.nonEmpty()) // Only do buffer copying if we have some decals to draw.
+		if(temp_batch_draw_info.nonEmpty()) // Only do buffer copying if we have some decals to draw.
 		{
 			if(query_profiling_enabled && current_scene->collect_stats && decal_copy_buffers_timer->isIdle())
 				decal_copy_buffers_timer->beginTimerQuery();
@@ -8882,8 +8785,8 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 #endif
 
 			//Timer timer3;
-			const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-			const size_t batch_draw_info_size = batch_draw_info.size();
+			const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
+			const size_t batch_draw_info_size = temp_batch_draw_info.size();
 			for(size_t i=0; i<batch_draw_info_size; ++i)
 			{
 				const BatchDrawInfo& info = batch_draw_info_data[i];
@@ -8938,7 +8841,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 			// main_render_framebuffer->bindForDrawing(); // Restore framebuffer binding
 		}
 
-		this->last_num_decal_batches_drawn = (uint32)batch_draw_info.size();
+		this->last_num_decal_batches_drawn = (uint32)temp_batch_draw_info.size();
 		//conPrint("Draw decal batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
 	}
 }
@@ -9021,8 +8924,8 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 
 		ZoneScopedN("Draw water obs"); // Tracy profiler
 
-		batch_draw_info.reserve(current_scene->objects.size());
-		batch_draw_info.resize(0);
+		temp_batch_draw_info.reserve(current_scene->objects.size());
+		temp_batch_draw_info.resize(0);
 
 		{
 			ZoneScopedN("frustum culling"); // Tracy profiler
@@ -9072,7 +8975,7 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 								ob, // object ptr
 								(uint32)z // batch_i
 							);
-							batch_draw_info.push_back(info);
+							temp_batch_draw_info.push_back(info);
 						}
 					}
 				}
@@ -9088,8 +8991,8 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 #endif
 
 		//Timer timer3;
-		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-		const size_t batch_draw_info_size = batch_draw_info.size();
+		const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
+		const size_t batch_draw_info_size = temp_batch_draw_info.size();
 		for(size_t i=0; i<batch_draw_info_size; ++i)
 		{
 			const BatchDrawInfo& info = batch_draw_info_data[i];
@@ -9169,8 +9072,8 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	
 
 	//Timer timer;
-	batch_draw_info.reserve(current_scene->objects.size());
-	batch_draw_info.resize(0);
+	temp_batch_draw_info.reserve(current_scene->objects.size());
+	temp_batch_draw_info.resize(0);
 
 	uint64 num_frustum_culled = 0;
 	{
@@ -9223,7 +9126,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 							ob, // object ptr
 							(uint32)z // batch_i
 						);
-						batch_draw_info.push_back(info);
+						temp_batch_draw_info.push_back(info);
 					}
 				}
 			}
@@ -9261,8 +9164,8 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	// conPrint("OpenGLEngine::drawNonTransparentMaterialBatches()");
 
 	//Timer timer3;
-	const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-	const size_t batch_draw_info_size = batch_draw_info.size();
+	const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
+	const size_t batch_draw_info_size = temp_batch_draw_info.size();
 	for(size_t i=0; i<batch_draw_info_size; ++i)
 	{
 		const BatchDrawInfo& info = batch_draw_info_data[i];
@@ -9336,7 +9239,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	if(query_profiling_enabled && draw_opaque_obs_gpu_timer->isRunning())
 		draw_opaque_obs_gpu_timer->endTimerQuery();
 
-	//conPrint("Draw opaque batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
+	//conPrint("Draw opaque batches took " + timer3.elapsedStringMSWIthNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
 }
 
 
@@ -9413,7 +9316,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer - we don't want to occlude other transparent objects.
 
-	batch_draw_info.resize(0);
+	temp_batch_draw_info.resize(0);
 
 	const GLObjectRef* const current_scene_trans_obs = current_scene->transparent_objects.vector.data();
 	const size_t current_scene_trans_obs_size        = current_scene->transparent_objects.vector.size();
@@ -9450,7 +9353,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 						ob, // object ptr
 						(uint32)z // batch_i
 					);
-					batch_draw_info.push_back(info);
+					temp_batch_draw_info.push_back(info);
 				}
 			}
 		}
@@ -9459,8 +9362,8 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	sortBatchDrawInfos();
 
 	// Draw sorted batches
-	const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-	const size_t batch_draw_info_size = batch_draw_info.size();
+	const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
+	const size_t batch_draw_info_size = temp_batch_draw_info.size();
 	for(size_t i=0; i<batch_draw_info_size; ++i)
 	{
 		const BatchDrawInfo& info = batch_draw_info_data[i];
@@ -9561,8 +9464,8 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 		const Vec4f campos_ws = this->getCameraPositionWS();
 
 		//Timer timer;
-		batch_draw_info.reserve(current_scene->objects.size());
-		batch_draw_info.resize(0);
+		temp_batch_draw_info.reserve(current_scene->objects.size());
+		temp_batch_draw_info.resize(0);
 
 		uint64 num_frustum_culled = 0;
 		{
@@ -9618,7 +9521,7 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 								ob, // object ptr
 								(uint32)z // batch_i
 							);
-							batch_draw_info.push_back(info);
+							temp_batch_draw_info.push_back(info);
 						}
 					}
 				}
@@ -9653,8 +9556,8 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 	#endif
 
 		//Timer timer3;
-		const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-		const size_t batch_draw_info_size = batch_draw_info.size();
+		const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
+		const size_t batch_draw_info_size = temp_batch_draw_info.size();
 		for(size_t i=0; i<batch_draw_info_size; ++i)
 		{
 			const BatchDrawInfo& info = batch_draw_info_data[i];
@@ -9793,8 +9696,8 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	//Timer timer;
-	batch_draw_info.reserve(current_scene->objects.size());
-	batch_draw_info.resize(0);
+	temp_batch_draw_info.reserve(current_scene->objects.size());
+	temp_batch_draw_info.resize(0);
 
 	const Vec4f campos_ws = this->getCameraPositionWS();
 
@@ -9851,7 +9754,7 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 							ob, // object ptr
 							(uint32)z // batch_i
 						);
-						batch_draw_info.push_back(info);
+						temp_batch_draw_info.push_back(info);
 					}
 				}
 			}
@@ -9886,8 +9789,8 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 #endif
 
 	//Timer timer3;
-	const BatchDrawInfo* const batch_draw_info_data = batch_draw_info.data();
-	const size_t batch_draw_info_size = batch_draw_info.size();
+	const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
+	const size_t batch_draw_info_size = temp_batch_draw_info.size();
 	for(size_t i=0; i<batch_draw_info_size; ++i)
 	{
 		const BatchDrawInfo& info = batch_draw_info_data[i];
@@ -10631,7 +10534,7 @@ Matrix4f OpenGLEngine::arrowObjectTransform(const Vec4f& startpos, const Vec4f& 
 
 GLObjectRef OpenGLEngine::makeArrowObject(const Vec4f& startpos, const Vec4f& endpos, const Colour4f& col, float radius_scale)
 {
-	GLObjectRef ob = new GLObject();
+	GLObjectRef ob = allocateObject();
 
 	ob->ob_to_world_matrix = arrowObjectTransform(startpos, endpos, radius_scale);
 
@@ -11945,8 +11848,6 @@ void OpenGLEngine::addOpenGLTexture(const OpenGLTextureKey& key, const Reference
 
 	textureBecameUsed(opengl_tex.ptr());
 
-	assignLoadedTextureToObMaterials(key.path, opengl_tex);
-
 	trimTextureUsage();
 }
 
@@ -12015,7 +11916,7 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits> > OpenGLEngine::getRendered
 	js::Vector<uint8, 16> data(yres * row_B);
 
 	glReadPixels(0, 0, // x, y
-		xres, yres,  // width, height
+		(GLsizei)xres, (GLsizei)yres,  // width, height
 		capture_alpha ? GL_RGBA : GL_RGB,
 		GL_UNSIGNED_BYTE,
 		data.data()
@@ -12024,7 +11925,7 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits> > OpenGLEngine::getRendered
 	// Copy from data to map, while flipping image upside down.
 	for(int dy=0; dy<yres; ++dy)
 	{
-		const int sy = yres - dy - 1;
+		const int sy = (int)yres - dy - 1;
 		std::memcpy(/*dest=*/map->getPixel(0, dy), /*src=*/&data[sy * row_B], /*size=*/xres * N);
 	}
 
