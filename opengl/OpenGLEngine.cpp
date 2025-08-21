@@ -4776,6 +4776,7 @@ void OpenGLEngine::newMaterialUsed(OpenGLMaterial& mat, bool use_vert_colours, b
 void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 {
 	// Add this object to transparent_objects list if it has a transparent material and is not already in the list.
+	assert(object.materials.size() > 0);
 
 	bool have_transparent_mat = false;
 	bool have_materialise_effect = false;
