@@ -22,6 +22,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/IncludeHalf.h"
 #include "../utils/FileUtils.h"
 #include "../maths/CheckedMaths.h"
+#include <tracy/Tracy.hpp>
 #include <vector>
 
 
@@ -211,6 +212,8 @@ Reference<OpenGLTexture> TextureLoading::createUninitialisedTextureForMap2D(cons
 // Load the texture data for frame_i into an existing OpenGL texture.  Used for animated images.
 void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i)
 {
+	ZoneScoped; // Tracy profiler
+
 	opengl_tex->bind();
 
 	const size_t W = texture_data.W;

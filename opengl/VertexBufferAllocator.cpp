@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/ConPrint.h"
 #include "../utils/Vector.h"
 #include "../maths/mathstypes.h"
+#include <tracy/Tracy.hpp>
 
 
 VertexBufferAllocator::VertexBufferAllocator(bool use_grouped_vbo_allocator_)
@@ -34,6 +35,8 @@ VertexBufferAllocator::~VertexBufferAllocator()
 void VertexBufferAllocator::allocateBufferSpaceAndVAO(OpenGLMeshRenderData& mesh_data_in_out, const VertexSpec& vertex_spec, const void* vert_data, size_t vert_data_size_B, 
 	const void* index_data, size_t index_data_size_B)
 {
+	ZoneScoped; // Tracy profiler
+
 	mesh_data_in_out.vbo_handle = allocateVertexDataSpace(vertex_spec.vertStride(), vert_data, vert_data_size_B);
 
 	mesh_data_in_out.indices_vbo_handle = allocateIndexDataSpace(index_data, index_data_size_B);
@@ -44,6 +47,8 @@ void VertexBufferAllocator::allocateBufferSpaceAndVAO(OpenGLMeshRenderData& mesh
 
 void VertexBufferAllocator::getOrCreateAndAssignVAOForMesh(OpenGLMeshRenderData& mesh_data_in_out, const VertexSpec& vertex_spec)
 {
+	ZoneScoped; // Tracy profiler
+
 	vertex_spec.checkValid();
 
 #if DO_INDIVIDUAL_VAO_ALLOC
@@ -78,6 +83,8 @@ void VertexBufferAllocator::getOrCreateAndAssignVAOForMesh(OpenGLMeshRenderData&
 
 VertBufAllocationHandle VertexBufferAllocator::allocateVertexDataSpace(size_t vert_stride, const void* vbo_data, size_t size)
 {
+	ZoneScoped; // Tracy profiler
+
 #if DO_INDIVIDUAL_VAO_ALLOC
 	// This is for the Mac, that can't easily do VAO sharing due to having to use glVertexAttribPointer().
 	VertBufAllocationHandle handle;
@@ -169,6 +176,8 @@ VertBufAllocationHandle VertexBufferAllocator::allocateVertexDataSpace(size_t ve
 
 IndexBufAllocationHandle VertexBufferAllocator::allocateIndexDataSpace(const void* data, size_t size)
 {
+	ZoneScoped; // Tracy profiler
+
 #if DO_INDIVIDUAL_VAO_ALLOC
 
 	IndexBufAllocationHandle handle;

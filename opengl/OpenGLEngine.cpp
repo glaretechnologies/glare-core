@@ -11838,6 +11838,8 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 
 void OpenGLEngine::addOpenGLTexture(const OpenGLTextureKey& key, const Reference<OpenGLTexture>& opengl_tex)
 {
+	ZoneScoped; // Tracy profiler
+
 	opengl_tex->key = key;
 	opengl_tex->m_opengl_engine = this;
 	this->opengl_textures.set(key, opengl_tex);
