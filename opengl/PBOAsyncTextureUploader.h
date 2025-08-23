@@ -37,7 +37,7 @@ public:
 
 	void startUploadingTexture(Reference<PBO> pbo, Reference<TextureData> texture_data, Reference<OpenGLTexture> opengl_tex);
 
-	void checkForUploadedTextures(js::Vector<PBOAsyncUploadedTextureInfo, 16>& uploaded_textures_out);
+	void checkForUploadedTexture(js::Vector<PBOAsyncUploadedTextureInfo, 16>& uploaded_textures_out);
 
 private:
 	struct PBOUploadingTexture
