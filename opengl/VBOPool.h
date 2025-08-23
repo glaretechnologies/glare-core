@@ -26,7 +26,7 @@ public:
 	void init();
 
 	// Threadsafe
-	Reference<VBO> getMappedVBO(size_t size_B);
+	Reference<VBO> getMappedAndUnusedVBO(size_t size_B);
 
 	// Threadsafe
 	void vboBecameUnused(const Reference<VBO>& vbo);

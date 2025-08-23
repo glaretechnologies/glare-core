@@ -26,7 +26,7 @@ public:
 	void init();
 
 	// Threadsafe
-	Reference<PBO> getMappedPBO(size_t size_B);
+	Reference<PBO> getMappedAndUnusedVBO(size_t size_B);
 
 	// Threadsafe
 	void pboBecameUnused(Reference<PBO> pbo);

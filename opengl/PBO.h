@@ -27,6 +27,9 @@ public:
 	void* map();
 	void unmap();
 
+	void flushWholeBuffer();
+	void flushRange(size_t offset, size_t range_size);
+
 	void* getMappedPtr() { return mapped_ptr; }
 
 	void bind() const;

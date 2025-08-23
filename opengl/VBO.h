@@ -22,7 +22,7 @@ class VBO : public ThreadSafeRefCounted
 {
 public:
 	// data can be NULL
-	VBO(const void* data, size_t size, GLenum buffer_type = /*GL_ARRAY_BUFFER=*/0x8892, GLenum usage = /*GL_STATIC_DRAW=*/0x88E4);
+	VBO(const void* data, size_t size, GLenum buffer_type = /*GL_ARRAY_BUFFER=*/0x8892, GLenum usage = /*GL_STATIC_DRAW=*/0x88E4, bool create_persistent_buffer = false);
 	~VBO();
 
 
@@ -33,6 +33,7 @@ public:
 	void* map();
 	void unmap();
 
+	void flushWholeBuffer();
 	void flushRange(size_t offset, size_t range_size);
 
 	void* getMappedPtr() { return mapped_ptr; }

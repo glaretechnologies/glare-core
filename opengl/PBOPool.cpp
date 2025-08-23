@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/Lock.h>
 #include <utils/StringUtils.h>
 #include <utils/ConPrint.h>
+#include <tracy/Tracy.hpp>
 
 
 PBOPool::PBOInfo::PBOInfo() : used(false) {}
@@ -104,7 +105,7 @@ void PBOPool::init()
 }
 
 
-PBORef PBOPool::getMappedPBO(size_t size_B)
+PBORef PBOPool::getMappedAndUnusedVBO(size_t size_B)
 {
 	Lock lock(mutex);
 
@@ -126,14 +127,14 @@ PBORef PBOPool::getMappedPBO(size_t size_B)
 
 void PBOPool::pboBecameUnused(Reference<PBO> pbo)
 {
+	ZoneScoped; // Tracy profiler
+
 	Lock lock(mutex);
 
 	for(size_t i=0; i<pbo_infos.size(); ++i)
 		if(pbo_infos[i].pbo == pbo)
 		{
 			pbo_infos[i].used = false;
-
-			pbo_infos[i].pbo->map();
 
 			return;
 		}

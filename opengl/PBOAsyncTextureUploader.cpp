@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "PBO.h"
 #include "OpenGLEngine.h"
 #include "../utils/FileUtils.h"
+#include <tracy/Tracy.hpp>
 
 
 PBOAsyncTextureUploader::PBOAsyncTextureUploader()
@@ -22,6 +23,10 @@ PBOAsyncTextureUploader::~PBOAsyncTextureUploader()
 
 void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef texture_data, Reference<OpenGLTexture> opengl_tex)
 {
+	ZoneScoped; // Tracy profiler
+
+	pbo->flushWholeBuffer();
+
 	pbo->bind(); // Bind the PBO.  glTexSubImage2D etc. will read from this PBO.
 	opengl_tex->bind();
 
@@ -62,11 +67,13 @@ void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef t
 }
 
 
-void PBOAsyncTextureUploader::checkForUploadedTextures(js::Vector<PBOAsyncUploadedTextureInfo, 16>& uploaded_textures_out)
+void PBOAsyncTextureUploader::checkForUploadedTexture(js::Vector<PBOAsyncUploadedTextureInfo, 16>& uploaded_textures_out)
 {
+	ZoneScoped; // Tracy profiler
+
 	uploaded_textures_out.clear();
 
-	while(!uploading_textures.empty())
+	if(!uploading_textures.empty())
 	{
 		PBOUploadingTexture& front_item = uploading_textures.front();
 		
@@ -85,11 +92,6 @@ void PBOAsyncTextureUploader::checkForUploadedTextures(js::Vector<PBOAsyncUpload
 			glDeleteSync(front_item.sync_ob);
 
 			uploading_textures.pop(); // NOTE: this has to go after all usage of front_item.
-		}
-		else
-		{
-			// Else geometry upload is not done yet.
-			break;
 		}
 	}
 }

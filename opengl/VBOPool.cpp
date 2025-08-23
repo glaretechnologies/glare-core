@@ -37,7 +37,7 @@ void VBOPool::init()
 	for(int i=0; i<16; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 64 * 1024, GL_ARRAY_BUFFER, usage);
+		info.vbo = new VBO(nullptr, 64 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -45,7 +45,7 @@ void VBOPool::init()
 	for(int i=0; i<32; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 512 * 1024, GL_ARRAY_BUFFER, usage);
+		info.vbo = new VBO(nullptr, 512 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -53,7 +53,7 @@ void VBOPool::init()
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 1024 * 1024, GL_ARRAY_BUFFER, usage);
+		info.vbo = new VBO(nullptr, 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -61,7 +61,7 @@ void VBOPool::init()
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, GL_ARRAY_BUFFER, usage);
+		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -69,7 +69,7 @@ void VBOPool::init()
 	for(int i=0; i<4; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, GL_ARRAY_BUFFER, usage);
+		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -77,7 +77,7 @@ void VBOPool::init()
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, GL_ARRAY_BUFFER, usage);
+		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -85,7 +85,7 @@ void VBOPool::init()
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 32 * 1024 * 1024, GL_ARRAY_BUFFER, usage);
+		info.vbo = new VBO(nullptr, 32 * 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
 		info.vbo->map();
 		vbo_infos.push_back(info);
 	}
@@ -97,13 +97,13 @@ void VBOPool::init()
 }
 
 
-VBORef VBOPool::getMappedVBO(size_t size_B)
+VBORef VBOPool::getMappedAndUnusedVBO(size_t size_B)
 {
 	Lock lock(mutex);
 
 	for(size_t i=0; i<vbo_infos.size(); ++i)
 	{
-		if(!vbo_infos[i].used && vbo_infos[i].vbo->getSize() >= size_B)
+		if(!vbo_infos[i].used && (vbo_infos[i].vbo->getSize() >= size_B))
 		{
 			assert(vbo_infos[i].vbo->getMappedPtr()); // Should be mapped if it's not used.
 
@@ -125,9 +125,6 @@ void VBOPool::vboBecameUnused(const Reference<VBO>& vbo)
 		if(vbo_infos[i].vbo == vbo)
 		{
 			vbo_infos[i].used = false;
-
-			vbo_infos[i].vbo->map();
-			vbo_infos[i].vbo->unbind();
 
 			return;
 		}

@@ -10,7 +10,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "OpenGLEngine.h"
 
 
-VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage)
+VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage, bool create_persistent_buffer)
 :	buffer_name(0),
 	buffer_type(buffer_type_),
 	size(size_),
@@ -23,7 +23,11 @@ VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage)
 	glBindBuffer(buffer_type, buffer_name);
 
 	// Upload vertex data to the video device
-	glBufferData(buffer_type, size, data, usage);
+
+	if(create_persistent_buffer)
+		glBufferStorage(buffer_type, size, data, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+	else
+		glBufferData(buffer_type, size, data, usage);
 
 	// Unbind buffer
 	glBindBuffer(buffer_type, 0);
@@ -88,8 +92,16 @@ void* VBO::map()
 	assert(!mapped_ptr);
 
 	bind();
-	mapped_ptr = glMapBuffer(buffer_type, GL_WRITE_ONLY);
-	//mapped_ptr = glMapBufferRange(buffer_type, /*offset=*/0, /*length=*/this->size, /*access=*/GL_MAP_WRITE_BIT | /*GL_MAP_INVALIDATE_BUFFER_BIT*//*GL_MAP_PERSISTENT_BIT*/ GL_MAP_FLUSH_EXPLICIT_BIT);
+	Timer timer;
+	//mapped_ptr = glMapBuffer(buffer_type, GL_WRITE_ONLY);
+	mapped_ptr = glMapBufferRange(buffer_type, /*offset=*/0, /*length=*/this->size, /*access=*/
+		GL_MAP_WRITE_BIT | 
+		GL_MAP_INVALIDATE_RANGE_BIT | // previous contents of the specified range may be discarded
+		GL_MAP_INVALIDATE_BUFFER_BIT | // the previous contents of the entire buffer may be discarded
+		GL_MAP_PERSISTENT_BIT | // Needed to be able to use glCopyBufferSubData to copy data from this buffer while it's still mapped.
+		GL_MAP_FLUSH_EXPLICIT_BIT); // We will be flushing with glFlushMappedBufferRange which required this bit.
+	if(timer.elapsed() > 0.001)
+		conPrint(doubleToStringNDecimalPlaces(Clock::getTimeSinceInit() * 1.0e3, 1) + " ms > =============== SLOW VBO MAP: " + timer.elapsedStringMSWIthNSigFigs() + " for VBO " + toHexString((uint64)this) + "===============");
 	assert(mapped_ptr);
 	unbind();
 	return mapped_ptr;
@@ -109,6 +121,12 @@ void VBO::unmap()
 	unbind();
 	mapped_ptr = nullptr;
 #endif
+}
+
+
+void VBO::flushWholeBuffer()
+{
+	flushRange(/*offset=*/0, /*range_size=*/size);
 }
 
 
