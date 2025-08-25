@@ -16,6 +16,11 @@ class PBO;
 PBOPool
 -------
 For asynchronous texture uploads.
+
+Also tried using a single PBO with a BestFitAllocator, the problem 
+is nvidia OpenGL drivers don't seem to signal uploads as completed
+until all pending uploads from the buffer have been done.
+See 'patches/using single VBO and PBO for async uploads.diff'.
 =====================================================================*/
 class PBOPool
 {

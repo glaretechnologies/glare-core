@@ -1,0 +1,612 @@
+ opengl/AsyncGeometryUploader.cpp | 22 ++++++++++++----------
+ 1 file changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/opengl/AsyncGeometryUploader.cpp b/opengl/AsyncGeometryUploader.cpp
+index 90e10b77..506f2815 100644
+--- a/opengl/AsyncGeometryUploader.cpp
++++ b/opengl/AsyncGeometryUploader.cpp
+@@ -24,14 +24,16 @@ AsyncGeometryUploader::~AsyncGeometryUploader()
+ }
+ 
+ 
+-void AsyncGeometryUploader::startUploadingGeometry(OpenGLMeshRenderDataRef meshdata, VBORef source_vbo, VBORef dummy_vbo,
++void AsyncGeometryUploader::startUploadingGeometry(OpenGLMeshRenderDataRef meshdata, VBOPoolAllocation& source_vbo_allocation, VBORef dummy_vbo,
+ 	size_t vert_data_src_offset_B, size_t index_data_src_offset_B, size_t vert_data_size_B, size_t index_data_size_B, size_t total_geom_size_B)
+ {
+-	source_vbo->flushWholeBuffer();
++	ZoneScoped; // Tracy profiler
++	//source_vbo_allocation.vbo_range.vbo->flushRange(source_vbo_allocation.vbo_range.offset, source_vbo_allocation.vbo_range.size);
++	source_vbo_allocation.vbo_range.vbo->flushWholeBuffer();
+ 
+-	glBindBuffer(GL_COPY_READ_BUFFER,  source_vbo->bufferName());
++	glBindBuffer(GL_COPY_READ_BUFFER,  source_vbo_allocation.vbo_range.vbo->bufferName());
+ 	glBindBuffer(GL_COPY_WRITE_BUFFER, dummy_vbo->bufferName());
+-	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/0, /*size=*/8/*total_geom_size_B*/);//source_vbo->getSize());
++	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/source_vbo_allocation.vbo_range.offset, /*writeOffset=*/0, /*size=*/8/*total_geom_size_B*/);//source_vbo->getSize());
+ 
+ 	// Unbind
+ 	glBindBuffer(GL_COPY_READ_BUFFER, 0);
+@@ -44,7 +46,7 @@ void AsyncGeometryUploader::startUploadingGeometry(OpenGLMeshRenderDataRef meshd
+ 
+ 	UploadingGeometry queue_item;
+ 	queue_item.meshdata = meshdata;
+-	queue_item.source_vbo = source_vbo;
++	queue_item.source_vbo_allocation = source_vbo_allocation;
+ 	//queue_item.dummy_vbo = dummy_vbo;
+ 	queue_item.vert_data_src_offset_B = vert_data_src_offset_B;
+ 	queue_item.index_data_src_offset_B = index_data_src_offset_B;
+@@ -89,17 +91,17 @@ void AsyncGeometryUploader::checkForUploadedGeometry(OpenGLEngine* opengl_engine
+ 
+ 			//Timer timer;
+ 			// Do an on-GPU (hopefully) copy of the source vertex data to the new buffer at the allocated position.
+-			glBindBuffer(GL_COPY_READ_BUFFER,  front_item.source_vbo->bufferName());
++			glBindBuffer(GL_COPY_READ_BUFFER,  front_item.source_vbo_allocation.vbo_range.vbo->bufferName());
+ 			glBindBuffer(GL_COPY_WRITE_BUFFER, front_item.meshdata->vbo_handle.vbo->bufferName());
+-			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/front_item.vert_data_src_offset_B, /*writeOffset=*/front_item.meshdata->vbo_handle.offset, front_item.meshdata->vbo_handle.size);
++			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/front_item.source_vbo_allocation.vbo_range.offset + front_item.vert_data_src_offset_B, /*writeOffset=*/front_item.meshdata->vbo_handle.offset, front_item.meshdata->vbo_handle.size);
+ 
+ 			//conPrint("vertex buffer copy took " + timer.elapsedStringMSWIthNSigFigs(4));
+ 			//timer.reset();
+ 
+ 			// Do an on-GPU (hopefully) copy of the source index data to the new buffer at the allocated position.
+-			glBindBuffer(GL_COPY_READ_BUFFER,  front_item.source_vbo->bufferName());
++			glBindBuffer(GL_COPY_READ_BUFFER,  front_item.source_vbo_allocation.vbo_range.vbo->bufferName());
+ 			glBindBuffer(GL_COPY_WRITE_BUFFER, front_item.meshdata->indices_vbo_handle.index_vbo->bufferName());
+-			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/front_item.index_data_src_offset_B, /*writeOffset=*/front_item.meshdata->indices_vbo_handle.offset, front_item.meshdata->indices_vbo_handle.size);
++			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/front_item.source_vbo_allocation.vbo_range.offset + front_item.index_data_src_offset_B, /*writeOffset=*/front_item.meshdata->indices_vbo_handle.offset, front_item.meshdata->indices_vbo_handle.size);
+ 
+ 			// Unbind
+ 			glBindBuffer(GL_COPY_READ_BUFFER, 0);
+@@ -141,7 +143,7 @@ void AsyncGeometryUploader::checkForUploadedGeometry(OpenGLEngine* opengl_engine
+ 
+ 			AsyncUploadedGeometryInfo uploaded_info;
+ 			uploaded_info.meshdata = front_item.meshdata;
+-			uploaded_info.vbo = front_item.source_vbo;
++			uploaded_info.vbo_allocation = front_item.source_vbo_allocation;
+ 			uploaded_geom_out.push_back(uploaded_info);
+ 
+ 			// Destroy sync object
+ opengl/PBOAsyncTextureUploader.cpp | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/opengl/PBOAsyncTextureUploader.cpp b/opengl/PBOAsyncTextureUploader.cpp
+index c5704ccc..89954475 100644
+--- a/opengl/PBOAsyncTextureUploader.cpp
++++ b/opengl/PBOAsyncTextureUploader.cpp
+@@ -21,13 +21,14 @@ PBOAsyncTextureUploader::~PBOAsyncTextureUploader()
+ {}
+ 
+ 
+-void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef texture_data, Reference<OpenGLTexture> opengl_tex)
++void PBOAsyncTextureUploader::startUploadingTexture(PBOPoolAllocation& pbo_allocation, TextureDataRef texture_data, Reference<OpenGLTexture> opengl_tex)
+ {
+ 	ZoneScoped; // Tracy profiler
+ 
+-	pbo->flushWholeBuffer();
++	//pbo_allocation.pbo_range.pbo->flushRange(pbo_allocation.pbo_range.offset, pbo_allocation.pbo_range.size);
++	pbo_allocation.pbo_range.pbo->flushWholeBuffer();
+ 
+-	pbo->bind(); // Bind the PBO.  glTexSubImage2D etc. will read from this PBO.
++	pbo_allocation.pbo_range.pbo->bind(); // Bind the PBO.  glTexSubImage2D etc. will read from this PBO.
+ 	opengl_tex->bind();
+ 
+ 	const size_t num_mip_levels_to_load = myMin((size_t)opengl_tex->getNumMipMapLevelsAllocated(), texture_data->numMipLevels());
+@@ -47,20 +48,20 @@ void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef t
+ 
+ 		opengl_tex->loadRegionIntoExistingTexture(/*mipmap level=*/(int)k, /*x=*/0, /*y=*/0, /*z=*/0, /*region_w=*/level_W, /*region_h=*/level_H, /*region depth=*/level_D, 
+ 			row_stride_B, // not used for compressed textures
+-			ArrayRef<uint8>((const uint8*)level_offset, level_size), // tex data
++			ArrayRef<uint8>((const uint8*)(pbo_allocation.pbo_range.offset + level_offset), level_size), // tex data
+ 			/*bind_needed=*/false
+ 		);
+ 	}
+ 
+ 	opengl_tex->unbind();
+-	pbo->unbind();
++	pbo_allocation.pbo_range.pbo->unbind();
+ 
+ 	// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
+ 	GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
+ 
+ 	PBOUploadingTexture queue_item;
+ 	queue_item.opengl_tex = opengl_tex;
+-	queue_item.pbo = pbo;
++	queue_item.pbo_allocation = pbo_allocation;
+ 	queue_item.sync_ob = sync_ob;
+ 
+ 	uploading_textures.push(queue_item);
+@@ -85,7 +86,7 @@ void PBOAsyncTextureUploader::checkForUploadedTexture(js::Vector<PBOAsyncUploade
+ 			
+ 			PBOAsyncUploadedTextureInfo loaded_info;
+ 			loaded_info.opengl_tex = front_item.opengl_tex;
+-			loaded_info.pbo = front_item.pbo;
++			loaded_info.pbo_allocation = front_item.pbo_allocation;
+ 			uploaded_textures_out.push_back(loaded_info);
+ 
+ 			// Destroy sync objet
+ opengl/PBOPool.h | 23 ++++++++++++++++++-----
+ 1 file changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/opengl/PBOPool.h b/opengl/PBOPool.h
+index 70dabeb9..316f30f7 100644
+--- a/opengl/PBOPool.h
++++ b/opengl/PBOPool.h
+@@ -6,10 +6,19 @@ Copyright Glare Technologies Limited 2025 -
+ #pragma once
+ 
+ 
++#include "PBO.h"
+ #include <utils/Reference.h>
+ #include <utils/Mutex.h>
++#include <utils/Lock.h>
++#include <utils/BestFitAllocator.h>
+ #include <vector>
+-class PBO;
++
++
++struct PBOPoolAllocation
++{
++	glare::BestFitAllocator::BlockInfo* block;
++	PBORange pbo_range;
++};
+ 
+ 
+ /*=====================================================================
+@@ -26,18 +35,22 @@ public:
+ 	void init();
+ 
+ 	// Threadsafe
+-	Reference<PBO> getMappedAndUnusedVBO(size_t size_B);
++	PBOPoolAllocation getMappedAndUnusedPBORange(size_t size_B);
+ 
+ 	// Threadsafe
+-	void pboBecameUnused(Reference<PBO> pbo);
++	void pboRangeBecameUnused(PBOPoolAllocation& alloc);
+ 
++	size_t getAllocatedSpace() const { Lock lock(mutex); return allocator ? allocator->getAllocatedSpace() : 0; }
++	size_t getFreeSpace()      const { Lock lock(mutex); return allocator ? allocator->getFreeSpace()      : 0; }
+ private:
+ 	struct PBOInfo
+ 	{
+-		PBOInfo();
++		PBOInfo() : used(false) {}
+ 		Reference<PBO> pbo;
+ 		bool used;
+ 	};
+ 	std::vector<PBOInfo> pbo_infos			GUARDED_BY(mutex);
+-	Mutex mutex;
++	mutable Mutex mutex;
++	Reference<PBO> pbo;
++	Reference<glare::BestFitAllocator> allocator;
+ };
+ opengl/PBOPool.cpp | 55 ++++++++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 47 insertions(+), 8 deletions(-)
+
+diff --git a/opengl/PBOPool.cpp b/opengl/PBOPool.cpp
+index 678b8bb5..7a8612cf 100644
+--- a/opengl/PBOPool.cpp
++++ b/opengl/PBOPool.cpp
+@@ -6,14 +6,13 @@ Copyright Glare Technologies Limited 2025 -
+ #include "PBOPool.h"
+ 
+ 
+-#include "PBO.h"
+ #include <utils/Lock.h>
+ #include <utils/StringUtils.h>
+ #include <utils/ConPrint.h>
+ #include <tracy/Tracy.hpp>
+ 
+ 
+-PBOPool::PBOInfo::PBOInfo() : used(false) {}
++// #define USE_SINGLE_PBO 1
+ 
+ 
+ PBOPool::PBOPool()
+@@ -23,11 +22,15 @@ PBOPool::PBOPool()
+ 
+ PBOPool::~PBOPool()
+ {
++#if USE_SINGLE_PBO
++	pbo->unmap();
++#else
+ 	for(size_t i=0; i<pbo_infos.size(); ++i)
+ 	{
+ 		if(pbo_infos[i].pbo->getMappedPtr())
+ 			pbo_infos[i].pbo->unmap();
+ 	}
++#endif
+ }
+ 
+ 
+@@ -35,6 +38,12 @@ void PBOPool::init()
+ {
+ 	Lock lock(mutex);
+ 
++#if USE_SINGLE_PBO
++	pbo = new PBO(1 << 28); // 256 MB
++	pbo->map();
++
++	allocator = new glare::BestFitAllocator(pbo->getSize());
++#else
+ 	// total size: 1 MB
+ 	for(int i=0; i<16; ++i)
+ 	{
+@@ -102,13 +111,31 @@ void PBOPool::init()
+ 	for(size_t i=0; i<pbo_infos.size(); ++i)
+ 		total_size += pbo_infos[i].pbo->getSize();
+ 	conPrint("Total PBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
++#endif
+ }
+ 
+ 
+-PBORef PBOPool::getMappedAndUnusedVBO(size_t size_B)
++PBOPoolAllocation PBOPool::getMappedAndUnusedPBORange(size_t size_B)
+ {
+ 	Lock lock(mutex);
++	
++#if USE_SINGLE_PBO
++	glare::BestFitAllocator::BlockInfo* result = allocator->alloc(size_B, /*alignment=*/16);
+ 
++	PBOPoolAllocation alloc;
++	if(result)
++	{
++		alloc.block = result;
++		alloc.pbo_range.pbo = pbo;
++		alloc.pbo_range.offset = result->aligned_offset;
++		alloc.pbo_range.size = size_B;
++	}
++	else
++	{
++		alloc.block = nullptr;
++	}
++	return alloc;
++#else
+ 	for(size_t i=0; i<pbo_infos.size(); ++i)
+ 	{
+ 		if(!pbo_infos[i].used && (pbo_infos[i].pbo->getSize() >= size_B))
+@@ -117,27 +144,39 @@ PBORef PBOPool::getMappedAndUnusedVBO(size_t size_B)
+ 
+ 			pbo_infos[i].used = true;
+ 
+-			return pbo_infos[i].pbo;
++			PBOPoolAllocation alloc;
++			alloc.pbo_range.pbo = pbo_infos[i].pbo;
++			alloc.pbo_range.offset = 0;
++			alloc.pbo_range.size = size_B;
++			return alloc;
+ 		}
+ 	}
+ 
+-	return nullptr;
++	PBOPoolAllocation alloc;
++	alloc.block = nullptr;
++	return alloc;
++
++#endif
+ }
+ 
+ 
+-void PBOPool::pboBecameUnused(Reference<PBO> pbo)
++void PBOPool::pboRangeBecameUnused(PBOPoolAllocation& alloc)
+ {
+ 	ZoneScoped; // Tracy profiler
+ 
+ 	Lock lock(mutex);
+ 
++#if USE_SINGLE_PBO
++	allocator->free(alloc.block);
++#else
+ 	for(size_t i=0; i<pbo_infos.size(); ++i)
+-		if(pbo_infos[i].pbo == pbo)
++		if(pbo_infos[i].pbo == alloc.pbo_range.pbo)
+ 		{
+ 			pbo_infos[i].used = false;
+ 
+ 			return;
+ 		}
+-
++	
+ 	assert(false);
++#endif
+ }
+ opengl/VBOPool.cpp | 54 +++++++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 49 insertions(+), 5 deletions(-)
+
+diff --git a/opengl/VBOPool.cpp b/opengl/VBOPool.cpp
+index 72014e0b..ab64cf90 100644
+--- a/opengl/VBOPool.cpp
++++ b/opengl/VBOPool.cpp
+@@ -13,6 +13,9 @@ Copyright Glare Technologies Limited 2025 -
+ #include <utils/ConPrint.h>
+ 
+ 
++// #define USE_SINGLE_VBO 1
++
++
+ VBOPool::VBOPool()
+ {
+ }
+@@ -20,11 +23,15 @@ VBOPool::VBOPool()
+ 
+ VBOPool::~VBOPool()
+ {
++#if USE_SINGLE_VBO
++	vbo->unmap();
++#else
+ 	for(size_t i=0; i<vbo_infos.size(); ++i)
+ 	{
+ 		if(vbo_infos[i].vbo->getMappedPtr())
+ 			vbo_infos[i].vbo->unmap();
+ 	}
++#endif
+ }
+ 
+ 
+@@ -34,6 +41,12 @@ void VBOPool::init()
+ 
+ 	const GLenum usage = GL_STREAM_DRAW;
+ 
++
++#if USE_SINGLE_VBO
++	vbo = new VBO(nullptr, 160'000'000, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
++	vbo->map();
++	allocator = new glare::BestFitAllocator(vbo->getSize());
++#else
+ 	for(int i=0; i<16; ++i)
+ 	{
+ 		VBOInfo info;
+@@ -94,13 +107,32 @@ void VBOPool::init()
+ 	for(size_t i=0; i<vbo_infos.size(); ++i)
+ 		total_size += vbo_infos[i].vbo->getSize();
+ 	conPrint("Total VBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
++#endif
+ }
+ 
+ 
+-VBORef VBOPool::getMappedAndUnusedVBO(size_t size_B)
++VBOPoolAllocation VBOPool::getMappedAndUnusedVBORange(size_t size_B)
+ {
+ 	Lock lock(mutex);
+ 
++#if USE_SINGLE_VBO
++	glare::BestFitAllocator::BlockInfo* result = allocator->alloc(size_B, /*alignment=*/16);
++
++	VBOPoolAllocation alloc;
++	if(result)
++	{
++		alloc.block = result;
++		alloc.vbo_range.vbo = vbo;
++		alloc.vbo_range.offset = result->aligned_offset;
++		alloc.vbo_range.size = size_B;
++	}
++	else
++	{
++		alloc.block = nullptr;
++	}
++	return alloc;
++#else
++
+ 	for(size_t i=0; i<vbo_infos.size(); ++i)
+ 	{
+ 		if(!vbo_infos[i].used && (vbo_infos[i].vbo->getSize() >= size_B))
+@@ -109,20 +141,31 @@ VBORef VBOPool::getMappedAndUnusedVBO(size_t size_B)
+ 
+ 			vbo_infos[i].used = true;
+ 
+-			return vbo_infos[i].vbo;
++			VBOPoolAllocation allocation;
++			allocation.block = nullptr;
++			allocation.vbo_range.vbo = vbo_infos[i].vbo;
++			allocation.vbo_range.offset = 0;
++			allocation.vbo_range.size = size_B;
++			return allocation;
+ 		}
+ 	}
+ 
+-	return nullptr;
++	VBOPoolAllocation allocation;
++	allocation.block = nullptr;
++	return allocation;
++#endif
+ }
+ 
+ 
+-void VBOPool::vboBecameUnused(const Reference<VBO>& vbo)
++void VBOPool::vboRangeBecameUnused(VBOPoolAllocation& alloc)
+ {
+ 	Lock lock(mutex);
+ 
++#if USE_SINGLE_VBO
++	allocator->free(alloc.block);
++#else
+ 	for(size_t i=0; i<vbo_infos.size(); ++i)
+-		if(vbo_infos[i].vbo == vbo)
++		if(vbo_infos[i].vbo == alloc.vbo_range.vbo)
+ 		{
+ 			vbo_infos[i].used = false;
+ 
+@@ -130,4 +173,5 @@ void VBOPool::vboBecameUnused(const Reference<VBO>& vbo)
+ 		}
+ 
+ 	assert(false);
++#endif
+ }
+ opengl/VBOPool.h | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/opengl/VBOPool.h b/opengl/VBOPool.h
+index 2aad5916..86559802 100644
+--- a/opengl/VBOPool.h
++++ b/opengl/VBOPool.h
+@@ -6,12 +6,21 @@ Copyright Glare Technologies Limited 2025 -
+ #pragma once
+ 
+ 
++#include "VBO.h"
+ #include <utils/Reference.h>
+ #include <utils/Mutex.h>
++#include <utils/BestFitAllocator.h>
+ #include <vector>
+ class VBO;
+ 
+ 
++struct VBOPoolAllocation
++{
++	glare::BestFitAllocator::BlockInfo* block;
++	VBORange vbo_range;
++};
++
++
+ /*=====================================================================
+ VBOPool
+ -------
+@@ -26,11 +35,12 @@ public:
+ 	void init();
+ 
+ 	// Threadsafe
+-	Reference<VBO> getMappedAndUnusedVBO(size_t size_B);
++	VBOPoolAllocation getMappedAndUnusedVBORange(size_t size_B);
+ 
+ 	// Threadsafe
+-	void vboBecameUnused(const Reference<VBO>& vbo);
++	void vboRangeBecameUnused(VBOPoolAllocation& alloc);
+ 
++private:
+ 	struct VBOInfo
+ 	{
+ 		VBOInfo() : used(false) {}
+@@ -39,4 +49,7 @@ public:
+ 	};
+ 	std::vector<VBOInfo> vbo_infos			GUARDED_BY(mutex);
+ 	Mutex mutex;
++
++	Reference<VBO> vbo;
++	Reference<glare::BestFitAllocator> allocator;
+ };
+ opengl/AsyncGeometryUploader.h | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/opengl/AsyncGeometryUploader.h b/opengl/AsyncGeometryUploader.h
+index 88c4f805..29e76447 100644
+--- a/opengl/AsyncGeometryUploader.h
++++ b/opengl/AsyncGeometryUploader.h
+@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2025 -
+ #pragma once
+ 
+ 
++#include <opengl/VBOPool.h>
+ #include <utils/Reference.h>
+ #include <utils/Vector.h>
+ #include <queue>
+@@ -18,7 +19,7 @@ typedef struct __GLsync *GLsync;
+ 
+ struct AsyncUploadedGeometryInfo
+ {
+-	Reference<VBO> vbo;
++	VBOPoolAllocation vbo_allocation;
+ 	Reference<OpenGLMeshRenderData> meshdata;
+ };
+ 
+@@ -36,7 +37,7 @@ public:
+ 
+ 
+ 	// Assumes source_vbo has been mapped, written to, and then unmapped.
+-	void startUploadingGeometry(Reference<OpenGLMeshRenderData> meshdata, Reference<VBO> source_vbo, Reference<VBO> dummy_vbo, size_t vert_data_src_offset_B, size_t index_data_src_offset_B, size_t vert_data_size_B, size_t index_data_size_B, size_t total_geom_size_B);
++	void startUploadingGeometry(Reference<OpenGLMeshRenderData> meshdata, VBOPoolAllocation& vbo_allocation, Reference<VBO> dummy_vbo, size_t vert_data_src_offset_B, size_t index_data_src_offset_B, size_t vert_data_size_B, size_t index_data_size_B, size_t total_geom_size_B);
+ 
+ 	void checkForUploadedGeometry(OpenGLEngine* opengl_engine, js::Vector<AsyncUploadedGeometryInfo, 16>& loaded_geom_out);
+ 
+@@ -45,7 +46,7 @@ private:
+ 	{
+ 		Reference<OpenGLMeshRenderData> meshdata;
+ 
+-		Reference<VBO> source_vbo;
++		VBOPoolAllocation source_vbo_allocation;
+ 		//Reference<VBO> dummy_vbo;
+ 
+ 		size_t vert_data_src_offset_B; // in source VBO
+ opengl/VBO.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/opengl/VBO.h b/opengl/VBO.h
+index 1dee9695..10372fcc 100644
+--- a/opengl/VBO.h
++++ b/opengl/VBO.h
+@@ -55,3 +55,11 @@ private:
+ 
+ 
+ typedef Reference<VBO> VBORef;
++
++
++struct VBORange
++{
++	Reference<VBO> vbo;
++	size_t offset;
++	size_t size;
++};
+ opengl/PBOAsyncTextureUploader.h | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/opengl/PBOAsyncTextureUploader.h b/opengl/PBOAsyncTextureUploader.h
+index 2f545afe..71f359d3 100644
+--- a/opengl/PBOAsyncTextureUploader.h
++++ b/opengl/PBOAsyncTextureUploader.h
+@@ -6,19 +6,21 @@ Copyright Glare Technologies Limited 2025 -
+ #pragma once
+ 
+ 
++#include "PBOPool.h"
+ #include <utils/Reference.h>
+ #include <utils/Vector.h>
+ #include <queue>
+ class OpenGLTexture;
+ class TextureData;
+ class PBO;
++struct PBORange;
+ struct __GLsync;
+ typedef struct __GLsync *GLsync;
+ 
+ 
+ struct PBOAsyncUploadedTextureInfo
+ {
+-	Reference<PBO> pbo;
++	PBOPoolAllocation pbo_allocation;
+ 	Reference<OpenGLTexture> opengl_tex;
+ };
+ 
+@@ -35,14 +37,14 @@ public:
+ 	~PBOAsyncTextureUploader();
+ 
+ 
+-	void startUploadingTexture(Reference<PBO> pbo, Reference<TextureData> texture_data, Reference<OpenGLTexture> opengl_tex);
++	void startUploadingTexture(PBOPoolAllocation& pbo_allocation, Reference<TextureData> texture_data, Reference<OpenGLTexture> opengl_tex);
+ 
+ 	void checkForUploadedTexture(js::Vector<PBOAsyncUploadedTextureInfo, 16>& uploaded_textures_out);
+ 
+ private:
+ 	struct PBOUploadingTexture
+ 	{
+-		Reference<PBO> pbo;
++		PBOPoolAllocation pbo_allocation;
+ 		GLsync sync_ob;
+ 		Reference<OpenGLTexture> opengl_tex;
+ 	};
+ opengl/PBO.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/opengl/PBO.h b/opengl/PBO.h
+index 5d0c8253..7be8d860 100644
+--- a/opengl/PBO.h
++++ b/opengl/PBO.h
+@@ -49,3 +49,11 @@ private:
+ 
+ 
+ typedef Reference<PBO> PBORef;
++
++
++struct PBORange
++{
++	Reference<PBO> pbo;
++	size_t offset;
++	size_t size;
++};
