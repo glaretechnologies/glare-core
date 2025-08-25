@@ -4827,6 +4827,8 @@ void OpenGLEngine::updateAllMaterialDataOnGPU(GLObject& object) // Don't reassig
 // Assigned shader progs are required for rebuildDenormalisedDrawData().
 static bool areShadersAssigned(const GLObject& ob)
 {
+	ZoneScoped; // Tracy profiler
+
 	for(size_t i=0; i<ob.materials.size(); ++i)
 		if(ob.materials[i].shader_prog.isNull())
 			return false;
@@ -4836,6 +4838,8 @@ static bool areShadersAssigned(const GLObject& ob)
 
 void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 {
+	ZoneScoped; // Tracy profiler
+
 	if(areShadersAssigned(ob))
 	{
 		mat.uniform_flags = computeUniformFlagsForMat(mat, *ob.mesh_data);
@@ -6577,7 +6581,7 @@ inline static void setThreeDrawBuffers(GLenum buffer_0, GLenum buffer_1, GLenum 
 
 void OpenGLEngine::draw()
 {
-	ZoneScoped; // Tracy profiler
+	ZoneScopedC(0x33FF33); // Tracy profiler
 	TracyGpuZone("OpenGLEngine::draw");
 	TracyGpuCollect;
 	DebugGroup debug_group("draw()");
@@ -10639,6 +10643,7 @@ std::string MeshDataLoadingProgress::summaryString() const
 
 void OpenGLEngine::initialiseMeshDataLoadingProgress(OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress)
 {
+	ZoneScoped; // Tracy profiler
 	loading_progress.vert_next_i = 0;
 	loading_progress.index_next_i = 0;
 
@@ -10666,6 +10671,7 @@ void OpenGLEngine::initialiseMeshDataLoadingProgress(OpenGLMeshRenderData& data,
 
 void OpenGLEngine::partialLoadOpenGLMeshDataIntoOpenGL(VertexBufferAllocator& allocator, OpenGLMeshRenderData& data, MeshDataLoadingProgress& loading_progress, size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes)
 {
+	ZoneScoped; // Tracy profiler
 	assert(!loading_progress.done());
 
 	const size_t max_chunk_size = max_total_upload_bytes;
@@ -10943,6 +10949,8 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 
 void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const
 {
+	ZoneScoped; // Tracy profiler
+
 	uniforms.diffuse_colour      = Colour4f(opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, opengl_mat.alpha);
 	uniforms.transmission_colour = opengl_mat.transmission_albedo_linear_rgb;
 	uniforms.emission_colour     = opengl_mat.emission_linear_rgb * opengl_mat.emission_scale;
@@ -12519,6 +12527,11 @@ std::string OpenGLEngine::getDiagnostics() const
 	}
 
 	s += "num bindless resident: " + toString(OpenGLTexture::getNumResidentTextures()) + "\n";
+
+	//s += "---- VBO pool ----\n";
+	//s += getMBSizeString(vbo_pool.getAllocatedSpace()) + " / " + getMBSizeString(vbo_pool.getFreeSpace()) + " / " + getMBSizeString(vbo_pool.getAllocatedSpace() + vbo_pool.getFreeSpace()) + " (used / free / total)\n";
+	//s += "---- PBO pool ----\n";
+	//s += getMBSizeString(pbo_pool.getAllocatedSpace()) + " / " + getMBSizeString(pbo_pool.getFreeSpace()) + " / " + getMBSizeString(pbo_pool.getAllocatedSpace() + pbo_pool.getFreeSpace()) + " (used / free / total)\n";
 	
 	if(per_ob_vert_data_buffer.nonNull())
 		s += "per-ob vert buf size: " + toString(per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)) + " (" + getNiceByteSize(per_ob_vert_data_buffer->byteSize()) + ")\n";

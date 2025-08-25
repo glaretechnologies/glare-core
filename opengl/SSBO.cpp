@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "IncludeOpenGL.h"
 #include "OpenGLEngine.h"
 #include <utils/ConPrint.h>
+#include <tracy/Tracy.hpp>
 #include <cstring> // For memcpy
 
 
@@ -84,6 +85,8 @@ void SSBO::allocateForMapping(size_t size_B)
 
 void SSBO::updateData(size_t dest_offset, const void* src_data, size_t src_size, bool bind_needed)
 {
+	ZoneScoped; // Tracy profiler
+
 	assert((dest_offset + src_size) <= this->allocated_size);
 	if(!((dest_offset + src_size) <= this->allocated_size))
 		conPrint("ERROR: SSBO::updateData !((dest_offset + src_size) <= this->allocated_size)");

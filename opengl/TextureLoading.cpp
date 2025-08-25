@@ -28,6 +28,7 @@ Copyright Glare Technologies Limited 2022 -
 
 Reference<OpenGLTexture> TextureLoading::createUninitialisedOpenGLTexture(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine, const TextureParams& texture_params)
 {
+	ZoneScoped; // Tracy profiler
 	if(!texture_data.converted_image) // If the texture data is processed data we processed ourselves:
 	{
 		const size_t W = texture_data.W;
@@ -254,6 +255,7 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, const TextureParams& texture_params, 
 	const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress)
 {
+	ZoneScoped; // Tracy profiler
 	assert(tex_data.nonNull());
 
 	Reference<OpenGLTexture> opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*tex_data, opengl_engine.ptr(), texture_params);
@@ -396,6 +398,7 @@ static void doPartialUploadOfLevel(OpenGLTextureLoadingProgress& loading_progres
 void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>& opengl_engine, OpenGLTextureLoadingProgress& loading_progress,
 	size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes)
 {
+	ZoneScoped; // Tracy profiler
 	Reference<TextureData> texture_data = loading_progress.tex_data;
 	Reference<OpenGLTexture> opengl_tex = loading_progress.opengl_tex;
 	runtimeCheck(texture_data.nonNull());

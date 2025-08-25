@@ -1057,6 +1057,8 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 #else
 	if(bindless_tex_handle == 0)
 	{
+		ZoneScopedN("calling glGetTextureHandleARB()"); 
+
 		bindless_tex_handle = glGetTextureHandleARB(this->texture_handle);
 
 		if(bindless_tex_handle == 0)
@@ -1065,6 +1067,8 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 
 	if(bindless_tex_handle && !is_bindless_tex_resident)
 	{
+		ZoneScopedN("calling glMakeTextureHandleResidentARB()"); 
+
 		glMakeTextureHandleResidentARB(bindless_tex_handle);
 		is_bindless_tex_resident = true;
 
