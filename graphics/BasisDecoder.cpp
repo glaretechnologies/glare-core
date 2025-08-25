@@ -160,7 +160,7 @@ Reference<Map2D> BasisDecoder::decodeFromBuffer(const void* data, size_t size, g
 
 		if(frame_total_size_B * image->texture_data->num_frames > 5'000'000)
 		{
-			conPrint("large basis alloc: " + toString(frame_total_size_B * image->texture_data->num_frames));
+			// conPrint("large basis alloc: " + toString(frame_total_size_B * image->texture_data->num_frames));
 		}
 
 		for(uint32 im = 0; im < num_images; ++im)
