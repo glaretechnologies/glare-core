@@ -334,7 +334,6 @@ void BestFitAllocator::free(BlockInfo* block)
 	else if(prev != NULL && !prev->allocated && (next == NULL || next->allocated)) // case B:
 	{
 		BlockInfo* new_coalesced_block = new BlockInfo();
-		new_coalesced_block->allocated = false;
 		new_coalesced_block->offset = prev->offset;
 		new_coalesced_block->size = prev->size + block->size;
 		new_coalesced_block->prev = prev->prev;
@@ -384,7 +383,6 @@ void BestFitAllocator::free(BlockInfo* block)
 	else if((prev == NULL || prev->allocated) && next != NULL && !next->allocated) // case C:
 	{
 		BlockInfo* new_coalesced_block = new BlockInfo();
-		new_coalesced_block->allocated = false;
 		new_coalesced_block->offset = block->offset;
 		new_coalesced_block->size = block->size + next->size;
 		new_coalesced_block->prev = prev;
@@ -436,7 +434,6 @@ void BestFitAllocator::free(BlockInfo* block)
 	else if(prev != NULL && !prev->allocated && next != NULL && !next->allocated) // case D:
 	{
 		BlockInfo* new_coalesced_block = new BlockInfo();
-		new_coalesced_block->allocated = false;
 		new_coalesced_block->offset = prev->offset;
 		new_coalesced_block->size = prev->size + block->size + next->size;
 		new_coalesced_block->prev = prev->prev;
