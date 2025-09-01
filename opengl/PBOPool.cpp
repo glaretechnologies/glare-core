@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/Lock.h>
 #include <utils/StringUtils.h>
 #include <utils/ConPrint.h>
+#include <utils/RuntimeCheck.h>
 #include <tracy/Tracy.hpp>
 
 
@@ -35,85 +36,107 @@ void PBOPool::init()
 {
 	Lock lock(mutex);
 
+	const bool create_persistent_buffer = USE_MEM_MAPPING_FOR_TEXTURE_UPLOAD;
+
+
 	// total size: 1 MB
+	size_info.push_back(SizeInfo({64 * 1024, pbo_infos.size()}));
 	for(int i=0; i<16; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(64 * 1024);
-		info.pbo->map();
+		info.pbo = new PBO(64 * 1024, /*for upload=*/true, create_persistent_buffer);
 		pbo_infos.push_back(info);
 	}
 
 	// total size: 16 MB
+	size_info.push_back(SizeInfo({512 * 1024, pbo_infos.size()}));
 	for(int i=0; i<32; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(512 * 1024);
-		info.pbo->map();
+		info.pbo = new PBO(512 * 1024, /*for upload=*/true, create_persistent_buffer);
 		pbo_infos.push_back(info);
 	}
 
 	// total size: 8 MB
+	size_info.push_back(SizeInfo({1024 * 1024, pbo_infos.size()}));
 	for(int i=0; i<8; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(1024 * 1024);
-		info.pbo->map();
+		info.pbo = new PBO(1024 * 1024, /*for upload=*/true, create_persistent_buffer);
 		pbo_infos.push_back(info);
 	}
 
 	// total size: 32 MB
+	size_info.push_back(SizeInfo({4 * 1024 * 1024, pbo_infos.size()}));
 	for(int i=0; i<8; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(4 * 1024 * 1024);
-		info.pbo->map();
+		info.pbo = new PBO(4 * 1024 * 1024, /*for upload=*/true, create_persistent_buffer);
 		pbo_infos.push_back(info);
 	}
 	
 	// total size: 32 MB
+	size_info.push_back(SizeInfo({8 * 1024 * 1024, pbo_infos.size()}));
 	for(int i=0; i<4; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(8 * 1024 * 1024);
-		info.pbo->map();
+		info.pbo = new PBO(8 * 1024 * 1024, /*for upload=*/true, create_persistent_buffer);
 		pbo_infos.push_back(info);
 	}
 
 	// total size: 32 MB
+	size_info.push_back(SizeInfo({16 * 1024 * 1024, pbo_infos.size()}));
 	for(int i=0; i<2; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(16 * 1024 * 1024);
-		info.pbo->map();
+		info.pbo = new PBO(16 * 1024 * 1024, /*for upload=*/true, create_persistent_buffer);
 		pbo_infos.push_back(info);
 	}
 
 	// total size: 32 MB
+	size_info.push_back(SizeInfo({32 * 1024 * 1024, pbo_infos.size()}));
 	for(int i=0; i<1; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(32 * 1024 * 1024);
-		info.pbo->map();
+		info.pbo = new PBO(32 * 1024 * 1024, /*for upload=*/true, create_persistent_buffer);
 		pbo_infos.push_back(info);
 	}
 
 	size_t total_size = 0;
 	for(size_t i=0; i<pbo_infos.size(); ++i)
+	{
+		pbo_infos[i].pbo->pool_index = i;
+
+		if(USE_MEM_MAPPING_FOR_TEXTURE_UPLOAD)
+			pbo_infos[i].pbo->map();
+
 		total_size += pbo_infos[i].pbo->getSize();
+	}
 	conPrint("Total PBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
 }
 
 
-PBORef PBOPool::getMappedAndUnusedVBO(size_t size_B)
+PBORef PBOPool::getUnusedVBO(size_t size_B)
 {
 	Lock lock(mutex);
 
-	for(size_t i=0; i<pbo_infos.size(); ++i)
+	// Work out start index
+	size_t start_index = pbo_infos.size();
+	for(size_t i=0; i<size_info.size(); ++i)
+		if(size_info[i].size >= size_B)
+		{
+			start_index = size_info[i].offset;
+			break;
+		}
+
+	for(size_t i=start_index; i<pbo_infos.size(); ++i)
 	{
 		if(!pbo_infos[i].used && (pbo_infos[i].pbo->getSize() >= size_B))
 		{
-			assert(pbo_infos[i].pbo->getMappedPtr()); // Should be mapped if it's not used.
+			if(USE_MEM_MAPPING_FOR_TEXTURE_UPLOAD)
+			{
+				assert(pbo_infos[i].pbo->getMappedPtr()); // Should be mapped if it's not used.
+			}
 
 			pbo_infos[i].used = true;
 
@@ -131,13 +154,7 @@ void PBOPool::pboBecameUnused(Reference<PBO> pbo)
 
 	Lock lock(mutex);
 
-	for(size_t i=0; i<pbo_infos.size(); ++i)
-		if(pbo_infos[i].pbo == pbo)
-		{
-			pbo_infos[i].used = false;
+	runtimeCheck(pbo->pool_index < pbo_infos.size());
 
-			return;
-		}
-
-	assert(false);
+	pbo_infos[pbo->pool_index].used = false;
 }

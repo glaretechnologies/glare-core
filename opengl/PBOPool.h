@@ -12,6 +12,9 @@ Copyright Glare Technologies Limited 2025 -
 class PBO;
 
 
+const bool USE_MEM_MAPPING_FOR_TEXTURE_UPLOAD = true;
+
+
 /*=====================================================================
 PBOPool
 -------
@@ -31,10 +34,12 @@ public:
 	void init();
 
 	// Threadsafe
-	Reference<PBO> getMappedAndUnusedVBO(size_t size_B);
+	Reference<PBO> getUnusedVBO(size_t size_B);
 
 	// Threadsafe
 	void pboBecameUnused(Reference<PBO> pbo);
+
+	size_t getLargestPBOSize() const { return size_info.empty() ? 0 : size_info.back().size; }
 
 private:
 	struct PBOInfo
@@ -45,4 +50,12 @@ private:
 	};
 	std::vector<PBOInfo> pbo_infos			GUARDED_BY(mutex);
 	Mutex mutex;
+
+	// For fast lookups of PBOs of a particular size.
+	struct SizeInfo
+	{
+		size_t size;
+		size_t offset;
+	};
+	std::vector<SizeInfo> size_info;
 };

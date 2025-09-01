@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/Lock.h>
 #include <utils/StringUtils.h>
 #include <utils/ConPrint.h>
+#include <utils/RuntimeCheck.h>
 
 
 VBOPool::VBOPool()
@@ -34,78 +35,99 @@ void VBOPool::init()
 
 	const GLenum usage = GL_STREAM_DRAW;
 
+	const bool create_persistent_buffer = USE_MEM_MAPPING_FOR_GEOM_UPLOAD;
+
+	size_info.push_back(SizeInfo({64 * 1024, vbo_infos.size()}));
 	for(int i=0; i<16; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 64 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
-		info.vbo->map();
+		info.vbo = new VBO(nullptr, 64 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
+	size_info.push_back(SizeInfo({512 * 1024, vbo_infos.size()}));
 	for(int i=0; i<32; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 512 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
-		info.vbo->map();
+		info.vbo = new VBO(nullptr, 512 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
+	size_info.push_back(SizeInfo({1024 * 1024, vbo_infos.size()}));
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
-		info.vbo->map();
+		info.vbo = new VBO(nullptr, 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
+	size_info.push_back(SizeInfo({4 * 1024 * 1024, vbo_infos.size()}));
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
-		info.vbo->map();
+		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
+	size_info.push_back(SizeInfo({8 * 1024 * 1024, vbo_infos.size()}));
 	for(int i=0; i<4; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
-		info.vbo->map();
+		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
+	size_info.push_back(SizeInfo({16 * 1024 * 1024, vbo_infos.size()}));
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
-		info.vbo->map();
+		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
+	size_info.push_back(SizeInfo({32 * 1024 * 1024, vbo_infos.size()}));
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 32 * 1024 * 1024, GL_ARRAY_BUFFER, usage, /*create_persistent_buffer=*/true);
-		info.vbo->map();
+		info.vbo = new VBO(nullptr, 32 * 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
 	size_t total_size = 0;
 	for(size_t i=0; i<vbo_infos.size(); ++i)
+	{
+		vbo_infos[i].vbo->pool_index = i;
+
+		if(USE_MEM_MAPPING_FOR_GEOM_UPLOAD)
+			vbo_infos[i].vbo->map();
+
 		total_size += vbo_infos[i].vbo->getSize();
+	}
 	conPrint("Total VBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
 }
 
 
-VBORef VBOPool::getMappedAndUnusedVBO(size_t size_B)
+VBORef VBOPool::getUnusedVBO(size_t size_B)
 {
 	Lock lock(mutex);
 
-	for(size_t i=0; i<vbo_infos.size(); ++i)
+	// Work out start index
+	size_t start_index = vbo_infos.size();
+	for(size_t i=0; i<size_info.size(); ++i)
+		if(size_info[i].size >= size_B)
+		{
+			start_index = size_info[i].offset;
+			break;
+		}
+
+	for(size_t i=start_index; i<vbo_infos.size(); ++i)
 	{
 		if(!vbo_infos[i].used && (vbo_infos[i].vbo->getSize() >= size_B))
 		{
-			assert(vbo_infos[i].vbo->getMappedPtr()); // Should be mapped if it's not used.
+			if(USE_MEM_MAPPING_FOR_GEOM_UPLOAD)
+			{
+				assert(vbo_infos[i].vbo->getMappedPtr()); // Should be mapped if it's not used.
+			}
 
 			vbo_infos[i].used = true;
 
@@ -121,13 +143,7 @@ void VBOPool::vboBecameUnused(const Reference<VBO>& vbo)
 {
 	Lock lock(mutex);
 
-	for(size_t i=0; i<vbo_infos.size(); ++i)
-		if(vbo_infos[i].vbo == vbo)
-		{
-			vbo_infos[i].used = false;
+	runtimeCheck(vbo->pool_index < vbo_infos.size());
 
-			return;
-		}
-
-	assert(false);
+	vbo_infos[vbo->pool_index].used = false;
 }
