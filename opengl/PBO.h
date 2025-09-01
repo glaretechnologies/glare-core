@@ -21,8 +21,11 @@ class PBO : public ThreadSafeRefCounted
 {
 public:
 	// data can be NULL
-	PBO(size_t size, bool for_upload = true);
+	PBO(size_t size, bool for_upload = true, bool create_persistent_buffer = false);
 	~PBO();
+
+
+	void updateData(size_t offset, const void* data, size_t data_size);
 
 	void* map();
 	void unmap();
@@ -37,6 +40,8 @@ public:
 
 	GLuint bufferName() const { return buffer_name; }
 	size_t getSize() const{ return size; }
+
+	size_t pool_index; // For PBOs in PBOPool
 private:
 	GLARE_DISABLE_COPY(PBO)
 

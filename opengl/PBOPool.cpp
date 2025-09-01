@@ -131,7 +131,8 @@ PBORef PBOPool::getUnusedVBO(size_t size_B)
 
 	for(size_t i=start_index; i<pbo_infos.size(); ++i)
 	{
-		if(!pbo_infos[i].used && (pbo_infos[i].pbo->getSize() >= size_B))
+		assert(pbo_infos[i].pbo->getSize() >= size_B);
+		if(!pbo_infos[i].used)
 		{
 			if(USE_MEM_MAPPING_FOR_TEXTURE_UPLOAD)
 			{

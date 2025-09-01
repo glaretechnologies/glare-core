@@ -43,6 +43,8 @@ public:
 
 	GLuint bufferName() const { return buffer_name; }
 	size_t getSize() const{ return size; }
+
+	size_t pool_index; // For VBOs in VBOPool
 private:
 	GLARE_DISABLE_COPY(VBO)
 

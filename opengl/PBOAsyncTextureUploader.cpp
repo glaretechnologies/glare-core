@@ -21,11 +21,10 @@ PBOAsyncTextureUploader::~PBOAsyncTextureUploader()
 {}
 
 
-void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef texture_data, Reference<OpenGLTexture> opengl_tex)
+void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef texture_data, Reference<OpenGLTexture> opengl_tex, Reference<OpenGLTexture> dummy_opengl_tex, PBORef dummy_pbo, uint64 frame_num,
+	Reference<UploadingTextureUserInfo> user_info)
 {
 	ZoneScoped; // Tracy profiler
-
-	pbo->flushWholeBuffer();
 
 	pbo->bind(); // Bind the PBO.  glTexSubImage2D etc. will read from this PBO.
 	opengl_tex->bind();
@@ -60,14 +59,17 @@ void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef t
 
 	PBOUploadingTexture queue_item;
 	queue_item.opengl_tex = opengl_tex;
+	queue_item.texture_data = texture_data;
 	queue_item.pbo = pbo;
 	queue_item.sync_ob = sync_ob;
+	queue_item.frame_num = frame_num;
+	queue_item.user_info = user_info;
 
 	uploading_textures.push(queue_item);
 }
 
 
-void PBOAsyncTextureUploader::checkForUploadedTexture(js::Vector<PBOAsyncUploadedTextureInfo, 16>& uploaded_textures_out)
+void PBOAsyncTextureUploader::checkForUploadedTexture(uint64 frame_num, js::Vector<PBOAsyncUploadedTextureInfo, 16>& uploaded_textures_out)
 {
 	ZoneScoped; // Tracy profiler
 
@@ -76,22 +78,28 @@ void PBOAsyncTextureUploader::checkForUploadedTexture(js::Vector<PBOAsyncUploade
 	if(!uploading_textures.empty())
 	{
 		PBOUploadingTexture& front_item = uploading_textures.front();
-		
-		const GLenum wait_ret = glClientWaitSync(front_item.sync_ob, /*wait flags=*/0, /*waitDuration=*/0);
-		assert(wait_ret != GL_WAIT_FAILED);
-		if(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED)
+
+		if(front_item.frame_num < frame_num) // Don't call glClientWaitSync on the fence unless a frame has elapsed, otherwise it may block.
 		{
-			// This texture has loaded from the PBO!
+			//Timer timer;
+			const GLenum wait_ret = glClientWaitSync(front_item.sync_ob, /*wait flags=*/0, /*waitDuration=*/0);
+			//conPrint("glClientWaitSync took " + timer.elapsedStringMSWIthNSigFigs());
+			assert(wait_ret != GL_WAIT_FAILED);
+			if(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED)
+			{
+				// This texture has loaded from the PBO!
 			
-			PBOAsyncUploadedTextureInfo loaded_info;
-			loaded_info.opengl_tex = front_item.opengl_tex;
-			loaded_info.pbo = front_item.pbo;
-			uploaded_textures_out.push_back(loaded_info);
+				PBOAsyncUploadedTextureInfo loaded_info;
+				loaded_info.opengl_tex = front_item.opengl_tex;
+				loaded_info.pbo = front_item.pbo;
+				loaded_info.user_info = front_item.user_info;
+				uploaded_textures_out.push_back(loaded_info);
 
-			// Destroy sync objet
-			glDeleteSync(front_item.sync_ob);
+				// Destroy sync object
+				glDeleteSync(front_item.sync_ob);
 
-			uploading_textures.pop(); // NOTE: this has to go after all usage of front_item.
+				uploading_textures.pop(); // NOTE: this has to go after all usage of front_item.
+			}
 		}
 	}
 }

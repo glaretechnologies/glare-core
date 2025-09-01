@@ -11,11 +11,17 @@ Copyright Glare Technologies Limited 2025 -
 #include <tracy/Tracy.hpp>
 
 
-PBO::PBO(size_t size_, bool for_upload)
+#if !EMSCRIPTEN
+#define PBO_MEM_MAPPING_SUPPORT 1
+#endif
+
+
+PBO::PBO(size_t size_, bool for_upload, bool create_persistent_buffer)
 :	buffer_name(0),
 	buffer_type(for_upload ? GL_PIXEL_UNPACK_BUFFER : GL_PIXEL_PACK_BUFFER),
 	size(size_),
-	mapped_ptr(nullptr)
+	mapped_ptr(nullptr),
+	pool_index(std::numeric_limits<size_t>::max())
 {
 	// Create new buffer
 	glGenBuffers(1, &buffer_name);
@@ -24,8 +30,12 @@ PBO::PBO(size_t size_, bool for_upload)
 	glBindBuffer(buffer_type, buffer_name);
 
 	// Upload data to the GPU
-	//glBufferData(buffer_type, size, nullptr, for_upload ? GL_STREAM_DRAW : GL_STREAM_READ);
-	glBufferStorage(buffer_type, size, nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+#if PBO_MEM_MAPPING_SUPPORT
+	if(create_persistent_buffer)
+		glBufferStorage(buffer_type, size, nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+	else
+#endif
+		glBufferData(buffer_type, size, nullptr, for_upload ? GL_STREAM_DRAW : GL_STREAM_READ);
 
 	// Unbind buffer
 	glBindBuffer(buffer_type, 0);
@@ -44,15 +54,29 @@ PBO::~PBO()
 }
 
 
+void PBO::updateData(size_t offset, const void* data, size_t data_size)
+{
+	assert(offset + data_size <= size);
+
+	if(data_size == 0)
+		return;
+
+	glBindBuffer(buffer_type, buffer_name);
+
+	glBufferSubData(buffer_type, /*offset=*/offset, data_size, data);
+
+	glBindBuffer(buffer_type, 0); // unbind
+}
+
+
 void* PBO::map()
 {
 	ZoneScoped; // Tracy profiler
-#if EMSCRIPTEN
+#if !PBO_MEM_MAPPING_SUPPORT
 	assert(!"PBO::map() not supported in emscripten.");
 	return nullptr;
 #else
 	assert(!mapped_ptr);
-
 	bind();
 	//mapped_ptr = glMapBuffer(buffer_type, (buffer_type == GL_PIXEL_UNPACK_BUFFER) ? GL_WRITE_ONLY : GL_READ_ONLY);
 	mapped_ptr = glMapBufferRange(buffer_type, /*offset=*/0, /*length=*/this->size, /*access=*/
@@ -70,7 +94,7 @@ void* PBO::map()
 void PBO::unmap()
 {
 	ZoneScoped; // Tracy profiler
-#if EMSCRIPTEN
+#if !PBO_MEM_MAPPING_SUPPORT
 	assert(!"PBO::unmap() not supported in emscripten.");
 #else
 	assert(mapped_ptr);
@@ -91,7 +115,7 @@ void PBO::flushWholeBuffer()
 
 void PBO::flushRange(size_t offset, size_t range_size)
 {
-#if EMSCRIPTEN
+#if !PBO_MEM_MAPPING_SUPPORT
 	assert(!"PBO::flushRange() not supported in emscripten.");
 #else
 	assert(mapped_ptr);

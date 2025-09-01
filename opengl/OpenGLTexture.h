@@ -167,6 +167,8 @@ public:
 
 	uint64 getBindlessTextureHandle(); // Get bindless texture handle, and make texture resident if not already.
 
+	void makeNonResidentIfResident();
+
 	static size_t getNumResidentTextures();
 
 	static bool areTextureDimensionsValidForCompression(const Map2D& map);

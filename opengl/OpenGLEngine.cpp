@@ -278,77 +278,6 @@ void GLMemUsage::operator += (const GLMemUsage& other)
 }
 
 
-GLMemUsage OpenGLMeshRenderData::getTotalMemUsage() const
-{
-	GLMemUsage usage;
-	usage.geom_cpu_usage =
-		vert_data.capacitySizeBytes() +
-		vert_index_buffer.capacitySizeBytes() +
-		vert_index_buffer_uint16.capacitySizeBytes() +
-		vert_index_buffer_uint8.capacitySizeBytes() +
-		(batched_mesh.nonNull() ? batched_mesh->getTotalMemUsage() : 0) + 
-		animation_data.getTotalMemUsage();
-
-	usage.geom_gpu_usage =
-		(this->vbo_handle.valid() ? this->vbo_handle.size : 0) +
-		(this->indices_vbo_handle.valid() ? this->indices_vbo_handle.size : 0);
-
-	return usage;
-}
-
-
-size_t OpenGLMeshRenderData::GPUVertMemUsage() const
-{
-	return this->vbo_handle.valid() ? this->vbo_handle.size : 0;
-}
-
-
-size_t OpenGLMeshRenderData::GPUIndicesMemUsage() const
-{
-	return this->indices_vbo_handle.valid() ? this->indices_vbo_handle.size : 0;
-}
-
-
-size_t OpenGLMeshRenderData::getNumVerts() const
-{
-	if(!vertex_spec.attributes.empty() && (vertex_spec.attributes[0].stride > 0))
-	{
-		if(!vert_data.empty())
-			return vert_data.size() / vertex_spec.attributes[0].stride;
-		else if(this->vbo_handle.valid())
-			return vbo_handle.size / vertex_spec.attributes[0].stride;
-	}
-	return 0;
-}
-
-
-size_t OpenGLMeshRenderData::getVertStrideB() const
-{
-	if(!vertex_spec.attributes.empty())
-		return vertex_spec.attributes[0].stride;
-	else
-		return 0;
-}
-
-
-size_t OpenGLMeshRenderData::getNumTris() const
-{
-	if(!vert_index_buffer.empty())
-		return vert_index_buffer.size() / 3;
-	else if(!vert_index_buffer_uint16.empty())
-		return vert_index_buffer_uint16.size() / 3;
-	else if(!vert_index_buffer_uint8.empty())
-		return vert_index_buffer_uint8.size() / 3;
-	else if(indices_vbo_handle.valid())
-	{
-		const size_t index_type_size_B = indexTypeSizeBytes(index_type);
-		return indices_vbo_handle.size / index_type_size_B / 3;
-	}
-	else
-		return 0;
-}
-
-
 OverlayObject::OverlayObject()
 :	ob_to_world_matrix(Matrix4f::uniformScaleMatrix(0.f))
 {
@@ -370,7 +299,8 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	overlay_objects(NULL),
 	overlay_world_to_camera_space_matrix(Matrix4f::identity()),
 	collect_stats(true),
-	draw_overlay_objects(true)
+	draw_overlay_objects(true),
+	frame_num(0)
 {
 	max_draw_dist = 1000;
 	near_draw_dist = 0.22f;
@@ -2479,10 +2409,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 #endif
 
 
-#if !EMSCRIPTEN
-		// We don't use the PBO and VBO pools on the web, so don't alloc the buffers.
 		pbo_pool.init();
-		vbo_pool.init();
+		vbo_pool.init(GL_ARRAY_BUFFER);
+
+#if EMSCRIPTEN
+		index_vbo_pool.init(GL_ELEMENT_ARRAY_BUFFER);
 #endif
 
 		init_succeeded = true;
@@ -3907,11 +3838,12 @@ void OpenGLEngine::assignLightsToObject(GLObject& object)
 	// Assign lights to object
 	const js::AABBox ob_aabb_ws = object.aabb_ws;
 
-	const Vec4i min_bucket_i = current_scene->light_grid.bucketIndicesForPoint(ob_aabb_ws.min_);
-	const Vec4i max_bucket_i = current_scene->light_grid.bucketIndicesForPoint(ob_aabb_ws.max_);
-
+	assert(ob_aabb_ws.min_.isFinite() && ob_aabb_ws.max_.isFinite());
 	if(!ob_aabb_ws.min_.isFinite() || !ob_aabb_ws.max_.isFinite())
 		return;
+
+	const Vec4i min_bucket_i = current_scene->light_grid.bucketIndicesForPoint(ob_aabb_ws.min_);
+	const Vec4i max_bucket_i = current_scene->light_grid.bucketIndicesForPoint(ob_aabb_ws.max_);
 
 	const int MAX_LIGHTS = 128; // Max number of lights to consider
 	const GLLight* lights[MAX_LIGHTS];
@@ -6593,6 +6525,8 @@ void OpenGLEngine::draw()
 	glUseProgram(0);
 	VAO::unbind();
 	assertCurrentProgramIsZero();
+
+	current_scene->frame_num++;
 
 
 	//================= Check if any building programs are done. =================

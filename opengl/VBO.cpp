@@ -10,11 +10,21 @@ Copyright Glare Technologies Limited 2022 -
 #include "OpenGLEngine.h"
 
 
+#ifndef GL_SHADER_STORAGE_BUFFER
+#define GL_SHADER_STORAGE_BUFFER          0x90D2
+#endif
+
+#if !EMSCRIPTEN
+#define VBO_MEM_MAPPING_SUPPORT 1
+#endif
+
+
 VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage, bool create_persistent_buffer)
 :	buffer_name(0),
 	buffer_type(buffer_type_),
 	size(size_),
-	mapped_ptr(nullptr)
+	mapped_ptr(nullptr),
+	pool_index(std::numeric_limits<size_t>::max())
 {
 	// Create new VBO
 	glGenBuffers(1, &buffer_name);
@@ -23,10 +33,11 @@ VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage, bool
 	glBindBuffer(buffer_type, buffer_name);
 
 	// Upload vertex data to the video device
-
+#if VBO_MEM_MAPPING_SUPPORT
 	if(create_persistent_buffer)
 		glBufferStorage(buffer_type, size, data, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 	else
+#endif
 		glBufferData(buffer_type, size, data, usage);
 
 	// Unbind buffer
@@ -85,7 +96,7 @@ void VBO::updateData(size_t offset, const void* data, size_t data_size)
 
 void* VBO::map()
 {
-#if EMSCRIPTEN
+#if !VBO_MEM_MAPPING_SUPPORT
 	assert(!"VBO::map() not supported in emscripten.");
 	return nullptr;
 #else
@@ -111,7 +122,7 @@ void* VBO::map()
 
 void VBO::unmap()
 {
-#if EMSCRIPTEN
+#if !VBO_MEM_MAPPING_SUPPORT
 	assert(!"VBO::unmap() not supported in emscripten.");
 #else
 	assert(mapped_ptr);
@@ -132,7 +143,7 @@ void VBO::flushWholeBuffer()
 
 void VBO::flushRange(size_t offset, size_t range_size)
 {
-#if EMSCRIPTEN
+#if !VBO_MEM_MAPPING_SUPPORT
 	assert(!"VBO::flushRange() not supported in emscripten.");
 #else
 	assert(mapped_ptr);
@@ -147,12 +158,7 @@ void VBO::flushRange(size_t offset, size_t range_size)
 void VBO::bind() const
 {
 	// Make buffer active
-#if defined(OSX) || defined(EMSCRIPTEN) // OSX doesn't define GL_SHADER_STORAGE_BUFFER
-	const GLenum use_buffer_type = buffer_type;
-#else
-	const GLenum use_buffer_type = (buffer_type == GL_SHADER_STORAGE_BUFFER) ? GL_ARRAY_BUFFER : buffer_type;
-#endif
-	glBindBuffer(use_buffer_type, buffer_name);
+	glBindBuffer(buffer_type, buffer_name);
 }
 
 

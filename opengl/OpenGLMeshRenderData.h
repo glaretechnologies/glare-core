@@ -50,6 +50,8 @@ public:
 
 	size_t getBatch0IndicesTotalBufferOffset() const { return indices_vbo_handle.offset + batches[0].prim_start_offset_B; }
 
+	ArrayRef<uint8> getVertDataArrayRef();
+	ArrayRef<uint8> getIndexDataArrayRef();
 	void getVertAndIndexArrayRefs(ArrayRef<uint8>& vert_data_out, ArrayRef<uint8>& index_data_out);
 
 	void clearAndFreeGeometryMem();

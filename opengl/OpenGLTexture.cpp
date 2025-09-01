@@ -1035,14 +1035,7 @@ void OpenGLTexture::textureRefCountDecreasedToOne()
 
 #if !defined(OSX) && !defined(EMSCRIPTEN)
 		// Since this texture is not being used, we can make it non-resident.
-		if((bindless_tex_handle != 0) && is_bindless_tex_resident)
-		{
-			glMakeTextureHandleNonResidentARB(bindless_tex_handle);
-			is_bindless_tex_resident = false;
-
-			num_resident_textures--;
-			//conPrint("!!!!!!!!texture became unused, made non resident (num_resident_textures: " + toString(num_resident_textures) + ")");
-		}
+		makeNonResidentIfResident();
 #endif
 	}
 }
@@ -1077,5 +1070,22 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 	}
 
 	return bindless_tex_handle;
+#endif
+}
+
+
+void OpenGLTexture::makeNonResidentIfResident()
+{
+#if !defined(OSX) && !defined(EMSCRIPTEN)
+	if(is_bindless_tex_resident)
+	{
+		assert(bindless_tex_handle != 0);
+
+		glMakeTextureHandleNonResidentARB(bindless_tex_handle);
+		is_bindless_tex_resident = false;
+
+		num_resident_textures--;
+		//conPrint("!!!!!!!!texture became unused, made non resident (num_resident_textures: " + toString(num_resident_textures) + ")");
+	}
 #endif
 }

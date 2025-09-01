@@ -95,24 +95,35 @@ size_t OpenGLMeshRenderData::getNumTris() const
 }
 
 
-void OpenGLMeshRenderData::getVertAndIndexArrayRefs(ArrayRef<uint8>& vert_data_out, ArrayRef<uint8>& index_data_out)
+ArrayRef<uint8> OpenGLMeshRenderData::getVertDataArrayRef()
 {
 	if(batched_mesh)
-	{
-		vert_data_out  = batched_mesh->vertex_data;
-		index_data_out = batched_mesh->index_data;
-	}
+		return batched_mesh->vertex_data;
+	else
+		return vert_data;
+}
+
+
+ArrayRef<uint8> OpenGLMeshRenderData::getIndexDataArrayRef()
+{
+	if(batched_mesh)
+		return batched_mesh->index_data;
 	else
 	{
-		vert_data_out = vert_data;
-
 		if(!vert_index_buffer.empty())
-			index_data_out = ArrayRef<uint8>((const uint8*)vert_index_buffer       .data(), vert_index_buffer       .dataSizeBytes());
+			return ArrayRef<uint8>((const uint8*)vert_index_buffer       .data(), vert_index_buffer       .dataSizeBytes());
 		else if(!vert_index_buffer_uint16.empty())
-			index_data_out = ArrayRef<uint8>((const uint8*)vert_index_buffer_uint16.data(), vert_index_buffer_uint16.dataSizeBytes());
+			return ArrayRef<uint8>((const uint8*)vert_index_buffer_uint16.data(), vert_index_buffer_uint16.dataSizeBytes());
 		else if(!vert_index_buffer_uint8.empty())
-			index_data_out = ArrayRef<uint8>((const uint8*)vert_index_buffer_uint8 .data(), vert_index_buffer_uint8 .dataSizeBytes());
+			return ArrayRef<uint8>((const uint8*)vert_index_buffer_uint8 .data(), vert_index_buffer_uint8 .dataSizeBytes());
 	}
+}
+
+
+void OpenGLMeshRenderData::getVertAndIndexArrayRefs(ArrayRef<uint8>& vert_data_out, ArrayRef<uint8>& index_data_out)
+{
+	vert_data_out = getVertDataArrayRef();
+	index_data_out = getIndexDataArrayRef();
 }
 
 

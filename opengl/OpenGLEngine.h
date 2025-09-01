@@ -637,6 +637,8 @@ public:
 	js::AABBox frustum_aabb;
 
 	Matrix4f last_view_matrix;
+
+	uint64 frame_num;
 };
 
 
@@ -1679,7 +1681,11 @@ public:
 
 	VBOPool vbo_pool;
 
+	VBOPool index_vbo_pool;
+
 	AsyncGeometryUploader async_geom_loader;
+
+	AsyncGeometryUploader async_index_geom_loader;
 };
 
 

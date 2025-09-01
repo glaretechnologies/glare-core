@@ -230,10 +230,10 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 
 			runtimeCheck(CheckedMaths::addUnsignedInts(level_offset, level_size) <= texture_data.mipmap_data.size());
 
+			Timer timer;
 			opengl_tex->setMipMapLevelData((int)k, level_W, level_H, /*tex data=*/ArrayRef<uint8>(&texture_data.mipmap_data[level_offset], level_size), /*bind_needed=*/false);
+			conPrint("Setting mip level " + toString(k) + " took " + timer.elapsedStringMSWIthNSigFigs());
 		}
-
-		//opengl_tex->unbind();
 	}
 	else // Else if not using a compressed texture format:
 	{
@@ -249,6 +249,8 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 			runtimeCheck(false);
 		}
 	}
+
+	opengl_tex->unbind();
 }
 
 

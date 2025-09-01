@@ -29,7 +29,7 @@ VBOPool::~VBOPool()
 }
 
 
-void VBOPool::init()
+void VBOPool::init(GLenum buffer_type)
 {
 	Lock lock(mutex);
 
@@ -41,7 +41,7 @@ void VBOPool::init()
 	for(int i=0; i<16; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 64 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 64 * 1024, buffer_type, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -49,7 +49,7 @@ void VBOPool::init()
 	for(int i=0; i<32; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 512 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 512 * 1024, buffer_type, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -57,7 +57,7 @@ void VBOPool::init()
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 1024 * 1024, buffer_type, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -65,7 +65,7 @@ void VBOPool::init()
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, buffer_type, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -73,7 +73,7 @@ void VBOPool::init()
 	for(int i=0; i<4; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, buffer_type, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -81,7 +81,7 @@ void VBOPool::init()
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, buffer_type, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -89,7 +89,7 @@ void VBOPool::init()
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 32 * 1024 * 1024, GL_ARRAY_BUFFER, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 32 * 1024 * 1024, buffer_type, usage, create_persistent_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -122,7 +122,8 @@ VBORef VBOPool::getUnusedVBO(size_t size_B)
 
 	for(size_t i=start_index; i<vbo_infos.size(); ++i)
 	{
-		if(!vbo_infos[i].used && (vbo_infos[i].vbo->getSize() >= size_B))
+		assert(vbo_infos[i].vbo->getSize() >= size_B);
+		if(!vbo_infos[i].used)
 		{
 			if(USE_MEM_MAPPING_FOR_GEOM_UPLOAD)
 			{
