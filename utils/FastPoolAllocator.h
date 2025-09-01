@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "ThreadSafeRefCounted.h"
 #include "Mutex.h"
 #include "Vector.h"
+#include <string>
 
 
 /*=====================================================================
@@ -44,16 +45,15 @@ public:
 		int index;
 	};
 
-	struct BlockInfo
-	{
-		uint8* data;
-	};
-
 	AllocResult alloc();
 
 	void free(int allocation_index);
 
-
+private:
+	struct BlockInfo
+	{
+		uint8* data;
+	};
 	mutable Mutex mutex;
 	js::Vector<BlockInfo, 16> blocks	GUARDED_BY(mutex);
 	size_t ob_alloc_size, alignment;
@@ -63,6 +63,9 @@ public:
 	size_t block_capacity_mask;
 
 	js::Vector<int, 16> free_indices;
+
+public:
+	std::string name;
 };
 
 
