@@ -1,7 +1,7 @@
 /*=====================================================================
 OpenGLMeshRenderData.h
 ----------------------
-Copyright Glare Technologies Limited 2022 -
+Copyright Glare Technologies Limited 2025 -
 =====================================================================*/
 #pragma once
 
@@ -10,12 +10,8 @@ Copyright Glare Technologies Limited 2022 -
 #include "VertexBufferAllocator.h"
 #include "../physics/jscol_aabbox.h"
 #include "../graphics/AnimationData.h"
-#include "../utils/Platform.h"
 #include "../utils/ThreadSafeRefCounted.h"
-#include "../utils/MemAlloc.h"
-#include "../utils/Vector.h"
 #include "../utils/AllocatorVector.h"
-#include <stdlib.h>
 class BatchedMesh;
 
 
@@ -53,6 +49,10 @@ public:
 	void updateIndexTypeBits() { index_type_bits = computeIndexTypeBits(index_type); }
 
 	size_t getBatch0IndicesTotalBufferOffset() const { return indices_vbo_handle.offset + batches[0].prim_start_offset_B; }
+
+	void getVertAndIndexArrayRefs(ArrayRef<uint8>& vert_data_out, ArrayRef<uint8>& index_data_out);
+
+	void clearAndFreeGeometryMem();
 
 	js::AABBox aabb_os; // Should go first as is aligned.
 
