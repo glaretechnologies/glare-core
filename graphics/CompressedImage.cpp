@@ -134,6 +134,12 @@ size_t CompressedImage::getByteSize() const
 }
 
 
+ArrayRef<uint8> CompressedImage::getDataArrayRef() const
+{
+	return texture_data->getDataArrayRef();
+}
+
+
 #if BUILD_TESTS
 
 

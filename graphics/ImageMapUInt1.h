@@ -84,6 +84,8 @@ public:
 #endif
 	virtual size_t getByteSize() const override { return data.byteSize(); }
 
+	inline virtual ArrayRef<uint8> getDataArrayRef() const override { return ArrayRef<uint8>((const uint8*)data.v.data(), data.v.dataSizeBytes()); }
+
 
 	inline void setPixelValue(size_t x, size_t y, uint32 val)
 	{

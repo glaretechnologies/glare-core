@@ -349,19 +349,19 @@ void BasisDecoder::test()
 
 	try
 	{
-		{
-			conPrint("----------------------");
-			Timer timer;
-			Reference<Map2D> im = BasisDecoder::decode("C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\Mn6q_gif_6064408626532220094.basis");
-			conPrint("Reading 73qh_gif_4680830356308779756.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
-		}
-		{
-			conPrint("----------------------");
-			Timer timer;
-			Reference<Map2D> im = BasisDecoder::decode("C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\Mn6q_gif_6064408626532220094_lod1.basis");
-			conPrint("Reading 73qh_gif_4680830356308779756_lod1.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
-		}
-		return;
+		//{
+		//	conPrint("----------------------");
+		//	Timer timer;
+		//	Reference<Map2D> im = BasisDecoder::decode("C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\Mn6q_gif_6064408626532220094.basis");
+		//	conPrint("Reading 73qh_gif_4680830356308779756.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
+		//}
+		//{
+		//	conPrint("----------------------");
+		//	Timer timer;
+		//	Reference<Map2D> im = BasisDecoder::decode("C:\\Users\\nick\\AppData\\Roaming\\Cyberspace\\resources\\Mn6q_gif_6064408626532220094_lod1.basis");
+		//	conPrint("Reading 73qh_gif_4680830356308779756_lod1.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
+		//}
+		//return;
 
 
 		// Write a basis image:
@@ -412,6 +412,8 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->level_offsets.size() == 11);
 			testAssert(com_im->texture_data->D == 1);
 			testAssert(com_im->texture_data->num_array_images == 0);
+			testAssert(com_im->texture_data->numFrames() == 1);
+			testAssert(com_im->texture_data->frame_size_B == com_im->texture_data->mipmap_data.size());
 
 			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8);
 		}
@@ -432,6 +434,8 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->level_offsets.size() == 11);
 			testAssert(com_im->texture_data->D == 1);
 			testAssert(com_im->texture_data->num_array_images == 0);
+			testAssert(com_im->texture_data->numFrames() == 1);
+			testAssert(com_im->texture_data->frame_size_B == com_im->texture_data->mipmap_data.size());
 
 			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGB_Uint8);
 		}
@@ -451,6 +455,8 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->level_offsets.size() == 9);
 			testAssert(com_im->texture_data->D == 1);
 			testAssert(com_im->texture_data->num_array_images == 0);
+			testAssert(com_im->texture_data->numFrames() == 1);
+			testAssert(com_im->texture_data->frame_size_B == com_im->texture_data->mipmap_data.size());
 
 			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGBA_Uint8);
 		}
@@ -471,6 +477,8 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->level_offsets.size() == 9);
 			testAssert(com_im->texture_data->D == 1);
 			testAssert(com_im->texture_data->num_array_images == 0);
+			testAssert(com_im->texture_data->numFrames() == 1);
+			testAssert(com_im->texture_data->frame_size_B == com_im->texture_data->mipmap_data.size());
 
 			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGBA_Uint8);
 		}
@@ -487,6 +495,8 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->level_offsets.size() == 8);
 			testAssert(com_im->texture_data->D == 6);
 			testAssert(com_im->texture_data->num_array_images == 6);
+			testAssert(com_im->texture_data->numFrames() == 1);
+			testAssert(com_im->texture_data->frame_size_B == com_im->texture_data->mipmap_data.size());
 
 			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8);
 		}
@@ -504,8 +514,33 @@ void BasisDecoder::test()
 			testAssert(com_im->texture_data->level_offsets.size() == 8);
 			testAssert(com_im->texture_data->D == 6);
 			testAssert(com_im->texture_data->num_array_images == 6);
+			testAssert(com_im->texture_data->numFrames() == 1);
+			testAssert(com_im->texture_data->frame_size_B == com_im->texture_data->mipmap_data.size());
 
 			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_ETC2_SRGB_Uint8);
+		}
+		
+		//----------------------------------- Test loading an animated/multi-frame texture -------------------------------------------
+		{
+			conPrint("----------------------");
+			Reference<Map2D> im = BasisDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/basis/Mn6q_gif_6064408626532220094_lod1.basis");
+			testAssert(im->getMapWidth() == 184);
+			testAssert(im->getMapHeight() == 256);
+			testAssert(im->numChannels() == 3);
+			testAssert(im.isType<CompressedImage>());
+			CompressedImage* com_im = im.downcastToPtr<CompressedImage>();
+			testAssert(com_im->texture_data->level_offsets.size() == 9);
+			testAssert(com_im->texture_data->D == 1);
+			testAssert(com_im->texture_data->num_array_images == 0);
+			testAssert(com_im->texture_data->numFrames() == 20);
+			testAssert(com_im->texture_data->frame_size_B == com_im->texture_data->mipmap_data.size() / 20);
+			testAssert(com_im->texture_data->frame_durations_equal);
+			const double expected_frame_time = 0.030;
+			testAssert(com_im->texture_data->recip_frame_duration == 1.0 / expected_frame_time);
+			testAssert(epsEqual(com_im->texture_data->last_frame_end_time, 20.0 * expected_frame_time));
+			testAssert(com_im->texture_data->frame_end_times.size() == 0); // Should be zero as frame_durations_equal is true
+
+			testAssert(com_im->texture_data->format == OpenGLTextureFormat::Format_Compressed_DXT_SRGB_Uint8);
 		}
 		
 	}

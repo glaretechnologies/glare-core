@@ -486,6 +486,12 @@ size_t Image::getByteSize() const
 }
 
 
+ArrayRef<uint8> Image::getDataArrayRef() const
+{
+	return ArrayRef<uint8>((const uint8*)pixels.getData(), numPixels() * sizeof(ColourType));
+}
+
+
 float Image::minLuminance() const
 {
 	float minlum = std::numeric_limits<float>::max();

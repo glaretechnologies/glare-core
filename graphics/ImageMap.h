@@ -148,6 +148,8 @@ public:
 #endif
 	inline virtual size_t getByteSize() const override;
 
+	inline virtual ArrayRef<uint8> getDataArrayRef() const override { return ArrayRef<uint8>((const uint8*)data.data(), data.dataSizeBytes()); }
+
 	// This image must have >= 3 channels.
 	inline Reference<ImageMap<V, ComponentValueTraits> > extract3ChannelImage() const; // Remove alpha
 

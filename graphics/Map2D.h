@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "Colour4f.h"
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
+#include "../utils/ArrayRef.h"
 class Image;
 class FloatComponentValueTraits;
 template<class T, class TTraits> class ImageMap;
@@ -91,6 +92,8 @@ public:
 #endif
 
 	virtual size_t getByteSize() const = 0; // Get total size of image in bytes.  Returns the compressed size if the image is compressed.
+
+	virtual ArrayRef<uint8> getDataArrayRef() const = 0;
 
 	virtual float getGamma() const = 0;
 

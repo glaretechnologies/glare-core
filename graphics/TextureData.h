@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/AllocatorVector.h"
+#include "../utils/ArrayRef.h"
 #include <vector>
 
 
@@ -75,7 +76,7 @@ const char* textureFormatString(OpenGLTextureFormat format);
 class TextureData : public ThreadSafeRefCounted
 {
 public:
-	TextureData() : frame_durations_equal(false), num_array_images(0), D(1) {}
+	TextureData() : frame_durations_equal(false), D(1), num_array_images(0), num_frames(1) {}
 
 	size_t totalCPUMemUsage() const;
 
@@ -98,6 +99,8 @@ public:
 	static size_t computeNumMipLevels(size_t W, size_t H);
 	static size_t computeNum4PixelBlocksForLevel(size_t base_W, size_t base_H, size_t level);
 	static size_t computeStorageSizeB(size_t W, size_t H, OpenGLTextureFormat format, bool include_mip_levels);
+
+	ArrayRef<uint8> getDataArrayRef() const;
 	
 	OpenGLTextureFormat format;
 	size_t W, H;
@@ -118,13 +121,13 @@ public:
 	
 	Reference<const Map2D> converted_image; // May reference an image directly if we are not computing mipmaps for it.
 
-	std::vector<double> frame_end_times;
+	std::vector<double> frame_end_times; // Should have size() == num_frames if frame_durations_equal is false.
 
 	bool frame_durations_equal;
 	double recip_frame_duration; // Set if frame_durations_equal is true.
 	double last_frame_end_time;
 	size_t num_frames; // will have 1 frame for non-animated images, more than 1 for animated gifs etc..
-	size_t frame_size_B;
+	size_t frame_size_B; // Data for frame i is at frame_size_B * i.
 };
 
 

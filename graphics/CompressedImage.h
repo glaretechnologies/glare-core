@@ -72,6 +72,8 @@ public:
 #endif
 	virtual size_t getByteSize() const override;
 
+	virtual ArrayRef<uint8> getDataArrayRef() const override;
+
 	virtual float getGamma() const override { return 2.2f; } //gamma; }
 
 	virtual bool isDXTImageMap() const override { return false; }

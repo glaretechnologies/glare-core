@@ -879,8 +879,15 @@ void KTXDecoder::test()
 		testAssert(im->getMapWidth() == 512);
 		testAssert(im->getMapHeight() == 512);
 		testAssert(im.isType<CompressedImage>());
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->D == 1);
 		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6H);
 		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 1); // no mipmaps.
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numFrames() == 1);
+		testAssert(!im.downcastToPtr<CompressedImage>()->texture_data->isMultiFrame());
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->frame_size_B == im.downcastToPtr<CompressedImage>()->texture_data->mipmap_data.size());
+		testAssert(!im.downcastToPtr<CompressedImage>()->texture_data->isArrayTexture());
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->num_array_images == 0);
+
 
 		im = KTXDecoder::decode(TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_with_mipmaps.KTX");
 		testAssert(im->getMapWidth() == 512);
@@ -896,6 +903,11 @@ void KTXDecoder::test()
 		testAssert(im.isType<CompressedImage>());
 		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->format == OpenGLTextureFormat::Format_Compressed_BC6H);
 		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numMipLevels() == 1); // no mipmaps.
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->numFrames() == 1);
+		testAssert(!im.downcastToPtr<CompressedImage>()->texture_data->isMultiFrame());
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->frame_size_B == im.downcastToPtr<CompressedImage>()->texture_data->mipmap_data.size());
+		testAssert(!im.downcastToPtr<CompressedImage>()->texture_data->isArrayTexture());
+		testAssert(im.downcastToPtr<CompressedImage>()->texture_data->num_array_images == 0);
 
 		im = KTXDecoder::decodeKTX2(TestUtils::getTestReposDir() + "/testfiles/ktx/lightmap_BC6H_with_mipmaps.KTX2");
 		testAssert(im->getMapWidth() == 512);

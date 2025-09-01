@@ -82,6 +82,8 @@ public:
 
 	virtual size_t getByteSize() const override { assert(0); return 1; }; // Get total size of image in bytes.  Returns the compressed size if the image is compressed.
 
+	virtual ArrayRef<uint8> getDataArrayRef() const override { assert(0); return ArrayRef<uint8>(); }
+
 	virtual float getGamma() const override { assert(0); return 1; };
 
 

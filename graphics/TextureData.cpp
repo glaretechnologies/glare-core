@@ -272,3 +272,15 @@ size_t TextureData::computeStorageSizeB(size_t W, size_t H, OpenGLTextureFormat 
 			return pixel_B * W * H;
 	}
 }
+
+
+ArrayRef<uint8> TextureData::getDataArrayRef() const
+{
+	if(!mipmap_data.empty())
+		return ArrayRef<uint8>(mipmap_data.data(), mipmap_data.size());
+	else
+	{
+		runtimeCheck(converted_image.nonNull());
+		return converted_image->getDataArrayRef();
+	}
+}
