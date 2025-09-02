@@ -26,7 +26,8 @@ public:
 
 struct AsyncUploadedGeometryInfo
 {
-	Reference<VBO> vbo;
+	Reference<VBO> vert_vbo;
+	Reference<VBO> index_vbo;
 	Reference<OpenGLMeshRenderData> meshdata;
 	Reference<UploadingGeometryUserInfo> user_info;
 };
@@ -44,8 +45,9 @@ public:
 	~AsyncGeometryUploader();
 
 	// Geometry has been submitted to the GPU from glBufferSubData calls on source_vbo, or the geometry data has been written to source_vbo while it is memory-mapped.
-	void startUploadingGeometry(Reference<OpenGLMeshRenderData> meshdata, Reference<VBO> source_vbo, Reference<VBO> dummy_vbo, size_t vert_data_src_offset_B, size_t index_data_src_offset_B, 
-		size_t vert_data_size_B, size_t index_data_size_B, size_t total_geom_size_B, uint64 frame_num, Reference<UploadingGeometryUserInfo> user_info);
+	// index_vbo may be null in which case both index and vert data is in vert_vbo.
+	void startUploadingGeometry(Reference<OpenGLMeshRenderData> meshdata, Reference<VBO> vert_vbo, Reference<VBO> index_vbo, Reference<VBO> dummy_vert_vbo, Reference<VBO> dummy_index_vbo, 
+		size_t vert_data_src_offset_B, size_t index_data_src_offset_B, size_t vert_data_size_B, size_t index_data_size_B, size_t total_geom_size_B, uint64 frame_num, Reference<UploadingGeometryUserInfo> user_info);
 
 	void checkForUploadedGeometry(OpenGLEngine* opengl_engine, uint64 frame_num, js::Vector<AsyncUploadedGeometryInfo, 16>& loaded_geom_out);
 
@@ -54,8 +56,8 @@ private:
 	{
 		Reference<OpenGLMeshRenderData> meshdata;
 
-		Reference<VBO> source_vbo;
-		//Reference<VBO> dummy_vbo;
+		Reference<VBO> vert_vbo;
+		Reference<VBO> index_vbo;
 
 		size_t vert_data_src_offset_B; // in source VBO
 		size_t index_data_src_offset_B; // in source VBO

@@ -24,16 +24,25 @@ AsyncGeometryUploader::~AsyncGeometryUploader()
 }
 
 
-void AsyncGeometryUploader::startUploadingGeometry(OpenGLMeshRenderDataRef meshdata, VBORef source_vbo, VBORef dummy_vbo, size_t vert_data_src_offset_B, size_t index_data_src_offset_B, 
-	size_t vert_data_size_B, size_t index_data_size_B, size_t total_geom_size_B, uint64 frame_num, Reference<UploadingGeometryUserInfo> user_info)
+void AsyncGeometryUploader::startUploadingGeometry(OpenGLMeshRenderDataRef meshdata, Reference<VBO> vert_vbo, Reference<VBO> index_vbo, Reference<VBO> dummy_vert_vbo, Reference<VBO> dummy_index_vbo, 
+	size_t vert_data_src_offset_B, size_t index_data_src_offset_B, size_t vert_data_size_B, size_t index_data_size_B, size_t total_geom_size_B, uint64 frame_num, Reference<UploadingGeometryUserInfo> user_info)
 {
-	glBindBuffer(GL_COPY_READ_BUFFER,  source_vbo->bufferName());
-	glBindBuffer(GL_COPY_WRITE_BUFFER, dummy_vbo->bufferName());
-	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/0, /*size=*/8/*total_geom_size_B*/);//source_vbo->getSize());
+	// Do a copy to the dummy VBO to force the upload to the GPU to take place.
+	// TODO NOTE: probably not needed for glBufferSubData upload mode (non-mem-mapped)
+	glBindBuffer(GL_COPY_READ_BUFFER,  vert_vbo->bufferName());
+	glBindBuffer(GL_COPY_WRITE_BUFFER, dummy_vert_vbo->bufferName());
+	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/0, /*size=*/8);
+	glBindBuffer(GL_COPY_READ_BUFFER, 0); // Unbind
+	glBindBuffer(GL_COPY_WRITE_BUFFER, 0); // Unbind
 
-	// Unbind
-	glBindBuffer(GL_COPY_READ_BUFFER, 0);
-	glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
+	if(index_vbo)
+	{
+		glBindBuffer(GL_COPY_READ_BUFFER,  index_vbo->bufferName());
+		glBindBuffer(GL_COPY_WRITE_BUFFER, dummy_index_vbo->bufferName());
+		glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/0, /*size=*/8);
+		glBindBuffer(GL_COPY_READ_BUFFER, 0); // Unbind
+		glBindBuffer(GL_COPY_WRITE_BUFFER, 0); // Unbind
+	}
 
 	// Insert fence object into stream. We can query this to see if the upload of the data to the VBO has completed.
 	GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
@@ -42,8 +51,8 @@ void AsyncGeometryUploader::startUploadingGeometry(OpenGLMeshRenderDataRef meshd
 
 	UploadingGeometry queue_item;
 	queue_item.meshdata = meshdata;
-	queue_item.source_vbo = source_vbo;
-	//queue_item.dummy_vbo = dummy_vbo;
+	queue_item.vert_vbo = vert_vbo;
+	queue_item.index_vbo = index_vbo;
 	queue_item.vert_data_src_offset_B = vert_data_src_offset_B;
 	queue_item.index_data_src_offset_B = index_data_src_offset_B;
 	queue_item.vert_data_size_B = vert_data_size_B;
@@ -91,7 +100,7 @@ void AsyncGeometryUploader::checkForUploadedGeometry(OpenGLEngine* opengl_engine
 
 				//Timer timer;
 				// Do an on-GPU (hopefully) copy of the source vertex data to the new buffer at the allocated position.
-				glBindBuffer(GL_COPY_READ_BUFFER,  front_item.source_vbo->bufferName());
+				glBindBuffer(GL_COPY_READ_BUFFER,  front_item.vert_vbo->bufferName());
 				glBindBuffer(GL_COPY_WRITE_BUFFER, front_item.meshdata->vbo_handle.vbo->bufferName());
 				glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/front_item.vert_data_src_offset_B, /*writeOffset=*/front_item.meshdata->vbo_handle.offset, front_item.meshdata->vbo_handle.size);
 
@@ -99,7 +108,8 @@ void AsyncGeometryUploader::checkForUploadedGeometry(OpenGLEngine* opengl_engine
 				//timer.reset();
 
 				// Do an on-GPU (hopefully) copy of the source index data to the new buffer at the allocated position.
-				glBindBuffer(GL_COPY_READ_BUFFER,  front_item.source_vbo->bufferName());
+				// index_vbo may be null in which case both index and vert data is in vert_vbo.
+				glBindBuffer(GL_COPY_READ_BUFFER,  (front_item.index_vbo ? front_item.index_vbo.ptr() : front_item.vert_vbo.ptr())->bufferName());
 				glBindBuffer(GL_COPY_WRITE_BUFFER, front_item.meshdata->indices_vbo_handle.index_vbo->bufferName());
 				glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/front_item.index_data_src_offset_B, /*writeOffset=*/front_item.meshdata->indices_vbo_handle.offset, front_item.meshdata->indices_vbo_handle.size);
 
@@ -151,7 +161,8 @@ void AsyncGeometryUploader::checkForUploadedGeometry(OpenGLEngine* opengl_engine
 
 				AsyncUploadedGeometryInfo uploaded_info;
 				uploaded_info.meshdata = front_item.meshdata;
-				uploaded_info.vbo = front_item.source_vbo;
+				uploaded_info.vert_vbo = front_item.vert_vbo;
+				uploaded_info.index_vbo = front_item.index_vbo;
 				uploaded_info.user_info = front_item.user_info;
 				uploaded_geom_out.push_back(uploaded_info);
 

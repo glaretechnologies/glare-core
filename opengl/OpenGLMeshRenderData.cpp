@@ -116,6 +116,8 @@ ArrayRef<uint8> OpenGLMeshRenderData::getIndexDataArrayRef()
 			return ArrayRef<uint8>((const uint8*)vert_index_buffer_uint16.data(), vert_index_buffer_uint16.dataSizeBytes());
 		else if(!vert_index_buffer_uint8.empty())
 			return ArrayRef<uint8>((const uint8*)vert_index_buffer_uint8 .data(), vert_index_buffer_uint8 .dataSizeBytes());
+		else
+			return ArrayRef<uint8>();
 	}
 }
 
