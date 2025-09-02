@@ -1226,6 +1226,9 @@ public:
 	void textureBecameUsed(const OpenGLTexture* tex);
 	static void GPUMemAllocated(size_t size);
 	static void GPUMemFreed(size_t size);
+
+	GLuint allocTextureName();
+
 private:
 	void trimTextureUsage();
 	void bindMeshData(const OpenGLMeshRenderData& mesh_data);
@@ -1686,6 +1689,9 @@ public:
 	AsyncGeometryUploader async_geom_loader;
 
 	AsyncGeometryUploader async_index_geom_loader;
+
+
+	std::vector<GLuint> texture_names;
 };
 
 

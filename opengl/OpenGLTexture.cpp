@@ -478,7 +478,7 @@ static int getActiveTextureUnit()
 #endif
 
 
-void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, OpenGLTextureFormat format_, Filtering filtering_)
+void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine, const std::vector<const void*>& tex_data, OpenGLTextureFormat format_, Filtering filtering_)
 {
 	assert(tex_data.size() == 6);
 
@@ -488,6 +488,7 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 	this->yres = tex_yres;
 	this->num_mipmap_levels_allocated = 1;
 	this->texture_target = GL_TEXTURE_CUBE_MAP;
+	this->m_opengl_engine = opengl_engine;
 
 	if(texture_handle)
 	{
@@ -495,7 +496,12 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, const std::v
 		texture_handle = 0;
 	}
 
-	glGenTextures(1, &texture_handle);
+	assert(m_opengl_engine);
+	if(m_opengl_engine)
+		texture_handle = m_opengl_engine->allocTextureName();
+	else
+		glGenTextures(1, &texture_handle);
+
 	assert(texture_handle != 0);
 
 	glActiveTexture(GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit).
@@ -543,6 +549,8 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		bool use_mipmaps
 	)
 {
+	ZoneScoped; // Tracy profiler
+
 	num_textures_created++;
 	//printVar(num_textures_created);
 	//conPrint("doCreateTexture(): xres: " + toString(xres) + ", yres: " + toString(yres));
@@ -611,7 +619,12 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 
 		if(texture_handle == 0)
 		{
-			glGenTextures(1, &texture_handle);
+			// glGenTextures() can be really slow, like 6ms, apparently due to doing some kind of flush or synchronisation.  So allocate a bunch of names up-front and just use one from that list.
+			assert(m_opengl_engine);
+			if(m_opengl_engine)
+				texture_handle = m_opengl_engine->allocTextureName();
+			else
+				glGenTextures(1, &texture_handle);
 			assert(texture_handle != 0);
 			
 		}

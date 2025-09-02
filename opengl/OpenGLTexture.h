@@ -89,7 +89,7 @@ public:
 	~OpenGLTexture();
 
 	
-	void createCubeMap(size_t tex_xres, size_t tex_yres, const std::vector<const void*>& tex_data, OpenGLTextureFormat format, Filtering filtering);
+	void createCubeMap(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine, const std::vector<const void*>& tex_data, OpenGLTextureFormat format, Filtering filtering);
 
 
 	//--------------------------------------------- Updating existing texture ---------------------------------------------

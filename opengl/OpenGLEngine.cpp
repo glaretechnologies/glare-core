@@ -561,6 +561,9 @@ OpenGLEngine::~OpenGLEngine()
 	cylinder_meshdata = NULL;
 	sprite_quad_meshdata = NULL;
 
+	// Free texture_names
+	glDeleteTextures((GLsizei)texture_names.size(), texture_names.data());
+
 	// Update the message callback userParam to be NULL, since 'this' is being destroyed.
 #if !defined(OSX) && !defined(EMSCRIPTEN)
 	glDebugMessageCallback(myMessageCallback, NULL);
@@ -11674,7 +11677,7 @@ Reference<OpenGLTexture> OpenGLEngine::loadCubeMap(const std::vector<Reference<M
 		const size_t tex_xres = face_maps[0]->getMapWidth();
 		const size_t tex_yres = face_maps[0]->getMapHeight();
 		Reference<OpenGLTexture> opengl_tex = new OpenGLTexture();
-		opengl_tex->createCubeMap(tex_xres, tex_yres, tex_data, OpenGLTextureFormat::Format_RGB_Linear_Float, params.filtering);
+		opengl_tex->createCubeMap(tex_xres, tex_yres, this, tex_data, OpenGLTextureFormat::Format_RGB_Linear_Float, params.filtering);
 
 		//this->opengl_textures.insert(std::make_pair(key, opengl_tex)); // Store
 
@@ -12059,6 +12062,23 @@ void OpenGLEngine::GPUMemFreed(size_t size)
 	total_gpu_mem_allocated -= size;
 
 	// conPrint("Freed " + uInt64ToStringCommaSeparated(size) + " B of GPU mem.    Total allocated: " + uInt64ToStringCommaSeparated(total_gpu_mem_allocated));
+}
+
+
+// glGenTextures() can be really slow, like 6ms, apparently due to doing some kind of flush or synchronisation.  So allocate a bunch of names up-front and just use one from that list.
+GLuint OpenGLEngine::allocTextureName()
+{
+	if(texture_names.empty())
+	{
+		//Timer timer;
+		texture_names.resize(2048);
+		glGenTextures(2048, texture_names.data());
+		//conPrint("\n\n\n*********************** glGenTextures took " + timer.elapsedStringMSWIthNSigFigs());
+	}
+
+	GLuint name = texture_names.back();
+	texture_names.pop_back();
+	return name;
 }
 
 
