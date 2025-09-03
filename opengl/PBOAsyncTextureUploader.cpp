@@ -26,33 +26,29 @@ void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef t
 {
 	ZoneScoped; // Tracy profiler
 
-	//pbo->bind(); // Bind the PBO.  glTexSubImage2D etc. will read from this PBO.
-	//opengl_tex->bind();
+	// Copy from the PBO to the texture.
+	// Note that this copy needs to go before the fence is inserted, so that when/if the PBO is reused we know the GPU is finished with it and we can overwrite its content.
+	pbo->bind(); // Bind the PBO.  glTexSubImage2D etc. will read from this PBO.
+	opengl_tex->bind();
 
-	//const size_t num_mip_levels_to_load = myMin((size_t)opengl_tex->getNumMipMapLevelsAllocated(), texture_data->numMipLevels());
-	//for(size_t k=0; k<num_mip_levels_to_load; ++k)
-	//{
-	//	const size_t W = texture_data->W;
-	//	const size_t H = texture_data->H;
-	//	const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
-	//	const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
-	//	const size_t level_D = texture_data->D;
+	const size_t num_mip_levels_to_load = myMin((size_t)opengl_tex->getNumMipMapLevelsAllocated(), texture_data->numMipLevels());
+	for(size_t k=0; k<num_mip_levels_to_load; ++k)
+	{
+		const size_t level_W = myMax((size_t)1, texture_data->W / ((size_t)1 << k));
+		const size_t level_H = myMax((size_t)1, texture_data->H / ((size_t)1 << k));
 
-	//	const size_t level_offset = texture_data->level_offsets[k].offset;
-	//	const size_t level_size   = texture_data->level_offsets[k].level_size;
+		const size_t level_offset = texture_data->level_offsets[k].offset;
+		const size_t level_size   = texture_data->level_offsets[k].level_size;
 
-	//	runtimeCheck(level_H > 0);
-	//	const size_t row_stride_B = level_size / level_H; // not used for compressed textures.  Assume packed.
+		opengl_tex->loadRegionIntoExistingTexture(/*mipmap level=*/(int)k, /*x=*/0, /*y=*/0, /*z=*/0, /*region_w=*/level_W, /*region_h=*/level_H, /*region depth=*/texture_data->D, 
+			/*row_stride_B=*/level_size / level_H, // not used for compressed textures  Assume packed.
+			ArrayRef<uint8>((const uint8*)level_offset, level_size), // tex data
+			/*bind_needed=*/false
+		);
+	}
 
-	//	opengl_tex->loadRegionIntoExistingTexture(/*mipmap level=*/(int)k, /*x=*/0, /*y=*/0, /*z=*/0, /*region_w=*/level_W, /*region_h=*/level_H, /*region depth=*/level_D, 
-	//		row_stride_B, // not used for compressed textures
-	//		ArrayRef<uint8>((const uint8*)level_offset, level_size), // tex data
-	//		/*bind_needed=*/false
-	//	);
-	//}
-
-	//opengl_tex->unbind();
-	//pbo->unbind();
+	opengl_tex->unbind();
+	pbo->unbind();
 
 	// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
 	GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
@@ -88,39 +84,6 @@ void PBOAsyncTextureUploader::checkForUploadedTexture(uint64 frame_num, js::Vect
 			assert(wait_ret != GL_WAIT_FAILED);
 			if(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED)
 			{
-				// This texture has loaded from the PBO!
-				PBORef pbo = front_item.pbo;
-				Reference<TextureData> texture_data = front_item.texture_data;
-				Reference<OpenGLTexture> opengl_tex = front_item.opengl_tex;
-
-				pbo->bind(); // Bind the PBO.  glTexSubImage2D etc. will read from this PBO.
-				opengl_tex->bind();
-
-				const size_t num_mip_levels_to_load = myMin((size_t)opengl_tex->getNumMipMapLevelsAllocated(), texture_data->numMipLevels());
-				for(size_t k=0; k<num_mip_levels_to_load; ++k)
-				{
-					const size_t W = texture_data->W;
-					const size_t H = texture_data->H;
-					const size_t level_W = myMax((size_t)1, W / ((size_t)1 << k));
-					const size_t level_H = myMax((size_t)1, H / ((size_t)1 << k));
-					const size_t level_D = texture_data->D;
-
-					const size_t level_offset = texture_data->level_offsets[k].offset;
-					const size_t level_size   = texture_data->level_offsets[k].level_size;
-
-					runtimeCheck(level_H > 0);
-					const size_t row_stride_B = level_size / level_H; // not used for compressed textures.  Assume packed.
-
-					opengl_tex->loadRegionIntoExistingTexture(/*mipmap level=*/(int)k, /*x=*/0, /*y=*/0, /*z=*/0, /*region_w=*/level_W, /*region_h=*/level_H, /*region depth=*/level_D, 
-						row_stride_B, // not used for compressed textures
-						ArrayRef<uint8>((const uint8*)level_offset, level_size), // tex data
-						/*bind_needed=*/false
-					);
-				}
-
-				opengl_tex->unbind();
-				pbo->unbind();
-			
 				PBOAsyncUploadedTextureInfo loaded_info;
 				loaded_info.opengl_tex = front_item.opengl_tex;
 				loaded_info.pbo = front_item.pbo;
