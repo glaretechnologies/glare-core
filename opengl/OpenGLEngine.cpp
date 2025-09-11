@@ -105,6 +105,10 @@ Copyright Glare Technologies Limited 2023 -
 #define OVERLAY_SHOW_JUST_TEX_W_FLAG		8
 
 
+
+#define OB_AND_MAT_INDICES_STRIDE			3
+
+
 static const size_t max_num_joint_matrices_per_ob = 256; // Max num joint matrices per object.
 
 
@@ -2203,7 +2207,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 #endif
 
 			ob_and_mat_indices_ssbo = new SSBO();
-			ob_and_mat_indices_ssbo->allocate((sizeof(int) * 4) * MAX_BUFFERED_DRAW_COMMANDS/* * 3*/, /*map_memory=*/false);
+			ob_and_mat_indices_ssbo->allocate((sizeof(int) * OB_AND_MAT_INDICES_STRIDE) * MAX_BUFFERED_DRAW_COMMANDS, /*map_memory=*/false);
 			//ob_and_mat_indices_ssbo->allocateForMapping((sizeof(int) * 4) * MAX_BUFFERED_DRAW_COMMANDS * 3);
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX, this->ob_and_mat_indices_ssbo->handle);
 
@@ -11264,11 +11268,10 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 
 
 		const size_t write_i = ob_and_mat_indices_buffer.size();
-		this->ob_and_mat_indices_buffer.resize(write_i + 4);
+		this->ob_and_mat_indices_buffer.resize(write_i + OB_AND_MAT_INDICES_STRIDE);
 		this->ob_and_mat_indices_buffer[write_i + 0] = ob.per_ob_vert_data_index;
 		this->ob_and_mat_indices_buffer[write_i + 1] = ob.joint_matrices_base_index;
 		this->ob_and_mat_indices_buffer[write_i + 2] = opengl_mat.material_data_index;
-		this->ob_and_mat_indices_buffer[write_i + 3] = 0;
 
 		//conPrint("   appended draw call.");
 
@@ -11566,11 +11569,10 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 
 		const size_t write_i = ob_and_mat_indices_buffer.size();
-		this->ob_and_mat_indices_buffer.resize(write_i + 4);
+		this->ob_and_mat_indices_buffer.resize(write_i + OB_AND_MAT_INDICES_STRIDE);
 		this->ob_and_mat_indices_buffer[write_i + 0] = ob.per_ob_vert_data_index;
 		this->ob_and_mat_indices_buffer[write_i + 1] = ob.joint_matrices_base_index;
 		this->ob_and_mat_indices_buffer[write_i + 2] = batch.material_data_or_mat_index;
-		this->ob_and_mat_indices_buffer[write_i + 3] = 0;
 
 		//conPrint("   appended draw call.");
 
@@ -11604,7 +11606,7 @@ void OpenGLEngine::submitBufferedDrawCommands()
 			assert(max_contiguous_draws_remaining_b >= 1);
 		}*/
 
-		doCheck(ob_and_mat_indices_buffer.size() / 4 == draw_commands.size());
+		doCheck(ob_and_mat_indices_buffer.size() / OB_AND_MAT_INDICES_STRIDE == draw_commands.size());
 		
 #if USE_CIRCULAR_BUFFERS_FOR_MDI
 		void* ob_and_mat_ind_write_ptr = ob_and_mat_indices_circ_buf.getRangeForCPUWriting(ob_and_mat_indices_buffer.dataSizeBytes());

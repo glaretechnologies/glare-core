@@ -57,8 +57,8 @@ vec2 rot(vec2 p, float theta)
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
-	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * 4 + 0];
-	material_index        = ob_and_mat_indices[gl_DrawID * 4 + 2];
+	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * OB_AND_MAT_INDICES_STRIDE + 0];
+	material_index        = ob_and_mat_indices[gl_DrawID * OB_AND_MAT_INDICES_STRIDE + 2];
 	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
 #else
 	mat4 model_matrix =  per_object_data.model_matrix;

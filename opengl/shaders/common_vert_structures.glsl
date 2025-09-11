@@ -42,3 +42,6 @@ struct PerObjectVertUniformsStruct
 	float uv0_scale;
 	float uv1_scale;
 };
+
+
+#define OB_AND_MAT_INDICES_STRIDE			3

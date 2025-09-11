@@ -77,9 +77,9 @@ layout (std140) uniform JointMatrixUniforms
 void main()
 {
 #if USE_MULTIDRAW_ELEMENTS_INDIRECT
-	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * 4 + 0];
-	int joints_base_index = ob_and_mat_indices[gl_DrawID * 4 + 1];
-	material_index        = ob_and_mat_indices[gl_DrawID * 4 + 2];
+	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * OB_AND_MAT_INDICES_STRIDE + 0];
+	int joints_base_index = ob_and_mat_indices[gl_DrawID * OB_AND_MAT_INDICES_STRIDE + 1];
+	material_index        = ob_and_mat_indices[gl_DrawID * OB_AND_MAT_INDICES_STRIDE + 2];
 	uint joint_index_mask = 0xFFFFFFFFu;
 	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
 	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
