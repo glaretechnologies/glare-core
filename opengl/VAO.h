@@ -51,6 +51,11 @@ struct VertexAttrib
 		if(!other.normalised && normalised)
 			return false;
 
+		if(stride < other.stride)
+			return true;
+		else if(other.stride < stride)
+			return false;
+
 		if(offset < other.offset)
 			return true;
 		else if(other.offset < offset)
