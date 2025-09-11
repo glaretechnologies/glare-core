@@ -21,7 +21,7 @@ class VertexBufferAllocator;
 class OpenGLMeshRenderData;
 
 
-// A reference-counted stucture, that calls allocator->free() when all references to it are destroyed.
+// A reference-counted structure, that calls allocator->free() when all references to it are destroyed.
 // Not the most efficient way of doing ref-counting on vertex blocks, but should be fine for our purposes.
 struct BlockHandle : public RefCounted
 {
