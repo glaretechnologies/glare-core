@@ -1125,7 +1125,7 @@ static GLenum componentTypeGLEnum(BatchedMesh::ComponentType t)
 }
 
 
-Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAllocator* allocator, const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls, const VBORef& instancing_matrix_data/*bool instancing*/)
+Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAllocator* allocator, const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls)
 {
 	ZoneScoped; // Tracy profiler
 
@@ -1182,12 +1182,7 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		throw glare::Exception("GLMeshBuilding::buildBatchedMesh(): Pos attribute not present.");
 
 	// Work out the max vertex attribute index used, then only specify attributes up to that index.
-	int max_attribute_index = 0;
-	if(normal_attr)							max_attribute_index = 1;
-	if(uv0_attr)							max_attribute_index = 2;
-	if(colour_attr)							max_attribute_index = 3;
-	if(uv1_attr)							max_attribute_index = 4;
-	if(instancing_matrix_data.nonNull())	max_attribute_index = 8;
+	int max_attribute_index = 8; // Always create instancing attributes, may be enabled later.
 	if(joints_attr)							max_attribute_index = 9;
 	if(weights_attr)						max_attribute_index = 10;
 	if(tangent_attr)						max_attribute_index = 11;
@@ -1307,15 +1302,13 @@ Reference<OpenGLMeshRenderData> GLMeshBuilding::buildBatchedMesh(VertexBufferAll
 		for(int i = 0; i < 4; ++i)
 		{
 			VertexAttrib vec4_attrib;
-			vec4_attrib.enabled = instancing_matrix_data.nonNull();
+			vec4_attrib.enabled = false; // These attributes always start disabled, and may be enabled later in GLObject::enableInstancing().
 			vec4_attrib.num_comps = 4;
 			vec4_attrib.type = GL_FLOAT;
 			vec4_attrib.normalised = false;
 			vec4_attrib.stride = 16 * sizeof(float); // This stride and offset is in the instancing_matrix_data VBO.
 			vec4_attrib.offset = (uint32)(sizeof(float) * 4 * i);
 			vec4_attrib.instancing = true;
-
-			//vec4_attrib.vbo = instancing_matrix_data;
 
 			opengl_render_data->vertex_spec.attributes.push_back(vec4_attrib);
 		}

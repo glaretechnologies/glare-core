@@ -44,5 +44,5 @@ public:
 
 	// Build OpenGLMeshRenderData from a BatchedMesh.
 	// May keep a reference to the mesh in the newly created OpenGLMeshRenderData.
-	static Reference<OpenGLMeshRenderData> buildBatchedMesh(VertexBufferAllocator* allocator, const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls, const Reference<VBO>& instancing_matrix_data);
+	static Reference<OpenGLMeshRenderData> buildBatchedMesh(VertexBufferAllocator* allocator, const Reference<BatchedMesh>& mesh_, bool skip_opengl_calls);
 };
