@@ -895,6 +895,8 @@ void OpenGLTexture::buildMipMaps()
 
 void OpenGLTexture::setDebugName(const std::string& name)
 {
+	ZoneScoped; // Tracy profiler
+
 #if !defined(OSX) && !defined(EMSCRIPTEN)
 	// See https://www.khronos.org/opengl/wiki/Debug_Output#Object_names
 	glObjectLabel(GL_TEXTURE, texture_handle, (GLsizei)name.size(), name.c_str());
@@ -1063,7 +1065,7 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 #else
 	if(bindless_tex_handle == 0)
 	{
-		ZoneScopedN("calling glGetTextureHandleARB()"); 
+		ZoneScopedN("glGetTextureHandleARB()"); 
 
 		bindless_tex_handle = glGetTextureHandleARB(this->texture_handle);
 
@@ -1073,7 +1075,7 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 
 	if(bindless_tex_handle && !is_bindless_tex_resident)
 	{
-		ZoneScopedN("calling glMakeTextureHandleResidentARB()"); 
+		ZoneScopedN("glMakeTextureHandleResidentARB()"); 
 
 		glMakeTextureHandleResidentARB(bindless_tex_handle);
 		is_bindless_tex_resident = true;
