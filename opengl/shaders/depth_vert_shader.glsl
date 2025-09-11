@@ -132,16 +132,18 @@ void main()
 	vec4 dequantise_trans = per_object_data.dequantise_translation;
 #endif
 
+	vec4 final_pos_os = dequantise_scale * vec4(position_in.xyz, 1.0) + dequantise_trans;
+
 #if INSTANCE_MATRICES // -----------------
 
 #if USE_WIND_VERT_SHADER
-	vec3 pos_ws    = (instance_matrix_in * vec4(position_in, 1.0)).xyz;
+	vec3 pos_ws    = (instance_matrix_in * final_pos_os).xyz;
 	vec3 normal_ws = (instance_matrix_in * vec4(normal_in, 0.0)).xyz;
 
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 #else // USE_WIND_VERT_SHADER
-	pos_ws =    (instance_matrix_in * vec4(position_in, 1.0)).xyz;
+	pos_ws =    (instance_matrix_in * final_pos_os).xyz;
 
 #if IMPOSTER
 	normal_ws = vec3(1,0,0); // TEMP
@@ -164,11 +166,11 @@ void main()
 	mat4 model_skin_matrix = model_matrix * skin_matrix;
 
 #if USE_WIND_VERT_SHADER
-	vec3 pos_ws =    (model_skin_matrix * vec4(position_in, 1.0)).xyz;
+	vec3 pos_ws =    (model_skin_matrix * final_pos_os).xyz;
 	vec3 normal_ws = (model_skin_matrix * vec4(normal_in, 0.0)).xyz;
 	pos_ws = newPosGivenWind(pos_ws, normal_ws);
 #else
-	pos_ws    = (model_skin_matrix * (dequantise_scale * vec4(position_in, 1.0) + dequantise_trans)).xyz;
+	pos_ws    = (model_skin_matrix * final_pos_os).xyz;
 	normal_ws = (model_skin_matrix * vec4(normal_in, 0.0)).xyz;
 #endif
 
@@ -223,7 +225,7 @@ void main()
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
 #else // else if !IMPOSTER:
 	
-	pos_ws =    (model_matrix  * (dequantise_scale * vec4(position_in, 1.0) + dequantise_trans)).xyz;
+	pos_ws =    (model_matrix  * final_pos_os).xyz;
 	normal_ws = (normal_matrix * vec4(normal_in, 0.0)).xyz;
 
 	gl_Position = proj_matrix * (view_matrix * vec4(pos_ws, 1.0));
