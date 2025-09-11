@@ -2415,9 +2415,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		pbo_pool.init();
 		vbo_pool.init(GL_ARRAY_BUFFER);
 
-#if EMSCRIPTEN
-		index_vbo_pool.init(GL_ELEMENT_ARRAY_BUFFER);
-#endif
+		// WebGL requires index data and vertex data to be kept separate
+		if(!USE_MEM_MAPPING_FOR_GEOM_UPLOAD)
+			index_vbo_pool.init(GL_ELEMENT_ARRAY_BUFFER);
 
 		init_succeeded = true;
 	}
@@ -3306,6 +3306,12 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 	// relevant: use_wind_vert_shader
 	key.fancy_double_sided = false; // for now
 	key.terrain = false;
+//	key.decal = false;
+//	key.participating_media = false;
+//	key.vert_tangents = false;
+	// relevant: sdf_text
+//	key.fancy_double_sided = false;
+//	key.combined = false;
 
 	key.rebuildKeyVal();
 
@@ -4146,7 +4152,7 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 			glare::BestFitAllocator::BlockInfo* block = joint_matrices_allocator->alloc(num_joint_matrices, /*alignment=*/1);
 			if(block == NULL)
 			{
-				expandJointMatricesBuffer(num_joint_matrices);
+				expandJointMatricesBuffer(/*min extra needed=*/num_joint_matrices);
 				block = joint_matrices_allocator->alloc(num_joint_matrices, /*alignment=*/1);
 			}
 
@@ -4315,7 +4321,8 @@ static inline OpenGLProgram* getBuiltDepthDrawProgForMat(OpenGLMaterial& mat)
 
 void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 {
-	// Compute shadow mapping depth-draw batches.  We can merge multiple index batches into one if they share the same depth-draw material, and are contiguous.
+	// Compute shadow mapping depth-draw batches.  We can merge multiple index batches into one if they are contiguous, if they share the same depth-draw shader, and the depth-draw shader does not do alpha testing.
+	// Not doing alpha testing is important because there might be different textures assigned to different materials that use the same shader program, and we need to use the correct texture.
 	// This greatly reduces the number of batches (and hence draw calls) in many cases.
 	if(settings.shadow_mapping)
 	{
@@ -4334,6 +4341,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 			const uint32 cur_face_cull = faceCullBits(object, object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
 				(cur_face_cull != prev_face_cull) || // or face culling differs:
+				(cur_depth_prog && cur_depth_prog->is_depth_draw_with_alpha_test) || // Or if the programs both do alpha testing:
 				(use_src_batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.  We don't need a batch for transparent materials.
@@ -4364,6 +4372,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 			const uint32 cur_face_cull = faceCullBits(object, object.materials[mat_index]);
 			if((cur_depth_prog != prev_depth_prog) || // If batch depth-draw prog differs:
 				(cur_face_cull != prev_face_cull) || // or face culling differs:
+				(cur_depth_prog && cur_depth_prog->is_depth_draw_with_alpha_test) || // Or if the programs both do alpha testing:
 				(use_src_batches[i].prim_start_offset_B != next_contiguous_offset)) // Or this batch's primitives are not immediately after the previous batch's primitives:
 			{
 				// The depth-draw material changed.  So finish the batch.
