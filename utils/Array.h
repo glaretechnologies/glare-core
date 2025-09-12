@@ -38,6 +38,7 @@ public:
 	inline void resizeNoCopy(size_t new_size); // Resize to size N, using default constructor.
 
 	inline size_t size() const;
+	inline size_t dataSizeBytes() const; // Return the number of bytes needed to hold size elements, e.g. sizeof(T) * size().  Ignores Array member overhead.
 	inline bool empty() const;
 	inline bool nonEmpty() const;
 
@@ -164,6 +165,13 @@ template <class T>
 size_t Array<T>::size() const
 {
 	return size_;
+}
+
+
+template <class T>
+size_t Array<T>::dataSizeBytes() const
+{
+	return sizeof(T) * size();
 }
 
 

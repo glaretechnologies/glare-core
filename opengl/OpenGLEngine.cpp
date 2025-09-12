@@ -174,6 +174,12 @@ static inline uint32 indexTypeSizeBytes(GLenum index_type)
 }
 
 
+static inline uint32 indexTypeLog2SizeBytes(GLenum index_type)
+{
+	return Maths::intLogBase2(indexTypeSizeBytes(index_type));
+}
+
+
 // For grouping OpenGL API calls into groups in RenderDoc.
 class DebugGroup
 {
@@ -206,7 +212,7 @@ GLObject::GLObject() noexcept
 	vao = NULL;
 	vert_vbo = NULL;
 	index_vbo = NULL;
-	index_type_and_size = 0;
+	index_type_and_log2_size = 0;
 	instance_matrix_vbo_name = 0;
 	indices_vbo_handle_offset = 0;
 	vbo_handle_base_vertex = 0;
@@ -467,7 +473,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	add_debug_obs(false),
 	async_texture_loader(NULL),
 	current_bound_phong_uniform_buf_ob_index(0),
-	show_ssao(true)
+	show_ssao(true),
+	num_draw_commands(0)
 {
 	current_index_type = 0;
 	current_bound_prog = NULL;
@@ -2206,10 +2213,14 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			draw_indirect_buffer->unbind();
 #endif
 
+			draw_commands_buffer.resizeNoCopy(MAX_BUFFERED_DRAW_COMMANDS);
+
 			ob_and_mat_indices_ssbo = new SSBO();
 			ob_and_mat_indices_ssbo->allocate((sizeof(int) * OB_AND_MAT_INDICES_STRIDE) * MAX_BUFFERED_DRAW_COMMANDS, /*map_memory=*/false);
 			//ob_and_mat_indices_ssbo->allocateForMapping((sizeof(int) * 4) * MAX_BUFFERED_DRAW_COMMANDS * 3);
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX, this->ob_and_mat_indices_ssbo->handle);
+
+			ob_and_mat_indices_buffer.resizeNoCopy(OB_AND_MAT_INDICES_STRIDE * MAX_BUFFERED_DRAW_COMMANDS);
 
 #if USE_CIRCULAR_BUFFERS_FOR_MDI
 			ob_and_mat_indices_ssbo->bind();
@@ -4306,7 +4317,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 #endif
 	object.vert_vbo  = object.mesh_data->vbo_handle.vbo.ptr();
 	object.index_vbo = object.mesh_data->indices_vbo_handle.index_vbo.ptr();
-	object.index_type_and_size = (uint32)object.mesh_data->getIndexType() | (indexTypeSizeBytes(object.mesh_data->getIndexType()) << 16);
+	object.index_type_and_log2_size = (uint32)object.mesh_data->getIndexType() | (indexTypeLog2SizeBytes(object.mesh_data->getIndexType()) << 16);
 	object.instance_matrix_vbo_name = object.instance_matrix_vbo.nonNull() ? object.instance_matrix_vbo->bufferName() : 0;
 	object.indices_vbo_handle_offset = (uint32)object.mesh_data->indices_vbo_handle.offset;
 	object.vbo_handle_base_vertex = (uint32)object.mesh_data->vbo_handle.base_vertex;
@@ -5199,7 +5210,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 	assert(vao == (ob.vert_vao.nonNull() ? ob.vert_vao.ptr() : vert_buf_allocator->vao_data[ob.mesh_data->vao_data_index].vao.ptr()));
 
 	// Get the buffers we want to use for this batch.
-	const GLenum index_type = (GLenum)(ob.index_type_and_size & 0xFFFF);
+	const GLenum index_type = (GLenum)(ob.index_type_and_log2_size & 0xFFFF);
 	const VBO* vert_data_vbo = ob.vert_vbo;
 	const VBO* index_vbo = ob.index_vbo;
 
@@ -11251,14 +11262,13 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		const size_t total_buffer_offset = mesh_data.indices_vbo_handle.offset + prim_start_offset_B;
 		assert(total_buffer_offset % index_type_size_B == 0);
 
-		DrawElementsIndirectCommand command;
+		assert(num_draw_commands < MAX_BUFFERED_DRAW_COMMANDS);
+		DrawElementsIndirectCommand& command = this->draw_commands_buffer[num_draw_commands];
 		command.count = (GLsizei)num_indices;
 		command.instanceCount = (uint32)instance_count;
 		command.firstIndex = (uint32)(total_buffer_offset / index_type_size_B); // First index is not a byte offset, but a number-of-indices offset.
 		command.baseVertex = mesh_data.vbo_handle.base_vertex; // "Specifies a constant that should be added to each element of indices when chosing elements from the enabled vertex arrays."
 		command.baseInstance = 0;
-
-		this->draw_commands.push_back(command);
 
 		// Push back per-ob-vert-data and material indices to mat_and_ob_indices_buffer.
 		doCheck((ob.per_ob_vert_data_index >= 0) && ((size_t)ob.per_ob_vert_data_index < this->per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)));
@@ -11267,11 +11277,12 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			doCheck(ob.joint_matrices_base_index >= 0 && (size_t)ob.joint_matrices_base_index < this->joint_matrices_ssbo->byteSize() / sizeof(Matrix4f));
 
 
-		const size_t write_i = ob_and_mat_indices_buffer.size();
-		this->ob_and_mat_indices_buffer.resize(write_i + OB_AND_MAT_INDICES_STRIDE);
-		this->ob_and_mat_indices_buffer[write_i + 0] = ob.per_ob_vert_data_index;
-		this->ob_and_mat_indices_buffer[write_i + 1] = ob.joint_matrices_base_index;
-		this->ob_and_mat_indices_buffer[write_i + 2] = opengl_mat.material_data_index;
+		uint32* const ob_and_mat_indices_buffer_write_ptr = &this->ob_and_mat_indices_buffer[num_draw_commands * OB_AND_MAT_INDICES_STRIDE];
+		ob_and_mat_indices_buffer_write_ptr[0] = ob.per_ob_vert_data_index;
+		ob_and_mat_indices_buffer_write_ptr[1] = ob.joint_matrices_base_index;
+		ob_and_mat_indices_buffer_write_ptr[2] = opengl_mat.material_data_index;
+
+		num_draw_commands++;
 
 		//conPrint("   appended draw call.");
 
@@ -11280,7 +11291,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		//assert(max_contiguous_draws_remaining_a == max_contiguous_draws_remaining_b);
 		//assert(max_contiguous_draws_remaining_b >= 1);
 
-		if((draw_commands.size() >= MAX_BUFFERED_DRAW_COMMANDS) /*(draw_commands.size() >= max_contiguous_draws_remaining_b)*/ || (instance_count > 1))
+		if((num_draw_commands == MAX_BUFFERED_DRAW_COMMANDS) /*(draw_commands.size() >= max_contiguous_draws_remaining_b)*/ || (instance_count > 1))
 			submitBufferedDrawCommands();
 	}
 	else // else if not using multi-draw-indirect for this shader:
@@ -11317,10 +11328,10 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 	const GLenum draw_mode = GL_TRIANGLES;
 
-	const GLenum index_type = (GLenum)(ob.index_type_and_size & 0xFFFF);
-	const uint32 index_type_size_B = ob.index_type_and_size >> 16;
+	const GLenum index_type = (GLenum)(ob.index_type_and_log2_size & 0xFFFF);
+	const uint32 index_type_log2_size_B = ob.index_type_and_log2_size >> 16;
 	assert(index_type == ob.mesh_data->getIndexType());
-	assert(index_type_size_B == indexTypeSizeBytes(index_type));
+	assert((index_type_log2_size_B == indexTypeLog2SizeBytes(index_type)) && ((1 << index_type_log2_size_B) == indexTypeSizeBytes(index_type)));
 
 	
 	if(!use_MDI_and_prog_supports_MDI)
@@ -11543,18 +11554,18 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 
 		assert(ob.indices_vbo_handle_offset == ob.mesh_data->indices_vbo_handle.offset);
 		const uint32 total_buffer_offset = ob.indices_vbo_handle_offset + prim_start_offset;
-		assert(total_buffer_offset % index_type_size_B == 0);
+		assert(total_buffer_offset % (1 << index_type_log2_size_B) == 0);
 
 		assert(ob.vbo_handle_base_vertex == (uint32)ob.mesh_data->vbo_handle.base_vertex);
 
-		DrawElementsIndirectCommand command;
+		assert(num_draw_commands < MAX_BUFFERED_DRAW_COMMANDS);
+		DrawElementsIndirectCommand& command = this->draw_commands_buffer[num_draw_commands];
 		command.count = num_indices;
 		command.instanceCount = instance_count;
-		command.firstIndex = total_buffer_offset / index_type_size_B; // First index is not a byte offset, but a number-of-indices offset.
-		command.baseVertex = ob.vbo_handle_base_vertex; // "Specifies a constant that should be added to each element of indices when chosing elements from the enabled vertex arrays."
+		command.firstIndex = total_buffer_offset >> index_type_log2_size_B; // = total_buffer_offset / index_type_size_B.  First index is not a byte offset, but a number-of-indices offset.
+		command.baseVertex = ob.vbo_handle_base_vertex; // "Specifies a constant that should be added to each element of indices when choosing elements from the enabled vertex arrays."
 		command.baseInstance = 0;
 
-		this->draw_commands.push_back(command);
 
 		// Push back per-ob-vert-data and material indices to mat_and_ob_indices_buffer.
 		doCheck((ob.per_ob_vert_data_index >= 0) && ((size_t)ob.per_ob_vert_data_index < this->per_ob_vert_data_buffer->byteSize() / sizeof(PerObjectVertUniforms)));
@@ -11567,12 +11578,12 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 			doCheck(ob.joint_matrices_base_index >= 0 && (size_t)ob.joint_matrices_base_index < this->joint_matrices_ssbo->byteSize() / sizeof(Matrix4f));
 #endif
 
+		uint32* const ob_and_mat_indices_buffer_write_ptr = &this->ob_and_mat_indices_buffer[num_draw_commands * OB_AND_MAT_INDICES_STRIDE];
+		ob_and_mat_indices_buffer_write_ptr[0] = ob.per_ob_vert_data_index;
+		ob_and_mat_indices_buffer_write_ptr[1] = ob.joint_matrices_base_index;
+		ob_and_mat_indices_buffer_write_ptr[2] = batch.material_data_or_mat_index;
 
-		const size_t write_i = ob_and_mat_indices_buffer.size();
-		this->ob_and_mat_indices_buffer.resize(write_i + OB_AND_MAT_INDICES_STRIDE);
-		this->ob_and_mat_indices_buffer[write_i + 0] = ob.per_ob_vert_data_index;
-		this->ob_and_mat_indices_buffer[write_i + 1] = ob.joint_matrices_base_index;
-		this->ob_and_mat_indices_buffer[write_i + 2] = batch.material_data_or_mat_index;
+		num_draw_commands++;
 
 		//conPrint("   appended draw call.");
 
@@ -11581,7 +11592,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		//assert(max_contiguous_draws_remaining_a == max_contiguous_draws_remaining_b);
 		//assert(max_contiguous_draws_remaining_b >= 1);
 
-		if((draw_commands.size() >= MAX_BUFFERED_DRAW_COMMANDS) /*(draw_commands.size() >= max_contiguous_draws_remaining_b)*/ || (instance_count > 1))
+		if((num_draw_commands == MAX_BUFFERED_DRAW_COMMANDS) /*(draw_commands.size() >= max_contiguous_draws_remaining_b)*/ || (instance_count > 1))
 			submitBufferedDrawCommands();
 	}
 
@@ -11596,7 +11607,7 @@ void OpenGLEngine::submitBufferedDrawCommands()
 
 	//conPrint("Flushing " + toString(this->draw_commands.size()) + " draw commands");
 
-	if(!this->draw_commands.empty())
+	if(num_draw_commands > 0)
 	{
 		//const size_t max_contiguous_draws = draw_indirect_circ_buf.contiguousBytesRemaining() / sizeof(DrawElementsIndirectCommand);
 		/*{
@@ -11606,8 +11617,6 @@ void OpenGLEngine::submitBufferedDrawCommands()
 			assert(max_contiguous_draws_remaining_b >= 1);
 		}*/
 
-		doCheck(ob_and_mat_indices_buffer.size() / OB_AND_MAT_INDICES_STRIDE == draw_commands.size());
-		
 #if USE_CIRCULAR_BUFFERS_FOR_MDI
 		void* ob_and_mat_ind_write_ptr = ob_and_mat_indices_circ_buf.getRangeForCPUWriting(ob_and_mat_indices_buffer.dataSizeBytes());
 		std::memcpy(ob_and_mat_ind_write_ptr, ob_and_mat_indices_buffer.data(), ob_and_mat_indices_buffer.dataSizeBytes());
@@ -11624,18 +11633,19 @@ void OpenGLEngine::submitBufferedDrawCommands()
 #else
 
 		// Upload mat_and_ob_indices_buffer to GPU
-		doCheck(ob_and_mat_indices_buffer.dataSizeBytes() <= ob_and_mat_indices_ssbo->byteSize());
 		
 		// Invalidate ob_and_mat_indices SSBO, as we will probably just be updating and using part of the buffer below.
 		// This hopefully allows the driver some leeway in discarding the rest of the buffer, thereby increasing efficiency.
 		ob_and_mat_indices_ssbo->invalidateBufferData(); // Binds and then invalidates
 
-		ob_and_mat_indices_ssbo->updateData(/*dest offset=*/0, ob_and_mat_indices_buffer.data(), ob_and_mat_indices_buffer.dataSizeBytes(), /*bind needed=*/false);
+		assert(num_draw_commands * (sizeof(uint32) * OB_AND_MAT_INDICES_STRIDE) <= ob_and_mat_indices_ssbo->byteSize());
+		ob_and_mat_indices_ssbo->updateData(/*dest offset=*/0, ob_and_mat_indices_buffer.data(), num_draw_commands * (sizeof(uint32) * OB_AND_MAT_INDICES_STRIDE), /*bind needed=*/false);
 
 
 #if USE_DRAW_INDIRECT_BUFFER_FOR_MDI
 		draw_indirect_buffer->invalidateBufferData();
-		draw_indirect_buffer->updateData(/*offset=*/0, this->draw_commands.data(), this->draw_commands.dataSizeBytes());
+		assert(num_draw_commands * sizeof(DrawElementsIndirectCommand) <= draw_indirect_buffer->byteSize());
+		draw_indirect_buffer->updateData(/*offset=*/0, this->draw_commands_buffer.data(), num_draw_commands * sizeof(DrawElementsIndirectCommand));
 #endif
 
 #endif
@@ -11651,7 +11661,7 @@ void OpenGLEngine::submitBufferedDrawCommands()
 #else
 			this->draw_commands.data(), // Read draw command structures from CPU memory
 #endif
-			(GLsizei)this->draw_commands.size(), // drawcount
+			(GLsizei)num_draw_commands, // drawcount
 			0 // stride - use 0 to mean tightly packed.
 		);
 #endif // end ifndef OSX
@@ -11664,8 +11674,7 @@ void OpenGLEngine::submitBufferedDrawCommands()
 		this->num_multi_draw_indirect_calls++;
 
 		// Now that we have submitted the multi-draw call, start writing to the front of ob_and_mat_indices_buffer and draw_commands again.
-		this->ob_and_mat_indices_buffer.resize(0);
-		this->draw_commands.resize(0);
+		num_draw_commands = 0;
 	}
 }
 

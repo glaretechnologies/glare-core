@@ -346,7 +346,7 @@ struct GLObject
 	VAO* vao;
 	VBO* vert_vbo;
 	VBO* index_vbo;
-	uint32 index_type_and_size; // Lower 16 bits are GLenum index_type, upper 16 bits are size of index type in bytes (e.g. 1, 2, or 4)
+	uint32 index_type_and_log2_size; // Lower 16 bits are GLenum index_type, upper 16 bits are log_2(size) of index type in bytes (e.g. 0, 1, 2 for 1 B, 2 B, or 4 B)
 	GLuint instance_matrix_vbo_name;
 	uint32 indices_vbo_handle_offset;
 	uint32 vbo_handle_base_vertex;
@@ -1604,14 +1604,15 @@ private:
 
 
 	// For MDI:
-	js::Vector<uint32, 16> ob_and_mat_indices_buffer;
+	glare::Array<uint32> ob_and_mat_indices_buffer;
 	SSBORef ob_and_mat_indices_ssbo;
 	OpenGLCircularBuffer ob_and_mat_indices_circ_buf;
 
 	DrawIndirectBufferRef draw_indirect_buffer;
 	OpenGLCircularBuffer draw_indirect_circ_buf;
 
-	js::Vector<DrawElementsIndirectCommand, 16> draw_commands;
+	glare::Array<DrawElementsIndirectCommand> draw_commands_buffer;
+	size_t num_draw_commands; // Number of draw commands currently in draw_commands_buffer, also number of tuples in ob_and_mat_indices_buffer.
 	
 	GLenum current_index_type;
 	const OpenGLProgram* current_bound_prog;
