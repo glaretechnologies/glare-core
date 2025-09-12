@@ -93,7 +93,25 @@ struct ProgramKeyArgs
 
 struct ProgramKey
 {
-	ProgramKey(const std::string& program_name_, const ProgramKeyArgs& args)
+	enum ProgramName
+	{
+		ProgramName_phong,
+		ProgramName_depth,
+		ProgramName_participatingMedia,
+		ProgramName_water,
+		ProgramName_imposter,
+		ProgramName_transparent,
+		ProgramName_overlay,
+		ProgramName_OIT_composite,
+		ProgramName_dof_blur,
+		ProgramName_env,
+		ProgramName_draw_aurora_tex,
+		ProgramName_compute_ssao,
+		ProgramName_blur_ssao,
+		ProgramName_final_imaging
+	};
+
+	ProgramKey(ProgramName program_name_, const ProgramKeyArgs& args)
 	:	program_name(program_name_)
 	{
 		alpha_test					= args.alpha_test;
@@ -127,7 +145,7 @@ struct ProgramKey
 		", participating_media: " + toString(participating_media) + ", vert_tangents: " + toString(vert_tangents) + ", sdf_text: " + toString(sdf_text) + ", fancy_double_sided: " + toString(fancy_double_sided) + ", combined: " + toString(combined) +
 		", position_w_is_oct16_normal: " + toString(position_w_is_oct16_normal); }
 
-	std::string program_name;
+	ProgramName program_name;
 
 	// NOTE: if changing any of these fields, need to call rebuildKeyVal() afterwards.
 	bool alpha_test, vert_colours, instance_matrices, lightmapping, gen_planar_uvs, draw_planar_uv_grid, skinning, imposter, 

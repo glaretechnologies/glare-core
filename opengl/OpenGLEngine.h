@@ -1216,7 +1216,7 @@ private:
 	OpenGLProgramRef buildBlurSSAOProg(const std::string& use_shader_dir);
 	OpenGLProgramRef buildFinalImagingProg(const std::string& use_shader_dir);
 public:
-	OpenGLProgramRef buildProgram(const std::string& shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
+	OpenGLProgramRef buildProgram(const string_view shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	uint32 getAndIncrNextProgramIndex() { return next_program_index++; }
 	void addProgram(OpenGLProgramRef);
 

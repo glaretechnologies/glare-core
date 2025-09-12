@@ -2535,19 +2535,19 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 
 	//------------------------------------------- Build fallback progs -------------------------------------------
 	// Will be used if we hit a shader compilation error later
-	fallback_phong_prog       = getPhongProgram      (ProgramKey("phong",       ProgramKeyArgs()));
-	fallback_transparent_prog = getTransparentProgram(ProgramKey("transparent", ProgramKeyArgs()));
+	fallback_phong_prog       = getPhongProgram      (ProgramKey(ProgramKey::ProgramName_phong, ProgramKeyArgs()));
+	fallback_transparent_prog = getTransparentProgram(ProgramKey(ProgramKey::ProgramName_transparent, ProgramKeyArgs()));
 
 	//------------------------------------------- Build depth-draw prog -------------------------------------------
 	if(settings.shadow_mapping)
-		fallback_depth_prog       = getDepthDrawProgram  (ProgramKey("depth",       ProgramKeyArgs()));
+		fallback_depth_prog       = getDepthDrawProgram  (ProgramKey(ProgramKey::ProgramName_depth, ProgramKeyArgs()));
 
 	//------------------------------------------- Build env prog -------------------------------------------
 	this->env_prog = buildEnvProgram(use_shader_dir);
 
 	//------------------------------------------- Build overlay prog -------------------------------------------
 	{
-		const std::string key_defs = preprocessorDefsForKey(ProgramKey("overlay", ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
+		const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_overlay, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
 		overlay_prog = new OpenGLProgram(
 			"overlay",
 			new OpenGLShader(use_shader_dir + "/overlay_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
@@ -2694,7 +2694,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		
 		//------------------------------------------- Build OIT_composite_prog -------------------------------------------
 		{
-			const std::string key_defs = preprocessorDefsForKey(ProgramKey("OIT_composite", ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
+			const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_OIT_composite, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
 			OIT_composite_prog = new OpenGLProgram(
 				"OIT_composite",
 				new OpenGLShader(use_shader_dir + "/OIT_composite_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
@@ -2717,7 +2717,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 
 		//------------------------------------------- Build dof_blur_prog -------------------------------------------
 		{
-			const std::string key_defs = preprocessorDefsForKey(ProgramKey("dof_blur", ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
+			const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_dof_blur, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
 			dof_blur_prog = new OpenGLProgram(
 				"dof_blur",
 				new OpenGLShader(use_shader_dir + "/dof_blur_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
@@ -2891,7 +2891,7 @@ void OpenGLEngine::finishBuildingProg(OpenGLProgram* prog)
 
 OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir)
 {
-	const std::string key_defs = preprocessorDefsForKey(ProgramKey("env", ProgramKeyArgs()));
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_env, ProgramKeyArgs()));
 
 	OpenGLProgramRef new_env_prog = new OpenGLProgram(
 		"env",
@@ -2918,7 +2918,7 @@ OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir
 
 OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_dir)
 {
-	const std::string key_defs = preprocessorDefsForKey(ProgramKey("draw_aurora_tex", ProgramKeyArgs()));
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_draw_aurora_tex, ProgramKeyArgs()));
 
 	OpenGLProgramRef prog = new OpenGLProgram(
 		"draw_aurora_tex",
@@ -2943,7 +2943,7 @@ OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_
 
 OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shader_dir)
 {
-	const std::string key_defs = preprocessorDefsForKey(ProgramKey("compute_ssao", ProgramKeyArgs()));
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_compute_ssao, ProgramKeyArgs()));
 
 	OpenGLProgramRef prog = new OpenGLProgram(
 		"compute_ssao",
@@ -2968,7 +2968,7 @@ OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shade
 
 OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg(const std::string& use_shader_dir)
 {
-	const std::string key_defs = preprocessorDefsForKey(ProgramKey("blur_ssao", ProgramKeyArgs()));
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_blur_ssao, ProgramKeyArgs()));
 
 	OpenGLProgramRef prog = new OpenGLProgram(
 		"blur_ssao",
@@ -2994,7 +2994,7 @@ OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg(const std::string& use_shader_d
 
 OpenGLProgramRef OpenGLEngine::buildFinalImagingProg(const std::string& use_shader_dir)
 {
-	const std::string key_defs = preprocessorDefsForKey(ProgramKey("final_imaging", ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_final_imaging, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
 	OpenGLProgramRef prog = new OpenGLProgram(
 		"final_imaging",
 		new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
@@ -3206,7 +3206,7 @@ void OpenGLEngine::addProgram(OpenGLProgramRef prog)
 
 
 // shader_name_prefix should be something like "water" or "participating_media"
-OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefix, const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
+OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix, const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
 	if(progs[key] == NULL)
 	{
@@ -3218,9 +3218,9 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
-			shader_name_prefix,
-			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/" + shader_name_prefix + "_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
+			toString(shader_name_prefix),
+			new OpenGLShader(use_shader_dir + "/" + toString(shader_name_prefix) + "_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/" + toString(shader_name_prefix) + "_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/true
 		);
@@ -3259,7 +3259,7 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const std::string& shader_name_prefi
 		//else
 		//	bindUniformBlockToProgram(prog, "LightDataStorage",		LIGHT_DATA_UBO_BINDING_POINT_INDEX);
 
-		if(PRINT_PROG_BUILD_TIMES) conPrint("Built '" + shader_name_prefix + "' program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
+		if(PRINT_PROG_BUILD_TIMES) conPrint("Built '" + toString(shader_name_prefix) + "' program.  Elapsed: " + timer.elapsedStringMSWIthNSigFigs(3) + ", key " + key.description());
 	}
 
 	return progs[key];
@@ -3403,22 +3403,25 @@ OpenGLProgramRef OpenGLEngine::getProgramWithFallbackOnError(const ProgramKey& k
 {
 	try
 	{
-		if(key.program_name == "phong")
-			return getPhongProgram(key);
-		else if(key.program_name == "transparent")
-			return getTransparentProgram(key);
-		else if(key.program_name == "imposter")
-			return getImposterProgram(key);
-		else if(key.program_name == "water")
-			return buildProgram("water", key);
-		else if(key.program_name == "participating_media")
-			return buildProgram("participating_media", key);
-		else if(key.program_name == "depth")
-			return getDepthDrawProgram(key);
-		else
+		switch(key.program_name)
 		{
-			assert(0);
-			throw glare::Exception("Invalid program name '" + key.program_name + ".");
+			case ProgramKey::ProgramName_phong:
+				return getPhongProgram(key);
+			case ProgramKey::ProgramName_transparent:
+				return getTransparentProgram(key);
+			case ProgramKey::ProgramName_imposter:
+				return getImposterProgram(key);
+			case ProgramKey::ProgramName_water:
+				return buildProgram("water", key);
+			case ProgramKey::ProgramName_participatingMedia:
+				return buildProgram("participating_media", key);
+			case ProgramKey::ProgramName_depth:
+				return getDepthDrawProgram(key);
+			default:
+			{
+				assert(0);
+				throw glare::Exception("getProgramWithFallbackOnError(): unhandled program name " + toString(key.program_name) + ".");
+			}
 		}
 	}
 	catch(glare::Exception& e)
@@ -3982,7 +3985,9 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 	key_args.combined = material.combined;
 	key_args.position_w_is_oct16_normal = position_w_is_oct16_normal;
 
-	const ProgramKey key(material.participating_media ? "participating_media" : (material.water ? "water" : (material.imposter ? "imposter" : (material.transparent ? "transparent" : "phong"))), key_args);
+	const ProgramKey key(material.participating_media ? ProgramKey::ProgramName_participatingMedia : (material.water ? ProgramKey::ProgramName_water : 
+		(material.imposter ? ProgramKey::ProgramName_imposter: (material.transparent ? ProgramKey::ProgramName_transparent : ProgramKey::ProgramName_phong))), 
+		key_args);
 
 	material.shader_prog = getProgramWithFallbackOnError(key);
 
@@ -3996,7 +4001,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 		else
 		{
 			// Note that some of the depth_key values are set to false in getDepthDrawProgram() to avoid having too many depth programs.
-			const ProgramKey depth_key("depth", key_args);
+			const ProgramKey depth_key(ProgramKey::ProgramName_depth, key_args);
 
 			material.depth_draw_shader_prog = getDepthDrawProgramWithFallbackOnError(depth_key);
 			material.draw_into_depth_buffer = true;
@@ -11331,7 +11336,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 	const GLenum index_type = (GLenum)(ob.index_type_and_log2_size & 0xFFFF);
 	const uint32 index_type_log2_size_B = ob.index_type_and_log2_size >> 16;
 	assert(index_type == ob.mesh_data->getIndexType());
-	assert((index_type_log2_size_B == indexTypeLog2SizeBytes(index_type)) && ((1 << index_type_log2_size_B) == indexTypeSizeBytes(index_type)));
+	assert((index_type_log2_size_B == indexTypeLog2SizeBytes(index_type)) && ((1u << index_type_log2_size_B) == indexTypeSizeBytes(index_type)));
 
 	
 	if(!use_MDI_and_prog_supports_MDI)
