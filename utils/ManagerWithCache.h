@@ -203,7 +203,13 @@ bool ManagerWithCache<Key, Value, Hash>::removeLRUUnusedItem(Key& removed_key_ou
 		{
 			removed_key_out = key;
 			removed_value_out = res->second.value;
+
+			// Disable add_to_unused_items during erase(), to avoid a map lookup in itemBecameUnused() as the ref count drops to one, as the only reference will be removed_value_out.
+			add_to_unused_items = false;
+
 			items.erase(res);
+
+			add_to_unused_items = true;
 			return true;
 		}
 	}
