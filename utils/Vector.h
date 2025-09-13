@@ -320,13 +320,17 @@ void Vector<T, alignment>::takeFrom(Vector& other)
 	if(this == &other)
 		return;
 
-	T* old_e = e;
+	if(e)
+	{
+		// Destroy old objects
+		for(size_t i=0; i<size_; ++i)
+			e[i].~T();
+		MemAlloc::alignedFree(e);
+	}
 	e = other.e;
 	size_ = other.size_;
 	capacity_ = other.capacity_;
 
-	if(old_e)
-		MemAlloc::alignedFree(old_e);
 	other.e = NULL;
 	other.size_ = 0;
 	other.capacity_ = 0;

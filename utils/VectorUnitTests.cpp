@@ -862,6 +862,31 @@ void VectorUnitTests::test()
 		testAssert(v2[0] == 123);
 	}
 
+	// With TestCounterClass
+	{
+		int ob_count = 0;
+		TestCounterClass dummy(ob_count);
+		testAssert(ob_count == 1);
+
+		{
+			Vector<TestCounterClass, 16> v(
+				10, // count
+				dummy
+			);
+
+			Vector<TestCounterClass, 16> v2(
+				100, // count
+				dummy
+			);
+			
+			testAssert(ob_count == 111);
+
+			v.swapWith(v2);
+
+			testAssert(ob_count == 111);
+		}
+	}
+
 	//========================= takeForm =========================
 	{
 		Vector<int> v, v2;
@@ -892,6 +917,31 @@ void VectorUnitTests::test()
 		testAssert(v2.empty());
 	}
 
+	
+	// With TestCounterClass
+	{
+		int ob_count = 0;
+		TestCounterClass dummy(ob_count);
+		testAssert(ob_count == 1);
+
+		{
+			Vector<TestCounterClass, 16> v(
+				10, // count
+				dummy
+			);
+
+			Vector<TestCounterClass, 16> v2(
+				100, // count
+				dummy
+			);
+			
+			testAssert(ob_count == 111);
+
+			v.takeFrom(v2);
+
+			testAssert(ob_count == 101);
+		}
+	}
 
 
 

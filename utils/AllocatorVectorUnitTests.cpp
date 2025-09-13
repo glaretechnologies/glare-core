@@ -351,6 +351,103 @@ void AllocatorVectorUnitTests::test()
 	}
 
 
+	//========================= takeFrom =========================
+
+	// With int type
+	{
+		AllocatorVector<int, 4> v(
+			10, // count
+			123 // val
+		);
+
+		AllocatorVector<int, 4> v2(
+			100, // count
+			1230 // val
+		);
+	
+		v.takeFrom(v2);
+
+		testAssert(v.size() == 100);
+		for(size_t i=0; i<v.size(); ++i)
+			testAssert(v[i] == 1230);
+	}
+
+	// With TestCounterClass
+	{
+		int ob_count = 0;
+		TestCounterClass dummy(ob_count);
+		testAssert(ob_count == 1);
+
+		{
+			AllocatorVector<TestCounterClass, 16> v(
+				10, // count
+				dummy
+			);
+
+			AllocatorVector<TestCounterClass, 16> v2(
+				100, // count
+				dummy
+			);
+			
+			testAssert(ob_count == 111);
+
+			v.takeFrom(v2);
+
+			testAssert(ob_count == 101);
+		}
+	}
+
+	//========================= swapWith =========================
+
+	// With int type
+	{
+		AllocatorVector<int, 4> v(
+			10, // count
+			123 // val
+		);
+
+		AllocatorVector<int, 4> v2(
+			100, // count
+			1230 // val
+		);
+	
+		v.swapWith(v2);
+
+		testAssert(v.size() == 100);
+		for(size_t i=0; i<v.size(); ++i)
+			testAssert(v[i] == 1230);
+
+		testAssert(v2.size() == 10);
+		for(size_t i=0; i<v2.size(); ++i)
+			testAssert(v2[i] == 123);
+	}
+
+	// With TestCounterClass
+	{
+		int ob_count = 0;
+		TestCounterClass dummy(ob_count);
+		testAssert(ob_count == 1);
+
+		{
+			AllocatorVector<TestCounterClass, 16> v(
+				10, // count
+				dummy
+			);
+
+			AllocatorVector<TestCounterClass, 16> v2(
+				100, // count
+				dummy
+			);
+			
+			testAssert(ob_count == 111);
+
+			v.swapWith(v2);
+
+			testAssert(ob_count == 111);
+		}
+	}
+
+
 	//========================= reserve =========================
 
 	

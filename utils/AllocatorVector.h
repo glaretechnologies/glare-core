@@ -24,6 +24,8 @@ AllocatorVector
 ---------------
 Similar to js::Vector, but stores a reference to an allocator object,
 which if the reference is non-null, does all allocation and deallocation for the vector.
+
+Tests in AllocatorVectorUnitTests.cpp
 =====================================================================*/
 template <class T, size_t alignment = 16>
 class AllocatorVector
@@ -40,7 +42,7 @@ public:
 
 	inline AllocatorVector& operator=(const AllocatorVector& other);
 	inline void swapWith(AllocatorVector& other); // Important note: other should have the same allocator set.
-	inline void takeFrom(AllocatorVector& other); // Important note: other should have the same allocator set.
+	inline void takeFrom(AllocatorVector& other);
 
 	inline void reserve(size_t N); // Make sure capacity is at least N.
 	inline void reserveNoCopy(size_t N); // Make sure capacity is at least N.  Don't copy existing objects.
@@ -311,20 +313,22 @@ void AllocatorVector<T, alignment>::swapWith(AllocatorVector& other)
 template <class T, size_t alignment>
 void AllocatorVector<T, alignment>::takeFrom(AllocatorVector& other)
 {
-	assert(other.getAllocator() == getAllocator());
-
 	assert(capacity_ >= size_);
 
 	if(this == &other)
 		return;
 
-	T* old_e = e;
+	if(e)
+	{
+		// Destroy old objects
+		for(size_t i=0; i<size_; ++i)
+			e[i].~T();
+		free(e);
+	}
 	e = other.e;
 	size_ = other.size_;
 	capacity_ = other.capacity_;
 
-	if(old_e)
-		free(old_e);
 	other.e = NULL;
 	other.size_ = 0;
 	other.capacity_ = 0;
@@ -528,7 +532,8 @@ void AllocatorVector<T, alignment>::clearAndFreeMem() // Set size to zero, but a
 	for(size_t i=0; i<size_; ++i)
 		e[i].~T();
 
-	free(e); // Free old buffer.
+	if(e)
+		free(e); // Free old buffer.
 	e = NULL;
 	size_ = 0;
 	capacity_ = 0;
