@@ -58,7 +58,8 @@ OpenGLTexture::OpenGLTexture()
 	gl_internal_format(GL_RGB),
 	filtering(Filtering_Fancy),
 	texture_target(GL_TEXTURE_2D),
-	total_storage_size_B(0)
+	total_storage_size_B(0),
+	inserted_into_opengl_textures(false)
 {
 	this->allocated_tex_view_info.texture_handle = 0;
 }
@@ -83,7 +84,8 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	bindless_tex_handle(0),
 	is_bindless_tex_resident(false),
 	texture_target((MSAA_samples_ > 1) ? GL_TEXTURE_2D_MULTISAMPLE : ((num_array_images_ > 0) ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D)),
-	total_storage_size_B(0)
+	total_storage_size_B(0),
+	inserted_into_opengl_textures(false)
 {
 	this->allocated_tex_view_info.texture_handle = 0;
 
@@ -119,7 +121,8 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	bindless_tex_handle(0),
 	is_bindless_tex_resident(false),
 	texture_target(GL_TEXTURE_2D),
-	total_storage_size_B(0)
+	total_storage_size_B(0),
+	inserted_into_opengl_textures(false)
 {
 	this->allocated_tex_view_info.texture_handle = 0;
 
@@ -1041,10 +1044,10 @@ size_t OpenGLTexture::getNumResidentTextures()
 
 void OpenGLTexture::textureRefCountDecreasedToOne()
 {
-	// If m_opengl_engine is set, that means this texture was inserted into the opengl_texture ManagerWithCache.
+	// If inserted_into_opengl_textures is true, this texture was inserted into the opengl_texture ManagerWithCache.
 	// The ref count dropping to one means that the only reference held is by the opengl_texture ManagerWithCache.
-	// Therefore the texture is not used.
-	if(m_opengl_engine)
+	// Therefore the texture is not used.  (is not assigned to any object material)
+	if(inserted_into_opengl_textures && m_opengl_engine)
 	{
 		m_opengl_engine->textureBecameUnused(this);
 

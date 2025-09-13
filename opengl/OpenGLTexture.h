@@ -206,6 +206,7 @@ public:
 
 	OpenGLEngine* m_opengl_engine;
 	OpenGLTextureKey key;
+	bool inserted_into_opengl_textures; // Is this texture currently an element of OpenGLEngine::opengl_textures?  Used in textureRefCountDecreasedToOne().
 
 	uint64 bindless_tex_handle;
 	bool is_bindless_tex_resident;

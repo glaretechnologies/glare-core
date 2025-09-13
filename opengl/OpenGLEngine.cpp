@@ -544,12 +544,15 @@ OpenGLEngine::~OpenGLEngine()
 	debug_draw_obs.clear();
 
 
-	// The textures may outlast the OpenGLEngine, so null out the pointer to the opengl engine.
+	// The textures may outlast the OpenGLEngine, so null out the pointer to the opengl engine and set inserted_into_opengl_textures = false.
 	for(auto it = opengl_textures.begin(); it != opengl_textures.end(); ++it)
 	{
 		OpenGLTexture* tex = it->second.value.ptr();
 		if(tex->allocated_tex_view_info.texture_handle == 0) // Don't null out m_opengl_engine if we allocated a texture view from the opengl engine, is needed for freeing texture view
-			it->second.value->m_opengl_engine = NULL;
+		{
+			tex->inserted_into_opengl_textures = false;
+			tex->m_opengl_engine = NULL;
+		}
 	}
 	opengl_textures.clear();
 
@@ -3661,7 +3664,10 @@ void OpenGLEngine::unloadAllData()
 
 	// null out the pointer to the opengl engine so the textures doesn't try and call textureBecameUnused() while we're clearing opengl_textures.
 	for(auto it = opengl_textures.begin(); it != opengl_textures.end(); ++it)
+	{
+		it->second.value->inserted_into_opengl_textures = false;
 		it->second.value->m_opengl_engine = NULL;
+	}
 	opengl_textures.clear();
 
 	tex_CPU_mem_usage = 0;
@@ -11812,6 +11818,7 @@ void OpenGLEngine::addOpenGLTexture(const OpenGLTextureKey& key, const Reference
 
 	opengl_tex->key = key;
 	opengl_tex->m_opengl_engine = this;
+	opengl_tex->inserted_into_opengl_textures = true;
 	this->opengl_textures.set(key, opengl_tex);
 
 	if(opengl_tex->texture_data.nonNull())
@@ -11838,6 +11845,8 @@ void OpenGLEngine::removeOpenGLTexture(const OpenGLTextureKey& key)
 			assert(this->tex_CPU_mem_usage >= tex->texture_data->totalCPUMemUsage());
 			this->tex_CPU_mem_usage -= tex->texture_data->totalCPUMemUsage();
 		}
+
+		tex->inserted_into_opengl_textures = false;
 
 		assert(this->tex_GPU_mem_usage >= tex->getTotalStorageSizeB());
 		this->tex_GPU_mem_usage -= tex->getTotalStorageSizeB();
@@ -12052,6 +12061,8 @@ void OpenGLEngine::checkMDIGPUDataCorrect()
 
 void OpenGLEngine::textureBecameUnused(const OpenGLTexture* tex)
 {
+	assert(tex->inserted_into_opengl_textures && tex->m_opengl_engine == this);
+
 	opengl_textures.itemBecameUnused(tex->key);
 
 	// conPrint("Texture " + tex->key.path + " became unused.");
@@ -12062,6 +12073,7 @@ void OpenGLEngine::textureBecameUnused(const OpenGLTexture* tex)
 void OpenGLEngine::textureBecameUsed(const OpenGLTexture* tex)
 {
 	assert(tex->key.path != "");
+	assert(tex->inserted_into_opengl_textures && tex->m_opengl_engine == this);
 
 	opengl_textures.itemBecameUsed(tex->key);
 
@@ -12134,6 +12146,8 @@ void OpenGLEngine::trimTextureUsage()
 
 			assert(this->tex_GPU_mem_usage >= removed_tex->getTotalStorageSizeB());
 			this->tex_GPU_mem_usage -= removed_tex->getTotalStorageSizeB();
+
+			removed_tex->inserted_into_opengl_textures = false;
 		}
 	}
 }
