@@ -11792,7 +11792,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 	}
 
 	OpenGLTextureLoadingProgress loading_progress;
-	TextureLoading::initialiseTextureLoadingProgress(key.path, this, key, params, texture_data, loading_progress);
+	TextureLoading::initialiseTextureLoadingProgress(key, this, key, params, texture_data, loading_progress);
 
 	const int MAX_ITERS = 1000;
 	int i = 0;
@@ -12072,7 +12072,7 @@ void OpenGLEngine::textureBecameUnused(const OpenGLTexture* tex)
 
 void OpenGLEngine::textureBecameUsed(const OpenGLTexture* tex)
 {
-	assert(tex->key.path != "");
+	assert(tex->key != "");
 	assert(tex->inserted_into_opengl_textures && tex->m_opengl_engine == this);
 
 	opengl_textures.itemBecameUsed(tex->key);
@@ -12514,7 +12514,7 @@ std::string OpenGLEngine::getDiagnostics() const
 		{
 			const OpenGLTexture* tex = i->second.value.ptr();
 		
-			s += ::rightSpacePad(FileUtils::getFilename(tex->key.path).substr(0, 40) + ": ", 40) + uInt32ToStringCommaSeparated((uint32)tex->getTotalStorageSizeB()) + " B\n";
+			s += ::rightSpacePad(FileUtils::getFilename(tex->key).substr(0, 40) + ": ", 40) + uInt32ToStringCommaSeparated((uint32)tex->getTotalStorageSizeB()) + " B\n";
 		}
 		s += "------------------------------------------------------------------\n";
 	}

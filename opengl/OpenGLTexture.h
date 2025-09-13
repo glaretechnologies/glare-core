@@ -21,25 +21,30 @@ class TextureData;
 class Map2D;
 
 
-struct OpenGLTextureKey
-{
-	OpenGLTextureKey() {}
-	explicit OpenGLTextureKey(const std::string& path_) : path(path_) {}
-	std::string path;
+// Made OpenGLTextureKey just be a typedef for std::string for now, to reduce copying of strings.
+//struct OpenGLTextureKey
+//{
+//	OpenGLTextureKey() {}
+//	explicit OpenGLTextureKey(const std::string& path_) : path(path_) {}
+//	std::string path;
+//
+//	bool operator < (const OpenGLTextureKey& other) const { return path < other.path; }
+//	bool operator == (const OpenGLTextureKey& other) const { return path == other.path; }
+//};
+//
+//
+//struct OpenGLTextureKeyHash
+//{
+//	size_t operator () (const OpenGLTextureKey& key) const
+//	{
+//		std::hash<std::string> h;
+//		return h(key.path);
+//	}
+//};
 
-	bool operator < (const OpenGLTextureKey& other) const { return path < other.path; }
-	bool operator == (const OpenGLTextureKey& other) const { return path == other.path; }
-};
 
-
-struct OpenGLTextureKeyHash
-{
-	size_t operator () (const OpenGLTextureKey& key) const
-	{
-		std::hash<std::string> h;
-		return h(key.path);
-	}
-};
+typedef std::string OpenGLTextureKey;
+typedef std::hash<OpenGLTextureKey> OpenGLTextureKeyHash;
 
 
 std::string getStringForGLInternalFormat(GLint internal_format);
