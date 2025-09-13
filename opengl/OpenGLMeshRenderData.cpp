@@ -8,6 +8,9 @@ Copyright Glare Technologies Limited 2025 -
 
 #include "IncludeOpenGL.h"
 #include "../graphics/BatchedMesh.h"
+#include <utils/StringUtils.h>
+#include <utils/Timer.h>
+#include <tracy/Tracy.hpp>
 
 
 static inline uint32 indexTypeSizeBytes(GLenum index_type)
@@ -131,10 +134,19 @@ void OpenGLMeshRenderData::getVertAndIndexArrayRefs(ArrayRef<uint8>& vert_data_o
 
 void OpenGLMeshRenderData::clearAndFreeGeometryMem()
 {
+	ZoneScoped; // Tracy profiler
+
 	if(batched_mesh)
 	{
+		//const size_t total_size_B = batched_mesh->vertex_data.capacitySizeBytes() + batched_mesh->index_data.capacitySizeBytes();
+		//Timer timer;
+
 		batched_mesh->vertex_data.clearAndFreeMem();
 		batched_mesh->index_data.clearAndFreeMem();
+
+		//const double elapsed = timer.elapsed();
+		//conPrint("OpenGLMeshRenderData::clearAndFreeGeometryMem(): took " + doubleToStringNSigFigs(elapsed * 1000, 4) + " ms for " + uInt64ToStringCommaSeparated(total_size_B) + " B (" + 
+		//	doubleToStringNSigFigs(total_size_B / elapsed * 1.0e-9, 4) + " GB/s)");
 	}
 	else
 	{
