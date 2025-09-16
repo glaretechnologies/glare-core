@@ -30,7 +30,7 @@ void OpenGLUploadThread::doRun()
 	std::vector<VBORef> vert_vbos(2);
 	for(size_t i=0; i<vert_vbos.size(); ++i)
 	{
-		vert_vbos[i] = new VBO(NULL, 64 * 1024 * 1024, GL_ARRAY_BUFFER, GL_STREAM_DRAW, /*create_persistent_buffer*/true); // TODO: dpn't need to use DRAW
+		vert_vbos[i] = new VBO(NULL, 64 * 1024 * 1024, GL_ARRAY_BUFFER, /*usage (not used)=*/GL_STREAM_DRAW, /*create_persistent_buffer*/true);
 		vert_vbos[i]->map();
 	}
 
@@ -50,7 +50,15 @@ void OpenGLUploadThread::doRun()
 
 			//----------------------------- Copy texture data to PBO -----------------------------
 			Reference<TextureData> texture_data = upload_msg->texture_data;
-			const ArrayRef<uint8> source_data = upload_msg->texture_data->getDataArrayRef();
+			ArrayRef<uint8> source_data = upload_msg->texture_data->getDataArrayRef();
+
+			// Just upload a single frame
+			if(texture_data->isMultiFrame())
+			{
+				//conPrint("OpenGLUploadThread: Uploading frame " + toString(upload_msg->frame_i));
+				runtimeCheck(texture_data->frame_size_B * upload_msg->frame_i + texture_data->frame_size_B <= source_data.size());
+				source_data = source_data.getSlice(/*offset=*/texture_data->frame_size_B * upload_msg->frame_i, /*slice len=*/texture_data->frame_size_B);
+			}
 
 			if(source_data.dataSizeBytes() > pbo->getSize())
 			{
@@ -79,6 +87,13 @@ void OpenGLUploadThread::doRun()
 			{
 				opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*upload_msg->texture_data, opengl_engine, upload_msg->tex_params);
 				opengl_tex->key = upload_msg->/*tex_key*/tex_path;
+
+				if(texture_data->isMultiFrame())
+				{
+					// If this is texture data for an animated texture (Gif), then keep it around.
+					// We need to keep around animated texture data like this, for now, since during animation different frames will be loaded into the OpenGL texture from the tex data.
+					opengl_tex->texture_data = texture_data;
+				}
 			}
 
 			//----------------------------- Copy from the PBO to the OpenGL texture. -----------------------------
@@ -105,25 +120,31 @@ void OpenGLUploadThread::doRun()
 			opengl_tex->unbind();
 			pbo->unbind();
 
-			//----------------------------- Block until PBO upload and copy to OpenGL texture have fully completed -----------------------------
-			// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
-			GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
-			[[maybe_unused]] const GLenum wait_ret = glClientWaitSync(sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
-			assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
-			glDeleteSync(sync_ob); // Destroy sync object
+			if(!upload_msg->existing_opengl_tex)
+			{
+				//----------------------------- Block until PBO upload and copy to OpenGL texture have fully completed -----------------------------
+				// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
+				GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
+				[[maybe_unused]] const GLenum wait_ret = glClientWaitSync(sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
+				assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
+				glDeleteSync(sync_ob); // Destroy sync object
 
-			//----------------------------- Get the bindless texture handle in this thread as can take a while. -----------------------------
-			opengl_tex->createBindlessTextureHandle();
+				//----------------------------- Get the bindless texture handle in this thread as can take a while. -----------------------------
+				opengl_tex->createBindlessTextureHandle();
 
-			//----------------------------- Send TextureUploadedMessage back to client code -----------------------------
-			Reference<TextureUploadedMessage> uploaded_msg = new TextureUploadedMessage();
-			uploaded_msg->tex_path = upload_msg->tex_path;
-			uploaded_msg->tex_params = upload_msg->tex_params;
-			uploaded_msg->texture_data = upload_msg->texture_data;
-			uploaded_msg->opengl_tex = opengl_tex;
-			uploaded_msg->user_info = upload_msg->user_info;
+				//----------------------------- Send TextureUploadedMessage back to client code -----------------------------
+				Reference<TextureUploadedMessage> uploaded_msg = new TextureUploadedMessage();
+				uploaded_msg->tex_path = upload_msg->tex_path;
+				uploaded_msg->tex_params = upload_msg->tex_params;
+				uploaded_msg->texture_data = upload_msg->texture_data;
+				uploaded_msg->opengl_tex = opengl_tex;
+				uploaded_msg->user_info = upload_msg->user_info;
 
-			out_msg_queue->enqueue(uploaded_msg);
+				out_msg_queue->enqueue(uploaded_msg);
+			}
+			else
+				glFlush(); // Flush command buffers so existing texture is updated ASAP.  Needed for timely updates of animated textures.
+
 		}
 		else if(dynamic_cast<UploadGeometryMessage*>(msg.ptr()))
 		{

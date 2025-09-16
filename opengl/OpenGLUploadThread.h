@@ -29,11 +29,12 @@ public:
 class UploadTextureMessage : public ThreadMessage
 {
 public:
+	UploadTextureMessage() : frame_i(0) {}
 	std::string tex_path;
 	TextureParams tex_params;
 	Reference<TextureData> texture_data;
 	Reference<OpenGLTexture> existing_opengl_tex; // When uploading a frame of an animated texture, upload into this already existing texture.  Otherwise create a new texture
-	int load_into_frame_i;
+	int frame_i;
 	Reference<UploadingUserInfo> user_info;
 };
 
