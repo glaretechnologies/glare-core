@@ -55,6 +55,7 @@ layout (std140) uniform MaterialCommonUniforms
 
 
 // Data that is specific to a single object.
+// Should match PhongUniforms in OpenGLEngine.h
 struct MaterialData
 {
 	vec4 diffuse_colour; // Alpha is stored in diffuse_colour.w
