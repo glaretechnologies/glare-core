@@ -46,7 +46,8 @@ PBO::PBO(size_t size_, bool for_upload, bool create_persistent_buffer)
 
 PBO::~PBO()
 {
-	assert(!mapped_ptr);
+	if(mapped_ptr)
+		unmap();
 
 	glDeleteBuffers(1, &buffer_name);
 

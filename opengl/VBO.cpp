@@ -49,7 +49,8 @@ VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage, bool
 
 VBO::~VBO()
 {
-	assert(!mapped_ptr);
+	if(mapped_ptr)
+		unmap();
 
 	glDeleteBuffers(1, &buffer_name);
 
