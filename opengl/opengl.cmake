@@ -80,6 +80,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncGeometryUploader.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncGeometryUploader.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderStatsWidget.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderStatsWidget.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLUploadThread.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLUploadThread.h
 )
 
 

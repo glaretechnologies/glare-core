@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2016 -
 
 
 #include "BasicOpenGLTypes.h"
-#include "../utils/RefCounted.h"
+#include "../utils/ThreadSafeRefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/Platform.h"
 #include <vector>
@@ -110,7 +110,7 @@ VAO
 ---
 Vertex array object
 =====================================================================*/
-class VAO : public RefCounted
+class VAO : public ThreadSafeRefCounted
 {
 public:
 	VAO(const VertexSpec& vertex_spec);

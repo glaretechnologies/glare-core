@@ -70,7 +70,7 @@ public:
 	static void initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, const TextureParams& texture_params, 
 		const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress);
 
-	static void partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>& opengl_engine, OpenGLTextureLoadingProgress& loading_progress, 
+	static void partialLoadTextureIntoOpenGL(OpenGLTextureLoadingProgress& loading_progress, 
 		size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes);
 
 	static Reference<OpenGLTexture> createUninitialisedOpenGLTexture(const TextureData& texture_data, const Reference<OpenGLEngine>& opengl_engine, const TextureParams& texture_params);

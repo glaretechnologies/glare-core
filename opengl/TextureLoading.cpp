@@ -397,7 +397,7 @@ static void doPartialUploadOfLevel(OpenGLTextureLoadingProgress& loading_progres
 }
 
 
-void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>& opengl_engine, OpenGLTextureLoadingProgress& loading_progress,
+void TextureLoading::partialLoadTextureIntoOpenGL(OpenGLTextureLoadingProgress& loading_progress,
 	size_t& total_bytes_uploaded_in_out, size_t max_total_upload_bytes)
 {
 	ZoneScoped; // Tracy profiler
@@ -503,7 +503,5 @@ void TextureLoading::partialLoadTextureIntoOpenGL(const Reference<OpenGLEngine>&
 
 			// Other texture data can be discarded now it has been uploaded to the GPU/OpenGL.
 		}
-
-		opengl_engine->addOpenGLTexture(opengl_tex->key, opengl_tex);
 	}
 }

@@ -1092,6 +1092,20 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 }
 
 
+void OpenGLTexture::createBindlessTextureHandle()
+{
+	if(bindless_tex_handle == 0)
+	{
+		ZoneScopedN("glGetTextureHandleARB()"); 
+
+		bindless_tex_handle = glGetTextureHandleARB(this->texture_handle);
+
+		if(bindless_tex_handle == 0)
+			conPrint("glGetTextureHandleARB() failed");
+	}
+}
+
+
 void OpenGLTexture::makeNonResidentIfResident()
 {
 #if !defined(OSX) && !defined(EMSCRIPTEN)

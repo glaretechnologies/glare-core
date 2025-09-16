@@ -169,8 +169,9 @@ public:
 
 	void textureRefCountDecreasedToOne();
 
+	uint64 getBindlessTextureHandle(); // Create bindless texture handle if not created already, and make texture resident if not already.  Then return handle.
 
-	uint64 getBindlessTextureHandle(); // Get bindless texture handle, and make texture resident if not already.
+	void createBindlessTextureHandle(); // Get bindless texture handle, don't make resident.
 
 	void makeNonResidentIfResident();
 
@@ -207,7 +208,7 @@ private:
 	GLenum texture_target; // e.g. GL_TEXTURE_2D, GL_TEXTURE_2D_MULTISAMPLE or GL_TEXTURE_2D_ARRAY
 	size_t total_storage_size_B;
 public:
-	mutable int64 refcount;
+	mutable glare::AtomicInt refcount;
 
 	OpenGLEngine* m_opengl_engine;
 	OpenGLTextureKey key;

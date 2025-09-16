@@ -140,7 +140,7 @@ static void doTextureChunkedLoadingTestForMap2D(OpenGLEngine& engine, const std:
 	{
 		testAssert(loading_progress.loadingInProgress());
 		size_t total_bytes_uploaded = 0;
-		TextureLoading::partialLoadTextureIntoOpenGL(Reference<OpenGLEngine>(&engine), loading_progress, total_bytes_uploaded, max_total_upload_bytes);
+		TextureLoading::partialLoadTextureIntoOpenGL(loading_progress, total_bytes_uploaded, max_total_upload_bytes);
 		if(loading_progress.done())
 			break;
 	}

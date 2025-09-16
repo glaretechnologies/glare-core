@@ -54,6 +54,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/ThreadManager.h"
 #include "../utils/SmallArray.h"
 #include "../utils/Array.h"
+#include "../utils/Mutex.h"
 #include "../utils/LinearIterSet.h"
 #include "../physics/HashedGrid2.h"
 #include <assert.h>
@@ -1691,7 +1692,7 @@ public:
 
 	AsyncGeometryUploader async_index_geom_loader;
 
-
+	Mutex texture_names_mutex;
 	std::vector<GLuint> texture_names;
 };
 

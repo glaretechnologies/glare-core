@@ -13,6 +13,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../utils/Reference.h"
 #include "../utils/Platform.h"
 #include "../utils/BestFitAllocator.h"
+#include "../utils/Mutex.h"
 #include <map>
 #include <limits>
 
@@ -23,7 +24,7 @@ class OpenGLMeshRenderData;
 
 // A reference-counted structure, that calls allocator->free() when all references to it are destroyed.
 // Not the most efficient way of doing ref-counting on vertex blocks, but should be fine for our purposes.
-struct BlockHandle : public RefCounted
+struct BlockHandle : public ThreadSafeRefCounted
 {
 	BlockHandle(glare::BestFitAllocator::BlockInfo* block_) : block(block_) {}
 	~BlockHandle()
@@ -152,6 +153,8 @@ public:
 
 	size_t use_VBO_size_B;
 	bool use_grouped_vbo_allocator;
+
+	Mutex mutex;
 };
 
 

@@ -11801,13 +11801,13 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 		testAssert(loading_progress.loadingInProgress());
 		const size_t MAX_UPLOAD_SIZE_B = 1000000000ull;
 		size_t total_bytes_uploaded = 0;
-		TextureLoading::partialLoadTextureIntoOpenGL(this, loading_progress, total_bytes_uploaded, MAX_UPLOAD_SIZE_B);
+		TextureLoading::partialLoadTextureIntoOpenGL(loading_progress, total_bytes_uploaded, MAX_UPLOAD_SIZE_B);
 		if(loading_progress.done())
 			break;
 	}
 	runtimeCheck(i < MAX_ITERS);
 
-	assert(this->opengl_textures.find(key) != this->opengl_textures.end()); // partialLoadTextureIntoOpenGL() should have added to opengl_textures.
+	addOpenGLTexture(loading_progress.opengl_tex->key, loading_progress.opengl_tex);
 	return loading_progress.opengl_tex;
 }
 
@@ -12105,6 +12105,8 @@ void OpenGLEngine::GPUMemFreed(size_t size)
 // glGenTextures() can be really slow, like 6ms, apparently due to doing some kind of flush or synchronisation.  So allocate a bunch of names up-front and just use one from that list.
 GLuint OpenGLEngine::allocTextureName()
 {
+	Lock lock(texture_names_mutex);
+
 	if(texture_names.empty())
 	{
 		//Timer timer;

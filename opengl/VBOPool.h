@@ -17,7 +17,7 @@ class VBO;
 // See https://registry.khronos.org/webgl/specs/latest/2.0/#5.14 "The MapBufferRange, FlushMappedBufferRange, and UnmapBuffer entry points are removed from the WebGL 2.0 AP"
 const bool USE_MEM_MAPPING_FOR_GEOM_UPLOAD = false;
 #else
-const bool USE_MEM_MAPPING_FOR_GEOM_UPLOAD = true;
+const bool USE_MEM_MAPPING_FOR_GEOM_UPLOAD = false;
 #endif
 
 
