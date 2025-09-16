@@ -19,6 +19,12 @@ Copyright Glare Technologies Limited 2022 -
 #include <tracy/Tracy.hpp>
 
 
+BlockHandle::~BlockHandle()
+{
+	vert_allocator->freeBlock(block);
+}
+
+
 VertexBufferAllocator::VertexBufferAllocator(bool use_grouped_vbo_allocator_)
 :	use_grouped_vbo_allocator(use_grouped_vbo_allocator_), 
 	use_VBO_size_B(64 * 1024 * 1024) // Default VBO size to use, will be overridden in OpenGLEngine::initialise() though.
@@ -45,6 +51,19 @@ void VertexBufferAllocator::allocateBufferSpaceAndVAO(OpenGLMeshRenderData& mesh
 	mesh_data_in_out.indices_vbo_handle = allocateIndexDataSpace(index_data, index_data_size_B);
 
 	getOrCreateAndAssignVAOForMesh(mesh_data_in_out, vertex_spec);
+}
+
+
+void VertexBufferAllocator::freeBlock(glare::BestFitAllocator::BlockInfo* block)
+{
+	ZoneScoped; // Tracy profiler
+
+	Lock lock(mutex);
+
+	glare::BestFitAllocator* allocator = block->allocator;
+	assert(allocator); // Should be non-null unless the BestFitAllocator has been destroyed (internal logic error)
+	if(allocator)
+		allocator->free(block);
 }
 
 
@@ -166,7 +185,7 @@ VertBufAllocationHandle VertexBufferAllocator::allocateVertexDataSpace(size_t ve
 		const int base_vertex = (int)(used_block->aligned_offset / vert_stride);
 
 		VertBufAllocationHandle handle;
-		handle.block_handle = new BlockHandle(used_block);
+		handle.block_handle = new BlockHandle(this, used_block);
 		runtimeCheck(handle.block_handle->block->aligned_offset % vert_stride == 0);
 		handle.vbo = used_vbo;
 		handle.vbo_id = used_vbo_id;
@@ -251,7 +270,7 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexDataSpace(const voi
 
 
 		IndexBufAllocationHandle handle;
-		handle.block_handle = new BlockHandle(used_block);
+		handle.block_handle = new BlockHandle(this, used_block);
 		runtimeCheck(handle.block_handle->block->aligned_offset % 4 == 0);
 		handle.offset = handle.block_handle->block->aligned_offset;
 		handle.size = size;

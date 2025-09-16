@@ -22,19 +22,14 @@ class VertexBufferAllocator;
 class OpenGLMeshRenderData;
 
 
-// A reference-counted structure, that calls allocator->free() when all references to it are destroyed.
+// A reference-counted structure, that calls allocator->freeBlock() when all references to it are destroyed.
 // Not the most efficient way of doing ref-counting on vertex blocks, but should be fine for our purposes.
 struct BlockHandle : public ThreadSafeRefCounted
 {
-	BlockHandle(glare::BestFitAllocator::BlockInfo* block_) : block(block_) {}
-	~BlockHandle()
-	{
-		glare::BestFitAllocator* allocator = block->allocator;
-		assert(allocator); // Should be non-null unless the BestFitAllocator has been destroyed (internal logic error)
-		if(allocator)
-			allocator->free(block);
-	}
+	BlockHandle(VertexBufferAllocator* vert_allocator_, glare::BestFitAllocator::BlockInfo* block_) : vert_allocator(vert_allocator_), block(block_) {}
+	~BlockHandle();
 
+	VertexBufferAllocator* vert_allocator;
 	glare::BestFitAllocator::BlockInfo* block;
 };
 
@@ -113,6 +108,7 @@ public:
 	void allocateBufferSpaceAndVAO(OpenGLMeshRenderData& mesh_data_in_out, const VertexSpec& vertex_spec, const void* vert_data, size_t vert_data_size_B,
 		const void* index_data, size_t index_data_size_B);
 
+	void freeBlock(glare::BestFitAllocator::BlockInfo* block);
 
 	std::string getDiagnostics() const;
 
