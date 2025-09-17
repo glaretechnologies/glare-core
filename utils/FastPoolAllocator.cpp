@@ -30,7 +30,7 @@ glare::FastPoolAllocator::~FastPoolAllocator()
 	const size_t num_allocated_obs = numAllocatedObs();
 	if(num_allocated_obs > 0)
 	{
-		conPrint(toString(num_allocated_obs) + " obs still allocated in FastPoolAllocator (allocator name: '" + name + "') destructor!");
+		conPrint(toString(num_allocated_obs) + " ob(s) still allocated in FastPoolAllocator (allocator name: '" + name + "') destructor!");
 		assert(0);
 	}
 
