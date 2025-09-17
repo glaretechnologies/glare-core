@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2022 -
 #pragma once
 
 
-#include "RefCounted.h"
+#include "ThreadSafeRefCounted.h"
 #include "Reference.h"
 #include <cstring> // for size_t
 #include <map>
@@ -17,7 +17,7 @@ namespace glare
 {
 
 
-class BestFitAllocator : public RefCounted
+class BestFitAllocator : public ThreadSafeRefCounted
 {
 public:
 	struct BlockInfo

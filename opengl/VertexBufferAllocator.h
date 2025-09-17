@@ -90,7 +90,7 @@ Allocates space for vertex data, out of one or more large shared buffers.
 
 Also allocates space for index data, out of one or more large shared buffers.
 =====================================================================*/
-class VertexBufferAllocator : public RefCounted
+class VertexBufferAllocator : public ThreadSafeRefCounted
 {
 public:
 	// If use_grouped_vbo_allocator is true, use the best-fit allocator, otherwise just make a new VBO for each allocation.
@@ -141,12 +141,13 @@ public:
 
 	std::map<VAOKey, int> vao_map; // Map from VAOKey to index into vao_data;
 
-	std::vector<VAOData> vao_data;
+	std::vector<VAOData> vao_data; // Only to be accessed from main thread
 
+private:
 	std::vector<VBOAndAllocator> vert_vbos;
 
 	std::vector<VBOAndAllocator> index_vbos;
-
+public:
 	size_t use_VBO_size_B;
 	bool use_grouped_vbo_allocator;
 

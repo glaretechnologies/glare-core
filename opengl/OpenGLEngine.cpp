@@ -2429,13 +2429,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		thread_manager.addThread(new ShaderFileWatcherThread(data_dir, this));
 #endif
 
-
-		pbo_pool.init();
-		vbo_pool.init(GL_ARRAY_BUFFER);
-
-		// WebGL requires index data and vertex data to be kept separate
-		if(!USE_MEM_MAPPING_FOR_GEOM_UPLOAD)
+		if(false) // If not using OpenGLUploadThread:
+		{
+			pbo_pool.init();
+			vbo_pool.init(GL_ARRAY_BUFFER);
+			// WebGL requires index data and vertex data to be kept separate
 			index_vbo_pool.init(GL_ELEMENT_ARRAY_BUFFER);
+		}
 
 		init_succeeded = true;
 	}

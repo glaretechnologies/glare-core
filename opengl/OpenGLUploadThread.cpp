@@ -12,6 +12,12 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/KillThreadMessage.h>
 
 
+OpenGLUploadThread::OpenGLUploadThread()
+{
+	upload_texture_msg_allocator = new glare::FastPoolAllocator(sizeof(UploadTextureMessage), /*alignment=*/16, /*block capacity=*/64);
+}
+
+
 void OpenGLUploadThread::doRun()
 {
 	make_gl_context_current_func(gl_context);
@@ -242,4 +248,16 @@ void OpenGLUploadThread::doRun()
 			assert(0);
 		}
 	}
+}
+
+
+UploadTextureMessage* OpenGLUploadThread::allocUploadTextureMessage()
+{
+	glare::FastPoolAllocator::AllocResult alloc_res = upload_texture_msg_allocator->alloc();
+
+	UploadTextureMessage* msg = new (alloc_res.ptr) UploadTextureMessage(); // Construct with placement new
+	msg->allocator = upload_texture_msg_allocator.ptr();
+	msg->allocation_index = alloc_res.index;
+
+	return msg;
 }

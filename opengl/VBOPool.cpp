@@ -35,7 +35,7 @@ void VBOPool::init(GLenum buffer_type)
 
 	const GLenum usage = GL_STREAM_DRAW;
 
-	const bool create_persistent_buffer = USE_MEM_MAPPING_FOR_GEOM_UPLOAD;
+	const bool create_persistent_buffer = false;
 
 	size_info.push_back(SizeInfo({64 * 1024, vbo_infos.size()}));
 	for(int i=0; i<16; ++i)
@@ -98,9 +98,6 @@ void VBOPool::init(GLenum buffer_type)
 	{
 		vbo_infos[i].vbo->pool_index = i;
 
-		if(USE_MEM_MAPPING_FOR_GEOM_UPLOAD)
-			vbo_infos[i].vbo->map();
-
 		total_size += vbo_infos[i].vbo->getSize();
 	}
 	conPrint("Total VBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
@@ -125,11 +122,6 @@ VBORef VBOPool::getUnusedVBO(size_t size_B)
 		assert(vbo_infos[i].vbo->getSize() >= size_B);
 		if(!vbo_infos[i].used)
 		{
-			if(USE_MEM_MAPPING_FOR_GEOM_UPLOAD)
-			{
-				assert(vbo_infos[i].vbo->getMappedPtr()); // Should be mapped if it's not used.
-			}
-
 			vbo_infos[i].used = true;
 
 			return vbo_infos[i].vbo;

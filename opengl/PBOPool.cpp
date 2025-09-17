@@ -36,8 +36,7 @@ void PBOPool::init()
 {
 	Lock lock(mutex);
 
-	const bool create_persistent_buffer = USE_MEM_MAPPING_FOR_TEXTURE_UPLOAD;
-
+	const bool create_persistent_buffer = false;
 
 	// total size: 1 MB
 	size_info.push_back(SizeInfo({64 * 1024, pbo_infos.size()}));
@@ -107,9 +106,6 @@ void PBOPool::init()
 	{
 		pbo_infos[i].pbo->pool_index = i;
 
-		if(USE_MEM_MAPPING_FOR_TEXTURE_UPLOAD)
-			pbo_infos[i].pbo->map();
-
 		total_size += pbo_infos[i].pbo->getSize();
 	}
 	conPrint("Total PBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
@@ -134,11 +130,6 @@ PBORef PBOPool::getUnusedVBO(size_t size_B)
 		assert(pbo_infos[i].pbo->getSize() >= size_B);
 		if(!pbo_infos[i].used)
 		{
-			if(USE_MEM_MAPPING_FOR_TEXTURE_UPLOAD)
-			{
-				assert(pbo_infos[i].pbo->getMappedPtr()); // Should be mapped if it's not used.
-			}
-
 			pbo_infos[i].used = true;
 
 			return pbo_infos[i].pbo;

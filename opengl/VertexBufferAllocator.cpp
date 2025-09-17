@@ -43,7 +43,6 @@ void VertexBufferAllocator::allocateBufferSpaceAndVAO(OpenGLMeshRenderData& mesh
 	const void* index_data, size_t index_data_size_B)
 {
 	ZoneScoped; // Tracy profiler
-
 	Lock lock(mutex);
 
 	mesh_data_in_out.vbo_handle = allocateVertexDataSpace(vertex_spec.vertStride(), vert_data, vert_data_size_B);
@@ -57,7 +56,6 @@ void VertexBufferAllocator::allocateBufferSpaceAndVAO(OpenGLMeshRenderData& mesh
 void VertexBufferAllocator::freeBlock(glare::BestFitAllocator::BlockInfo* block)
 {
 	ZoneScoped; // Tracy profiler
-
 	Lock lock(mutex);
 
 	glare::BestFitAllocator* allocator = block->allocator;
@@ -70,7 +68,6 @@ void VertexBufferAllocator::freeBlock(glare::BestFitAllocator::BlockInfo* block)
 void VertexBufferAllocator::getOrCreateAndAssignVAOForMesh(OpenGLMeshRenderData& mesh_data_in_out, const VertexSpec& vertex_spec)
 {
 	ZoneScoped; // Tracy profiler
-
 	Lock lock(mutex);
 
 	vertex_spec.checkValid();
@@ -202,7 +199,6 @@ VertBufAllocationHandle VertexBufferAllocator::allocateVertexDataSpace(size_t ve
 IndexBufAllocationHandle VertexBufferAllocator::allocateIndexDataSpace(const void* data, size_t size)
 {
 	ZoneScoped; // Tracy profiler
-
 	Lock lock(mutex);
 
 #if DO_INDIVIDUAL_VAO_ALLOC

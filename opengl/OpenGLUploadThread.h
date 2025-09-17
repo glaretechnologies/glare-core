@@ -38,6 +38,9 @@ public:
 	Reference<UploadingUserInfo> user_info;
 };
 
+// Template specialisation of destroyAndFreeOb for UploadTextureMessage.  Forwards to destroyAndFreeOb for ThreadMessage, which will free from upload_texture_msg_allocator.
+template <> inline void destroyAndFreeOb<UploadTextureMessage>(UploadTextureMessage* ob) { destroyAndFreeOb<ThreadMessage>(ob); }
+
 
 class TextureUploadedMessage : public ThreadMessage
 {
@@ -82,7 +85,12 @@ OpenGLUploadThread
 class OpenGLUploadThread : public MessageableThread
 {
 public:
+	OpenGLUploadThread();
+
 	virtual void doRun() override;
+
+	Reference<glare::FastPoolAllocator> upload_texture_msg_allocator;
+	UploadTextureMessage* allocUploadTextureMessage();
 
 
 	void* gl_context;
