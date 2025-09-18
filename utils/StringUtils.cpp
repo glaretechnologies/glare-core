@@ -930,7 +930,7 @@ const std::string getExtension(const std::string& filename)
 }
 
 
-string_view getExtensionStringView(const std::string& path) // Returns everything after the last dot, as a string view.  string_view is only valid as long as path remains valid.
+string_view getExtensionStringView(string_view path) // Returns everything after the last dot, as a string view.  string_view is only valid as long as path remains valid.
 {
 	const std::string::size_type dot_index = path.find_last_of('.');
 
@@ -966,7 +966,18 @@ const std::string removeDotAndExtension(const std::string& filename)
 }
 
 
-bool hasPrefix(const std::string& s, const string_view& prefix)
+string_view removeDotAndExtensionStringView(string_view filename)
+{
+	const string_view::size_type dot_index = filename.find_last_of('.');
+
+	if(dot_index == string_view::npos)
+		return filename;
+	else
+		return filename.substr(0, dot_index);
+}
+
+
+bool hasPrefix(const string_view& s, const string_view& prefix)
 {
 	const size_t s_len      = s.length();
 	const size_t prefix_len = prefix.length();
@@ -1048,6 +1059,15 @@ const std::string getTailSubString(const std::string& s, size_t first_char_index
 {
 	if(first_char_index >= s.size())
 		return std::string();
+
+	return s.substr(first_char_index, s.size() - first_char_index);
+}
+
+
+string_view getTailSubStringStringView(string_view s, size_t first_char_index)
+{
+	if(first_char_index >= s.size())
+		return string_view();
 
 	return s.substr(first_char_index, s.size() - first_char_index);
 }

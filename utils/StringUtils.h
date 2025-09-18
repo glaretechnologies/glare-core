@@ -55,13 +55,13 @@ const std::string floatToString(float f);
 const std::string doubleToString(double d);
 
 // Write to a string with a certain number of decimal places.  Slow.
-const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places);
-const std::string doubleToStringNDecimalPlaces(double d, int num_decimal_places);
+const std::string floatToStringNDecimalPlaces(float f, int num_decimal_places = 4);
+const std::string doubleToStringNDecimalPlaces(double d, int num_decimal_places = 4);
 
-const std::string doubleToStringMaxNDecimalPlaces(double d, int num_decimal_places);
+const std::string doubleToStringMaxNDecimalPlaces(double d, int num_decimal_places = 4);
 
-const std::string floatToStringNSigFigs(float f, int num_sig_figs);
-const std::string doubleToStringNSigFigs(double d, int num_sig_figs);
+const std::string floatToStringNSigFigs(float f, int num_sig_figs = 4);
+const std::string doubleToStringNSigFigs(double d, int num_sig_figs = 4);
 
 // Write to a string with scientific notation, e.g. 4.0e10.
 const std::string doubleToStringScientific(double d, int num_decimal_places = 5);
@@ -155,16 +155,17 @@ char toLowerCase(char c);
 char toUpperCase(char c);
 
 const std::string getExtension(const std::string& filename); // Returns everything after the last dot.
-string_view getExtensionStringView(const std::string& path); // Returns everything after the last dot, as a string view.  string_view is only valid as long as path remains valid.
+string_view getExtensionStringView(string_view path); // Returns everything after the last dot, as a string view.  string_view is only valid as long as path remains valid.
 
 const std::string eatExtension(const std::string& filename);
 const std::string removeDotAndExtension(const std::string& filename);
+string_view removeDotAndExtensionStringView(string_view filename);
 
 // Without the dot
 bool hasExtension(const std::string& filename, const std::string& extension);
 bool hasExtensionStringView(const string_view filename, const string_view extension);
 
-bool hasPrefix(const std::string& s, const string_view& prefix);
+bool hasPrefix(const string_view& s, const string_view& prefix);
 bool hasSuffix(const std::string& s, const string_view& suffix);
 bool hasLastChar(const std::string& s, char c);
 
@@ -179,6 +180,7 @@ void replaceChar(std::string& s, char src, char dest);
 
 // If first_char_index is >= s.size(), then returns ""
 const std::string getTailSubString(const std::string& s, size_t first_char_index);
+string_view getTailSubStringStringView(string_view s, size_t first_char_index);
 
 const std::string forceCopyString(const std::string& s);
 
