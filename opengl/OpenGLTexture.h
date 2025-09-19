@@ -151,11 +151,10 @@ public:
 	/// Returns previous reference count
 	inline int64 decRefCount()
 	{ 
-		const int64 prev_ref_count = refcount;
-		refcount--;
-		assert(refcount >= 0);
+		const int64 prev_ref_count = refcount.decrement();
+		assert(prev_ref_count >= 1);
 
-		if(refcount == 1)
+		if(prev_ref_count == 2)
 			textureRefCountDecreasedToOne();
 
 		return prev_ref_count;

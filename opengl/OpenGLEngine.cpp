@@ -502,6 +502,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	vert_buf_allocator = new VertexBufferAllocator(settings.use_grouped_vbo_allocator);
 
 	animated_objects_task_group = new glare::TaskGroup();
+
+	initial_thread_id = PlatformUtils::getCurrentThreadID();
 }
 
 
@@ -12062,6 +12064,7 @@ void OpenGLEngine::checkMDIGPUDataCorrect()
 void OpenGLEngine::textureBecameUnused(const OpenGLTexture* tex)
 {
 	assert(tex->inserted_into_opengl_textures && tex->m_opengl_engine == this);
+	runtimeCheck(PlatformUtils::getCurrentThreadID() == this->initial_thread_id);
 
 	opengl_textures.itemBecameUnused(tex->key);
 
@@ -12074,6 +12077,7 @@ void OpenGLEngine::textureBecameUsed(const OpenGLTexture* tex)
 {
 	assert(tex->key != "");
 	assert(tex->inserted_into_opengl_textures && tex->m_opengl_engine == this);
+	runtimeCheck(PlatformUtils::getCurrentThreadID() == this->initial_thread_id);
 
 	opengl_textures.itemBecameUsed(tex->key);
 

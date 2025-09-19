@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "graphics/TextureProcessing.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include "../utils/PlatformUtils.h"
 #include <tracy/Tracy.hpp>
 
 
@@ -1049,6 +1050,8 @@ void OpenGLTexture::textureRefCountDecreasedToOne()
 	// Therefore the texture is not used.  (is not assigned to any object material)
 	if(inserted_into_opengl_textures && m_opengl_engine)
 	{
+		assert(PlatformUtils::getCurrentThreadID() == m_opengl_engine->getInitialThreadID());
+
 		m_opengl_engine->textureBecameUnused(this);
 
 #if !defined(OSX) && !defined(EMSCRIPTEN)
@@ -1062,6 +1065,9 @@ void OpenGLTexture::textureRefCountDecreasedToOne()
 // Get bindless texture handle, and make texture resident if not already.
 uint64 OpenGLTexture::getBindlessTextureHandle()
 {
+	if(m_opengl_engine)
+		assert(PlatformUtils::getCurrentThreadID() == m_opengl_engine->getInitialThreadID());
+
 #if defined(OSX) || defined(EMSCRIPTEN)
 	assert(0); // Bindless textures aren't supported in OpenGL ES.
 	return 0;
@@ -1092,6 +1098,7 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 }
 
 
+// This method may be called from another thread
 void OpenGLTexture::createBindlessTextureHandle()
 {
 	if(bindless_tex_handle == 0)
@@ -1108,6 +1115,9 @@ void OpenGLTexture::createBindlessTextureHandle()
 
 void OpenGLTexture::makeNonResidentIfResident()
 {
+	if(m_opengl_engine)
+		assert(PlatformUtils::getCurrentThreadID() == m_opengl_engine->getInitialThreadID());
+
 #if !defined(OSX) && !defined(EMSCRIPTEN)
 	if(is_bindless_tex_resident)
 	{

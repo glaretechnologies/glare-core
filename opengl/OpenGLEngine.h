@@ -1694,6 +1694,10 @@ public:
 
 	Mutex texture_names_mutex;
 	std::vector<GLuint> texture_names;
+
+	uint64 getInitialThreadID() const { return initial_thread_id; }
+private:
+	uint64 initial_thread_id;
 };
 
 
