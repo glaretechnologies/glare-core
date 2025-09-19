@@ -6,6 +6,8 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
+#include "ThreadSafeRefCounted.h"
+#include "Reference.h"
 #include <string>
 
 
@@ -35,3 +37,20 @@ private:
 	void* file_data;
 	size_t file_size;
 };
+
+
+// A reference-counted MemMappedFile
+class SharedMemMappedFile : public ThreadSafeRefCounted
+{
+public:
+	SharedMemMappedFile(const std::string& path); // Throws glare::Exception on failure.
+	~SharedMemMappedFile();
+
+	size_t fileSize() const { return file.fileSize(); } // Returns file size in bytes.
+	const void* fileData() const { return file.fileData(); } // Returns pointer to file data.  NOTE: This pointer will be the null pointer if the file size is zero.
+
+private:
+	MemMappedFile file;
+};
+
+typedef Reference<SharedMemMappedFile> SharedMemMappedFileRef;

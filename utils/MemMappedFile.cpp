@@ -165,6 +165,15 @@ MemMappedFile::~MemMappedFile()
 #endif
 
 
+SharedMemMappedFile::SharedMemMappedFile(const std::string& path)
+:	file(path)
+{}
+
+
+SharedMemMappedFile::~SharedMemMappedFile()
+{}
+
+
 #if BUILD_TESTS
 
 
