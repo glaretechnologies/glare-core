@@ -10,6 +10,8 @@ Copyright Glare Technologies Limited 2025 -
 #include "IncludeOpenGL.h"
 #include "../graphics/TextureData.h"
 #include <utils/KillThreadMessage.h>
+#include <utils/PlatformUtils.h>
+#include <tracy/Tracy.hpp>
 
 
 OpenGLUploadThread::OpenGLUploadThread()
@@ -20,12 +22,17 @@ OpenGLUploadThread::OpenGLUploadThread()
 
 void OpenGLUploadThread::doRun()
 {
+	PlatformUtils::setCurrentThreadName("OpenGLUploadThread");
+
 	make_gl_context_current_func(gl_context);
 
 	int next_pbo_index = 0;
 	int next_vbo_index = 0;
 
-	std::vector<PBORef> pbos(2);
+	// NOTE: biggest geometry seen in Substrata is Green_Lawn_obj_6978297763328388609_opt3.bmesh, 103 MB.
+	// Biggest texture data seen is ~25 MB.
+
+	std::vector<PBORef> pbos(1);
 	for(size_t i=0; i<pbos.size(); ++i)
 	{
 		pbos[i] = new PBO(64 * 1024 * 1024, /*for upload=*/true, /*create_persistent_buffer*/true);
@@ -33,14 +40,21 @@ void OpenGLUploadThread::doRun()
 	}
 
 	
-	std::vector<VBORef> vert_vbos(2);
-	for(size_t i=0; i<vert_vbos.size(); ++i)
+	std::vector<VBORef> vbos(1);
+	for(size_t i=0; i<vbos.size(); ++i)
 	{
-		vert_vbos[i] = new VBO(NULL, 64 * 1024 * 1024, GL_ARRAY_BUFFER, /*usage (not used)=*/GL_STREAM_DRAW, /*create_persistent_buffer*/true);
-		vert_vbos[i]->map();
+		vbos[i] = new VBO(NULL, 128 * 1024 * 1024, GL_ARRAY_BUFFER, /*usage (not used)=*/GL_STREAM_DRAW, /*create_persistent_buffer*/true);
+		vbos[i]->map();
 	}
 
 	VBORef dummy_vert_vbo = new VBO(nullptr, 1024, GL_ARRAY_BUFFER);
+
+
+	Timer timer;
+	uint64 uploaded_in_period_B = 0;
+	uint64 total_uploaded_B = 0;
+	size_t largest_tex_B = 0;
+	size_t largest_geom_B = 0;
 
 	while(1)
 	{
@@ -72,9 +86,15 @@ void OpenGLUploadThread::doRun()
 				continue; // Just drop this texture for now
 			}
 
-			std::memcpy(pbo->getMappedPtr(), source_data.data(), source_data.size()); // TODO: remove memcpy and build texture data directly into PBO
+			{
+				ZoneScopedN("memcpy to PBO"); // Tracy profiler
+				std::memcpy(pbo->getMappedPtr(), source_data.data(), source_data.size()); // TODO: remove memcpy and build texture data directly into PBO
+			}
 
-			pbo->flushRange(0, source_data.size());
+			{
+				ZoneScopedN("flushRange"); // Tracy profiler
+				pbo->flushRange(0, source_data.size());
+			}
 
 			//----------------------------- Free image texture memory now it has been copied to the PBO. -----------------------------
 			if(!texture_data->isMultiFrame())
@@ -129,11 +149,17 @@ void OpenGLUploadThread::doRun()
 			if(!upload_msg->existing_opengl_tex)
 			{
 				//----------------------------- Block until PBO upload and copy to OpenGL texture have fully completed -----------------------------
-				// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
-				GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
-				[[maybe_unused]] const GLenum wait_ret = glClientWaitSync(sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
-				assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
-				glDeleteSync(sync_ob); // Destroy sync object
+				{
+					ZoneScopedN("blocking upload"); // Tracy profiler
+					// const std::string txt = "size: " + toString(source_data.size()) + " B";
+					// ZoneText(txt.c_str(), txt.size());
+					
+					// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
+					GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
+					[[maybe_unused]] const GLenum wait_ret = glClientWaitSync(sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
+					assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
+					glDeleteSync(sync_ob); // Destroy sync object
+				}
 
 				//----------------------------- Get the bindless texture handle in this thread as can take a while. -----------------------------
 				opengl_tex->createBindlessTextureHandle();
@@ -146,40 +172,62 @@ void OpenGLUploadThread::doRun()
 				uploaded_msg->opengl_tex = opengl_tex;
 				uploaded_msg->user_info = upload_msg->user_info;
 
+				opengl_tex = nullptr; // Null out this thread's reference before sending message, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
+
 				out_msg_queue->enqueue(uploaded_msg);
 			}
 			else
+			{
 				glFlush(); // Flush command buffers so existing texture is updated ASAP.  Needed for timely updates of animated textures.
 
+				// If there are zero or one references to opengl_tex/existing_opengl_tex outside this thread,
+				// when opengl_tex and upload_msg->existing_opengl_tex references are nulled out, the ref count will drop to 1 and textureRefCountDecreasedToOne() will be called, 
+				// however this should only be called on the main thread (and the main gl context).
+				// To avoid this issue, put a reference to the texture in UnusedTextureUpdated and send it back to the main thread :)
+				if(opengl_tex->getRefCount() <= 3)
+				{
+					UnusedTextureUpdated* updated_msg = new UnusedTextureUpdated();
+					updated_msg->opengl_tex = opengl_tex;
+
+					// Null out this thread's references before sending message, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
+					opengl_tex = nullptr; 
+					upload_msg->existing_opengl_tex = nullptr;
+
+					out_msg_queue->enqueue(updated_msg);
+				}
+			}
+
+			total_uploaded_B += source_data.size();
+			uploaded_in_period_B += source_data.size();
+			largest_tex_B = myMax(largest_tex_B, source_data.size());
 		}
 		else if(dynamic_cast<UploadGeometryMessage*>(msg.ptr()))
 		{
 			UploadGeometryMessage* upload_msg = dynamic_cast<UploadGeometryMessage*>(msg.ptr());
 			Reference<OpenGLMeshRenderData> meshdata = upload_msg->meshdata;
 
-			VBORef vert_vbo  = vert_vbos[next_vbo_index];
-			next_vbo_index = (next_vbo_index + 1) % (int)vert_vbos.size();
-
-			VBORef index_vbo = NULL;
-
+			VBORef vbo  = vbos[next_vbo_index];
+			next_vbo_index = (next_vbo_index + 1) % (int)vbos.size();
 
 			//----------------------------- Copy mesh data to mapped VBO -----------------------------
 			ArrayRef<uint8> vert_data, index_data;
 			meshdata->getVertAndIndexArrayRefs(vert_data, index_data);
 
-			if(upload_msg->total_geom_size_B > vert_vbo->getSize())
+			if(upload_msg->total_geom_size_B > vbo->getSize())
 			{
 				conPrint("Geometry is too big for VBO!!!");
 				continue; // Just drop this geometry for now
 			}
 
 			// Copy vertex data first
-			std::memcpy(vert_vbo->getMappedPtr(), vert_data.data(), vert_data.size());
+			std::memcpy(vbo->getMappedPtr(), vert_data.data(), vert_data.size());
 
-			// Copy index data  TEMP putting in one combined buffer.
-			std::memcpy((uint8*)vert_vbo->getMappedPtr() + upload_msg->index_data_src_offset_B, index_data.data(), index_data.size());
+			// Copy index data, putting in one combined buffer.
+			std::memcpy((uint8*)vbo->getMappedPtr() + upload_msg->index_data_src_offset_B, index_data.data(), index_data.size());
 
-			vert_vbo->flushRange(0, upload_msg->total_geom_size_B);
+			// Timer timer2;
+
+			vbo->flushRange(0, upload_msg->total_geom_size_B);
 
 			// Free geometry memory now it has been copied to the PBO.
 			meshdata->clearAndFreeGeometryMem();
@@ -187,20 +235,11 @@ void OpenGLUploadThread::doRun()
 
 			//----------------------------- Do a copy to the dummy VBO to force the upload to the GPU to take place. -----------------------------
 			// NOTE: needed?
-			glBindBuffer(GL_COPY_READ_BUFFER,  vert_vbo->bufferName());
+			glBindBuffer(GL_COPY_READ_BUFFER,  vbo->bufferName());
 			glBindBuffer(GL_COPY_WRITE_BUFFER, dummy_vert_vbo->bufferName());
 			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/0, /*size=*/8);
 			glBindBuffer(GL_COPY_READ_BUFFER, 0); // Unbind
 			glBindBuffer(GL_COPY_WRITE_BUFFER, 0); // Unbind
-
-			//if(index_vbo)
-			//{
-			//	glBindBuffer(GL_COPY_READ_BUFFER,  index_vbo->bufferName());
-			//	glBindBuffer(GL_COPY_WRITE_BUFFER, dummy_index_vbo->bufferName());
-			//	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/0, /*size=*/8);
-			//	glBindBuffer(GL_COPY_READ_BUFFER, 0); // Unbind
-			//	glBindBuffer(GL_COPY_WRITE_BUFFER, 0); // Unbind
-			//}
 
 			GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
 			GLenum wait_ret = glClientWaitSync(sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
@@ -216,13 +255,13 @@ void OpenGLUploadThread::doRun()
 
 
 			//----------------------------- Do an on-GPU (hopefully) copy of the source vertex data to the new buffer at the allocated position. -----------------------------
-			glBindBuffer(GL_COPY_READ_BUFFER,  vert_vbo->bufferName());
+			glBindBuffer(GL_COPY_READ_BUFFER,  vbo->bufferName());
 			glBindBuffer(GL_COPY_WRITE_BUFFER, upload_msg->meshdata->vbo_handle.vbo->bufferName());
 			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/meshdata->vbo_handle.offset, meshdata->vbo_handle.size);
 
 			//----------------------------- Do an on-GPU (hopefully) copy of the source index data to the new buffer at the allocated position. -----------------------------
 			// index_vbo may be null in which case both index and vert data is in vert_vbo.
-			glBindBuffer(GL_COPY_READ_BUFFER,  (index_vbo ? index_vbo.ptr() : vert_vbo.ptr())->bufferName());
+			glBindBuffer(GL_COPY_READ_BUFFER,  vbo->bufferName());
 			glBindBuffer(GL_COPY_WRITE_BUFFER, meshdata->indices_vbo_handle.index_vbo->bufferName());
 			glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/upload_msg->index_data_src_offset_B, /*writeOffset=*/meshdata->indices_vbo_handle.offset, meshdata->indices_vbo_handle.size);
 
@@ -236,12 +275,46 @@ void OpenGLUploadThread::doRun()
 			assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
 			glDeleteSync(sync_ob); // Destroy sync object
 
+			//{
+			//	const size_t uploaded_size_B = upload_msg->vert_data_size_B + upload_msg->index_data_size_B;
+			//	const double elapsed = timer2.elapsed();
+			//	const double upload_speed = uploaded_size_B / elapsed;
+			//	conPrint("upload_speed: " + doubleToStringNSigFigs(upload_speed * 1.0e-9) + " GB/s    uploaded in period: " + uInt64ToStringCommaSeparated(uploaded_size_B) + " B over " + doubleToStringNSigFigs(elapsed) + " s");
+			//}
+			
+
 			//----------------------------- Send GeometryUploadedMessage back to client code -----------------------------
 			Reference<GeometryUploadedMessage> uploaded_msg = new GeometryUploadedMessage();
 			uploaded_msg->meshdata = meshdata;
 			uploaded_msg->user_info = upload_msg->user_info;
 
 			out_msg_queue->enqueue(uploaded_msg);
+
+
+			//----------------------------- Compute stats -----------------------------
+			if(0)
+			{
+				total_uploaded_B += upload_msg->vert_data_size_B + upload_msg->index_data_size_B;
+				uploaded_in_period_B += upload_msg->vert_data_size_B + upload_msg->index_data_size_B;
+				largest_geom_B = myMax(largest_geom_B, upload_msg->vert_data_size_B + upload_msg->index_data_size_B);
+
+				if(upload_msg->vert_data_size_B + upload_msg->index_data_size_B > 100000000)
+					conPrint("big");
+			
+				if(timer.elapsed() > 0.5)
+				{
+					const double elapsed = timer.elapsed();
+					const double upload_speed = uploaded_in_period_B / elapsed;
+					conPrint("uploaded in period: " + uInt64ToStringCommaSeparated(uploaded_in_period_B) + " B over " + doubleToStringNSigFigs(elapsed) + " s");
+					conPrint("upload_speed: " + doubleToStringNSigFigs(upload_speed * 1.0e-9) + " GB/s");
+
+					printVar(largest_tex_B);
+					printVar(largest_geom_B);
+			
+					timer.reset();
+					uploaded_in_period_B = 0;
+				}
+			}
 		}
 		else
 		{

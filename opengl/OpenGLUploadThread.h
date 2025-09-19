@@ -53,6 +53,13 @@ public:
 };
 
 
+class UnusedTextureUpdated : public ThreadMessage
+{
+public:
+	Reference<OpenGLTexture> opengl_tex;
+};
+
+
 class UploadGeometryMessage : public ThreadMessage
 {
 public:
@@ -97,7 +104,4 @@ public:
 	std::function<void (void* gl_context)> make_gl_context_current_func;
 	OpenGLEngine* opengl_engine;
 	ThreadSafeQueue<Reference<ThreadMessage> >* out_msg_queue;
-
-private:
-
 };
