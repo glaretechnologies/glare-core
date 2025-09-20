@@ -82,6 +82,7 @@ glare::FastPoolAllocator::AllocResult glare::FastPoolAllocator::alloc()
 		blocks.push_back(BlockInfo());
 
 		const size_t insert_index = free_indices.size();
+		free_indices.reserve(insert_index + block_capacity); // Reserve block_capacity extra space so we don't realloc more space when free() is called and slot 0 is added to free_indices.
 		free_indices.resize(insert_index + block_capacity - 1);
 
 		// Add in reverse order so that the lowest slots are at the back of free_indices, where we will pop first.
@@ -102,6 +103,8 @@ glare::FastPoolAllocator::AllocResult glare::FastPoolAllocator::alloc()
 void glare::FastPoolAllocator::free(int allocation_index)
 {
 	Lock lock(mutex);
+
+	assert(allocation_index >= 0 && allocation_index < blocks.size() * block_capacity);
 
 	free_indices.push_back(allocation_index);
 
@@ -152,6 +155,18 @@ void glare::testFastPoolAllocator()
 		}
 
 		testAssert(pool.numAllocatedObs() == 0);
+	}
+
+	// Check free_indices capacity == block capacity after initial alloc() and free().
+	{
+		FastPoolAllocator pool(/*ob alloc size=*/4, /*alignment=*/4, /*block capacity=*/64);
+
+		FastPoolAllocator::AllocResult a = pool.alloc();
+		pool.free(a.index);
+
+		testAssert(pool.numAllocatedObs() == 0);
+		testAssert(pool.numAllocatedBlocks() == 1);
+		testAssert(pool.free_indices.capacity() == 64);
 	}
 
 	if(false)

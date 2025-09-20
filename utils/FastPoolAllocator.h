@@ -31,7 +31,7 @@ class FastPoolAllocator : public ThreadSafeRefCounted
 public:
 	// alignment must be a power of 2.
 	// block_capacity must be a power of 2.
-	FastPoolAllocator(size_t ob_alloc_size_, size_t alignment, size_t block_capacity);
+	FastPoolAllocator(size_t ob_alloc_size, size_t alignment, size_t block_capacity);
 
 	virtual ~FastPoolAllocator();
 
@@ -48,6 +48,8 @@ public:
 	AllocResult alloc();
 
 	void free(int allocation_index);
+
+	friend void testFastPoolAllocator();
 
 private:
 	struct BlockInfo
