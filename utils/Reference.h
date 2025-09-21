@@ -125,6 +125,26 @@ public:
 	}
 
 
+	void takeFrom(Reference& other)
+	{
+		if(this == &other)
+			return;
+
+		// Decrement reference count for the object that this reference used to refer to.
+		if(ob)
+		{
+			const int64 prev_ref_count = ob->decRefCount();
+			assert(prev_ref_count > 0);
+			if(prev_ref_count == 1)
+				destroyAndFreeOb(ob);
+		}
+
+		ob = other.ob;
+		other.ob = nullptr;
+		// We don't need to change ob's reference count, as the total number of references is unchanged.
+	}
+
+
 	/// Compares the pointer values.
 	bool operator < (const Reference& other) const
 	{

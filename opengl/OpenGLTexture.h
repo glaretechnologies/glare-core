@@ -140,6 +140,8 @@ public:
 	OpenGLTextureFormat getFormat() const { return format; }
 	GLint getInternalFormat() const { return gl_internal_format; }
 
+	bool hasMultiFrameTextureData() const { return texture_data && texture_data->isMultiFrame(); }
+
 
 	/// Increment reference count
 	inline void incRefCount() const

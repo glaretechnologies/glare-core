@@ -17,6 +17,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <functional>
 class OpenGLEngine;
 class OpenGLMeshRenderData;
+struct GLObject;
 
 
 class UploadingUserInfo : public ThreadSafeRefCounted
@@ -33,7 +34,10 @@ public:
 	std::string tex_path;
 	TextureParams tex_params;
 	Reference<TextureData> texture_data;
-	Reference<OpenGLTexture> existing_opengl_tex; // When uploading a frame of an animated texture, upload into this already existing texture.  Otherwise create a new texture
+
+	Reference<OpenGLTexture> old_tex; // When uploading a frame of an animated texture, upload into this already existing texture.  Otherwise create a new texture
+	Reference<OpenGLTexture> new_tex; // When uploading the animated tex frame is done, swap existing_opengl_tex and swap_with_tex on the object
+
 	int frame_i;
 	Reference<UploadingUserInfo> user_info;
 };
@@ -46,11 +50,21 @@ class TextureUploadedMessage : public ThreadMessage
 {
 public:
 	std::string tex_path;
-	TextureParams tex_params;
 	Reference<TextureData> texture_data;
 	Reference<OpenGLTexture> opengl_tex;
 	Reference<UploadingUserInfo> user_info;
 };
+
+
+class AnimatedTextureUpdated : public ThreadMessage
+{
+public:
+	Reference<OpenGLTexture> old_tex; // When uploading a frame of an animated texture, upload into this already existing texture.  Otherwise create a new texture
+	Reference<OpenGLTexture> new_tex; // When uploading the animated tex frame is done, swap existing_opengl_tex and swap_with_tex on the object
+};
+
+// Template specialisation of destroyAndFreeOb for UploadTextureMessage.  Forwards to destroyAndFreeOb for ThreadMessage, which will free from upload_texture_msg_allocator.
+template <> inline void destroyAndFreeOb<AnimatedTextureUpdated>(AnimatedTextureUpdated* ob) { destroyAndFreeOb<ThreadMessage>(ob); }
 
 
 class UnusedTextureUpdated : public ThreadMessage
@@ -96,12 +110,14 @@ public:
 
 	virtual void doRun() override;
 
-	Reference<glare::FastPoolAllocator> upload_texture_msg_allocator;
-	UploadTextureMessage* allocUploadTextureMessage();
-
+	UploadTextureMessage*   allocUploadTextureMessage();
+	AnimatedTextureUpdated* allocAnimatedTextureUpdatedMessage();
 
 	void* gl_context;
 	std::function<void (void* gl_context)> make_gl_context_current_func;
 	OpenGLEngine* opengl_engine;
 	ThreadSafeQueue<Reference<ThreadMessage> >* out_msg_queue;
+
+	Reference<glare::FastPoolAllocator> upload_texture_msg_allocator;
+	Reference<glare::FastPoolAllocator> animated_texture_updated_allocator;
 };

@@ -16,7 +16,10 @@ Copyright Glare Technologies Limited 2025 -
 
 OpenGLUploadThread::OpenGLUploadThread()
 {
-	upload_texture_msg_allocator = new glare::FastPoolAllocator(sizeof(UploadTextureMessage), /*alignment=*/16, /*block capacity=*/64);
+	upload_texture_msg_allocator       = new glare::FastPoolAllocator(sizeof(UploadTextureMessage),   /*alignment=*/16, /*block capacity=*/64);
+	upload_texture_msg_allocator->name = "UploadTextureMessage allocator";
+	animated_texture_updated_allocator = new glare::FastPoolAllocator(sizeof(AnimatedTextureUpdated), /*alignment=*/16, /*block capacity=*/64);
+	animated_texture_updated_allocator->name = "AnimatedTextureUpdated allocator";
 }
 
 
@@ -107,8 +110,8 @@ void OpenGLUploadThread::doRun()
 
 			//----------------------------- Work out texture to upload to.  If uploading to an existing texture, use it.  If uploading to a new texture, create it. -----------------------------
 			Reference<OpenGLTexture> opengl_tex;
-			if(upload_msg->existing_opengl_tex)
-				opengl_tex = upload_msg->existing_opengl_tex;
+			if(upload_msg->new_tex)
+				opengl_tex = upload_msg->new_tex;
 			else
 			{
 				opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*upload_msg->texture_data, opengl_engine, upload_msg->tex_params);
@@ -146,28 +149,28 @@ void OpenGLUploadThread::doRun()
 			opengl_tex->unbind();
 			pbo->unbind();
 
-			if(!upload_msg->existing_opengl_tex)
+			//----------------------------- Block until PBO upload and copy to OpenGL texture have fully completed -----------------------------
 			{
-				//----------------------------- Block until PBO upload and copy to OpenGL texture have fully completed -----------------------------
-				{
-					ZoneScopedN("blocking upload"); // Tracy profiler
-					// const std::string txt = "size: " + toString(source_data.size()) + " B";
-					// ZoneText(txt.c_str(), txt.size());
+				ZoneScopedN("blocking upload"); // Tracy profiler
+				// const std::string txt = "size: " + toString(source_data.size()) + " B";
+				// ZoneText(txt.c_str(), txt.size());
 					
-					// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
-					GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
-					[[maybe_unused]] const GLenum wait_ret = glClientWaitSync(sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
-					assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
-					glDeleteSync(sync_ob); // Destroy sync object
-				}
+				// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
+				GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
+				[[maybe_unused]] const GLenum wait_ret = glClientWaitSync(sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
+				assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
+				glDeleteSync(sync_ob); // Destroy sync object
+			}
 
+
+			if(!upload_msg->new_tex)
+			{
 				//----------------------------- Get the bindless texture handle in this thread as can take a while. -----------------------------
 				opengl_tex->createBindlessTextureHandle();
 
 				//----------------------------- Send TextureUploadedMessage back to client code -----------------------------
 				Reference<TextureUploadedMessage> uploaded_msg = new TextureUploadedMessage();
 				uploaded_msg->tex_path = upload_msg->tex_path;
-				uploaded_msg->tex_params = upload_msg->tex_params;
 				uploaded_msg->texture_data = upload_msg->texture_data;
 				uploaded_msg->opengl_tex = opengl_tex;
 				uploaded_msg->user_info = upload_msg->user_info;
@@ -178,23 +181,17 @@ void OpenGLUploadThread::doRun()
 			}
 			else
 			{
-				glFlush(); // Flush command buffers so existing texture is updated ASAP.  Needed for timely updates of animated textures.
+				if(upload_msg->new_tex->bindless_tex_handle == 0)
+					upload_msg->new_tex->createBindlessTextureHandle();
 
-				// If there are zero or one references to opengl_tex/existing_opengl_tex outside this thread,
-				// when opengl_tex and upload_msg->existing_opengl_tex references are nulled out, the ref count will drop to 1 and textureRefCountDecreasedToOne() will be called, 
-				// however this should only be called on the main thread (and the main gl context).
-				// To avoid this issue, put a reference to the texture in UnusedTextureUpdated and send it back to the main thread :)
-				if(opengl_tex->getRefCount() <= 3)
-				{
-					UnusedTextureUpdated* updated_msg = new UnusedTextureUpdated();
-					updated_msg->opengl_tex = opengl_tex;
 
-					// Null out this thread's references before sending message, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
-					opengl_tex = nullptr; 
-					upload_msg->existing_opengl_tex = nullptr;
+				Reference<AnimatedTextureUpdated> updated_msg = allocAnimatedTextureUpdatedMessage();
+				updated_msg->old_tex.takeFrom(upload_msg->old_tex);
+				updated_msg->new_tex.takeFrom(upload_msg->new_tex);
 
-					out_msg_queue->enqueue(updated_msg);
-				}
+				opengl_tex = nullptr; // Null out this thread's reference before sending message, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
+
+				out_msg_queue->enqueue(updated_msg);
 			}
 
 			total_uploaded_B += source_data.size();
@@ -330,6 +327,18 @@ UploadTextureMessage* OpenGLUploadThread::allocUploadTextureMessage()
 
 	UploadTextureMessage* msg = new (alloc_res.ptr) UploadTextureMessage(); // Construct with placement new
 	msg->allocator = upload_texture_msg_allocator.ptr();
+	msg->allocation_index = alloc_res.index;
+
+	return msg;
+}
+
+
+AnimatedTextureUpdated* OpenGLUploadThread::allocAnimatedTextureUpdatedMessage()
+{
+	glare::FastPoolAllocator::AllocResult alloc_res = animated_texture_updated_allocator->alloc();
+
+	AnimatedTextureUpdated* msg = new (alloc_res.ptr) AnimatedTextureUpdated(); // Construct with placement new
+	msg->allocator = animated_texture_updated_allocator.ptr();
 	msg->allocation_index = alloc_res.index;
 
 	return msg;

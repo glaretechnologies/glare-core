@@ -191,6 +191,59 @@ private:
 
 void run()
 {
+	/////////////////////// Test takeFrom() ///////////////////////
+	{
+		int i = 0;
+		{
+			Reference<TestClass> ref = new TestClass(&i);
+			
+			testAssert(ref->getRefCount() == 1);
+			testAssert(i == 1);
+
+			Reference<TestClass> ref2;
+			ref2.takeFrom(ref);
+
+			testAssert(ref.isNull());
+			testAssert(ref2->getRefCount() == 1);
+			testAssert(i == 1);
+		}
+		testAssert(i == 0);
+	}
+	// Test takeFrom when ref points to another object
+	{
+		int i = 0;
+		{
+			Reference<TestClass> ref = new TestClass(&i);
+			
+			testAssert(ref->getRefCount() == 1);
+			testAssert(i == 1);
+
+			Reference<TestClass> ref2 = new TestClass(&i);
+			testAssert(i == 2);
+			ref2.takeFrom(ref);
+
+			testAssert(ref.isNull());
+			testAssert(ref2->getRefCount() == 1);
+			testAssert(i == 1);
+		}
+		testAssert(i == 0);
+	}
+	// Test takeFrom taking from self
+	{
+		int i = 0;
+		{
+			Reference<TestClass> ref = new TestClass(&i);
+			testAssert(ref->getRefCount() == 1);
+			testAssert(i == 1);
+
+			ref.takeFrom(ref);
+
+			testAssert(ref->getRefCount() == 1);
+			testAssert(i == 1);
+		}
+		testAssert(i == 0);
+	}
+
 	/////////////////////// Test setAsNotIndependentlyHeapAllocated() ///////////////////////
 	{
 		int i = 0;
