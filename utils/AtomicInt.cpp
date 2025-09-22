@@ -189,6 +189,21 @@ void glare::AtomicInt::test()
 		}
 
 		/*
+		With 5900X:
+		--------------
+		With 32 threads:
+		incrementing using atomics took 0.4480 s (56.00 ns / increment)
+		incrementing using mutex took 3.851 s (481.3 ns / increment)
+
+		8 threads:
+		incrementing using atomics took 0.1194 s (14.92 ns / increment)
+		incrementing using mutex took 0.4508 s (56.36 ns / increment)
+
+		1 thread:
+		incrementing using atomics took 0.001398 s (0.1748 ns / increment)
+		incrementing using mutex took 0.005598 s (0.6998 ns / increment)
+
+
 		With 32 threads:
 		incrementing using atomics took 0.4556 s (56.95 ns / increment)
 		incrementing using mutex took 2.501 s (312.6 ns / increment)
