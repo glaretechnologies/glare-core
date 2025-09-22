@@ -1396,9 +1396,6 @@ private:
 	OverlayObjectRef large_debug_overlay_ob;
 	OverlayObjectRef crosshair_overlay_ob;
 
-	double draw_time;
-	Timer draw_timer;
-
 	ManagerWithCache<OpenGLTextureKey, Reference<OpenGLTexture>, OpenGLTextureKeyHash> opengl_textures;
 private:
 	size_t outline_tex_w, outline_tex_h;
@@ -1578,7 +1575,9 @@ private:
 
 
 	double last_anim_update_duration;
+public:
 	double last_draw_CPU_time;
+private:
 	double last_fps;
 
 	bool query_profiling_enabled;

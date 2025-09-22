@@ -6561,6 +6561,8 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+	Timer draw_method_timer;
+
 	glActiveTexture(GL_TEXTURE0);
 	glUseProgram(0);
 	VAO::unbind();
@@ -6754,9 +6756,8 @@ void OpenGLEngine::draw()
 	this->num_indices_submitted = 0;
 	//this->num_face_groups_submitted = 0;
 	//this->num_aabbs_submitted = 0;
-	Timer profile_timer;
 
-	this->draw_time = draw_timer.elapsed();
+
 	double anim_update_duration = 0;
 
 
@@ -7578,7 +7579,7 @@ void OpenGLEngine::draw()
 
 	if(current_scene->collect_stats)
 	{
-		last_draw_CPU_time = profile_timer.elapsed();
+		last_draw_CPU_time = draw_method_timer.elapsed();
 		last_anim_update_duration = anim_update_duration;
 
 		num_frames_since_fps_timer_reset++;
