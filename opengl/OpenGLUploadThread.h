@@ -30,7 +30,9 @@ public:
 class UploadTextureMessage : public ThreadMessage
 {
 public:
-	UploadTextureMessage() : frame_i(0) {}
+	UploadTextureMessage() : is_animated_texture_update(false), frame_i(0) {}
+
+	bool is_animated_texture_update;
 	std::string tex_path;
 	TextureParams tex_params;
 	Reference<TextureData> texture_data;

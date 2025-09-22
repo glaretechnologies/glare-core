@@ -103,8 +103,7 @@ void OpenGLUploadThread::doRun()
 			if(!texture_data->isMultiFrame())
 			{
 				texture_data->mipmap_data.clearAndFreeMem();
-				if(texture_data->converted_image)
-					texture_data->converted_image = nullptr;
+				texture_data->converted_image = nullptr;
 			}
 
 
@@ -117,12 +116,10 @@ void OpenGLUploadThread::doRun()
 				opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*upload_msg->texture_data, opengl_engine, upload_msg->tex_params);
 				opengl_tex->key = upload_msg->/*tex_key*/tex_path;
 
+				// If this is texture data for an animated texture (Gif), then keep it around.
+				// We need to keep around animated texture data like this, for now, since during animation different frames will be loaded into the OpenGL texture from the tex data.
 				if(texture_data->isMultiFrame())
-				{
-					// If this is texture data for an animated texture (Gif), then keep it around.
-					// We need to keep around animated texture data like this, for now, since during animation different frames will be loaded into the OpenGL texture from the tex data.
 					opengl_tex->texture_data = texture_data;
-				}
 			}
 
 			//----------------------------- Copy from the PBO to the OpenGL texture. -----------------------------
@@ -162,12 +159,24 @@ void OpenGLUploadThread::doRun()
 				glDeleteSync(sync_ob); // Destroy sync object
 			}
 
-
-			if(!upload_msg->new_tex)
-			{
-				//----------------------------- Get the bindless texture handle in this thread as can take a while. -----------------------------
+			//----------------------------- Get the bindless texture handle in this thread as can take a while. -----------------------------
+			if(opengl_tex->bindless_tex_handle == 0)
 				opengl_tex->createBindlessTextureHandle();
 
+			if(upload_msg->is_animated_texture_update) // If doing animated texture update:
+			{
+				//----------------------------- Send AnimatedTextureUpdated back to client code -----------------------------
+				Reference<AnimatedTextureUpdated> updated_msg = allocAnimatedTextureUpdatedMessage();
+				updated_msg->old_tex.takeFrom(upload_msg->old_tex);
+				updated_msg->new_tex = opengl_tex;
+
+				upload_msg->new_tex = nullptr;
+				opengl_tex = nullptr; // Null out this thread's reference before sending message, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
+
+				out_msg_queue->enqueue(updated_msg);
+			}
+			else
+			{
 				//----------------------------- Send TextureUploadedMessage back to client code -----------------------------
 				Reference<TextureUploadedMessage> uploaded_msg = new TextureUploadedMessage();
 				uploaded_msg->tex_path = upload_msg->tex_path;
@@ -178,20 +187,6 @@ void OpenGLUploadThread::doRun()
 				opengl_tex = nullptr; // Null out this thread's reference before sending message, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
 
 				out_msg_queue->enqueue(uploaded_msg);
-			}
-			else
-			{
-				if(upload_msg->new_tex->bindless_tex_handle == 0)
-					upload_msg->new_tex->createBindlessTextureHandle();
-
-
-				Reference<AnimatedTextureUpdated> updated_msg = allocAnimatedTextureUpdatedMessage();
-				updated_msg->old_tex.takeFrom(upload_msg->old_tex);
-				updated_msg->new_tex.takeFrom(upload_msg->new_tex);
-
-				opengl_tex = nullptr; // Null out this thread's reference before sending message, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
-
-				out_msg_queue->enqueue(updated_msg);
 			}
 
 			total_uploaded_B += source_data.size();
