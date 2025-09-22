@@ -6553,7 +6553,7 @@ inline static void setThreeDrawBuffers(GLenum buffer_0, GLenum buffer_1, GLenum 
 
 void OpenGLEngine::draw()
 {
-	ZoneScopedC(0x33FF33); // Tracy profiler
+	ZoneScopedC(0x33FF33); // Tracy profiler.  Set green colour for zone.
 	TracyGpuZone("OpenGLEngine::draw");
 	TracyGpuCollect;
 	DebugGroup debug_group("draw()");

@@ -17,9 +17,9 @@ Copyright Glare Technologies Limited 2025 -
 OpenGLUploadThread::OpenGLUploadThread()
 {
 	upload_texture_msg_allocator       = new glare::FastPoolAllocator(sizeof(UploadTextureMessage),   /*alignment=*/16, /*block capacity=*/64);
-	upload_texture_msg_allocator->name = "UploadTextureMessage allocator";
+	upload_texture_msg_allocator->name = "OpenGLUploadThread UploadTextureMessage allocator";
 	animated_texture_updated_allocator = new glare::FastPoolAllocator(sizeof(AnimatedTextureUpdated), /*alignment=*/16, /*block capacity=*/64);
-	animated_texture_updated_allocator->name = "AnimatedTextureUpdated allocator";
+	animated_texture_updated_allocator->name = "OpenGLUploadThread AnimatedTextureUpdated allocator";
 }
 
 
