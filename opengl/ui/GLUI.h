@@ -53,6 +53,7 @@ public:
 	Vec2f UICoordsForWindowPixelCoords(const Vec2f& pixel_coords);
 	Vec2f UICoordsForOpenGLCoords(const Vec2f& gl_coords);
 	Vec2f OpenGLCoordsForUICoords(const Vec2f& ui_coords);
+	Rect2f OpenGLRectCoordsForUICoords(const Rect2f& ui_coords);
 	float OpenGLYScaleForUIYScale(float y_scale);
 
 	void handleMousePress(MouseEvent& event);

@@ -107,6 +107,15 @@ Vec2f GLUI::OpenGLCoordsForUICoords(const Vec2f& ui_coords)
 }
 
 
+Rect2f GLUI::OpenGLRectCoordsForUICoords(const Rect2f& ui_coords)
+{
+	return Rect2f(
+		OpenGLCoordsForUICoords(ui_coords.getMin()), 
+		OpenGLCoordsForUICoords(ui_coords.getMax())
+	);
+}
+
+
 float GLUI::OpenGLYScaleForUIYScale(float y_scale)
 {
 	return y_scale * opengl_engine->getViewPortAspectRatio();
