@@ -22,7 +22,6 @@ Copyright Glare Technologies Limited 2023 -
 #include "OpenGLCircularBuffer.h"
 #include "AsyncTextureLoader.h"
 #include "TextureAllocator.h"
-#include "Query.h"
 #include "PBOPool.h"
 #include "VBOPool.h"
 #include "PBOAsyncTextureUploader.h"
@@ -67,6 +66,8 @@ class TextureServer;
 class UInt8ComponentValueTraits;
 class TerrainSystem;
 class RenderBuffer;
+class Query;
+class TimestampQuery;
 namespace glare { class BestFitAllocator; }
 template <class V, class VTraits> class ImageMap;
 
@@ -1531,14 +1532,17 @@ private:
 	uint32 num_vbo_binds;
 	uint32 num_index_buf_binds;
 
-	QueryRef dynamic_depth_draw_gpu_timer;
-	QueryRef static_depth_draw_gpu_timer;
-	QueryRef draw_opaque_obs_gpu_timer;
-	QueryRef depth_pre_pass_gpu_timer;
-	QueryRef compute_ssao_gpu_timer;
-	QueryRef blur_ssao_gpu_timer;
-	QueryRef copy_prepass_buffers_gpu_timer;
-	QueryRef decal_copy_buffers_timer;
+	Reference<TimestampQuery> start_query;
+	Reference<TimestampQuery> end_query;
+
+	Reference<Query> dynamic_depth_draw_gpu_timer;
+	Reference<Query> static_depth_draw_gpu_timer;
+	Reference<Query> draw_opaque_obs_gpu_timer;
+	Reference<Query> depth_pre_pass_gpu_timer;
+	Reference<Query> compute_ssao_gpu_timer;
+	Reference<Query> blur_ssao_gpu_timer;
+	Reference<Query> copy_prepass_buffers_gpu_timer;
+	Reference<Query> decal_copy_buffers_timer;
 	
 	uint32 last_num_prog_changes;
 	uint32 last_num_batches_bound;
@@ -1554,7 +1558,9 @@ private:
 	uint32 depth_draw_last_num_vao_binds;
 	uint32 depth_draw_last_num_vbo_binds;
 	uint32 depth_draw_last_num_indices_drawn;
-
+public:
+	double last_total_draw_GPU_time;
+private:
 	double last_dynamic_depth_draw_GPU_time;
 	double last_static_depth_draw_GPU_time;
 	double last_draw_opaque_obs_GPU_time;

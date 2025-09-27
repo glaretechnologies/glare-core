@@ -66,6 +66,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/WGL.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/WGL.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/Query.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/Query.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TimestampQuery.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TimestampQuery.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSAODebugging.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSAODebugging.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBO.cpp

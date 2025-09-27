@@ -16,6 +16,8 @@ Copyright Glare Technologies Limited 2023 -
 #include "OpenGLMeshRenderData.h"
 #include "ShaderFileWatcherThread.h"
 #include "AsyncTextureLoader.h"
+#include "Query.h"
+#include "TimestampQuery.h"
 #include "../graphics/TextureProcessing.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/SRGBUtils.h"
@@ -452,6 +454,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	depth_draw_last_num_vao_binds(0),
 	depth_draw_last_num_vbo_binds(0),
 	depth_draw_last_num_indices_drawn(0),
+	last_total_draw_GPU_time(0),
 	last_dynamic_depth_draw_GPU_time(0),
 	last_static_depth_draw_GPU_time(0),
 	last_draw_opaque_obs_GPU_time(0),
@@ -1839,6 +1842,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 	glEnable(GL_DEPTH_TEST);	// Enable z-buffering
 	glDisable(GL_CULL_FACE);	// Disable backface culling
+
+	this->start_query = new TimestampQuery();
+	this->end_query   = new TimestampQuery();
 
 	this->dynamic_depth_draw_gpu_timer = new Query();
 	this->static_depth_draw_gpu_timer = new Query();
@@ -6561,6 +6567,9 @@ void OpenGLEngine::draw()
 	if(!init_succeeded)
 		return;
 
+	if(query_profiling_enabled && current_scene->collect_stats)
+		start_query->recordTimestamp();
+
 	Timer draw_method_timer;
 
 	glActiveTexture(GL_TEXTURE0);
@@ -7550,8 +7559,13 @@ void OpenGLEngine::draw()
 	VAO::unbind(); // Unbind any bound VAO, so that its vertex and index buffers don't get accidentally overridden.
 	glActiveTexture(GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit), while loading data into textures or creating new textures, outside of this draw() call.
 
-	if(query_profiling_enabled)
+	if(query_profiling_enabled && current_scene->collect_stats)
+		end_query->recordTimestamp();
+
+	if(query_profiling_enabled && current_scene->collect_stats)
 	{
+		last_total_draw_GPU_time = end_query->getLastTimestamp() - start_query->getLastTimestamp();
+
 		if(dynamic_depth_draw_gpu_timer->waitingForResult() && dynamic_depth_draw_gpu_timer->checkResultAvailable())
 			last_dynamic_depth_draw_GPU_time = dynamic_depth_draw_gpu_timer->getTimeElapsed();
 

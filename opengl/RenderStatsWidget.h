@@ -7,8 +7,6 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #include <opengl/ui/GLUI.h>
-#include <opengl/ui/GLUIButton.h>
-#include <opengl/ui/GLUITextButton.h>
 #include <opengl/ui/GLUICallbackHandler.h>
 #include <opengl/ui/GLUITextView.h>
 #include <opengl/ui/GLUIInertWidget.h>
@@ -27,7 +25,7 @@ A dynamic bar graph of frame times or CPU usage time per frame.
 class RenderStatsWidget : public GLUICallbackHandler, public ThreadSafeRefCounted
 {
 public:
-	RenderStatsWidget(Reference<OpenGLEngine>& opengl_engine_, GLUIRef gl_ui_);
+	RenderStatsWidget(Reference<OpenGLEngine>& opengl_engine_, GLUIRef gl_ui_, int widget_index);
 	~RenderStatsWidget();
 
 	void setVisible(bool visible);
@@ -42,6 +40,7 @@ private:
 
 	GLUIRef gl_ui;
 	Reference<OpenGLEngine> opengl_engine;
+	int widget_index;
 
 	std::vector<OverlayObjectRef> bars;
 
@@ -50,4 +49,9 @@ private:
 	GLUIInertWidgetRef background_widget;
 
 	std::vector<OverlayObjectRef> horizontal_rules;
+
+	GLUITextViewRef plot_label;
+	GLUITextViewRef stats_label;
+
+	uint64 frame_num;
 };
