@@ -19,23 +19,6 @@ PBOPool::PBOInfo::PBOInfo() : used(false) {}
 
 PBOPool::PBOPool()
 {
-}
-
-
-PBOPool::~PBOPool()
-{
-	for(size_t i=0; i<pbo_infos.size(); ++i)
-	{
-		if(pbo_infos[i].pbo->getMappedPtr())
-			pbo_infos[i].pbo->unmap();
-	}
-}
-
-
-void PBOPool::init()
-{
-	Lock lock(mutex);
-
 	const bool create_persistent_buffer = false;
 
 	// total size: 1 MB
@@ -109,6 +92,16 @@ void PBOPool::init()
 		total_size += pbo_infos[i].pbo->getSize();
 	}
 	conPrint("Total PBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
+}
+
+
+PBOPool::~PBOPool()
+{
+	for(size_t i=0; i<pbo_infos.size(); ++i)
+	{
+		if(pbo_infos[i].pbo->getMappedPtr())
+			pbo_infos[i].pbo->unmap();
+	}
 }
 
 

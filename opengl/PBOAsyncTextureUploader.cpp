@@ -21,6 +21,13 @@ PBOAsyncTextureUploader::~PBOAsyncTextureUploader()
 {}
 
 
+void PBOAsyncTextureUploader::clear()
+{
+	while(!uploading_textures.empty())
+		uploading_textures.pop();
+}
+
+
 void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef texture_data, Reference<OpenGLTexture> opengl_tex, Reference<OpenGLTexture> dummy_opengl_tex, PBORef dummy_pbo, uint64 frame_num,
 	Reference<UploadingTextureUserInfo> user_info)
 {

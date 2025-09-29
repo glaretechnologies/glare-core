@@ -14,25 +14,8 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/RuntimeCheck.h>
 
 
-VBOPool::VBOPool()
+VBOPool::VBOPool(GLenum buffer_type)
 {
-}
-
-
-VBOPool::~VBOPool()
-{
-	for(size_t i=0; i<vbo_infos.size(); ++i)
-	{
-		if(vbo_infos[i].vbo->getMappedPtr())
-			vbo_infos[i].vbo->unmap();
-	}
-}
-
-
-void VBOPool::init(GLenum buffer_type)
-{
-	Lock lock(mutex);
-
 	const GLenum usage = GL_STREAM_DRAW;
 
 	const bool create_persistent_buffer = false;
@@ -101,6 +84,16 @@ void VBOPool::init(GLenum buffer_type)
 		total_size += vbo_infos[i].vbo->getSize();
 	}
 	conPrint("Total VBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
+}
+
+
+VBOPool::~VBOPool()
+{
+	for(size_t i=0; i<vbo_infos.size(); ++i)
+	{
+		if(vbo_infos[i].vbo->getMappedPtr())
+			vbo_infos[i].vbo->unmap();
+	}
 }
 
 

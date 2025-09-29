@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2025 -
 #pragma once
 
 
+#include <utils/ThreadSafeRefCounted.h>
 #include <utils/Reference.h>
 #include <utils/Mutex.h>
 #include <vector>
@@ -22,13 +23,11 @@ is nvidia OpenGL drivers don't seem to signal uploads as completed
 until all pending uploads from the buffer have been done.
 See 'patches/using single VBO and PBO for async uploads.diff'.
 =====================================================================*/
-class PBOPool
+class PBOPool : public ThreadSafeRefCounted
 {
 public:
 	PBOPool();
 	~PBOPool();
-
-	void init();
 
 	// Threadsafe
 	Reference<PBO> getUnusedVBO(size_t size_B);

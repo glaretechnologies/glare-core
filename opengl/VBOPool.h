@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #include "BasicOpenGLTypes.h"
+#include <utils/ThreadSafeRefCounted.h>
 #include <utils/Reference.h>
 #include <utils/Mutex.h>
 #include <vector>
@@ -18,13 +19,11 @@ VBOPool
 -------
 For asynchronous mesh geometry uploads.
 =====================================================================*/
-class VBOPool
+class VBOPool : public ThreadSafeRefCounted
 {
 public:
-	VBOPool();
+	VBOPool(GLenum buffer_type);
 	~VBOPool();
-
-	void init(GLenum buffer_type);
 
 	// Threadsafe
 	Reference<VBO> getUnusedVBO(size_t size_B);

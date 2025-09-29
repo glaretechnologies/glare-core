@@ -44,6 +44,8 @@ public:
 	AsyncGeometryUploader();
 	~AsyncGeometryUploader();
 
+	void clear();
+
 	// Geometry has been submitted to the GPU from glBufferSubData calls on source_vbo, or the geometry data has been written to source_vbo while it is memory-mapped.
 	// index_vbo may be null in which case both index and vert data is in vert_vbo.
 	void startUploadingGeometry(Reference<OpenGLMeshRenderData> meshdata, Reference<VBO> vert_vbo, Reference<VBO> index_vbo, Reference<VBO> dummy_vert_vbo, Reference<VBO> dummy_index_vbo, 

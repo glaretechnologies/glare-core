@@ -22,10 +22,6 @@ Copyright Glare Technologies Limited 2023 -
 #include "OpenGLCircularBuffer.h"
 #include "AsyncTextureLoader.h"
 #include "TextureAllocator.h"
-#include "PBOPool.h"
-#include "VBOPool.h"
-#include "PBOAsyncTextureUploader.h"
-#include "AsyncGeometryUploader.h"
 #include "../graphics/colour3.h"
 #include "../graphics/Colour4f.h"
 #include "../graphics/AnimationData.h"
@@ -1696,18 +1692,6 @@ private:
 	std::vector<AsyncTextureLoadingHandle> loading_handles;
 
 public:
-	PBOPool pbo_pool;
-
-	PBOAsyncTextureUploader pbo_async_tex_loader;
-
-	VBOPool vbo_pool;
-
-	VBOPool index_vbo_pool;
-
-	AsyncGeometryUploader async_geom_loader;
-
-	AsyncGeometryUploader async_index_geom_loader;
-
 	Mutex texture_names_mutex;
 	std::vector<GLuint> texture_names;
 

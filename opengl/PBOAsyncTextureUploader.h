@@ -43,6 +43,7 @@ public:
 	PBOAsyncTextureUploader();
 	~PBOAsyncTextureUploader();
 
+	void clear();
 
 	void startUploadingTexture(Reference<PBO> pbo, Reference<TextureData> texture_data, Reference<OpenGLTexture> opengl_tex, Reference<OpenGLTexture> dummy_opengl_tex, Reference<PBO> dummy_pbo, uint64 frame_num, 
 		Reference<UploadingTextureUserInfo> user_info);

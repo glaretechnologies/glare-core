@@ -24,6 +24,16 @@ AsyncGeometryUploader::~AsyncGeometryUploader()
 }
 
 
+void AsyncGeometryUploader::clear()
+{
+	while(!uploading_geometry.empty())
+		uploading_geometry.pop();
+
+	while(!copying_geometry.empty())
+		copying_geometry.pop();
+}
+
+
 void AsyncGeometryUploader::startUploadingGeometry(OpenGLMeshRenderDataRef meshdata, Reference<VBO> vert_vbo, Reference<VBO> index_vbo, Reference<VBO> dummy_vert_vbo, Reference<VBO> dummy_index_vbo, 
 	size_t vert_data_src_offset_B, size_t index_data_src_offset_B, size_t vert_data_size_B, size_t index_data_size_B, size_t total_geom_size_B, uint64 frame_num, Reference<UploadingGeometryUserInfo> user_info)
 {
