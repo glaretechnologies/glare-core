@@ -265,7 +265,7 @@ struct GlInstanceInfo
 
 // program_index_and_flags:
 // Bit 31: program has finished building (async linking has completed etc.)
-// Bit 30: program supports MDI
+// Bit 30: program supports GPU-resident rendering
 // Bit 29: material is transparent
 // Bit 28: material is water
 // Bit 27: material is a decal
@@ -273,7 +273,7 @@ struct GlInstanceInfo
 // Bits 24-25: face culling type (0 = none, 1 = cull backface, 2 = cull frontface).  (has to go last)
 // Bits 0-23: program index
 #define PROGRAM_FINISHED_BUILDING_BITFLAG				(1u << 31)
-#define PROG_SUPPORTS_MDI_BITFLAG						(1u << 30)
+#define PROG_SUPPORTS_GPU_RESIDENT_BITFLAG				(1u << 30)
 #define MATERIAL_TRANSPARENT_BITFLAG					(1u << 29)
 #define MATERIAL_WATER_BITFLAG							(1u << 28)
 #define MATERIAL_DECAL_BITFLAG							(1u << 27)

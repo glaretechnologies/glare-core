@@ -3082,7 +3082,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		addProgram(phong_prog);
 		phong_prog->uses_phong_uniforms = true;
 		phong_prog->uses_vert_uniform_buf_obs = true;
-		phong_prog->supports_MDI = true;
+		phong_prog->supports_gpu_resident = true;
 		phong_prog->uses_skinning = key.skinning;
 
 		progs[key] = phong_prog;
@@ -3169,7 +3169,7 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 		addProgram(prog);
 		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
-		prog->supports_MDI = true;
+		prog->supports_gpu_resident = true;
 		prog->uses_skinning = key.skinning;
 
 		progs[key] = prog;
@@ -3258,7 +3258,7 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix
 		addProgram(prog);
 		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
-		prog->supports_MDI = true;
+		prog->supports_gpu_resident = true;
 
 		progs[key] = prog;
 
@@ -3385,7 +3385,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 		prog->is_depth_draw = true;
 		prog->is_depth_draw_with_alpha_test = key.alpha_test;
 		prog->uses_vert_uniform_buf_obs = true;
-		prog->supports_MDI = true;
+		prog->supports_gpu_resident = true;
 		prog->uses_skinning = key.skinning;
 
 		progs[key] = prog;
@@ -4335,7 +4335,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 		const uint32 face_culling_bits = faceCullBits(object, mat);
 
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
-			(mat.shader_prog->supports_MDI  ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
+			(mat.shader_prog->supports_gpu_resident  ? PROG_SUPPORTS_GPU_RESIDENT_BITFLAG : 0) |
 			(mat.transparent                ? MATERIAL_TRANSPARENT_BITFLAG      : 0) |
 			(mat.water                      ? MATERIAL_WATER_BITFLAG            : 0) |
 			(mat.decal                      ? MATERIAL_DECAL_BITFLAG            : 0) |
@@ -4345,7 +4345,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 			(mat.shader_prog->isBuilt()     ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 		//assert(mat.material_data_index != -1);
-		if(use_ob_and_mat_data_gpu_resident && mat.shader_prog->supports_MDI)
+		if(use_ob_and_mat_data_gpu_resident && mat.shader_prog->supports_gpu_resident)
 			object.batch_draw_info[i].material_data_or_mat_index = mat.material_data_index;
 		else
 			object.batch_draw_info[i].material_data_or_mat_index = use_src_batches[i].material_index;
@@ -4439,12 +4439,12 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 				if(prev_depth_prog) // Will be NULL for transparent materials and when i = 0.
 				{
 					object.depth_draw_batches[dest_batch_i].program_index_and_flags = prev_depth_prog->program_index |
-						(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
-						(prev_face_cull               << MATERIAL_FACE_CULLING_BIT_INDEX)       |
-						(prev_depth_prog->isBuilt()    ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
+						(prev_depth_prog->supports_gpu_resident ? PROG_SUPPORTS_GPU_RESIDENT_BITFLAG : 0) |
+						(prev_face_cull                        << MATERIAL_FACE_CULLING_BIT_INDEX)        |
+						(prev_depth_prog->isBuilt()             ? PROGRAM_FINISHED_BUILDING_BITFLAG  : 0);
 
 					assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_ob_and_mat_data_gpu_resident);
-					if(use_ob_and_mat_data_gpu_resident && prev_depth_prog->supports_MDI)
+					if(use_ob_and_mat_data_gpu_resident && prev_depth_prog->supports_gpu_resident)
 						object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = object.materials[current_batch.material_index].material_data_index;
 					else
 						object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = current_batch.material_index;
@@ -4472,12 +4472,12 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 		if(prev_depth_prog)
 		{
 			object.depth_draw_batches[dest_batch_i].program_index_and_flags = prev_depth_prog->program_index |
-				(prev_depth_prog->supports_MDI ? PROG_SUPPORTS_MDI_BITFLAG         : 0) |
-				(prev_face_cull               << MATERIAL_FACE_CULLING_BIT_INDEX)       |
-				(prev_depth_prog->isBuilt()    ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
+				(prev_depth_prog->supports_gpu_resident ? PROG_SUPPORTS_GPU_RESIDENT_BITFLAG         : 0) |
+				(prev_face_cull                        << MATERIAL_FACE_CULLING_BIT_INDEX)                |
+				(prev_depth_prog->isBuilt()             ? PROGRAM_FINISHED_BUILDING_BITFLAG          : 0);
 
 			assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_ob_and_mat_data_gpu_resident);
-			if(use_ob_and_mat_data_gpu_resident && prev_depth_prog->supports_MDI)
+			if(use_ob_and_mat_data_gpu_resident && prev_depth_prog->supports_gpu_resident)
 				object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = object.materials[current_batch.material_index].material_data_index;
 			else
 				object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = current_batch.material_index;
@@ -11127,7 +11127,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 	// Set per-object vert uniforms.  Only do this if the current object has changed.
 	if(&ob != current_uniforms_ob)
 	{
-		if(use_ob_and_mat_data_gpu_resident && shader_prog->supports_MDI)
+		if(use_ob_and_mat_data_gpu_resident && shader_prog->supports_gpu_resident)
 		{
 			
 		}
@@ -11168,7 +11168,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		current_uniforms_ob = &ob;
 	}
 
-	if(use_ob_and_mat_data_gpu_resident && shader_prog->supports_MDI)
+	if(use_ob_and_mat_data_gpu_resident && shader_prog->supports_gpu_resident)
 	{
 		// Nothing to do here if using MDI
 
@@ -11307,7 +11307,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		glLineWidth(ob.line_width);
 	}
 
-	if(use_multi_draw_indirect && shader_prog->supports_MDI)
+	if(use_multi_draw_indirect && shader_prog->supports_gpu_resident)
 	{
 		int index_type_size_B = 1;
 		if(mesh_data.getIndexType() == GL_UNSIGNED_BYTE)
@@ -11398,10 +11398,10 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 	if(num_indices == 0)
 		return;
 
-	const bool prog_supports_MDI = BitUtils::isBitSet(batch.program_index_and_flags, PROG_SUPPORTS_MDI_BITFLAG);
-	assert(prog_supports_MDI == this->prog_vector[batch.getProgramIndex()]->supports_MDI);
+	const bool prog_supports_GPU_resident = BitUtils::isBitSet(batch.program_index_and_flags, PROG_SUPPORTS_GPU_RESIDENT_BITFLAG);
+	assert(prog_supports_GPU_resident == this->prog_vector[batch.getProgramIndex()]->supports_gpu_resident);
 
-	const bool use_MDI_and_prog_supports_MDI = use_multi_draw_indirect && prog_supports_MDI;
+	const bool use_MDI_for_batch = use_multi_draw_indirect && prog_supports_GPU_resident;
 
 	const GLenum draw_mode = GL_TRIANGLES;
 
@@ -11411,10 +11411,10 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 	assert((index_type_log2_size_B == indexTypeLog2SizeBytes(index_type)) && ((1u << index_type_log2_size_B) == indexTypeSizeBytes(index_type)));
 
 	
-	if(!use_MDI_and_prog_supports_MDI)
+	if(!use_MDI_for_batch)
 	{
 		// non-MDI path:
-		if(use_ob_and_mat_data_gpu_resident && prog_supports_MDI)
+		if(use_ob_and_mat_data_gpu_resident && prog_supports_GPU_resident)
 		{
 			ObJointAndMatIndicesStruct indices;
 			indices.per_ob_data_index = ob.per_ob_vert_data_index;
@@ -11424,7 +11424,6 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 		}
 		else
 		{
-
 			// Set per-object vert uniforms.  Only do this if the current object has changed.
 			if(&ob != current_uniforms_ob)
 			{
@@ -11619,7 +11618,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 			drawElementsBaseVertex(draw_mode, (GLsizei)num_indices, index_type, (void*)total_buffer_offset, ob.vbo_handle_base_vertex);
 		}
 	}
-	else // else if use_MDI_and_prog_supports_MDI:
+	else // else if use_MDI_for_batch:
 	{
 		// A mesh might have indices 0, 1, 2.  
 		/*

@@ -226,7 +226,7 @@ public:
 	bool is_depth_draw;
 	bool is_depth_draw_with_alpha_test;
 	bool is_outline;
-	bool supports_MDI; // Should batches with this program be drawn with glMultiDrawElementsIndirect, if supported?
+	bool supports_gpu_resident; // Can the shader read from per_object_data[] array and material_data[] arrays resident on the GPU?
 	bool uses_vert_uniform_buf_obs; // Does the vertex shader use a PerObjectVertUniforms uniform block?
 	bool uses_skinning;
 

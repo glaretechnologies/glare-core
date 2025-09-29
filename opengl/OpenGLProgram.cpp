@@ -56,7 +56,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	is_outline(false),
 	uses_vert_uniform_buf_obs(false),
 	program_index(program_index_),
-	supports_MDI(false),
+	supports_gpu_resident(false),
 	uses_skinning(false),
 	built_successfully(false)
 {
