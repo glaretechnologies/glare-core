@@ -1101,6 +1101,9 @@ uint64 OpenGLTexture::getBindlessTextureHandle()
 // This method may be called from another thread
 void OpenGLTexture::createBindlessTextureHandle()
 {
+#if defined(OSX) || defined(EMSCRIPTEN)
+	assert(0); // Bindless textures aren't supported in OpenGL ES.
+#else
 	if(bindless_tex_handle == 0)
 	{
 		ZoneScopedN("glGetTextureHandleARB()"); 
@@ -1110,6 +1113,7 @@ void OpenGLTexture::createBindlessTextureHandle()
 		if(bindless_tex_handle == 0)
 			conPrint("glGetTextureHandleARB() failed");
 	}
+#endif
 }
 
 

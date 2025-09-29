@@ -5238,7 +5238,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 	}
 #endif
 
-	const GLenum index_type = ob.index_type_and_size & 0xFFFF;
+	const GLenum index_type = ob.index_type_and_log2_size & 0xFFFF;
 	if(index_type != current_index_type)
 	{
 		// A buffer or index type has changed.  submit queued draw commands, start queueing new commands.
