@@ -101,7 +101,7 @@ uniform sampler2D lightmap_tex;
 
 
 //----------------------------------------------------------------------------------------------------------------------------
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+#if OB_AND_MAT_DATA_GPU_RESIDENT
 
 flat in int material_index;
 
@@ -113,7 +113,7 @@ layout(std430) buffer PhongUniforms
 #define MAT_UNIFORM material_data[material_index]
 
 //----------------------------------------------------------------------------------------------------------------------------
-#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
+#else // else if !OB_AND_MAT_DATA_GPU_RESIDENT:
 
 layout (std140) uniform PhongUniforms
 {
@@ -123,7 +123,7 @@ layout (std140) uniform PhongUniforms
 
 #define MAT_UNIFORM mat_data.matdata
 
-#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+#endif // end if !OB_AND_MAT_DATA_GPU_RESIDENT
 //----------------------------------------------------------------------------------------------------------------------------
 
 #if USE_BINDLESS_TEXTURES
@@ -242,10 +242,6 @@ vec3 computeFresnelReflectance(float h_cos_theta, vec3 refl_diffuse_col, float f
 
 void main()
 {
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
-	//MaterialData mat_data = material_data[material_index];
-#endif
-
 	vec3 use_normal_ws;
 	vec2 use_texture_coords = texture_coords;
 	if((MAT_UNIFORM.flags & HAVE_SHADING_NORMALS_FLAG) != 0)

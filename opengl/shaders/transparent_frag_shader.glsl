@@ -17,7 +17,7 @@ uniform sampler2D cirrus_tex;
 
 
 //----------------------------------------------------------------------------------------------------------------------------
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+#if OB_AND_MAT_DATA_GPU_RESIDENT
 
 flat in int material_index;
 
@@ -33,7 +33,7 @@ layout(std430) buffer PhongUniforms
 #define EMISSION_TEX				MAT_UNIFORM.emission_tex
 
 //----------------------------------------------------------------------------------------------------------------------------
-#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
+#else // else if !OB_AND_MAT_DATA_GPU_RESIDENT:
 
 
 layout (std140) uniform PhongUniforms
@@ -59,7 +59,7 @@ uniform sampler2D emission_tex;
 #define EMISSION_TEX emission_tex
 #endif
 
-#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+#endif // end if !OB_AND_MAT_DATA_GPU_RESIDENT
 //----------------------------------------------------------------------------------------------------------------------------
 
 #if USE_SSBOS

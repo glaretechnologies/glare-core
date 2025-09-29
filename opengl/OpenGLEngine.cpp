@@ -108,6 +108,7 @@ Copyright Glare Technologies Limited 2023 -
 
 
 
+// Needs to match definition in common_vert_structures.glsl
 #define OB_AND_MAT_INDICES_STRIDE			3
 
 
@@ -468,6 +469,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	next_program_index(0),
 	use_bindless_textures(false),
 	use_multi_draw_indirect(false),
+	use_ob_and_mat_data_gpu_resident(false),
 	use_reverse_z(true),
 	use_scatter_shader(false),
 	//object_pool_allocator(sizeof(GLObject), /*alignment=*/16, /*block capacity=*/1024),
@@ -1645,6 +1647,7 @@ static const int DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX = 3;
 static const int MATERIAL_COMMON_UBO_BINDING_POINT_INDEX = 4;
 static const int LIGHT_DATA_UBO_BINDING_POINT_INDEX = 5; // Just used on Mac
 static const int JOINT_MATRICES_UBO_BINDING_POINT_INDEX = 6;
+static const int OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX = 7;
 
 static const int LIGHT_DATA_SSBO_BINDING_POINT_INDEX = 0;
 static const int PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX = 1;
@@ -2018,9 +2021,13 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 
 		use_multi_draw_indirect = false;
+		use_ob_and_mat_data_gpu_resident = false;
 #if !defined(OSX) && !defined(EMSCRIPTEN)
 		if(settings.allow_multi_draw_indirect && gl3wIsSupported(4, 6) && use_bindless_textures)
 			use_multi_draw_indirect = true; // Our multi-draw-indirect code uses bindless textures and gl_DrawID, which requires GLSL 4.60 (or ARB_shader_draw_parameters)
+
+		if(use_bindless_textures)
+			use_ob_and_mat_data_gpu_resident = true; // GPU-resident materials require bindless textures
 #endif
 
 		// We will use the 'oct24' format for encoding normals, see 'A Survey of Efficient Representations for Independent Unit Vectors', section 3.3.
@@ -2067,6 +2074,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		preprocessor_defines += "#define USE_BINDLESS_TEXTURES " + (use_bindless_textures ? std::string("1") : std::string("0")) + "\n";
 		
 		preprocessor_defines += "#define USE_MULTIDRAW_ELEMENTS_INDIRECT " + (use_multi_draw_indirect ? std::string("1") : std::string("0")) + "\n";
+		
+		preprocessor_defines += "#define OB_AND_MAT_DATA_GPU_RESIDENT " + (use_ob_and_mat_data_gpu_resident ? std::string("1") : std::string("0")) + "\n";
 
 		preprocessor_defines += "#define USE_SSBOS " + (light_buffer.nonNull() ? std::string("1") : std::string("0")) + "\n";
 
@@ -2115,7 +2124,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
-		if(use_multi_draw_indirect)
+		if(use_ob_and_mat_data_gpu_resident)
 		{
 			// Allocate per_ob_vert_data_buffer
 			{
@@ -2174,6 +2183,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		joint_matrices_buf_ob = new UniformBufOb();
 		joint_matrices_buf_ob->allocate(sizeof(Matrix4f) * max_num_joint_matrices_per_ob);
 
+		ob_joint_and_mat_indices_uniform_buf_ob = new UniformBufOb();
+		ob_joint_and_mat_indices_uniform_buf_ob->allocate(sizeof(ObJointAndMatIndicesStruct));
+
+
 
 #if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_obs[0]->handle);
@@ -2187,6 +2200,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/DEPTH_UNIFORM_UBO_BINDING_POINT_INDEX, this->depth_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX, this->material_common_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/JOINT_MATRICES_UBO_BINDING_POINT_INDEX, this->joint_matrices_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX, this->ob_joint_and_mat_indices_uniform_buf_ob->handle);
 		
 		if(light_buffer.nonNull())
 		{
@@ -2198,7 +2212,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/LIGHT_DATA_UBO_BINDING_POINT_INDEX, this->light_ubo->handle);
 		}
 
-		if(use_multi_draw_indirect)
+		if(use_ob_and_mat_data_gpu_resident)
 		{
 			// Bind per-object vert data SSBO
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX, this->per_ob_vert_data_buffer->handle);
@@ -3093,7 +3107,7 @@ void OpenGLEngine::doPostBuildForPhongProgram(OpenGLProgramRef phong_prog)
 	getUniformLocations(phong_prog);
 	setStandardTextureUnitUniformsForProgram(*phong_prog);
 
-	if(!use_multi_draw_indirect)
+	if(!use_ob_and_mat_data_gpu_resident)
 	{
 		// Check we got the size of our uniform blocks on the CPU side correct.
 		// printFieldOffsets(phong_prog, "PhongUniforms");
@@ -3112,7 +3126,10 @@ void OpenGLEngine::doPostBuildForPhongProgram(OpenGLProgramRef phong_prog)
 		bindShaderStorageBlockToProgram(phong_prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
 		bindShaderStorageBlockToProgram(phong_prog, "JointMatricesStorage",		JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
 		bindShaderStorageBlockToProgram(phong_prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
-		bindShaderStorageBlockToProgram(phong_prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+		if(use_multi_draw_indirect)
+			bindShaderStorageBlockToProgram(phong_prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+		else
+			bindUniformBlockToProgram(phong_prog, "ObJointAndMatIndices",		OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX);
 	}
 
 	checkUniformBlockSize(phong_prog, "MaterialCommonUniforms",	sizeof(MaterialCommonUniforms));
@@ -3178,7 +3195,7 @@ void OpenGLEngine::doPostBuildForTransparentProgram(OpenGLProgramRef prog)
 	setStandardTextureUnitUniformsForProgram(*prog);
 
 	// Check we got the size of our uniform blocks on the CPU side correct.
-	if(!use_multi_draw_indirect)
+	if(!use_ob_and_mat_data_gpu_resident)
 	{
 		checkUniformBlockSize(prog, "PhongUniforms",				sizeof(PhongUniforms));
 		checkUniformBlockSize(prog, "PerObjectVertUniforms", sizeof(PerObjectVertUniforms));
@@ -3194,7 +3211,10 @@ void OpenGLEngine::doPostBuildForTransparentProgram(OpenGLProgramRef prog)
 		bindShaderStorageBlockToProgram(prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
 		bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
 		bindShaderStorageBlockToProgram(prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
-		bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+		if(use_multi_draw_indirect)
+			bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+		else
+			bindUniformBlockToProgram(prog, "ObJointAndMatIndices",		OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX);
 	}
 
 	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
@@ -3246,7 +3266,7 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix
 		setStandardTextureUnitUniformsForProgram(*prog);
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
-		if(!use_multi_draw_indirect)
+		if(!use_ob_and_mat_data_gpu_resident)
 		{
 			checkUniformBlockSize(prog, "PhongUniforms",				sizeof(PhongUniforms));
 			checkUniformBlockSize(prog, "PerObjectVertUniforms", sizeof(PerObjectVertUniforms));
@@ -3259,7 +3279,10 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix
 			bindShaderStorageBlockToProgram(prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
 			//bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
 			bindShaderStorageBlockToProgram(prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
-			bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+			if(use_multi_draw_indirect)
+				bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+			else
+				bindUniformBlockToProgram(prog, "ObJointAndMatIndices",		OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX);
 		}
 
 		bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
@@ -3390,7 +3413,7 @@ void OpenGLEngine::doPostBuildForDepthDrawProgram(OpenGLProgramRef prog)
 	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
-	if(!use_multi_draw_indirect)
+	if(!use_ob_and_mat_data_gpu_resident)
 	{
 		checkUniformBlockSize(prog, "DepthUniforms",				sizeof(DepthUniforms)); // Check we got the size of our uniform blocks on the CPU side correct.
 
@@ -3405,7 +3428,10 @@ void OpenGLEngine::doPostBuildForDepthDrawProgram(OpenGLProgramRef prog)
 		bindShaderStorageBlockToProgram(prog, "PerObjectVertUniforms",	PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX);
 		bindShaderStorageBlockToProgram(prog, "JointMatricesStorage",	JOINT_MATRICES_SSBO_BINDING_POINT_INDEX);
 		bindShaderStorageBlockToProgram(prog, "PhongUniforms",			PHONG_DATA_SSBO_BINDING_POINT_INDEX);
-		bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+		if(use_multi_draw_indirect)
+			bindShaderStorageBlockToProgram(prog, "ObAndMatIndicesStorage",	OB_AND_MAT_INDICES_SSBO_BINDING_POINT_INDEX);
+		else
+			bindUniformBlockToProgram(prog, "ObJointAndMatIndices",		OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX);
 	}
 }
 
@@ -3741,7 +3767,7 @@ void OpenGLEngine::setObjectTransformData(GLObject& object)
 
 void OpenGLEngine::updateObjectDataOnGPU(GLObject& object)
 {
-	if(use_multi_draw_indirect)
+	if(use_ob_and_mat_data_gpu_resident)
 	{
 		PerObjectVertUniforms uniforms;
 		uniforms.model_matrix = object.ob_to_world_matrix;
@@ -3785,7 +3811,7 @@ void OpenGLEngine::updateObjectDataOnGPU(GLObject& object)
 
 void OpenGLEngine::updateObjectLightDataOnGPU(GLObject& object)
 {
-	if(use_multi_draw_indirect)
+	if(use_ob_and_mat_data_gpu_resident)
 	{
 		PerObjectVertUniforms uniforms;
 		for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
@@ -4052,7 +4078,7 @@ Reference<GLObject> OpenGLEngine::allocateObject()
 
 int OpenGLEngine::allocPerObVertDataBufferSpot()
 {
-	assert(use_multi_draw_indirect);
+	assert(use_ob_and_mat_data_gpu_resident);
 
 	if(per_ob_vert_data_free_indices.empty()) // If no free indices remain:
 		expandPerObVertDataBuffer();
@@ -4128,7 +4154,7 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 
 
 	// Alloc spot in uniform buffer.  Note that we need to do this before updateObjectTransformData() which uses object->per_ob_vert_data_index.
-	if(use_multi_draw_indirect)
+	if(use_ob_and_mat_data_gpu_resident)
 		object->per_ob_vert_data_index = allocPerObVertDataBufferSpot();
 
 	object->random_num = rng.nextUInt();
@@ -4149,7 +4175,7 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 	const AnimationData& anim_data = object->mesh_data->animation_data;
 
 	// Upload material data to GPU
-	if(use_multi_draw_indirect)
+	if(use_ob_and_mat_data_gpu_resident)
 	{
 		for(size_t i=0; i<object->materials.size(); ++i)
 		{
@@ -4319,7 +4345,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 			(mat.shader_prog->isBuilt()     ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 		//assert(mat.material_data_index != -1);
-		if(use_multi_draw_indirect && mat.shader_prog->supports_MDI)
+		if(use_ob_and_mat_data_gpu_resident && mat.shader_prog->supports_MDI)
 			object.batch_draw_info[i].material_data_or_mat_index = mat.material_data_index;
 		else
 			object.batch_draw_info[i].material_data_or_mat_index = use_src_batches[i].material_index;
@@ -4417,8 +4443,8 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 						(prev_face_cull               << MATERIAL_FACE_CULLING_BIT_INDEX)       |
 						(prev_depth_prog->isBuilt()    ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
-					assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
-					if(use_multi_draw_indirect && prev_depth_prog->supports_MDI)
+					assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_ob_and_mat_data_gpu_resident);
+					if(use_ob_and_mat_data_gpu_resident && prev_depth_prog->supports_MDI)
 						object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = object.materials[current_batch.material_index].material_data_index;
 					else
 						object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = current_batch.material_index;
@@ -4450,8 +4476,8 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 				(prev_face_cull               << MATERIAL_FACE_CULLING_BIT_INDEX)       |
 				(prev_depth_prog->isBuilt()    ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
-			assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_multi_draw_indirect);
-			if(use_multi_draw_indirect && prev_depth_prog->supports_MDI)
+			assert((object.materials[current_batch.material_index].material_data_index != -1) || !use_ob_and_mat_data_gpu_resident);
+			if(use_ob_and_mat_data_gpu_resident && prev_depth_prog->supports_MDI)
 				object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = object.materials[current_batch.material_index].material_data_index;
 			else
 				object.depth_draw_batches[dest_batch_i].material_data_or_mat_index = current_batch.material_index;
@@ -4477,8 +4503,7 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 
 void OpenGLEngine::updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index)
 {
-	//assert(use_multi_draw_indirect);
-	if(use_multi_draw_indirect)
+	if(use_ob_and_mat_data_gpu_resident)
 	{
 		PhongUniforms uniforms;
 		setUniformsForPhongProg(ob.materials[mat_index], *ob.mesh_data, uniforms);
@@ -4697,7 +4722,7 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 	current_scene->alpha_blended_objects.erase(object);
 	selected_objects.erase(object.getPointer());
 
-	if(use_multi_draw_indirect)
+	if(use_ob_and_mat_data_gpu_resident)
 	{
 		for(size_t i=0; i<object->materials.size(); ++i)
 		{
@@ -4782,7 +4807,6 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 
 
 	// Update material data on GPU
-	//if(use_multi_draw_indirect)
 	{
 		for(size_t i=0; i<object.materials.size(); ++i)
 			updateMaterialDataOnGPU(object, i);
@@ -4824,7 +4848,7 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 
 		if(mat.material_data_index >= 0) // Object may have not been inserted into engine yet, so material_data_index might not have been set yet.
 		{
-			assert(use_multi_draw_indirect);
+			assert(use_ob_and_mat_data_gpu_resident);
 
 			PhongUniforms uniforms;
 			setUniformsForPhongProg(mat, *ob.mesh_data, uniforms);
@@ -5032,7 +5056,7 @@ bool OpenGLEngine::checkUseProgram(const OpenGLProgram* prog)
 		if(use_multi_draw_indirect)
 			submitBufferedDrawCommands();
 
-		// conPrint("---- Changed to program " + prog->prog_name + " ----");
+		// conPrint("---- checkUseProgram(): Changed to program " + prog->prog_name + " ----");
 
 		prog->useProgram();
 		current_bound_prog = prog;
@@ -5059,8 +5083,9 @@ bool OpenGLEngine::checkUseProgram(uint32 prog_index)
 		if(use_multi_draw_indirect)
 			submitBufferedDrawCommands();
 
-		// conPrint("---- Changed to program " + prog->prog_name + " ----");
 		const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+
+		// conPrint("---- checkUseProgram(): Changed to program " + prog->prog_name + " ----");
 
 		assert(prog->isBuilt());
 
@@ -5253,7 +5278,7 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 		// Bind new VAO (if changed)
 		if(current_bound_VAO != vao)
 		{
-			// conPrint("Binding to VAO " + toString(vao->handle));
+			// conPrint("Binding to VAO " + toString(vao->handle) + " with index " + toString(ob.mesh_data->vao_data_index));
 
 			vao->bindVertexArray();
 			current_bound_VAO = vao;
@@ -5280,6 +5305,8 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 
 	if(vao->current_bound_vert_vbo != vert_data_vbo) // If the VAO is bound to the wrong vertex buffer:
 	{
+		// conPrint("Binding to vert VBO " + toString(vert_data_vbo->bufferName()));
+
 		// Submit draw commands using old vertex buffer, before we bind a new one.
 		if(use_multi_draw_indirect)
 			submitBufferedDrawCommands();
@@ -5298,6 +5325,8 @@ void OpenGLEngine::bindMeshData(const GLObject& ob)
 
 	if(vao->current_bound_index_VBO != index_vbo) // If the VAO is bound to the wrong index buffer:
 	{
+		// conPrint("Binding to index VBO " + toString(vert_data_vbo->bufferName()));
+
 		// Submit draw commands using old index buffer, before we bind a new one.
 		if(use_multi_draw_indirect)
 			submitBufferedDrawCommands();
@@ -6884,7 +6913,7 @@ void OpenGLEngine::draw()
 
 
 		// Upload computed joint matrices to GPU
-		if(use_multi_draw_indirect)
+		if(use_ob_and_mat_data_gpu_resident)
 		{
 			for(size_t i=0; i<animated_obs_to_process.size(); ++i)
 			{
@@ -8106,6 +8135,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 					if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
 					{
 						const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+						// conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
 						prog->useProgram();
 						current_bound_prog = prog;
 						current_bound_prog_index = prog_index;
@@ -8402,6 +8432,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 						if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
 						{
 							const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+							// conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
 							prog->useProgram();
 							current_bound_prog = prog;
 							current_bound_prog_index = prog_index;
@@ -8614,6 +8645,7 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 			if(program_changed)
 			{
 				const OpenGLProgram* prog = prog_vector[prog_index].ptr();
+			// conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
 				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
 			}
 
@@ -8803,6 +8835,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 					if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
 					{
 						const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+						// conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
 						prog->useProgram();
 						current_bound_prog = prog;
 						current_bound_prog_index = prog_index;
@@ -9002,6 +9035,7 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
 
 				prog->useProgram();
+				// conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
 				current_bound_prog = prog;
 				current_bound_prog_index = prog_index;
 				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
@@ -9044,6 +9078,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	if(query_profiling_enabled && current_scene->collect_stats && draw_opaque_obs_gpu_timer->isIdle())
 		draw_opaque_obs_gpu_timer->beginTimerQuery();
 
+	//conPrint("-----------------------------------------------drawNonTransparentMaterialBatches--------------------------------------");
 
 	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 	//glEnable(GL_BLEND);
@@ -9120,6 +9155,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 							ob, // object ptr
 							(uint32)z // batch_i
 						);
+						assert(((info.prog_vao_key << 10) >> 10) == ob->vao_and_vbo_key);
 						temp_batch_draw_info.push_back(info);
 					}
 				}
@@ -9180,7 +9216,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 			const uint32 face_culling = prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK;
 			if(face_culling != (current_prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK)) // If face culling changed:
 			{
-				// conPrint("Setting face culling to " + faceCullingBitsDescrip(face_culling));
+				//conPrint("Setting face culling to " + faceCullingBitsDescrip(face_culling));
 				setFaceCulling(face_culling);
 				num_face_culling_changes++;
 			}
@@ -9366,6 +9402,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 		if(program_changed)
 		{
 			const OpenGLProgram* prog = prog_vector[prog_index].ptr();
+			//conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
 			setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
 		}
 
@@ -9576,6 +9613,7 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 				if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
 				{
 					const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+					//conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
 					prog->useProgram();
 					current_bound_prog = prog;
 					current_bound_prog_index = prog_index;
@@ -9809,6 +9847,7 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 			if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
 			{
 				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+				//conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
 				prog->useProgram();
 				current_bound_prog = prog;
 				current_bound_prog_index = prog_index;
@@ -11088,8 +11127,9 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 	// Set per-object vert uniforms.  Only do this if the current object has changed.
 	if(&ob != current_uniforms_ob)
 	{
-		if(use_multi_draw_indirect && shader_prog->supports_MDI)
+		if(use_ob_and_mat_data_gpu_resident && shader_prog->supports_MDI)
 		{
+			
 		}
 		else
 		{
@@ -11128,9 +11168,18 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		current_uniforms_ob = &ob;
 	}
 
-	if(use_multi_draw_indirect && shader_prog->supports_MDI)
+	if(use_ob_and_mat_data_gpu_resident && shader_prog->supports_MDI)
 	{
-		// Nothing to do here
+		// Nothing to do here if using MDI
+
+		if(!use_multi_draw_indirect)
+		{
+			ObJointAndMatIndicesStruct indices;
+			indices.per_ob_data_index = ob.per_ob_vert_data_index;
+			indices.material_index = opengl_mat.material_data_index;
+			indices.joints_base_index = ob.joint_matrices_base_index;
+			this->ob_joint_and_mat_indices_uniform_buf_ob->updateData(/*dest offset=*/0, &indices, sizeof(ObJointAndMatIndicesStruct));
+		}
 	}
 	else if(shader_prog->uses_phong_uniforms)
 	{
@@ -11364,183 +11413,194 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 	
 	if(!use_MDI_and_prog_supports_MDI)
 	{
-		// Slow, non-MDI path:
-		
-		// Set per-object vert uniforms.  Only do this if the current object has changed.
-		if(&ob != current_uniforms_ob)
+		// non-MDI path:
+		if(use_ob_and_mat_data_gpu_resident && prog_supports_MDI)
 		{
-			const OpenGLProgram* shader_prog = this->prog_vector[batch.getProgramIndex()].ptr();
-			if(shader_prog->uses_vert_uniform_buf_obs)
-			{
-				PerObjectVertUniforms uniforms;
-				uniforms.model_matrix = ob.ob_to_world_matrix;
-				uniforms.normal_matrix = ob.ob_to_world_normal_matrix;
-				for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
-					uniforms.light_indices[i] = ob.light_indices[i];
-				uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
-				uniforms.model_matrix_upper_left_det = ob.ob_to_world_matrix_determinant;
-				uniforms.uv0_scale = ob.mesh_data->uv0_scale;
-				uniforms.uv1_scale = ob.mesh_data->uv1_scale;
-				uniforms.dequantise_scale = ob.dequantise_scale;
-				uniforms.dequantise_translation = ob.dequantise_translation;
-				this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
-			}
-			else
-			{
-				glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_normal_matrix.e);
-			}
-
-			if(shader_prog->uses_skinning)
-			{
-				assert(ob.mesh_data->usesSkinning());
-				assert(ob.joint_matrices.size() > 0);
-
-				// The joint_matrix uniform array has 256 elems, don't upload more than that.
-				const size_t num_joint_matrices_to_upload = myMin<size_t>(max_num_joint_matrices_per_ob, ob.joint_matrices.size()); 
-				this->joint_matrices_buf_ob->updateData(/*dest offset=*/0, /*src data=*/ob.joint_matrices[0].e, /*src size=*/num_joint_matrices_to_upload * sizeof(Matrix4f));
-			}
-
-			current_uniforms_ob = &ob;
+			ObJointAndMatIndicesStruct indices;
+			indices.per_ob_data_index = ob.per_ob_vert_data_index;
+			indices.material_index = batch.material_data_or_mat_index;
+			indices.joints_base_index = ob.joint_matrices_base_index;
+			this->ob_joint_and_mat_indices_uniform_buf_ob->updateData(/*dest offset=*/0, &indices, sizeof(ObJointAndMatIndicesStruct));
 		}
-
-		
-		// Set uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
-		const OpenGLProgram* const prog = this->prog_vector[batch.getProgramIndex()].ptr();
-		if(prog->uses_phong_uniforms)
+		else
 		{
-			assert(batch.material_data_or_mat_index == ob.getUsedBatches()[batch_index].material_index);
-			const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index]; // This is the non-MDI case, so material_data_or_mat_index is the index into ob.materials
 
-#if UNIFORM_BUF_PER_MAT_SUPPORT
-	
-			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, opengl_mat.uniform_buf_ob->handle);
-
-#else
-
-			PhongUniforms uniforms;
-			setUniformsForPhongProg(opengl_mat, *ob.mesh_data, uniforms);
-			
-		#if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
-			const uint32 use_batch_index = settings.use_multiple_phong_uniform_bufs ? myMin(batch_index, 63u) : 0;
-
-			this->phong_uniform_buf_obs[use_batch_index]->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
-
-			if(use_batch_index != current_bound_phong_uniform_buf_ob_index)
+			// Set per-object vert uniforms.  Only do this if the current object has changed.
+			if(&ob != current_uniforms_ob)
 			{
-				glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_obs[use_batch_index]->handle);
-				current_bound_phong_uniform_buf_ob_index = use_batch_index;
-			}
-		#else
-			this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
-		#endif
-
-#endif
-			if(!use_bindless_textures)
-				bindTexturesForPhongProg(opengl_mat);
-		}
-		else if(prog == this->env_prog.getPointer())
-		{
-			assert(false); // env_prog drawing is done in drawBatch()
-		}
-		else if(prog->is_depth_draw)
-		{
-			assert(!use_multi_draw_indirect); // If multi-draw-indirect was enabled, depth-draw mats would be handled in (use_MDI_and_prog_supports_MDI) branch.
-
-			// Slow, non-MDI path:
-			assert(batch.material_data_or_mat_index == ob.depth_draw_batches[batch_index].material_data_or_mat_index);
-			const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index]; // This is the non-MDI case, so material_data_or_mat_index is the index into ob.materials
-
-			//const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
-			//glUniformMatrix4fv(shader_prog->uniform_locations.proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
-			if(prog->is_depth_draw_with_alpha_test)
-			{
-				assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
-
-				DepthUniforms uniforms;
-
-				uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
-				uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
-				uniforms.texture_upper_left_matrix_col1.x = opengl_mat.tex_matrix.e[1];
-				uniforms.texture_upper_left_matrix_col1.y = opengl_mat.tex_matrix.e[3];
-				uniforms.texture_matrix_translation = opengl_mat.tex_translation;
-
-				if(this->use_bindless_textures)
+				const OpenGLProgram* shader_prog = this->prog_vector[batch.getProgramIndex()].ptr();
+				if(shader_prog->uses_vert_uniform_buf_obs)
 				{
-					if(opengl_mat.albedo_texture.nonNull())
-						uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
+					PerObjectVertUniforms uniforms;
+					uniforms.model_matrix = ob.ob_to_world_matrix;
+					uniforms.normal_matrix = ob.ob_to_world_normal_matrix;
+					for(int i=0; i<GLObject::MAX_NUM_LIGHT_INDICES; ++i)
+						uniforms.light_indices[i] = ob.light_indices[i];
+					uniforms.depth_draw_depth_bias = ob.depth_draw_depth_bias;
+					uniforms.model_matrix_upper_left_det = ob.ob_to_world_matrix_determinant;
+					uniforms.uv0_scale = ob.mesh_data->uv0_scale;
+					uniforms.uv1_scale = ob.mesh_data->uv1_scale;
+					uniforms.dequantise_scale = ob.dequantise_scale;
+					uniforms.dequantise_translation = ob.dequantise_translation;
+					this->per_object_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PerObjectVertUniforms));
 				}
 				else
 				{
-					assert(prog->uniform_locations.diffuse_tex_location >= 0);
-					bindTextureToTextureUnitRaw(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX);
+					glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
+					glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_normal_matrix.e);
 				}
 
-				// Just set IMPOSTER_TEX_HAS_MULTIPLE_ANGLES flag which is the only one used in depth_frag_shader.glsl
-				uniforms.flags                   = opengl_mat.imposter_tex_has_multiple_angles ? IMPOSTER_TEX_HAS_MULTIPLE_ANGLES : 0;
-			
-				uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
-				uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
-				uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
-				uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
-				uniforms.materialise_start_time  = opengl_mat.materialise_start_time;
-
-				this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
-			}
-			else
-			{
-				DepthUniforms uniforms;
-
-				uniforms.flags                   = 0;
-				uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
-				uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
-				uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
-				uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
-				uniforms.materialise_start_time	 = opengl_mat.materialise_start_time;
-
-				this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
-			}
-		}
-		else if(prog->is_outline)
-		{
-
-		}
-		else // Else shader created by user code:
-		{
-			// Slow path:
-			assert(batch.material_data_or_mat_index == ob.getUsedBatches()[batch_index].material_index);
-			const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index];
-
-			if(prog->time_loc >= 0)
-				glUniform1f(prog->time_loc, this->current_time);
-			if(prog->colour_loc >= 0)
-			{
-				glUniform3fv(prog->colour_loc, 1, &opengl_mat.albedo_linear_rgb.r);
-			}
-
-			if(prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
-				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/prog->albedo_texture_loc);
-
-			// Set user uniforms
-			for(size_t i=0; i<prog->user_uniform_info.size(); ++i)
-			{
-				switch(prog->user_uniform_info[i].uniform_type)
+				if(shader_prog->uses_skinning)
 				{
-				case UserUniformInfo::UniformType_Vec2:
-					glUniform2fv(prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec2);
-					break;
-				case UserUniformInfo::UniformType_Vec3:
-					glUniform3fv(prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec3);
-					break;
-				case UserUniformInfo::UniformType_Int:
-					glUniform1i(prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].intval);
-					break;
-				case UserUniformInfo::UniformType_Float:
-					glUniform1f(prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].floatval);
-					break;
-				case UserUniformInfo::UniformType_Sampler2D:
-					assert(0); // TODO
-					break;
+					assert(ob.mesh_data->usesSkinning());
+					assert(ob.joint_matrices.size() > 0);
+
+					// The joint_matrix uniform array has 256 elems, don't upload more than that.
+					const size_t num_joint_matrices_to_upload = myMin<size_t>(max_num_joint_matrices_per_ob, ob.joint_matrices.size()); 
+					this->joint_matrices_buf_ob->updateData(/*dest offset=*/0, /*src data=*/ob.joint_matrices[0].e, /*src size=*/num_joint_matrices_to_upload * sizeof(Matrix4f));
+				}
+
+				current_uniforms_ob = &ob;
+			}
+
+		
+			// Set material uniforms.  NOTE: Setting the uniforms manually in this way (switching on shader program) is obviously quite hacky.  Improve.
+			const OpenGLProgram* const prog = this->prog_vector[batch.getProgramIndex()].ptr();
+			if(prog->uses_phong_uniforms)
+			{
+				assert(batch.material_data_or_mat_index == ob.getUsedBatches()[batch_index].material_index);
+				const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index]; // This is the non-MDI case, so material_data_or_mat_index is the index into ob.materials
+
+#if UNIFORM_BUF_PER_MAT_SUPPORT
+	
+				glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, opengl_mat.uniform_buf_ob->handle);
+
+#else
+
+				PhongUniforms uniforms;
+				setUniformsForPhongProg(opengl_mat, *ob.mesh_data, uniforms);
+			
+			#if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
+				const uint32 use_batch_index = settings.use_multiple_phong_uniform_bufs ? myMin(batch_index, 63u) : 0;
+
+				this->phong_uniform_buf_obs[use_batch_index]->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+
+				if(use_batch_index != current_bound_phong_uniform_buf_ob_index)
+				{
+					glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_obs[use_batch_index]->handle);
+					current_bound_phong_uniform_buf_ob_index = use_batch_index;
+				}
+			#else
+				this->phong_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(PhongUniforms));
+			#endif
+
+#endif
+				if(!use_bindless_textures)
+					bindTexturesForPhongProg(opengl_mat);
+			}
+			else if(prog == this->env_prog.getPointer())
+			{
+				assert(false); // env_prog drawing is done in drawBatch()
+			}
+			else if(prog->is_depth_draw)
+			{
+				assert(!use_multi_draw_indirect); // If multi-draw-indirect was enabled, depth-draw mats would be handled in (use_MDI_and_prog_supports_MDI) branch.
+
+				// Slow, non-MDI path:
+				assert(batch.material_data_or_mat_index == ob.depth_draw_batches[batch_index].material_data_or_mat_index);
+				const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index]; // This is the non-MDI case, so material_data_or_mat_index is the index into ob.materials
+
+				//const Matrix4f proj_view_model_matrix = proj_mat * view_mat * ob.ob_to_world_matrix;
+				//glUniformMatrix4fv(shader_prog->uniform_locations.proj_view_model_matrix_location, 1, false, proj_view_model_matrix.e);
+				if(prog->is_depth_draw_with_alpha_test)
+				{
+					assert(opengl_mat.albedo_texture.nonNull()); // We should only be using the depth shader with alpha test if there is a texture with alpha.
+
+					DepthUniforms uniforms;
+
+					uniforms.texture_upper_left_matrix_col0.x = opengl_mat.tex_matrix.e[0];
+					uniforms.texture_upper_left_matrix_col0.y = opengl_mat.tex_matrix.e[2];
+					uniforms.texture_upper_left_matrix_col1.x = opengl_mat.tex_matrix.e[1];
+					uniforms.texture_upper_left_matrix_col1.y = opengl_mat.tex_matrix.e[3];
+					uniforms.texture_matrix_translation = opengl_mat.tex_translation;
+
+					if(this->use_bindless_textures)
+					{
+						if(opengl_mat.albedo_texture.nonNull())
+							uniforms.diffuse_tex = opengl_mat.albedo_texture->getBindlessTextureHandle();
+					}
+					else
+					{
+						assert(prog->uniform_locations.diffuse_tex_location >= 0);
+						bindTextureToTextureUnitRaw(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX);
+					}
+
+					// Just set IMPOSTER_TEX_HAS_MULTIPLE_ANGLES flag which is the only one used in depth_frag_shader.glsl
+					uniforms.flags                   = opengl_mat.imposter_tex_has_multiple_angles ? IMPOSTER_TEX_HAS_MULTIPLE_ANGLES : 0;
+			
+					uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
+					uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
+					uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
+					uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
+					uniforms.materialise_start_time  = opengl_mat.materialise_start_time;
+
+					this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
+				}
+				else
+				{
+					DepthUniforms uniforms;
+
+					uniforms.flags                   = 0;
+					uniforms.begin_fade_out_distance = opengl_mat.begin_fade_out_distance;
+					uniforms.end_fade_out_distance   = opengl_mat.end_fade_out_distance;
+					uniforms.materialise_lower_z	 = opengl_mat.materialise_lower_z;
+					uniforms.materialise_upper_z	 = opengl_mat.materialise_upper_z;
+					uniforms.materialise_start_time	 = opengl_mat.materialise_start_time;
+
+					this->depth_uniform_buf_ob->updateData(/*dest offset=*/0, &uniforms, sizeof(DepthUniforms));
+				}
+			}
+			else if(prog->is_outline)
+			{
+
+			}
+			else // Else shader created by user code:
+			{
+				// Slow path:
+				assert(batch.material_data_or_mat_index == ob.getUsedBatches()[batch_index].material_index);
+				const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index];
+
+				if(prog->time_loc >= 0)
+					glUniform1f(prog->time_loc, this->current_time);
+				if(prog->colour_loc >= 0)
+				{
+					glUniform3fv(prog->colour_loc, 1, &opengl_mat.albedo_linear_rgb.r);
+				}
+
+				if(prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
+					bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/prog->albedo_texture_loc);
+
+				// Set user uniforms
+				for(size_t i=0; i<prog->user_uniform_info.size(); ++i)
+				{
+					switch(prog->user_uniform_info[i].uniform_type)
+					{
+					case UserUniformInfo::UniformType_Vec2:
+						glUniform2fv(prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec2);
+						break;
+					case UserUniformInfo::UniformType_Vec3:
+						glUniform3fv(prog->user_uniform_info[i].loc, 1, (const float*)&opengl_mat.user_uniform_vals[i].vec3);
+						break;
+					case UserUniformInfo::UniformType_Int:
+						glUniform1i(prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].intval);
+						break;
+					case UserUniformInfo::UniformType_Float:
+						glUniform1f(prog->user_uniform_info[i].loc, opengl_mat.user_uniform_vals[i].floatval);
+						break;
+					case UserUniformInfo::UniformType_Sampler2D:
+						assert(0); // TODO
+						break;
+					}
 				}
 			}
 		}
@@ -12568,6 +12628,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "max_texture_size: " + toString(max_texture_size) + "\n";
 	s += "using bindless textures: " + boolToString(use_bindless_textures) + "\n";
 	s += "using multi-draw-indirect: " + boolToString(use_multi_draw_indirect) + "\n";
+	s += "using ob and mat data GPU-resident: " + boolToString(use_ob_and_mat_data_gpu_resident) + "\n";
 	s += "using reverse z: " + boolToString(use_reverse_z) + "\n";
 	s += "SSBO support: " + boolToString(GL_ARB_shader_storage_buffer_object_support) + "\n";
 	s += "total available GPU mem (nvidia): " + getNiceByteSize(total_available_GPU_mem_B) + "\n";

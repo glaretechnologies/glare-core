@@ -11,7 +11,7 @@ uniform sampler2D fbm_tex;
 uniform sampler2D blue_noise_tex;
 
 //----------------------------------------------------------------------------------------------------------------------------
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+#if OB_AND_MAT_DATA_GPU_RESIDENT
 
 flat in int material_index;
 
@@ -30,7 +30,7 @@ layout(std430) buffer PhongUniforms
 
 
 //----------------------------------------------------------------------------------------------------------------------------
-#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
+#else // else if !OB_AND_MAT_DATA_GPU_RESIDENT:
 
 layout (std140) uniform DepthUniforms
 {
@@ -66,7 +66,7 @@ layout (std140) uniform DepthUniforms
 #define DIFFUSE_TEX diffuse_tex
 #endif
 
-#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+#endif // end if !OB_AND_MAT_DATA_GPU_RESIDENT
 //----------------------------------------------------------------------------------------------------------------------------
 
 

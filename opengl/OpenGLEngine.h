@@ -865,6 +865,15 @@ struct PerObjectVertUniforms
 	float uv1_scale;
 };
 
+// Should be the same layout as ObJointAndMatIndicesStruct in common_vert_structures.glsl
+struct ObJointAndMatIndicesStruct
+{
+	int per_ob_data_index;
+	int joints_base_index;
+	int material_index;
+	int padding;
+};
+
 
 // See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMultiDrawElementsIndirect.xhtml
 struct DrawElementsIndirectCommand
@@ -1504,6 +1513,7 @@ public:
 	int max_texture_size;
 	bool use_bindless_textures;
 	bool use_multi_draw_indirect;
+	bool use_ob_and_mat_data_gpu_resident;
 	bool use_reverse_z;
 	bool use_scatter_shader; // Use scatter shader for data updates
 	bool use_order_indep_transparency;
@@ -1604,6 +1614,7 @@ private:
 	UniformBufObRef shared_vert_uniform_buf_ob;
 	UniformBufObRef per_object_vert_uniform_buf_ob;
 	UniformBufObRef joint_matrices_buf_ob;
+	UniformBufObRef ob_joint_and_mat_indices_uniform_buf_ob;
 
 	// Some temporary vectors:
 	js::Vector<Matrix4f, 16> temp_matrices;

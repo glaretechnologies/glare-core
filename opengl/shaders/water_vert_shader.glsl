@@ -15,41 +15,59 @@ out vec3 pos_ws;
 //out vec2 texture_coords;
 out vec3 cam_to_pos_ws;
 
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+#if OB_AND_MAT_DATA_GPU_RESIDENT
 flat out int material_index;
 #endif
 
 
 //----------------------------------------------------------------------------------------------------------------------------
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+#if OB_AND_MAT_DATA_GPU_RESIDENT
 
 layout(std430) buffer PerObjectVertUniforms
 {
 	PerObjectVertUniformsStruct per_object_data[];
 };
 
-layout (std430) buffer ObAndMatIndicesStorage
-{
-	int ob_and_mat_indices[];
-};
+
+#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+	// If using MDEI, then the object and mat indices are fetched from indexing into ob_and_mat_indices with gl_DrawID.
+	layout (std430) buffer ObAndMatIndicesStorage
+	{
+		int ob_and_mat_indices[];
+	};
+#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+	// If not using MDEI, the object and mat indices are passed to the shader in this uniform.
+	layout (std140) uniform ObJointAndMatIndices
+	{
+		ObJointAndMatIndicesStruct ob_joint_and_mat_indices;
+	};
+#endif
 
 //----------------------------------------------------------------------------------------------------------------------------
-#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
+#else // else if !OB_AND_MAT_DATA_GPU_RESIDENT:
 
 layout (std140) uniform PerObjectVertUniforms
 {
 	PerObjectVertUniformsStruct per_object_data;
 };
 
-#endif // !USE_MULTIDRAW_ELEMENTS_INDIRECT
+#endif // !OB_AND_MAT_DATA_GPU_RESIDENT
 //----------------------------------------------------------------------------------------------------------------------------
 
 
 void main()
 {
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+#if OB_AND_MAT_DATA_GPU_RESIDENT
+	#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+	// Compute from gl_DrawID
 	int per_ob_data_index = ob_and_mat_indices[gl_DrawID * OB_AND_MAT_INDICES_STRIDE + 0];
 	material_index        = ob_and_mat_indices[gl_DrawID * OB_AND_MAT_INDICES_STRIDE + 2];
+	#else
+	// Get from ob_joint_and_mat_indices uniform
+	int per_ob_data_index = ob_joint_and_mat_indices.per_ob_data_index;
+	material_index        = ob_joint_and_mat_indices.material_index;
+	#endif
+
 	mat4 model_matrix  = per_object_data[per_ob_data_index].model_matrix;
 	mat4 normal_matrix = per_object_data[per_ob_data_index].normal_matrix;
 #else

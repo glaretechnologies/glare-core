@@ -25,7 +25,7 @@ uniform sampler2D fbm_tex;
 
 
 //----------------------------------------------------------------------------------------------------------------------------
-#if USE_MULTIDRAW_ELEMENTS_INDIRECT
+#if OB_AND_MAT_DATA_GPU_RESIDENT
 
 flat in int material_index;
 
@@ -45,7 +45,7 @@ layout(std430) buffer PhongUniforms
 #define TRANSMISSION_TEX			MAT_UNIFORM.transmission_tex
 
 //----------------------------------------------------------------------------------------------------------------------------
-#else // else if !USE_MULTIDRAW_ELEMENTS_INDIRECT:
+#else // else if !OB_AND_MAT_DATA_GPU_RESIDENT:
 
 
 layout (std140) uniform PhongUniforms
@@ -74,7 +74,7 @@ layout (std140) uniform PhongUniforms
 #define TRANSMISSION_TEX			transmission_tex
 #endif
 
-#endif // end if !USE_MULTIDRAW_ELEMENTS_INDIRECT
+#endif // end if !OB_AND_MAT_DATA_GPU_RESIDENT
 //----------------------------------------------------------------------------------------------------------------------------
 
 

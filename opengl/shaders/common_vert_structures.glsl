@@ -44,4 +44,12 @@ struct PerObjectVertUniformsStruct
 };
 
 
+struct ObJointAndMatIndicesStruct
+{
+	int per_ob_data_index;
+	int joints_base_index;
+	int material_index;
+	int padding;
+};
+
 #define OB_AND_MAT_INDICES_STRIDE			3
