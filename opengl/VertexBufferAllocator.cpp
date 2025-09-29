@@ -96,6 +96,8 @@ void VertexBufferAllocator::getOrCreateAndAssignVAOForMesh(OpenGLMeshRenderData&
 	else
 		use_vao_data_index = res->second;
 
+	assert(vao_data[use_vao_data_index].vao->vertex_spec == vertex_spec);
+
 	mesh_data_in_out.vao_data_index = (uint32)use_vao_data_index;
 
 #endif // end if !DO_INDIVIDUAL_VAO_ALLOC

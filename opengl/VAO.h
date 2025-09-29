@@ -100,6 +100,11 @@ struct VertexSpec
 		return false;
 	}
 
+	bool operator == (const VertexSpec& other) const
+	{
+		return !(*this < other) && !(other < *this);
+	}
+
 	size_t vertStride() const { return attributes.empty() ? 0 : attributes[0].stride; }
 	void checkValid() const;
 };
