@@ -160,7 +160,7 @@ void OpenGLUploadThread::doRun()
 			}
 
 			//----------------------------- Get the bindless texture handle in this thread as can take a while. -----------------------------
-			if(opengl_tex->bindless_tex_handle == 0)
+			if(opengl_engine->use_bindless_textures && (opengl_tex->bindless_tex_handle == 0))
 				opengl_tex->createBindlessTextureHandle();
 
 			if(upload_msg->is_animated_texture_update) // If doing animated texture update:
