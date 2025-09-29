@@ -945,7 +945,7 @@ namespace Sort
 			sum2 += count_i;
 		}
 
-		// Sort by least significant 11 bits, then middle 11 bits, then most signficant 10 bits.
+		// Sort by least significant 11 bits, then middle 11 bits, then most significant 10 bits.
 		countingSortPass(data, working_space, num_items, getKey, temp_counts                , /*shift_amount=*/0);
 		countingSortPass(working_space, data, num_items, getKey, temp_counts + num_buckets  , /*shift_amount=*/11);
 		countingSortPass(data, working_space, num_items, getKey, temp_counts + num_buckets*2, /*shift_amount=*/22);
