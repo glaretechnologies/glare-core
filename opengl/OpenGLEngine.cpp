@@ -3833,7 +3833,10 @@ void OpenGLEngine::updateObjectTransformData(GLObject& object)
 	setObjectTransformData(object);
 
 	if((object.ob_to_world_matrix_determinant >= 0.f) != old_det_positive)
+	{
+		rebuildObjectDepthDrawBatches(object);
 		rebuildDenormalisedDrawData(object);
+	}
 }
 
 
@@ -4241,7 +4244,6 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 	setObjectTransformData(*object);
 
 	rebuildObjectDepthDrawBatches(*object);
-
 	rebuildDenormalisedDrawData(*object);
 }
 
@@ -4805,7 +4807,6 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 	}
 
 	rebuildObjectDepthDrawBatches(object); // Since material alpha may have changed, need to recompute depth-draw batches
-
 	rebuildDenormalisedDrawData(object);
 }
 
@@ -4851,6 +4852,7 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 		// Since texture may have changed from one with alpha to one without, or vice-versa, we may need to assign a new shader.
 		assignShaderProgToMaterial(mat, ob.mesh_data->has_vert_colours, /*uses instancing=*/ob.instance_matrix_vbo.nonNull(), ob.mesh_data->usesSkinning(), ob.mesh_data->has_vert_tangents, ob.mesh_data->position_w_is_oct16_normal);
 
+		rebuildObjectDepthDrawBatches(ob);
 		rebuildDenormalisedDrawData(ob);
 
 #if UNIFORM_BUF_PER_MAT_SUPPORT
@@ -4868,7 +4870,6 @@ void OpenGLEngine::materialTextureChanged(GLObject& ob, OpenGLMaterial& mat)
 void OpenGLEngine::objectBatchDataChanged(GLObject& object)
 {
 	rebuildObjectDepthDrawBatches(object);
-
 	rebuildDenormalisedDrawData(object);
 }
 
