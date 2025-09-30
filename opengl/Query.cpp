@@ -9,7 +9,10 @@ Copyright Glare Technologies Limited 2024 -
 #include "IncludeOpenGL.h"
 
 
-#if !defined(OSX) && !defined(EMSCRIPTEN)
+#define GL_TIME_ELAPSED                   0x88BF
+
+
+#if !defined(OSX)
 #define QUERIES_SUPPORTED 1
 #endif
 
@@ -53,9 +56,9 @@ bool Query::checkResultAvailable()
 {
 	assert(state == State_WaitingForResult);
 
-	GLint ready = false;
+	GLuint ready = false;
 #if QUERIES_SUPPORTED
-	glGetQueryObjectiv(query_id, GL_QUERY_RESULT_AVAILABLE, &ready);
+	glGetQueryObjectuiv(query_id, GL_QUERY_RESULT_AVAILABLE, &ready);
 #endif
 	if(ready != 0)
 		state = State_Idle;
@@ -66,9 +69,19 @@ bool Query::checkResultAvailable()
 
 double Query::getTimeElapsed()
 {
-	uint64 elapsed_ns = 0;
 #if QUERIES_SUPPORTED
+
+#if EMSCRIPTEN
+	// Emscripten doesn't seem to have glGetQueryObjectui64v
+	uint32 elapsed_ns = 0;
+	glGetQueryObjectuiv(query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
+#else
+	uint64 elapsed_ns = 0;
 	glGetQueryObjectui64v(query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
 #endif
+
 	return (double)elapsed_ns * 1.0e-9;
+#else
+	return 0.0;
+#endif
 }

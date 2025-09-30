@@ -1150,7 +1150,8 @@ public:
 
 	std::string getDiagnostics() const;
 
-	void setProfilingEnabled(bool enabled) { query_profiling_enabled = enabled; }
+	// Try and enable profiling.  May not work on some platforms that don't support queries.
+	void setProfilingEnabled(bool enabled);
 	//----------------------------------------------------------------------------------------
 
 	//----------------------------------- Settings ----------------------------------------
@@ -1170,6 +1171,7 @@ public:
 
 	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
 private:
+	void checkCreateProfilingQueries();
 	void loadMapsForSunDir();
 	void buildObjectData(const Reference<GLObject>& object);
 	void rebuildDenormalisedDrawData(GLObject& ob);
@@ -1514,6 +1516,7 @@ public:
 	bool use_scatter_shader; // Use scatter shader for data updates
 	bool use_order_indep_transparency;
 	bool normal_texture_is_uint;
+	bool EXT_disjoint_timer_query_webgl2_support;
 
 	OpenGLEngineSettings settings;
 

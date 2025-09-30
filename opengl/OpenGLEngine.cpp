@@ -435,11 +435,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_anim_update_duration(0),
 	last_draw_CPU_time(0),
 	last_fps(0),
-#if BUILD_TESTS
-	query_profiling_enabled(true),
-#else
 	query_profiling_enabled(false),
-#endif
 	num_frames_since_fps_timer_reset(0),
 	last_num_prog_changes(0),
 	last_num_batches_bound(0),
@@ -1745,6 +1741,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 #else
 	this->float_texture_filtering_support = true;
 #endif
+	this->EXT_disjoint_timer_query_webgl2_support = false;
 
 	// Check OpenGL extensions
 	GLint n = 0;
@@ -1766,6 +1763,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		if(stringEqual(ext, "EXT_clip_control")) this->clip_control_support = true;
 		if(stringEqual(ext, "OES_texture_float_linear")) this->float_texture_filtering_support = true;
 		if(stringEqual(ext, "EXT_texture_compression_bptc")) this->texture_compression_BC6H_support = true;
+		if(stringEqual(ext, "EXT_disjoint_timer_query_webgl2")) this->EXT_disjoint_timer_query_webgl2_support = true;
 #endif
 	}
 
@@ -1846,17 +1844,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	glEnable(GL_DEPTH_TEST);	// Enable z-buffering
 	glDisable(GL_CULL_FACE);	// Disable backface culling
 
-	this->start_query = new TimestampQuery();
-	this->end_query   = new TimestampQuery();
-
-	this->dynamic_depth_draw_gpu_timer = new Query();
-	this->static_depth_draw_gpu_timer = new Query();
-	this->draw_opaque_obs_gpu_timer = new Query();
-	this->depth_pre_pass_gpu_timer = new Query();
-	this->compute_ssao_gpu_timer = new Query();
-	this->blur_ssao_gpu_timer = new Query();
-	this->copy_prepass_buffers_gpu_timer = new Query();
-	this->decal_copy_buffers_timer = new Query();
 
 	this->sphere_meshdata = MeshPrimitiveBuilding::makeSphereMesh(*vert_buf_allocator);
 	this->line_meshdata = MeshPrimitiveBuilding::makeLineMesh(*vert_buf_allocator);
@@ -2461,6 +2448,28 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	}
 
 	TracyGpuContext
+}
+
+
+// Create OpenGL query objects if they have not already been created.
+void OpenGLEngine::checkCreateProfilingQueries()
+{
+	assert(query_profiling_enabled);
+
+	if(!this->start_query)
+	{
+		this->start_query = new TimestampQuery();
+		this->end_query   = new TimestampQuery();
+
+		this->dynamic_depth_draw_gpu_timer = new Query();
+		this->static_depth_draw_gpu_timer = new Query();
+		this->draw_opaque_obs_gpu_timer = new Query();
+		this->depth_pre_pass_gpu_timer = new Query();
+		this->compute_ssao_gpu_timer = new Query();
+		this->blur_ssao_gpu_timer = new Query();
+		this->copy_prepass_buffers_gpu_timer = new Query();
+		this->decal_copy_buffers_timer = new Query();
+	}
 }
 
 
@@ -12639,6 +12648,32 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += vert_buf_allocator->getDiagnostics();
 
 	return s;
+}
+
+
+void OpenGLEngine::setProfilingEnabled(bool enable)
+{
+	if(enable)
+	{
+#if defined(OSX)
+		// Queries not supported
+		conPrint("GPU profiling not available on Mac.");
+#elif EMSCRIPTEN
+		if(EXT_disjoint_timer_query_webgl2_support)
+			query_profiling_enabled = true;
+		else
+			conPrint("GPU profiling not available in Emscripten without EXT_disjoint_timer_query_webgl2 support.");
+#else
+		query_profiling_enabled = true;
+#endif
+
+		if(query_profiling_enabled)
+			checkCreateProfilingQueries();
+	}
+	else
+	{
+		query_profiling_enabled = false;
+	}
 }
 
 
