@@ -10,9 +10,16 @@ Copyright Glare Technologies Limited 2025 -
 #include "../maths/mathstypes.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
+#if EMSCRIPTEN
+#define GL_GLEXT_PROTOTYPES 1
+#include <GLES3/gl2ext.h>
 
+#define GL_TIMESTAMP GL_TIMESTAMP_EXT
+#define glQueryCounter glQueryCounterEXT
+#define glGetQueryObjectui64v glGetQueryObjectui64vEXT
+#endif
 
-#if !defined(OSX) && !defined(EMSCRIPTEN)
+#if !defined(OSX)
 #define QUERIES_SUPPORTED 1
 #endif
 
