@@ -64,6 +64,7 @@ class TerrainSystem;
 class RenderBuffer;
 class Query;
 class TimestampQuery;
+class BufferedTimeElapsedQuery;
 namespace glare { class BestFitAllocator; }
 template <class V, class VTraits> class ImageMap;
 
@@ -1552,6 +1553,7 @@ private:
 	Reference<Query> blur_ssao_gpu_timer;
 	Reference<Query> copy_prepass_buffers_gpu_timer;
 	Reference<Query> decal_copy_buffers_timer;
+	Reference<BufferedTimeElapsedQuery> buffered_total_timer;
 	
 	uint32 last_num_prog_changes;
 	uint32 last_num_batches_bound;

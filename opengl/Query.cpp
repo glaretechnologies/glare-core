@@ -7,9 +7,14 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "IncludeOpenGL.h"
+#if EMSCRIPTEN
+#define GL_GLEXT_PROTOTYPES 1
+#include <GLES3/gl2ext.h>
 
-
-#define GL_TIME_ELAPSED                   0x88BF
+#define GL_TIME_ELAPSED GL_TIME_ELAPSED_EXT
+#define GL_TIMESTAMP GL_TIMESTAMP_EXT
+#define glGetQueryObjectui64v glGetQueryObjectui64vEXT
+#endif
 
 
 #if !defined(OSX)
@@ -71,14 +76,8 @@ double Query::getTimeElapsed()
 {
 #if QUERIES_SUPPORTED
 
-#if EMSCRIPTEN
-	// Emscripten doesn't seem to have glGetQueryObjectui64v
-	uint32 elapsed_ns = 0;
-	glGetQueryObjectuiv(query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
-#else
 	uint64 elapsed_ns = 0;
 	glGetQueryObjectui64v(query_id, GL_QUERY_RESULT, &elapsed_ns); // Blocks
-#endif
 
 	return (double)elapsed_ns * 1.0e-9;
 #else

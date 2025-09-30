@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "AsyncTextureLoader.h"
 #include "Query.h"
 #include "TimestampQuery.h"
+#include "BufferedTimeElapsedQuery.h"
 #include "../graphics/TextureProcessing.h"
 #include "../graphics/ImageMap.h"
 #include "../graphics/SRGBUtils.h"
@@ -116,6 +117,13 @@ static const size_t max_num_joint_matrices_per_ob = 256; // Max num joint matric
 
 
 static const bool draw_aurora = true;
+
+#if EMSCRIPTEN
+const bool time_individual_passes = false; // Chrome doesn't support timestamp queries (https://codereview.chromium.org/1800383002), so we have to use an elapsed timer, which doesn't nest, so we cant time individual passes as well.
+#else
+const bool time_individual_passes = true;
+#endif
+
 
 // 'Standard' textures will be bound to standard texture units, for example FBM texture will always be bound to texture unit 6.
 // We won't use texture unit index 0, that will be a scratch index which will get overwritten when creating new textures (which calls glBindTexture()) etc.
@@ -2456,11 +2464,8 @@ void OpenGLEngine::checkCreateProfilingQueries()
 {
 	assert(query_profiling_enabled);
 
-	if(!this->start_query)
+	if(!this->dynamic_depth_draw_gpu_timer)
 	{
-		this->start_query = new TimestampQuery();
-		this->end_query   = new TimestampQuery();
-
 		this->dynamic_depth_draw_gpu_timer = new Query();
 		this->static_depth_draw_gpu_timer = new Query();
 		this->draw_opaque_obs_gpu_timer = new Query();
@@ -2469,6 +2474,14 @@ void OpenGLEngine::checkCreateProfilingQueries()
 		this->blur_ssao_gpu_timer = new Query();
 		this->copy_prepass_buffers_gpu_timer = new Query();
 		this->decal_copy_buffers_timer = new Query();
+
+#if EMSCRIPTEN
+		// Chrome/web doesn't support timestamp queries: https://codereview.chromium.org/1800383002
+		this->buffered_total_timer = new BufferedTimeElapsedQuery();
+#else
+		this->start_query = new TimestampQuery();
+		this->end_query   = new TimestampQuery();
+#endif
 	}
 }
 
@@ -6599,7 +6612,13 @@ void OpenGLEngine::draw()
 		return;
 
 	if(query_profiling_enabled && current_scene->collect_stats)
+	{
+#if EMSCRIPTEN
+		buffered_total_timer->recordBegin();
+#else
 		start_query->recordTimestamp();
+#endif
+	}
 
 	Timer draw_method_timer;
 
@@ -7591,11 +7610,21 @@ void OpenGLEngine::draw()
 	glActiveTexture(GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit), while loading data into textures or creating new textures, outside of this draw() call.
 
 	if(query_profiling_enabled && current_scene->collect_stats)
+	{
+#if EMSCRIPTEN
+		buffered_total_timer->recordEnd();
+#else
 		end_query->recordTimestamp();
+#endif
+	}
 
 	if(query_profiling_enabled && current_scene->collect_stats)
 	{
+#if EMSCRIPTEN
+		last_total_draw_GPU_time = buffered_total_timer->getLastTimeElapsed();
+#else
 		last_total_draw_GPU_time = end_query->getLastTimestamp() - start_query->getLastTimestamp();
+#endif
 
 		if(dynamic_depth_draw_gpu_timer->waitingForResult() && dynamic_depth_draw_gpu_timer->checkResultAvailable())
 			last_dynamic_depth_draw_GPU_time = dynamic_depth_draw_gpu_timer->getTimeElapsed();
@@ -7938,7 +7967,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 	{
 		ZoneScopedN("Shadow depth draw"); // Tracy profiler
 
-		if(query_profiling_enabled && current_scene->collect_stats && dynamic_depth_draw_gpu_timer->isIdle())
+		if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && dynamic_depth_draw_gpu_timer->isIdle())
 			dynamic_depth_draw_gpu_timer->beginTimerQuery();
 
 		//-------------------- Draw dynamic depth textures ----------------
@@ -8194,7 +8223,7 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 		{
 			DebugGroup debug_group2("static depth draw");
 
-			if(query_profiling_enabled && current_scene->collect_stats && static_depth_draw_gpu_timer->isIdle())
+			if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && static_depth_draw_gpu_timer->isIdle())
 				static_depth_draw_gpu_timer->beginTimerQuery();
 
 			// Bind the non-current ('other') static depth map.  We will render to that.
@@ -8742,7 +8771,7 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 
 		if(temp_batch_draw_info.nonEmpty()) // Only do buffer copying if we have some decals to draw.
 		{
-			if(query_profiling_enabled && current_scene->collect_stats && decal_copy_buffers_timer->isIdle())
+			if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && decal_copy_buffers_timer->isIdle())
 				decal_copy_buffers_timer->beginTimerQuery();
 
 			main_render_framebuffer->bindForReading();
@@ -9077,7 +9106,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	DebugGroup debug_group("Draw opaque obs");
 	TracyGpuZone("Draw opaque obs");
 
-	if(query_profiling_enabled && current_scene->collect_stats && draw_opaque_obs_gpu_timer->isIdle())
+	if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && draw_opaque_obs_gpu_timer->isIdle())
 		draw_opaque_obs_gpu_timer->beginTimerQuery();
 
 	//conPrint("-----------------------------------------------drawNonTransparentMaterialBatches--------------------------------------");
@@ -9474,7 +9503,7 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 		DebugGroup debug_group("colour and depth pre-pass");
 		TracyGpuZone("colour and depth pre-pass");
 
-		if(query_profiling_enabled && current_scene->collect_stats && depth_pre_pass_gpu_timer->isIdle())
+		if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && depth_pre_pass_gpu_timer->isIdle())
 			depth_pre_pass_gpu_timer->beginTimerQuery();
 
 		assertCurrentProgramIsZero();
@@ -9701,7 +9730,7 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 	DebugGroup debug_group("Depth pre-pass");
 	TracyGpuZone("Depth pre-pass");
 
-	if(query_profiling_enabled && current_scene->collect_stats && depth_pre_pass_gpu_timer->isIdle())
+	if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && depth_pre_pass_gpu_timer->isIdle())
 		depth_pre_pass_gpu_timer->beginTimerQuery();
 
 	assertCurrentProgramIsZero();
@@ -9942,7 +9971,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 		
 			
 			//---------------------- Blit from prepass_framebuffer to prepass_copy_framebuffer ----------------------
-			if(query_profiling_enabled && current_scene->collect_stats && copy_prepass_buffers_gpu_timer->isIdle())
+			if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && copy_prepass_buffers_gpu_timer->isIdle())
 				copy_prepass_buffers_gpu_timer->beginTimerQuery();
 
 			prepass_framebuffer->bindForReading();
@@ -9977,7 +10006,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 			//-----------------------------------------------------------------------------------------------------
 
 
-			if(query_profiling_enabled && current_scene->collect_stats && compute_ssao_gpu_timer->isIdle())
+			if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && compute_ssao_gpu_timer->isIdle())
 				compute_ssao_gpu_timer->beginTimerQuery();
 
 			glViewport(0, 0, (GLsizei)prepass_framebuffer->xRes(), (GLsizei)prepass_framebuffer->yRes());
@@ -10022,7 +10051,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 			TracyGpuZone("blurSSAO");
 			DebugGroup debug_group("blurSSAO");
 			
-			if(query_profiling_enabled && current_scene->collect_stats && blur_ssao_gpu_timer->isIdle())
+			if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && blur_ssao_gpu_timer->isIdle())
 				blur_ssao_gpu_timer->beginTimerQuery();
 
 			blur_ssao_prog->useProgram();
