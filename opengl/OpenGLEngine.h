@@ -1153,6 +1153,8 @@ public:
 
 	// Try and enable profiling.  May not work on some platforms that don't support queries.
 	void setProfilingEnabled(bool enabled);
+
+	bool runningInRenderDoc() const { return running_in_renderdoc; }
 	//----------------------------------------------------------------------------------------
 
 	//----------------------------------- Settings ----------------------------------------
