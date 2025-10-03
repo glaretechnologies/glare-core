@@ -263,7 +263,9 @@ void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, c
 	Reference<OpenGLTexture> opengl_tex = TextureLoading::createUninitialisedOpenGLTexture(*tex_data, opengl_engine.ptr(), texture_params);
 	opengl_tex->key = key;
 #if BUILD_TESTS
-	opengl_tex->setDebugName(FileUtils::getFilename(path).substr(0, 100)); // AMD drivers generate errors if the debug name is too long.
+	// Only call opengl_tex->setDebugName when running in RenderDoc, can be slow otherwise.
+	if(opengl_engine->running_in_renderdoc)
+		opengl_tex->setDebugName(FileUtils::getFilename(path).substr(0, 100)); // AMD drivers generate errors if the debug name is too long.
 #endif
 
 	loading_progress.path = path;
