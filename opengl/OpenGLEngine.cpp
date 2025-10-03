@@ -6630,6 +6630,30 @@ void OpenGLEngine::draw()
 	current_scene->frame_num++;
 
 
+	//================= Process became_unused_tex_keys =================
+	// This is the list of texture keys for textures that became unused on another thread.
+	{
+		Lock lock(became_unused_tex_keys_mutex);
+		for(size_t i=0; i<became_unused_tex_keys.size(); ++i)
+		{
+			auto res = opengl_textures.find(became_unused_tex_keys[i]);
+			if(res != opengl_textures.end())
+			{
+				// If the only reference to the texture is from opengl_textures:  Note that we need to check here since another reference may have been added since the texture was added to became_unused_tex_keys.
+				if(res->second.value->getRefCount() == 1)
+				{
+					opengl_textures.itemBecameUnused(became_unused_tex_keys[i], res->second); // Add to unused list.
+
+#if !defined(OSX) && !defined(EMSCRIPTEN)
+					// Since this texture is not being used, we can make it non-resident.
+					res->second.value->makeNonResidentIfResident();
+#endif
+				}
+			}
+		}
+		became_unused_tex_keys.clear();
+	}
+
 	//================= Check if any building programs are done. =================
 	for(auto it = building_progs.begin(); it != building_progs.end(); )
 	{
@@ -12166,15 +12190,29 @@ void OpenGLEngine::checkMDIGPUDataCorrect()
 }
 
 
-void OpenGLEngine::textureBecameUnused(const OpenGLTexture* tex)
+void OpenGLEngine::textureBecameUnused(OpenGLTexture* tex)
 {
 	assert(tex->inserted_into_opengl_textures && tex->m_opengl_engine == this);
-	runtimeCheck(PlatformUtils::getCurrentThreadID() == this->initial_thread_id);
 
-	opengl_textures.itemBecameUnused(tex->key);
+	// opengl_textures is not designed to be used by multiple threads (not mutex protected), also making a bindless texture non-resident needs to be done on the main OpenGL context.
+	// So if this method is called from off the main thread, add to a queue to process later on the main thread.
+	if(PlatformUtils::getCurrentThreadID() == this->initial_thread_id)
+	{
+		opengl_textures.itemBecameUnused(tex->key);
 
-	// conPrint("Texture " + tex->key.path + " became unused.");
-	// conPrint("textures: " + toString(opengl_textures.numUsedItems()) + " used, " + toString(opengl_textures.numUnusedItems()) + " unused");
+#if !defined(OSX) && !defined(EMSCRIPTEN)
+		// Since this texture is not being used, we can make it non-resident.
+		tex->makeNonResidentIfResident();
+#endif
+
+		// conPrint("Texture " + tex->key.path + " became unused.");
+		// conPrint("textures: " + toString(opengl_textures.numUsedItems()) + " used, " + toString(opengl_textures.numUnusedItems()) + " unused");
+	}
+	else
+	{
+		Lock lock(became_unused_tex_keys_mutex);
+		became_unused_tex_keys.push_back(tex->key);
+	}
 }
 
 

@@ -1049,16 +1049,7 @@ void OpenGLTexture::textureRefCountDecreasedToOne()
 	// The ref count dropping to one means that the only reference held is by the opengl_texture ManagerWithCache.
 	// Therefore the texture is not used.  (is not assigned to any object material)
 	if(inserted_into_opengl_textures && m_opengl_engine)
-	{
-		assert(PlatformUtils::getCurrentThreadID() == m_opengl_engine->getInitialThreadID());
-
 		m_opengl_engine->textureBecameUnused(this);
-
-#if !defined(OSX) && !defined(EMSCRIPTEN)
-		// Since this texture is not being used, we can make it non-resident.
-		makeNonResidentIfResident();
-#endif
-	}
 }
 
 

@@ -1232,7 +1232,7 @@ public:
 
 	glare::TaskManager* getMainTaskManager() { return main_task_manager; }
 
-	void textureBecameUnused(const OpenGLTexture* tex);
+	void textureBecameUnused(OpenGLTexture* tex); // Threadsafe - can call from any thread.
 	void textureBecameUsed(const OpenGLTexture* tex);
 	static void GPUMemAllocated(size_t size);
 	static void GPUMemFreed(size_t size);
@@ -1703,6 +1703,9 @@ public:
 	uint64 getInitialThreadID() const { return initial_thread_id; }
 private:
 	uint64 initial_thread_id;
+
+	Mutex became_unused_tex_keys_mutex;
+	std::vector<OpenGLTextureKey> became_unused_tex_keys GUARDED_BY(became_unused_tex_keys_mutex);
 };
 
 

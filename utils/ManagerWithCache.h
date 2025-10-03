@@ -46,6 +46,7 @@ public:
 	
 	// Has no effect if key is not present in map.
 	inline void itemBecameUnused(const Key& key);
+	inline void itemBecameUnused(const Key& key, ManagerWithCacheItem<Key, Value>& item);
 
 	inline void erase(typename std::unordered_map<Key, ManagerWithCacheItem<Key, Value>, Hash>::iterator it);
 
@@ -164,6 +165,21 @@ void ManagerWithCache<Key, Value, Hash>::itemBecameUnused(const Key& key)
 				unused_items.push_front(key); // Insert at front of unused_items list
 				res->second.unused_items_it = unused_items.begin(); // Store iterator (pointer) to front unused_items list item. 
 			}
+		}
+	}
+}
+
+
+template <typename Key, typename Value, typename Hash>
+void ManagerWithCache<Key, Value, Hash>::itemBecameUnused(const Key& key, ManagerWithCacheItem<Key, Value>& item)
+{
+	if(add_to_unused_items)
+	{
+		// Insert item at front of unused_items list
+		if(item.unused_items_it == unused_items.end()) // If this item is not already marked as unused:
+		{
+			unused_items.push_front(key); // Insert at front of unused_items list
+			item.unused_items_it = unused_items.begin(); // Store iterator (pointer) to front unused_items list item. 
 		}
 	}
 }
