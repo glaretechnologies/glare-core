@@ -38,8 +38,6 @@ public:
 		return getOrMakeString(str.data(), str.size());
 	}
 
-	SharedImmutableString getOrMakeEmptyString() { return makeEmptySharedImmutableString(); }
-
 	size_t size() const { return num_items; }
 
 	static void test();
@@ -61,6 +59,15 @@ private:
 
 
 typedef Reference<SharedStringTable> SharedStringTableRef;
+
+
+inline SharedImmutableString getOrMakeSharedImmutableString(string_view str, SharedStringTable* table)
+{
+	if(table)
+		return table->getOrMakeString(str);
+	else
+		return makeSharedImmutableString(str);
+}
 
 
 } // end namespace glare

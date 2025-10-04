@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../maths/Matrix2.h"
 #include <string>
 namespace pugi { class xml_node; }
+namespace glare { class SharedStringTable; }
 
 
 /*=====================================================================
@@ -41,7 +42,7 @@ namespace XMLParseUtils
 
 	const std::string parseString(pugi::xml_node elem, const char* elemname);
 	const std::string parseStringWithDefault(pugi::xml_node elem, const char* elemname, const char* default_val);
-	glare::SharedImmutableString parseSharedImmutableStringWithDefault(pugi::xml_node elem, const char* elemname, const char* default_val);
+	glare::SharedImmutableString parseSharedImmutableStringWithDefault(pugi::xml_node elem, const char* elemname, const char* default_val, glare::SharedStringTable* table);
 
 	double parseDoubleDirectly(pugi::xml_node elem);
 	double parseDouble(pugi::xml_node elem, const char* elemname);

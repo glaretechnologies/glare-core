@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "RuntimeCheck.h"
 #include "MemAlloc.h"
 #include "../maths/mathstypes.h"
+#include <tracy/Tracy.hpp>
 
 
 glare::SharedStringTable::SharedStringTable(size_t num_buckets)
@@ -41,9 +42,11 @@ glare::SharedStringTable::~SharedStringTable()
 
 glare::SharedImmutableString glare::SharedStringTable::getOrMakeString(const char* data, size_t len)
 {
+	ZoneScoped; // Tracy profiler
+
 	if(len == 0)
 	{
-		return getOrMakeEmptyString();
+		return glare::SharedImmutableString();
 		//return SharedImmutableStringHandle(empty_string);
 		//return Reference<glare::SharedImmutableString>(); // empty_string;
 	}

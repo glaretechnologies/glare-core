@@ -28,16 +28,29 @@ SharedImmutableString
 class SharedImmutableString
 {
 public:
+	SharedImmutableString() {}
 	explicit SharedImmutableString(const Reference<SharedImmutableStringData>& string_) : string(string_) {}
 
 	inline const size_t size() const;
 	inline const char* data() const;
 
+	inline bool empty() const { return string.isNull(); }
+
 	inline bool operator == (const SharedImmutableString& other) const;
 	inline bool operator != (const SharedImmutableString& other) const;
 
+	inline bool operator < (const SharedImmutableString& other) const;
+	inline bool pointerLessThan(const SharedImmutableString& other) const;
+
+	inline bool operator == (const std::string& other) const;
+	inline bool operator != (const std::string& other) const;
+
+	inline operator string_view () const { return toStringView(); } // Conversion operator
+
 	[[nodiscard]] inline string_view toStringView() const;
 	[[nodiscard]] inline std::string toString() const;
+
+	inline size_t hash() const;// { return string ? string->hash : 0; }
 
 
 	static void test();
@@ -92,7 +105,7 @@ public:
 
 
 [[nodiscard]] Reference<SharedImmutableStringData> makeSharedImmutableStringData(const char* data, size_t len);
-[[nodiscard]] inline Reference<SharedImmutableStringData> makeSharedImmutableStringData(string_view str) { makeSharedImmutableStringData(str.data(), str.size()); }
+[[nodiscard]] inline Reference<SharedImmutableStringData> makeSharedImmutableStringData(string_view str) { return makeSharedImmutableStringData(str.data(), str.size()); }
 void doDestroySharedImmutableStringData(SharedImmutableStringData* str);
 
 
@@ -129,10 +142,36 @@ bool SharedImmutableString::operator == (const SharedImmutableString& other) con
 
 bool SharedImmutableString::operator != (const SharedImmutableString& other) const { return !(*this == other); }
 
+bool SharedImmutableString::operator < (const SharedImmutableString& other) const
+{
+	if(string.isNull() && other.string.nonNull())
+		return true;
+		
+	if(string.nonNull() && other.string.isNull())
+		return false;
+
+	return string->compare(*other.string) < 0;
+}
+
+inline bool SharedImmutableString::pointerLessThan(const SharedImmutableString& other) const
+{
+	return string.ptr() < other.string.ptr();
+}
+
+bool SharedImmutableString::operator == (const std::string& other) const
+{
+	return toStringView() == other;
+}
+
+bool SharedImmutableString::operator != (const std::string& other) const
+{
+	return toStringView() != other;
+}
+
 string_view SharedImmutableString::toStringView() const { return string ? string_view(string->data(), string->size()) : string_view(); }
 std::string SharedImmutableString::toString() const { return string ? std::string(string->data(), string->size()) : std::string(); }
 
-
+size_t SharedImmutableString::hash() const { return string ? string->hash : 0; }
 
 
 SharedImmutableStringData::SharedImmutableStringData()
