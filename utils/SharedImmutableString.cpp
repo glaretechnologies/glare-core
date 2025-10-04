@@ -28,17 +28,10 @@ Reference<SharedImmutableStringData> makeSharedImmutableStringData(const char* d
 	{
 		std::memset((uint8*)str_ptr + sizeof(SharedImmutableStringData), 0, len);
 	}
-	//SharedImmutableString* str = (SharedImmutableString*)str_ptr;
 	SharedImmutableStringData* str = new(str_ptr) SharedImmutableStringData(); // Placement new
 	str->size_ = len;
 	str->hash = data ? XXH64(data, len, /*seed=*/1) : 0;
 	return str;
-}
-
-
-Reference<SharedImmutableStringData> makeSharedImmutableStringData(string_view str)
-{
-	return makeSharedImmutableStringData(str.data(), str.size());
 }
 
 
@@ -117,7 +110,7 @@ void glare::SharedImmutableString::test()
 
 	// Test with pointer-equal key comparator.
 	{
-		std::unordered_set<SharedImmutableString, SharedImmutableStringHandleHasher, SharedImmutableStringHandleKeyPointerEqual> set;
+		std::unordered_set<SharedImmutableString, SharedImmutableStringHasher, SharedImmutableStringKeyPointerEqual> set;
 
 		SharedImmutableString s = makeSharedImmutableString("hello");
 		set.insert(s);
@@ -130,7 +123,7 @@ void glare::SharedImmutableString::test()
 
 	// Test empty string with pointer-equal key comparator.
 	{
-		std::unordered_set<SharedImmutableString, SharedImmutableStringHandleHasher, SharedImmutableStringHandleKeyPointerEqual> set;
+		std::unordered_set<SharedImmutableString, SharedImmutableStringHasher, SharedImmutableStringKeyPointerEqual> set;
 
 		SharedImmutableString s = makeSharedImmutableString("");
 		set.insert(s);
@@ -143,7 +136,7 @@ void glare::SharedImmutableString::test()
 
 	// Test with value-equal key comparator.
 	{
-		std::unordered_set<SharedImmutableString, SharedImmutableStringHandleHasher, SharedImmutableStringHandleKeyValueEqual> set;
+		std::unordered_set<SharedImmutableString, SharedImmutableStringHasher, SharedImmutableStringKeyValueEqual> set;
 
 		SharedImmutableString s = makeSharedImmutableString("hello");
 		set.insert(s);
@@ -156,7 +149,7 @@ void glare::SharedImmutableString::test()
 
 	// Test empty string with value-equal key comparator.
 	{
-		std::unordered_set<SharedImmutableString, SharedImmutableStringHandleHasher, SharedImmutableStringHandleKeyValueEqual> set;
+		std::unordered_set<SharedImmutableString, SharedImmutableStringHasher, SharedImmutableStringKeyValueEqual> set;
 
 		SharedImmutableString s = makeSharedImmutableString("");
 		set.insert(s);
