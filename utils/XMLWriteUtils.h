@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "string_view.h"
+#include "SharedImmutableString.h"
 #include "../maths/vec3.h"
 #include "../graphics/colour3.h"
 #include <string>
@@ -21,6 +22,7 @@ namespace XMLWriteUtils
 {
 	void writeColour3fToXML(std::string& xml, const string_view elem_name, const Colour3f& col, int tab_depth);
 	void writeStringElemToXML(std::string& xml, const string_view elem_name, const std::string& string_val, int tab_depth);
+	void writeStringElemToXML(std::string& xml, const string_view elem_name, const glare::SharedImmutableString& string_val, int tab_depth);
 	void writeUInt32ToXML(std::string& xml, const string_view elem_name, uint32 val, int tab_depth);
 	void writeUInt64ToXML(std::string& xml, const string_view elem_name, uint64 val, int tab_depth);
 	void writeInt32ToXML(std::string& xml, const string_view elem_name, int32 val, int tab_depth);

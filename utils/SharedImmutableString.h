@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "Reference.h"
 #include "string_view.h"
 #include <assert.h>
+#include <string>
 //#include <memory>
 //#include <new>
 
@@ -19,20 +20,20 @@ namespace glare
 
 
 /*=====================================================================
-SharedImmutableString
----------------------
+SharedImmutableStringData
+-------------------------
 
 =====================================================================*/
-class SharedImmutableString : public ThreadSafeRefCounted
+class SharedImmutableStringData : public ThreadSafeRefCounted
 {
 public:
 	
 
-	inline SharedImmutableString(); // Initialise as an empty vector.
+	inline SharedImmutableStringData(); // Initialise as an empty vector.
 	//inline SharedImmutableString(size_t count, const char val = '\0'); // Initialise with count copies of val.
 	//inline SharedImmutableString(const char* begin, const char* end); // Range constructor
 	//inline SharedImmutableString(const SharedImmutableString& other); // Initialise as a copy of other
-	inline ~SharedImmutableString();
+	inline ~SharedImmutableStringData();
 
 	//inline SharedImmutableString& operator=(const SharedImmutableString& other);
 
@@ -46,12 +47,12 @@ public:
 	const std::string toString() const { return std::string(data(), size_); }
 	string_view toStringView() const { return string_view(data(), size_); }
 
-	inline bool operator == (const SharedImmutableString& other); 
-	inline bool operator != (const SharedImmutableString& other); 
+	inline bool operator == (const SharedImmutableStringData& other); 
+	inline bool operator != (const SharedImmutableStringData& other); 
 
-	inline int compare(const SharedImmutableString& other); 
+	inline int compare(const SharedImmutableStringData& other); 
 
-	inline const char* data() const { return (const char*)(this) + sizeof(SharedImmutableString); }
+	inline const char* data() const { return (const char*)(this) + sizeof(SharedImmutableStringData); }
 
 	inline const char& back() const;
 	inline const char& operator[](size_t index) const;
@@ -61,7 +62,7 @@ public:
 	inline const_iterator begin() const;
 	inline const_iterator end() const;
 
-	static void test();
+	
 //private:
 	//char* e;
 	//size_t size_; // Number of elements in the vector.   Elements e[0] to e[size_-1] are proper constructed objects.
@@ -71,28 +72,29 @@ public:
 };
 
 
-typedef Reference<SharedImmutableString> SharedImmutableStringRef;
+typedef Reference<SharedImmutableStringData> SharedImmutableStringDataRef;
 
-Reference<SharedImmutableString> makeSharedImmutableString(const char* data, size_t len);
-Reference<SharedImmutableString> makeSharedImmutableString(string_view str);
-void doDestroySharedImmutableString(SharedImmutableString* str);
+[[nodiscard]] Reference<SharedImmutableStringData> makeSharedImmutableStringData(const char* data, size_t len);
+[[nodiscard]] Reference<SharedImmutableStringData> makeSharedImmutableStringData(string_view str);
+void doDestroySharedImmutableStringData(SharedImmutableStringData* str);
 
 
 
 
 /*=====================================================================
-SharedImmutableStringHandle
----------------------------
+SharedImmutableString
+---------------------
 
 =====================================================================*/
-class SharedImmutableStringHandle
+class SharedImmutableString
 {
 public:
-	explicit SharedImmutableStringHandle(const Reference<SharedImmutableString>& string_) : string(string_) {}
+	explicit SharedImmutableString(const Reference<SharedImmutableStringData>& string_) : string(string_) {}
 
-	inline const char* data() const { return string ? string->data() : nullptr; }
+	const size_t size() const { return string ? string->size() : 0; }
+	const char* data() const { return string ? string->data() : nullptr; }
 
-	inline bool operator == (const SharedImmutableStringHandle& other) const
+	bool operator == (const SharedImmutableString& other) const
 	{
 		if(string.isNull())
 			return other.string.isNull();
@@ -103,22 +105,35 @@ public:
 
 		return *string == *other.string;
 	}
-	inline bool operator != (const SharedImmutableStringHandle& other) const { return !(*this == other); }
+	bool operator != (const SharedImmutableString& other) const { return !(*this == other); }
 
+	[[nodiscard]] string_view toStringView() const { return string ? string_view(string->data(), string->size()) : string_view(); }
+	[[nodiscard]] std::string toString() const { return string ? std::string(string->data(), string->size()) : std::string(); }
+
+
+	static void test();
 //private:
-	Reference<SharedImmutableString> string; // Null if this is the empty string, non-null otherwise.
+	Reference<SharedImmutableStringData> string; // Null if this is the empty string, non-null otherwise.
 };
 
 
-SharedImmutableStringHandle makeSharedImmutableStringHandle(const char* data, size_t len);
-SharedImmutableStringHandle makeSharedImmutableStringHandle(string_view str);
-inline SharedImmutableStringHandle makeEmptySharedImmutableStringHandle() { return SharedImmutableStringHandle(nullptr); }
+[[nodiscard]] inline SharedImmutableString makeSharedImmutableString(const char* data, size_t len)
+{ 
+	return SharedImmutableString((len == 0) ? nullptr : makeSharedImmutableStringData(data, len));
+}
+
+[[nodiscard]] inline SharedImmutableString makeSharedImmutableString(string_view str)
+{ 
+	return SharedImmutableString((str.size() == 0) ? nullptr : makeSharedImmutableStringData(str.data(), str.size()));
+}
+
+[[nodiscard]] inline SharedImmutableString makeEmptySharedImmutableString() { return SharedImmutableString(nullptr); }
 
 
 
 
 
-SharedImmutableString::SharedImmutableString()
+SharedImmutableStringData::SharedImmutableStringData()
 :	size_(0), hash(0)
 {}
 
@@ -151,7 +166,7 @@ SharedImmutableString::SharedImmutableString()
 //}
 
 
-SharedImmutableString::~SharedImmutableString()
+SharedImmutableStringData::~SharedImmutableStringData()
 {
 	//MemAlloc::alignedFree(e);
 }
@@ -195,44 +210,45 @@ SharedImmutableString::~SharedImmutableString()
 //}
 
 
-size_t SharedImmutableString::size() const
+size_t SharedImmutableStringData::size() const
 {
 	return size_;
 }
 
 
-size_t SharedImmutableString::dataSizeBytes() const
+size_t SharedImmutableStringData::dataSizeBytes() const
 {
 	return size_ * sizeof(char);
 }
 
 
-bool SharedImmutableString::empty() const
+bool SharedImmutableStringData::empty() const
 {
 	return size_ == 0;
 }
 
 
-inline bool SharedImmutableString::nonEmpty() const
+inline bool SharedImmutableStringData::nonEmpty() const
 {
 	return size_ != 0;
 }
 
 
-inline bool SharedImmutableString::operator==(const SharedImmutableString& other)
+inline bool SharedImmutableStringData::operator==(const SharedImmutableStringData& other)
 {
 	return (hash == other.hash) && (compare(other) == 0);
 }
 
 
-inline bool SharedImmutableString::operator!=(const SharedImmutableString& other)
+inline bool SharedImmutableStringData::operator!=(const SharedImmutableStringData& other)
 {
 	return (hash != other.hash) || (compare(other) != 0);
 }
 
 
-inline int SharedImmutableString::compare(const SharedImmutableString& other)
+inline int SharedImmutableStringData::compare(const SharedImmutableStringData& other)
 {
+	// TODO: use hash?
 	if(size_ < other.size_)
 		return -1;
 	else if(size_ > other.size_)
@@ -255,27 +271,27 @@ inline int SharedImmutableString::compare(const SharedImmutableString& other)
 }
 
 
-const char& SharedImmutableString::back() const
+const char& SharedImmutableStringData::back() const
 {
 	assert(size_ >= 1);
 	return data()[size_ - 1];
 }
 
 
-const char& SharedImmutableString::operator[](size_t index) const
+const char& SharedImmutableStringData::operator[](size_t index) const
 {
 	assert(index < size_);
 	return data()[index];
 }
 
 
-typename SharedImmutableString::const_iterator SharedImmutableString::begin() const
+typename SharedImmutableStringData::const_iterator SharedImmutableStringData::begin() const
 {
 	return data();
 }
 
 
-typename SharedImmutableString::const_iterator SharedImmutableString::end() const
+typename SharedImmutableStringData::const_iterator SharedImmutableStringData::end() const
 {
 	return data() + size_;
 }
@@ -302,7 +318,7 @@ typename SharedImmutableString::const_iterator SharedImmutableString::end() cons
 // For SharedImmutableStringHandles from a SharedStringTable, where pointer equality can be used.
 struct SharedImmutableStringHandleKeyPointerEqual
 {
-	bool operator() (const glare::SharedImmutableStringHandle& a, const glare::SharedImmutableStringHandle& b) const
+	bool operator() (const glare::SharedImmutableString& a, const glare::SharedImmutableString& b) const
 	{
 		return a.string.getPointer() == b.string.getPointer();
 	}
@@ -311,7 +327,7 @@ struct SharedImmutableStringHandleKeyPointerEqual
 
 struct SharedImmutableStringHandleKeyValueEqual
 {
-	bool operator() (const glare::SharedImmutableStringHandle& a, const glare::SharedImmutableStringHandle& b) const
+	bool operator() (const glare::SharedImmutableString& a, const glare::SharedImmutableString& b) const
 	{
 		if(a.string.isNull() || b.string.isNull())
 			return a.string.isNull() && b.string.isNull();
@@ -323,7 +339,7 @@ struct SharedImmutableStringHandleKeyValueEqual
 
 struct SharedImmutableStringHandleHasher
 {
-	size_t operator() (const SharedImmutableStringHandle& handle) const
+	size_t operator() (const SharedImmutableString& handle) const
 	{
 		return (size_t)(handle.string ? handle.string->hash : 0);
 	}
@@ -337,9 +353,9 @@ struct SharedImmutableStringHandleHasher
 // for specific classes to e.g. free to a memory pool.
 // Template specialisation of destroyAndFreeOb for SharedImmutableString.
 template <>
-inline void destroyAndFreeOb(glare::SharedImmutableString* ob)
+inline void destroyAndFreeOb(glare::SharedImmutableStringData* ob)
 {
-	doDestroySharedImmutableString(ob);
+	doDestroySharedImmutableStringData(ob);
 }
 
 

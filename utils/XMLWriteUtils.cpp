@@ -51,7 +51,7 @@ void writeColour3fToXML(std::string& xml, const string_view elem_name, const Col
 
 
 // Returns true if there is leading or trailing whitespace, or contiguous blocks of whitespace.
-static bool needCData(const std::string& s)
+static bool needCData(const string_view s)
 {
 	// An empty string does not need a CDATA section.
 	if(s.empty())
@@ -87,7 +87,7 @@ static bool needCData(const std::string& s)
 Replace "<" with "&lt;" etc..
 From Escaping::HTMLEscape in webserver/Escaping.cpp
 */
-static const std::string XMLEscape(const std::string& s)
+static const std::string XMLEscape(const string_view s)
 {
 	std::string result;
 	result.reserve(s.size());
@@ -119,6 +119,21 @@ void writeStringElemToXML(std::string& xml, const string_view elem_name, const s
 	else
 	{
 		xml += XMLEscape(string_val);
+	}
+	appendElemCloseTag(xml, elem_name);
+}
+
+
+void writeStringElemToXML(std::string& xml, const string_view elem_name, const glare::SharedImmutableString& string_val, int tab_depth)
+{
+	appendTabsAndElemOpenTag(xml, elem_name, tab_depth);
+	if(needCData(string_val.toStringView()))
+	{
+		xml += "<![CDATA[" + string_val.toString() + "]]>";
+	}
+	else
+	{
+		xml += XMLEscape(string_val.toStringView());
 	}
 	appendElemCloseTag(xml, elem_name);
 }

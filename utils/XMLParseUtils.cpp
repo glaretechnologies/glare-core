@@ -176,6 +176,16 @@ const std::string XMLParseUtils::parseStringWithDefault(pugi::xml_node parent_el
 }
 
 
+glare::SharedImmutableString XMLParseUtils::parseSharedImmutableStringWithDefault(pugi::xml_node parent_elem, const char* elemname, const char* default_val)
+{
+	pugi::xml_node childnode = parent_elem.child(elemname);
+	if(childnode)
+		return glare::makeSharedImmutableString(childnode.child_value());
+	else
+		return glare::makeSharedImmutableString(default_val);
+}
+
+
 double XMLParseUtils::parseDoubleDirectly(pugi::xml_node elem)
 {
 	const char* const child_text = elem.child_value();

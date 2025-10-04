@@ -39,7 +39,7 @@ glare::SharedStringTable::~SharedStringTable()
 }
 
 
-glare::SharedImmutableStringHandle glare::SharedStringTable::getOrMakeString(const char* data, size_t len)
+glare::SharedImmutableString glare::SharedStringTable::getOrMakeString(const char* data, size_t len)
 {
 	if(len == 0)
 	{
@@ -62,7 +62,7 @@ glare::SharedImmutableStringHandle glare::SharedStringTable::getOrMakeString(con
 		if(!bucket.string)
 		{
 			// We came to an empty bucket.  Therefore there is no such string in hash set.  Make it and add it.
-			Reference<glare::SharedImmutableString> new_string = makeSharedImmutableString(data, len);
+			Reference<glare::SharedImmutableStringData> new_string = makeSharedImmutableStringData(data, len);
 			bucket.hash = hash;
 			bucket.string = new_string;
 
@@ -104,7 +104,7 @@ glare::SharedImmutableStringHandle glare::SharedStringTable::getOrMakeString(con
 			}
 
 			//return new_string;
-			return SharedImmutableStringHandle(new_string);
+			return SharedImmutableString(new_string);
 		}
 
 		assert(bucket.string);
@@ -113,7 +113,7 @@ glare::SharedImmutableStringHandle glare::SharedStringTable::getOrMakeString(con
 			(std::memcmp(data, buckets[bucket_i].string->data(), len) == 0))
 		{
 			// We found the string already in the hash set, return a reference to it.
-			return SharedImmutableStringHandle(buckets[bucket_i].string);
+			return SharedImmutableString(buckets[bucket_i].string);
 		}
 
 		// Else advance to next bucket, with wrap-around
@@ -134,8 +134,8 @@ void glare::SharedStringTable::test()
 	{
 		Reference<SharedStringTable> table = new SharedStringTable(/*num buckets=*/8);
 
-		SharedImmutableStringHandle s1 = table->getOrMakeString("hello");
-		SharedImmutableStringHandle s2 = table->getOrMakeString("hello");
+		SharedImmutableString s1 = table->getOrMakeString("hello");
+		SharedImmutableString s2 = table->getOrMakeString("hello");
 
 		testAssert(s1.string.ptr() == s2.string.ptr());
 		testAssert(table->size() == 1);
@@ -145,10 +145,10 @@ void glare::SharedStringTable::test()
 	{
 		Reference<SharedStringTable> table = new SharedStringTable(/*num buckets=*/4);
 
-		SharedImmutableStringHandle s1 = table->getOrMakeString("hello");
-		SharedImmutableStringHandle s2 = table->getOrMakeString("thar");
-		SharedImmutableStringHandle s3 = table->getOrMakeString("my");
-		SharedImmutableStringHandle s4 = table->getOrMakeString("friend");
+		SharedImmutableString s1 = table->getOrMakeString("hello");
+		SharedImmutableString s2 = table->getOrMakeString("thar");
+		SharedImmutableString s3 = table->getOrMakeString("my");
+		SharedImmutableString s4 = table->getOrMakeString("friend");
 
 		testAssert(table->getOrMakeString("hello") == s1);
 		testAssert(table->getOrMakeString("thar") == s2);

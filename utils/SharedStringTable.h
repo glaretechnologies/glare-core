@@ -32,13 +32,13 @@ public:
 	~SharedStringTable();
 
 	// Threadsafe
-	SharedImmutableStringHandle getOrMakeString(const char* data, size_t len);
-	SharedImmutableStringHandle getOrMakeString(string_view str)
+	SharedImmutableString getOrMakeString(const char* data, size_t len);
+	SharedImmutableString getOrMakeString(string_view str)
 	{
 		return getOrMakeString(str.data(), str.size());
 	}
 
-	SharedImmutableStringHandle getOrMakeEmptyString() { return makeEmptySharedImmutableStringHandle(); } // SharedImmutableStringHandle(empty_string); }
+	SharedImmutableString getOrMakeEmptyString() { return makeEmptySharedImmutableString(); }
 
 	size_t size() const { return num_items; }
 
@@ -51,7 +51,7 @@ private:
 	struct Bucket
 	{
 		uint64 hash;
-		Reference<SharedImmutableString> string;
+		Reference<SharedImmutableStringData> string;
 	};
 
 	Bucket* buckets;

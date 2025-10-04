@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "Platform.h"
+#include "SharedImmutableString.h"
 #include "../graphics/colour3.h"
 #include "../maths/Matrix2.h"
 #include <string>
@@ -40,6 +41,7 @@ namespace XMLParseUtils
 
 	const std::string parseString(pugi::xml_node elem, const char* elemname);
 	const std::string parseStringWithDefault(pugi::xml_node elem, const char* elemname, const char* default_val);
+	glare::SharedImmutableString parseSharedImmutableStringWithDefault(pugi::xml_node elem, const char* elemname, const char* default_val);
 
 	double parseDoubleDirectly(pugi::xml_node elem);
 	double parseDouble(pugi::xml_node elem, const char* elemname);

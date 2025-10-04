@@ -7,7 +7,8 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Platform.h"
-#include <string>
+#include "SharedImmutableString.h"
+#include "string_view.h"
 
 
 /*=====================================================================
@@ -29,8 +30,10 @@ public:
 
 	virtual void writeData(const void* data, size_t num_bytes) = 0;
 
+
 	// Write a string.  Must be less than 2^32 bytes long.
-	virtual void writeStringLengthFirst(const std::string& s);
+	void writeStringLengthFirst(const string_view s);
+	void writeStringLengthFirst(const glare::SharedImmutableString& s);
 
 	void writeUInt64(uint64 x);
 	void writeFloat(float x);
