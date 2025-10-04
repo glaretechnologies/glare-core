@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "ThreadSafeRefCounted.h"
 #include "Reference.h"
+#include "string_view.h"
 #include <string>
 
 
@@ -19,7 +20,7 @@ Provides read-only access to a file through memory mapping.
 class MemMappedFile
 {
 public:
-	MemMappedFile(const std::string& path); // Throws glare::Exception on failure.
+	MemMappedFile(const string_view path); // Throws glare::Exception on failure.
 	~MemMappedFile();
 
 	size_t fileSize() const { return file_size; } // Returns file size in bytes.

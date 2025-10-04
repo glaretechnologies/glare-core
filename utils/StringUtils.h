@@ -227,15 +227,15 @@ size_t getCharIndexForLinePosition(const std::string& str, size_t line, size_t c
 
 
 #if defined(_WIN32)
-const std::wstring UTF8ToWString(const std::string& s);
+const std::wstring UTF8ToWString(const string_view s);
 const std::string WToUTF8String(const std::wstring& s);
 #endif
 
 #if defined(_WIN32)
-inline const std::wstring UTF8ToPlatformUnicodeEncoding(const std::string& s) { return UTF8ToWString(s); }
+inline const std::wstring UTF8ToPlatformUnicodeEncoding(const string_view s) { return UTF8ToWString(s); }
 inline const std::string PlatformToUTF8UnicodeEncoding(const std::wstring& s) { return WToUTF8String(s); }
 #else
-inline const std::string UTF8ToPlatformUnicodeEncoding(const std::string& s) { return s; }
+inline const string_view UTF8ToPlatformUnicodeEncoding(const string_view s) { return s; }
 inline const std::string PlatformToUTF8UnicodeEncoding(const std::string& s) { return s; }
 #endif
 
@@ -260,7 +260,7 @@ void appendTabbed(std::string& s, const std::string& addition, int num_tabs);
 
 bool containsChar(const std::string& s, char c);
 bool containsString(const std::string& s, const std::string& target);
-bool containsStringCaseInvariant(const std::string& s, const std::string& target);
+bool containsStringCaseInvariant(const string_view s, const string_view target);
 
 // Replace non-printable chars with '?'
 const std::string removeNonPrintableChars(const std::string& s);

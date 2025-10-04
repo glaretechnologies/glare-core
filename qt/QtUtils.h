@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include <QtCore/QString>
+#include "../utils/string_view.h"
 class QWidget;
 class QCheckBox;
 class ArgumentParser;
@@ -26,7 +27,7 @@ namespace QtUtils
 /*
 	Convert an Indigo string into a QT string.
 */
-const QString toQString(const std::string& s);
+const QString toQString(const string_view s);
 
 
 const QString toQString(const Indigo::String& s);

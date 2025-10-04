@@ -7,7 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Platform.h"
-#include <string>
+#include "string_view.h"
 
 
 /*=====================================================================
@@ -19,7 +19,7 @@ namespace FileChecksum
 {
 
 
-uint64 fileChecksum(const std::string& path); // throws glare::Exception
+uint64 fileChecksum(const string_view path); // throws glare::Exception
 
 
 };

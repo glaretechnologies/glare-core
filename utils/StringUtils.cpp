@@ -1337,7 +1337,7 @@ const std::string byteArrayToString(const std::vector<unsigned char>& bytes)
 
 
 #if defined(_WIN32)
-const std::wstring UTF8ToWString(const std::string& s)
+const std::wstring UTF8ToWString(const string_view s)
 {
 	assert(s.size() < (size_t)std::numeric_limits<int>::max());
 
@@ -1528,7 +1528,7 @@ static bool caseInvariantCompare(char a, char b)
 	return toLowerCase(a) == toLowerCase(b);
 }
 
-bool containsStringCaseInvariant(const std::string& s, const std::string& target)
+bool containsStringCaseInvariant(const string_view s, const string_view target)
 {
 	const auto res = std::search(s.begin(), s.end(), target.begin(), target.end(), caseInvariantCompare);
 

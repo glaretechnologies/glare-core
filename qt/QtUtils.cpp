@@ -25,12 +25,12 @@ namespace QtUtils
 /*
 	Convert an Indigo string into a QT string.
 */
-const QString toQString(const std::string& s)
+const QString toQString(const string_view s)
 {
 	assert(s.length() < (size_t)std::numeric_limits<int>::max());
 
 	return QString::fromUtf8(
-		s.c_str(), 
+		s.data(), 
 		(int)s.length() // num bytes
 	);
 }

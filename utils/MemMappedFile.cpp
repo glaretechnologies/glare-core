@@ -27,7 +27,7 @@ Copyright Glare Technologies Limited 2021 -
 #if defined(_WIN32)
 
 
-MemMappedFile::MemMappedFile(const std::string& path)
+MemMappedFile::MemMappedFile(const string_view path)
 :	file_handle(NULL),
 	file_mapping_handle(NULL),
 	file_data(NULL)
@@ -43,7 +43,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 	);
 
 	if(file_handle == INVALID_HANDLE_VALUE)
-		throw glare::Exception("Failed to open file '" + path + "': " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("Failed to open file '" + toString(path) + "': " + PlatformUtils::getLastErrorString());
 
 	// Get size of file
 	LARGE_INTEGER file_size_li;
@@ -119,7 +119,7 @@ MemMappedFile::~MemMappedFile()
 #else // if defined LINUX or __APPLE__
 
 
-MemMappedFile::MemMappedFile(const std::string& path)
+MemMappedFile::MemMappedFile(const string_view path)
 :	file_data(NULL)
 {
 	this->linux_file_handle = ::open(
@@ -127,12 +127,12 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		O_RDONLY);
 
 	if(this->linux_file_handle <= 0)
-		throw glare::Exception("Failed to open file '" + path + "': " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("Failed to open file '" + toString(path) + "': " + PlatformUtils::getLastErrorString());
 
 	// Get file size.
 	struct stat file_stats;
 	if(fstat(this->linux_file_handle, &file_stats) == -1)
-		throw glare::Exception("fstat failed for file with path '" + path + "': " + PlatformUtils::getLastErrorString());
+		throw glare::Exception("fstat failed for file with path '" + toString(path) + "': " + PlatformUtils::getLastErrorString());
 	this->file_size = file_stats.st_size;
 
 	// Don't try and map the file if it has size zero, since it will fail.
@@ -142,7 +142,7 @@ MemMappedFile::MemMappedFile(const std::string& path)
 		if(this->file_data == MAP_FAILED)
 		{
 			// TODO: Close file handle.
-			throw glare::Exception("File mmap failed for path '" + path + "': " + PlatformUtils::getLastErrorString());
+			throw glare::Exception("File mmap failed for path '" + toString(path) + "': " + PlatformUtils::getLastErrorString());
 		}
 	}
 }

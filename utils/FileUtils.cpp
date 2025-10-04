@@ -314,7 +314,7 @@ const std::vector<std::string> getSortedFilesInDirWithExtensionFullPathsRecursiv
 }
 
 
-bool fileExists(const std::string& pathname)
+bool fileExists(const string_view pathname)
 {
 #if defined(_WIN32)
 	// Apparently GetFileAttributes is faster than using FindFirstFile() etc..:

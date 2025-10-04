@@ -80,7 +80,7 @@ public:
 	static void pushVec3f(lua_State* state, const Vec3f& v);
 	static void pushVec3d(lua_State* state, const Vec3d& v);
 	static void pushMatrix2f(lua_State* state, const Matrix2f& m);
-	static inline void pushString(lua_State* state, const std::string& s);
+	static inline void pushString(lua_State* state, const string_view s);
 	
 
 	static void test();
@@ -108,7 +108,7 @@ void LuaUtils::setNumberAsTableField(lua_State* state, const char* field_key, do
 }
 
 
-void LuaUtils::pushString(lua_State* state, const std::string& s)
+void LuaUtils::pushString(lua_State* state, const string_view s)
 {
-	lua_pushlstring(state, s.c_str(), s.size());
+	lua_pushlstring(state, s.data(), s.size());
 }

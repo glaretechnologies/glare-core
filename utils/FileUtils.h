@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "Platform.h"
 #include "Exception.h"
+#include "string_view.h"
 #include <string>
 #include <vector>
 
@@ -58,7 +59,7 @@ const std::vector<std::string> getFilesInDirWithExtensionFullPathsRecursive(cons
 const std::vector<std::string> getSortedFilesInDirWithExtensionFullPathsRecursive(const std::string& dir_path, const std::string& extension); // throws FileUtilsExcep
 
 // Returns true if file exists, false otherwise.  Returns true for directories as well.
-bool fileExists(const std::string& pathname); // Does not throw any exceptions.
+bool fileExists(const string_view pathname); // Does not throw any exceptions.
 
 // Returns the size of the file in bytes.  Throws FileUtilsExcep on failure, for example if the file does not exist.
 uint64 getFileSize(const std::string& pathname);
