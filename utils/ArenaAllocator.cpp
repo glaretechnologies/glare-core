@@ -57,12 +57,6 @@ void* ArenaAllocator::alloc(size_t size, size_t alignment)
 }
 
 
-void ArenaAllocator::free(void* ptr)
-{
-	// Do nothing, we will free all allocated memory in clear().
-}
-
-
 } // End namespace glare
 
 

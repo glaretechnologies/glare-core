@@ -31,7 +31,7 @@ public:
 	~ArenaAllocator();
 
 	virtual void* alloc(size_t size, size_t alignment);
-	virtual void free(void* ptr); // Does nothing
+	virtual void free(void* ptr) {} // Do nothing, we will free all allocated memory in clear().
 
 	void clear() { current_offset = 0; } // Reset arena, freeing all allocated memory
 
@@ -42,7 +42,7 @@ public:
 
 	// Since this returns a ArenaAllocator value object, not a reference, will need to call
 	// res_allocator.incRefCount(); on it before passing to a function that will use a reference to it, and res_allocator.decRefCount(); afterwards.
-	ArenaAllocator getFreeAreaArenaAllocator() { return ArenaAllocator((uint8*)data + current_offset, arena_size_B - current_offset); }
+	ArenaAllocator getFreeAreaArenaAllocator() const { return ArenaAllocator((uint8*)data + current_offset, arena_size_B - current_offset); }
 
 	static void test();
 private:
