@@ -172,6 +172,20 @@ const std::string getFilename(const std::string& pathname)
 }
 
 
+const string_view getFilenameStringView(const string_view pathname)
+{
+	const int pathname_size = (int)pathname.size();
+
+	// Walk backwards from end of string until we hit a slash.
+	for(int i=pathname_size-1; i >= 0; --i)
+		if(OSTreatsAsDirSeparator(pathname[i]))
+			return pathname.substr(i + 1);
+
+	// If there were no slashes, just return whole path.
+	return pathname;
+}
+
+
 // Returns only the filenames, not the full paths.  Ignores the pseudo-files '.' and '..'.
 const std::vector<std::string> getFilesInDir(const std::string& dir_path)
 {

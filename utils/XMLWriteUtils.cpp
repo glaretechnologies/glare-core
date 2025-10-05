@@ -109,12 +109,14 @@ static const std::string XMLEscape(const string_view s)
 }
 
 
-void writeStringElemToXML(std::string& xml, const string_view elem_name, const std::string& string_val, int tab_depth)
+void writeStringElemToXML(std::string& xml, const string_view elem_name, const string_view string_val, int tab_depth)
 {
 	appendTabsAndElemOpenTag(xml, elem_name, tab_depth);
 	if(needCData(string_val))
 	{
-		xml += "<![CDATA[" + string_val + "]]>";
+		xml += "<![CDATA[";
+		xml += string_val;
+		xml += "]]>";
 	}
 	else
 	{
