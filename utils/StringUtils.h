@@ -164,8 +164,7 @@ template <class StringType> inline const StringType removeDotAndExtension(const 
 string_view removeDotAndExtensionStringView(string_view filename);
 
 // Without the dot
-bool hasExtensionStringView(const string_view filename, const string_view extension);
-inline bool hasExtension(const string_view filename, const string_view extension) { return hasExtensionStringView(filename, extension); }
+bool hasExtension(const string_view filename, const string_view extension);
 
 
 bool hasPrefix(const string_view s, const string_view prefix);

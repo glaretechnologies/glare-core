@@ -877,7 +877,7 @@ char toUpperCase(char c)
 }
 
 
-bool hasExtensionStringView(const string_view file, const string_view extension)
+bool hasExtension(const string_view file, const string_view extension)
 {
 	const size_t file_len = file.length();
 	const size_t ext_len = extension.length();
@@ -2899,25 +2899,25 @@ void StringUtils::test()
 	testAssert(!equalCaseInsensitive("ab", "abc"));
 
 
-	//========================== hasExtensionStringView ==========================
-	testAssert(hasExtensionStringView("test.jpg", "jpg"));
-	testAssert(hasExtensionStringView("test.JPG", "jpg"));
-	testAssert(hasExtensionStringView("test.jpg", "JPG"));
-	testAssert(hasExtensionStringView("test.JPG", "JPG"));
+	//========================== hasExtension ==========================
+	testAssert(hasExtension("test.jpg", "jpg"));
+	testAssert(hasExtension("test.JPG", "jpg"));
+	testAssert(hasExtension("test.jpg", "JPG"));
+	testAssert(hasExtension("test.JPG", "JPG"));
 
-	testAssert(!hasExtensionStringView("test.JPG", "JPGX"));
-	testAssert(!hasExtensionStringView("test.JPG", "JP"));
-	testAssert(!hasExtensionStringView("test.JPG", "J"));
-	testAssert(!hasExtensionStringView("test.JPG", ""));
+	testAssert(!hasExtension("test.JPG", "JPGX"));
+	testAssert(!hasExtension("test.JPG", "JP"));
+	testAssert(!hasExtension("test.JPG", "J"));
+	testAssert(!hasExtension("test.JPG", ""));
 
-	testAssert(hasExtensionStringView(".jpg", "jpg"));
-	testAssert(!hasExtensionStringView("jpg", "jpg"));
-	testAssert(!hasExtensionStringView("jp", "jpg"));
-	testAssert(!hasExtensionStringView("j", "jpg"));
-	testAssert(!hasExtensionStringView("", "jpg"));
-	testAssert(!hasExtensionStringView("", "jp"));
-	testAssert(!hasExtensionStringView("", "j"));
-	testAssert(!hasExtensionStringView("", ""));
+	testAssert(hasExtension(".jpg", "jpg"));
+	testAssert(!hasExtension("jpg", "jpg"));
+	testAssert(!hasExtension("jp", "jpg"));
+	testAssert(!hasExtension("j", "jpg"));
+	testAssert(!hasExtension("", "jpg"));
+	testAssert(!hasExtension("", "jp"));
+	testAssert(!hasExtension("", "j"));
+	testAssert(!hasExtension("", ""));
 
 	//========================== getExtension ==========================
 	testAssert(getExtension("test.jpg") == "jpg");
