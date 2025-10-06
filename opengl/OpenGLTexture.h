@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include "BasicOpenGLTypes.h"
+#include "OpenGLTextureKey.h"
 #include "TextureAllocator.h"
 #include "../graphics/TextureData.h"
 #include "../utils/Reference.h"
@@ -42,10 +43,6 @@ class Map2D;
 //		return h(key.path);
 //	}
 //};
-
-
-typedef std::basic_string<char, std::char_traits<char>, glare::STLArenaAllocator<char>> OpenGLTextureKey;
-typedef std::hash<OpenGLTextureKey> OpenGLTextureKeyHash;
 
 
 std::string getStringForGLInternalFormat(GLint internal_format);

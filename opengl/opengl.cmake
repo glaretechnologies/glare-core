@@ -36,6 +36,7 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/VertexBufferAllocator.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/VertexBufferAllocator.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLTexture.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLTexture.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLTextureKey.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLEngine.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLEngine.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLEngineTests.cpp 
