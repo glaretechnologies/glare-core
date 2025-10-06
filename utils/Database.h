@@ -88,7 +88,7 @@ public:
 
 	struct RecordInfo
 	{
-		size_t offset; // Offset in bytes from start of file
+		uint64 offset; // Offset in bytes from start of file
 		uint32 len; // Length of record data in bytes.  Has a sentinel value which indicates this is not a valid record, e.g. the record has been deleted.
 		uint32 capacity; // Capacity of record in bytes.  >= len.
 		uint32 seq_num; // Sequence number.  Whenever a record is written to a new location, the sequence number is incremented.
