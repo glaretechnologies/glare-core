@@ -42,6 +42,7 @@ namespace ResponseUtils
 	void writeHTTPOKHeaderWithCacheControlAndContentEncoding(ReplyInfo& reply_info, const void* data, size_t datalen, const string_view content_type, const string_view cache_control, const string_view content_encoding);
 
 	void writeHTTPNotFoundHeaderAndData(ReplyInfo& reply_info, const std::string& s);
+	void writeHTTPUnauthorizedHeaderAndData(ReplyInfo& reply_info, const std::string& s);
 
 
 	void writeRedirectTo(ReplyInfo& reply_info, const std::string& url);

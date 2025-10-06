@@ -170,6 +170,18 @@ void writeHTTPNotFoundHeaderAndData(ReplyInfo& reply_info, const std::string& s)
 }
 
 
+void writeHTTPUnauthorizedHeaderAndData(ReplyInfo& reply_info, const std::string& s)
+{
+	const std::string response = 
+		"HTTP/1.1 401 Unauthorized\r\n"
+		"Content-Length: " + toString(s.length()) + "\r\n"
+		"\r\n";
+
+	writeRawString(reply_info, response);
+	writeData(reply_info, s.c_str(), s.size());
+}
+
+
 void writeWebsocketTextMessage(ReplyInfo& reply_info, const std::string& s)
 {
 	const uint32 fin = 0x80;
@@ -269,27 +281,27 @@ void writeWebsocketPongMessage(ReplyInfo& reply_info, const std::string& s)
 
 std::string getContentTypeForPath(const std::string& path)
 {
-	if(::hasExtensionStringView(path, "jpg") || ::hasExtensionStringView(path, "jpeg"))
+	if(::hasExtension(path, "jpg") || ::hasExtension(path, "jpeg"))
 		return "image/jpeg";
-	else if(::hasExtensionStringView(path, "png"))
+	else if(::hasExtension(path, "png"))
 		return "image/png";
-	else if(::hasExtensionStringView(path, "gif"))
+	else if(::hasExtension(path, "gif"))
 		return "image/gif";
-	else if(::hasExtensionStringView(path, "pdf"))
+	else if(::hasExtension(path, "pdf"))
 		return "application/pdf";
-	else if(::hasExtensionStringView(path, "mp4"))
+	else if(::hasExtension(path, "mp4"))
 		return "video/mp4";
-	else if(::hasExtensionStringView(path, "css"))
+	else if(::hasExtension(path, "css"))
 		return "text/css";
-	else if(::hasExtensionStringView(path, "js"))
+	else if(::hasExtension(path, "js"))
 		return "text/javascript";
-	else if(::hasExtensionStringView(path, "wasm"))
+	else if(::hasExtension(path, "wasm"))
 		return "application/wasm";
-	else if(::hasExtensionStringView(path, "html"))
+	else if(::hasExtension(path, "html"))
 		return "text/html; charset=UTF-8";
-	else if(::hasExtensionStringView(path, "exr"))
+	else if(::hasExtension(path, "exr"))
 		return "image/x-exr";
-	else if(::hasExtensionStringView(path, "data"))
+	else if(::hasExtension(path, "data"))
 		return "application/octet-stream";
 	else
 		return "text/plain"; // Unknown, just return as text.
