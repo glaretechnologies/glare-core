@@ -52,15 +52,12 @@ public:
 	inline const T* data() const { return e; }
 
 	inline const T& back() const;
-	inline T& back();
+
 	inline T& operator[](size_t index);
 	inline const T& operator[](size_t index) const;
 
-	typedef T* iterator;
 	typedef const T* const_iterator;
 
-	inline iterator begin();
-	inline iterator end();
 	inline const_iterator begin() const;
 	inline const_iterator end() const;
 private:
@@ -218,14 +215,6 @@ const T& SharedImmutableArray<T>::back() const
 
 
 template <class T>
-T& SharedImmutableArray<T>::back()
-{
-	assert(size_ >= 1);
-	return e[size_ - 1];
-}
-
-
-template <class T>
 T& SharedImmutableArray<T>::operator[](size_t index)
 {
 	assert(index < size_);
@@ -240,21 +229,7 @@ const T& SharedImmutableArray<T>::operator[](size_t index) const
 	return e[index];
 }
 
-
-template <class T>
-typename SharedImmutableArray<T>::iterator SharedImmutableArray<T>::begin()
-{
-	return e;
-}
-
-
-template <class T>
-typename SharedImmutableArray<T>::iterator SharedImmutableArray<T>::end()
-{
-	return e + size_;
-}
-
-
+ 
 template <class T>
 typename SharedImmutableArray<T>::const_iterator SharedImmutableArray<T>::begin() const
 {
