@@ -158,7 +158,7 @@ const std::string getExtension(const std::string& filename); // Returns everythi
 string_view getExtensionStringView(string_view path); // Returns everything after the last dot, as a string view.  string_view is only valid as long as path remains valid.
 
 const std::string eatExtension(const std::string& filename);
-const std::string removeDotAndExtension(const std::string& filename);
+template <class StringType> inline const StringType removeDotAndExtension(const StringType& filename);
 string_view removeDotAndExtensionStringView(string_view filename);
 
 // Without the dot
@@ -166,9 +166,9 @@ bool hasExtensionStringView(const string_view filename, const string_view extens
 inline bool hasExtension(const string_view filename, const string_view extension) { return hasExtensionStringView(filename, extension); }
 
 
-bool hasPrefix(const string_view& s, const string_view& prefix);
-bool hasSuffix(const std::string& s, const string_view& suffix);
-bool hasLastChar(const std::string& s, char c);
+bool hasPrefix(const string_view s, const string_view prefix);
+bool hasSuffix(const string_view s, const string_view suffix);
+bool hasLastChar(const string_view s, char c);
 
 const std::string eatPrefix(const std::string& s, const std::string& prefix);
 const std::string eatSuffix(const std::string& s, const std::string& suffix);
@@ -222,7 +222,7 @@ const std::string join(const T& iterable, const std::string& joinstring)
 }
 
 // Returns 0-based index of line and column of character indexed by charindex
-void getPosition(const string_view& str, size_t charindex, size_t& line_num_out, size_t& column_out);
+void getPosition(const string_view str, size_t charindex, size_t& line_num_out, size_t& column_out);
 const std::string getLineFromBuffer(const std::string& str, size_t charindex);
 size_t getCharIndexForLinePosition(const std::string& str, size_t line, size_t column); // line and column are zero-based
 
@@ -282,5 +282,21 @@ inline bool equalCaseInsensitive(string_view a, string_view b_lowercase)
 
 void test();
 
+
+
+
+
+
+
+template <class StringType>
+const StringType removeDotAndExtension(const StringType& filename)
+{
+	const StringType::size_type dot_index = filename.find_last_of('.');
+
+	if(dot_index == StringType::npos)
+		return filename;
+	else
+		return filename.substr(0, dot_index);
+}
 
 }; // end namespace StringUtils

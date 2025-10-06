@@ -944,17 +944,6 @@ const std::string eatExtension(const std::string& filename)
 }
 
 
-const std::string removeDotAndExtension(const std::string& filename)
-{
-	const std::string::size_type dot_index = filename.find_last_of('.');
-
-	if(dot_index == std::string::npos)
-		return filename;
-	else
-		return filename.substr(0, dot_index);
-}
-
-
 string_view removeDotAndExtensionStringView(string_view filename)
 {
 	const string_view::size_type dot_index = filename.find_last_of('.');
@@ -966,7 +955,7 @@ string_view removeDotAndExtensionStringView(string_view filename)
 }
 
 
-bool hasPrefix(const string_view& s, const string_view& prefix)
+bool hasPrefix(const string_view s, const string_view prefix)
 {
 	const size_t s_len      = s.length();
 	const size_t prefix_len = prefix.length();
@@ -985,7 +974,7 @@ bool hasPrefix(const string_view& s, const string_view& prefix)
 }
 
 
-bool hasSuffix(const std::string& s, const string_view& suffix)
+bool hasSuffix(const string_view s, const string_view suffix)
 {
 	if(suffix.length() > s.length())
 		return false;
@@ -1002,7 +991,7 @@ bool hasSuffix(const std::string& s, const string_view& suffix)
 }
 
 
-bool hasLastChar(const std::string& s, char c)
+bool hasLastChar(const string_view s, char c)
 {
 	const size_t sz = s.size();
 	if(sz == 0)
