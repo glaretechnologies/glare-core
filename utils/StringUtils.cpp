@@ -886,17 +886,6 @@ char toUpperCase(char c)
 }
 
 
-bool hasExtension(const std::string& file, const std::string& extension)
-{
-	if(file.length() < extension.length() + 1)
-		return false;
-
-	const std::string dot_plus_extension = "." + toUpperCase(extension);
-
-	return toUpperCase(file.substr(file.length() - dot_plus_extension.length(), dot_plus_extension.length())) == dot_plus_extension;
-}
-
-
 bool hasExtensionStringView(const string_view file, const string_view extension)
 {
 	const size_t file_len = file.length();

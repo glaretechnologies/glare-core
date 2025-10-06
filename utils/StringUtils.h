@@ -162,8 +162,9 @@ const std::string removeDotAndExtension(const std::string& filename);
 string_view removeDotAndExtensionStringView(string_view filename);
 
 // Without the dot
-bool hasExtension(const std::string& filename, const std::string& extension);
 bool hasExtensionStringView(const string_view filename, const string_view extension);
+inline bool hasExtension(const string_view filename, const string_view extension) { return hasExtensionStringView(filename, extension); }
+
 
 bool hasPrefix(const string_view& s, const string_view& prefix);
 bool hasSuffix(const std::string& s, const string_view& suffix);
