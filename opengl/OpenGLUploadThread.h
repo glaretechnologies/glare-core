@@ -33,7 +33,7 @@ public:
 	UploadTextureMessage() : is_animated_texture_update(false), frame_i(0) {}
 
 	bool is_animated_texture_update;
-	std::string tex_path;
+	OpenGLTextureKey tex_path;
 	TextureParams tex_params;
 	Reference<TextureData> texture_data;
 
@@ -51,7 +51,7 @@ template <> inline void destroyAndFreeOb<UploadTextureMessage>(UploadTextureMess
 class TextureUploadedMessage : public ThreadMessage
 {
 public:
-	std::string tex_path;
+	OpenGLTextureKey tex_path;
 	Reference<TextureData> texture_data;
 	Reference<OpenGLTexture> opengl_tex;
 	Reference<UploadingUserInfo> user_info;

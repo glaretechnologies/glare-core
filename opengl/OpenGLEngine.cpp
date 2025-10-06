@@ -11923,7 +11923,7 @@ Reference<OpenGLTexture> OpenGLEngine::getOrLoadOpenGLTextureForMap2D(const Open
 	}
 
 	OpenGLTextureLoadingProgress loading_progress;
-	TextureLoading::initialiseTextureLoadingProgress(key, this, key, params, texture_data, loading_progress);
+	TextureLoading::initialiseTextureLoadingProgress(this, key, params, texture_data, loading_progress);
 
 	const int MAX_ITERS = 1000;
 	int i = 0;
@@ -12664,7 +12664,7 @@ std::string OpenGLEngine::getDiagnostics() const
 		{
 			const OpenGLTexture* tex = i->second.value.ptr();
 		
-			s += ::rightSpacePad(FileUtils::getFilename(tex->key).substr(0, 40) + ": ", 40) + uInt32ToStringCommaSeparated((uint32)tex->getTotalStorageSizeB()) + " B\n";
+			s += ::rightSpacePad(FileUtils::getFilename(std::string(tex->key)).substr(0, 40) + ": ", 40) + uInt32ToStringCommaSeparated((uint32)tex->getTotalStorageSizeB()) + " B\n";
 		}
 		s += "------------------------------------------------------------------\n";
 	}

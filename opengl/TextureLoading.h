@@ -29,7 +29,7 @@ struct OpenGLTextureLoadingProgress
 	bool loadingInProgress() { return tex_data.nonNull(); }
 	bool done() { return next_mip_level >= num_mip_levels; }
 
-	std::string path;
+	OpenGLTextureKey path;
 	std::string URL;
 	Reference<TextureData> tex_data;
 	Reference<OpenGLTexture> opengl_tex;
@@ -67,7 +67,7 @@ public:
 	static void loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& opengl_tex, const TextureData& texture_data, size_t frame_i);
 
 
-	static void initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, const TextureParams& texture_params, 
+	static void initialiseTextureLoadingProgress(const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, const TextureParams& texture_params, 
 		const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress);
 
 	static void partialLoadTextureIntoOpenGL(OpenGLTextureLoadingProgress& loading_progress, 

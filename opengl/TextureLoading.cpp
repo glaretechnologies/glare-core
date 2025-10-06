@@ -254,7 +254,7 @@ void TextureLoading::loadIntoExistingOpenGLTexture(Reference<OpenGLTexture>& ope
 }
 
 
-void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, const TextureParams& texture_params, 
+void TextureLoading::initialiseTextureLoadingProgress(const Reference<OpenGLEngine>& opengl_engine, const OpenGLTextureKey& key, const TextureParams& texture_params, 
 	const Reference<TextureData>& tex_data, OpenGLTextureLoadingProgress& loading_progress)
 {
 	ZoneScoped; // Tracy profiler
@@ -265,10 +265,10 @@ void TextureLoading::initialiseTextureLoadingProgress(const std::string& path, c
 #if BUILD_TESTS
 	// Only call opengl_tex->setDebugName when running in RenderDoc, can be slow otherwise.
 	if(opengl_engine->running_in_renderdoc)
-		opengl_tex->setDebugName(FileUtils::getFilename(path).substr(0, 100)); // AMD drivers generate errors if the debug name is too long.
+		opengl_tex->setDebugName(FileUtils::getFilename(std::string(key)).substr(0, 100)); // AMD drivers generate errors if the debug name is too long.
 #endif
 
-	loading_progress.path = path;
+	loading_progress.path = key;
 	loading_progress.tex_data = tex_data;
 	loading_progress.opengl_tex = opengl_tex;
 	
@@ -492,7 +492,7 @@ void TextureLoading::partialLoadTextureIntoOpenGL(OpenGLTextureLoadingProgress& 
 		// Now that we have loaded all the texture data into OpenGL, if we didn't compute all mipmap level data ourselves, and we need it for trilinear filtering, then get the driver to do it.
 		if((texture_data->W > 1 || texture_data->H > 1) && texture_data->numMipLevels() == 1 && opengl_tex->getFiltering() == OpenGLTexture::Filtering_Fancy)
 		{
-			conPrint("INFO: Getting driver to build MipMaps for texture '" + loading_progress.path + "'...");
+			conPrint("INFO: Getting driver to build MipMaps for texture '" + std::string(opengl_tex->key) + "'...");
 			opengl_tex->buildMipMaps();
 		}
 

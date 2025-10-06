@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "../graphics/TextureData.h"
 #include "../utils/Reference.h"
 #include "../utils/ArrayRef.h"
+#include "../utils/STLArenaAllocator.h"
 #include <vector>
 #include <string>
 
@@ -43,7 +44,7 @@ class Map2D;
 //};
 
 
-typedef std::string OpenGLTextureKey;
+typedef std::basic_string<char, std::char_traits<char>, glare::STLArenaAllocator<char>> OpenGLTextureKey;
 typedef std::hash<OpenGLTextureKey> OpenGLTextureKeyHash;
 
 

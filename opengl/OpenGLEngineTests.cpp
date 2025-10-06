@@ -131,7 +131,7 @@ static void doTextureChunkedLoadingTestForMap2D(OpenGLEngine& engine, const std:
 	OpenGLTextureLoadingProgress loading_progress;
 	testAssert(!loading_progress.loadingInProgress());
 	TextureParams texture_params;
-	TextureLoading::initialiseTextureLoadingProgress(tex_path, Reference<OpenGLEngine>(&engine), OpenGLTextureKey(key), texture_params, texture_data, loading_progress);
+	TextureLoading::initialiseTextureLoadingProgress(Reference<OpenGLEngine>(&engine), OpenGLTextureKey(key), texture_params, texture_data, loading_progress);
 	testAssert(loading_progress.loadingInProgress());
 
 	const int MAX_ITERS = 100000;

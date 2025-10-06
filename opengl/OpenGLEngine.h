@@ -218,11 +218,11 @@ public:
 	uint64 userdata;
 
 	// Kind-of user-data.  Only used in OpenGLEngine::addOpenGLTexture() and OpenGLEngine::assignLoadedTextureToObMaterials() currently, which should be removed/refactored:
-	std::string tex_path;
-	std::string metallic_roughness_tex_path;
-	std::string lightmap_path;
-	std::string emission_tex_path;
-	std::string normal_map_path;
+	OpenGLTextureKey tex_path;
+	OpenGLTextureKey metallic_roughness_tex_path;
+	OpenGLTextureKey lightmap_path;
+	OpenGLTextureKey emission_tex_path;
+	OpenGLTextureKey normal_map_path;
 
 	js::Vector<OpenGLUniformVal, 16> user_uniform_vals;
 
