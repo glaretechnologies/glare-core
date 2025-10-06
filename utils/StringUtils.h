@@ -158,7 +158,9 @@ const std::string getExtension(const std::string& filename); // Returns everythi
 string_view getExtensionStringView(string_view path); // Returns everything after the last dot, as a string view.  string_view is only valid as long as path remains valid.
 
 const std::string eatExtension(const std::string& filename);
+
 template <class StringType> inline const StringType removeDotAndExtension(const StringType& filename);
+
 string_view removeDotAndExtensionStringView(string_view filename);
 
 // Without the dot
@@ -171,7 +173,7 @@ bool hasSuffix(const string_view s, const string_view suffix);
 bool hasLastChar(const string_view s, char c);
 
 const std::string eatPrefix(const std::string& s, const std::string& prefix);
-const std::string eatSuffix(const std::string& s, const std::string& suffix);
+template <class StringType> inline const StringType eatSuffix(const StringType& s, const string_view suffix);
 void removeSuffixInPlace(std::string& s, const std::string& suffix); // Removes suffix from s, if present.
 
 int getNumMatches(const std::string& s, char target);
@@ -283,9 +285,7 @@ inline bool equalCaseInsensitive(string_view a, string_view b_lowercase)
 void test();
 
 
-
-
-
+}; // end namespace StringUtils
 
 
 template <class StringType>
@@ -299,4 +299,12 @@ const StringType removeDotAndExtension(const StringType& filename)
 		return filename.substr(0, dot_index);
 }
 
-}; // end namespace StringUtils
+
+template <class StringType>
+const StringType eatSuffix(const StringType& s, string_view suffix)
+{
+	if(::hasSuffix(s, suffix))
+		return s.substr(0, s.length() - suffix.length());
+	else
+		return s;
+}

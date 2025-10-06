@@ -830,15 +830,6 @@ const std::string eatPrefix(const std::string& s, const std::string& prefix)
 }
 
 
-const std::string eatSuffix(const std::string& s, const std::string& suffix)
-{
-	if(::hasSuffix(s, suffix))
-		return s.substr(0, (int)s.length() - (int)suffix.length());
-	else
-		return s;
-}
-
-
 void removeSuffixInPlace(std::string& s, const std::string& suffix)
 {
 	if(::hasSuffix(s, suffix))
@@ -1165,7 +1156,7 @@ namespace StringUtils
 {
 
 
-void getPosition(const string_view& str, size_t charindex, size_t& line_num_out, size_t& column_out)
+void getPosition(const string_view str, size_t charindex, size_t& line_num_out, size_t& column_out)
 {
 //	assert(charindex < str.size());
 	if(charindex >= str.size())
@@ -2955,14 +2946,14 @@ void StringUtils::test()
 	testAssert(eatExtension("test.a.jpg") == "test.a.");
 	
 	//========================== removeDotAndExtension ==========================
-	testAssert(removeDotAndExtension("test") == "test");
-	testAssert(removeDotAndExtension("test.jpg") == "test");
-	testAssert(removeDotAndExtension("test.") == "test");
-	testAssert(removeDotAndExtension(".jpg") == "");
-	testAssert(removeDotAndExtension(".") == "");
-	testAssert(removeDotAndExtension("jpg") == "jpg");
-	testAssert(removeDotAndExtension("") == "");
-	testAssert(removeDotAndExtension("test.a.jpg") == "test.a");
+	testAssert(removeDotAndExtension<std::string>("test") == "test");
+	testAssert(removeDotAndExtension<std::string>("test.jpg") == "test");
+	testAssert(removeDotAndExtension<std::string>("test.") == "test");
+	testAssert(removeDotAndExtension<std::string>(".jpg") == "");
+	testAssert(removeDotAndExtension<std::string>(".") == "");
+	testAssert(removeDotAndExtension<std::string>("jpg") == "jpg");
+	testAssert(removeDotAndExtension<std::string>("") == "");
+	testAssert(removeDotAndExtension<std::string>("test.a.jpg") == "test.a");
 
 
 	//========================== containsString ==========================
@@ -3014,6 +3005,14 @@ void StringUtils::test()
 	testExceptionExpected([&]() { getCharIndexForLinePosition("abc\ndef", /*line=*/2, /*col=*/10); });
 
 
+	//========================== eatSuffix ==========================
+	testAssert(eatSuffix<std::string>("abc", "") == "abc");
+	testAssert(eatSuffix<std::string>("abc", "c") == "ab");
+	testAssert(eatSuffix<std::string>("abc", "bc") == "a");
+	testAssert(eatSuffix<std::string>("abc", "abc") == "");
+	testAssert(eatSuffix<std::string>("abc", "D") == "abc");
+	testAssert(eatSuffix<std::string>("", "D") == "");
+	testAssert(eatSuffix<std::string>("", "") == "");
 
 /*	testAssert(StringUtils::convertHexToBinary("AB") == "\xAB");
 
