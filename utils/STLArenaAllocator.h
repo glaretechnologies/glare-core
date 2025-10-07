@@ -65,7 +65,7 @@ public:
 			if(needs_aligned_allocate)
 				return (pointer)MemAlloc::alignedMalloc(N * sizeof(value_type), alignof(T));
 			else
-				return (pointer)malloc(N * sizeof(value_type));
+				return (pointer)MemAlloc::mallocWithDefaultAlignmentAndThrow(N * sizeof(value_type));
 		}
 	}
 
@@ -82,7 +82,7 @@ public:
 			if(needs_aligned_allocate)
 				MemAlloc::alignedFree(ptr);
 			else
-				free(ptr);
+				MemAlloc::freeWithDefaultAlignmentAndThrow(ptr);
 		}
 	}
 
