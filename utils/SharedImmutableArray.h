@@ -46,7 +46,7 @@ public:
 	inline bool empty() const;
 	inline bool nonEmpty() const;
 
-	inline bool operator == (const SharedImmutableArray& other); 
+	inline bool operator == (const SharedImmutableArray& other) const; 
 
 	inline T* data() { return e; }
 	inline const T* data() const { return e; }
@@ -193,7 +193,7 @@ inline bool SharedImmutableArray<T>::nonEmpty() const
 
 
 template<class T>
-inline bool SharedImmutableArray<T>::operator==(const SharedImmutableArray& other)
+inline bool SharedImmutableArray<T>::operator==(const SharedImmutableArray& other) const
 {
 	if(size_ != other.size_)
 		return false;
