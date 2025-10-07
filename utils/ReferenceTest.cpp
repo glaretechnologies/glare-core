@@ -692,7 +692,7 @@ void run()
 				for(int i=0; i<N; ++i)
 				{
 					ref->incRefCount();
-					//ref->decRefCount();
+					ref->decRefCount();
 				}
 				const double time_per_iter = timer.elapsed() / N;
 				conPrint("ThreadSafeRefCounted incr + decr time: " + doubleToStringNSigFigs(time_per_iter * 1.0e9, 4) + " ns");
