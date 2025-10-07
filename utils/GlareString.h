@@ -210,7 +210,7 @@ String::String(const String& other)
 String::~String()
 {
 	if(storingOnHeap())
-		MemAlloc::alignedFree(e);
+		MemAlloc::freeWithDefaultAlignmentAndThrow(e);
 }
 
 
@@ -220,7 +220,7 @@ String& String::operator=(const String& other)
 		return *this;
 
 	if(storingOnHeap())
-		MemAlloc::alignedFree(e);
+		MemAlloc::freeWithDefaultAlignmentAndThrow(e);
 
 	if(!other.storingOnHeap())
 	{
@@ -258,7 +258,7 @@ void String::reserve(size_t n)
 			{
 				std::memcpy(new_e, e, cur_size + 1); // Copy including null terminator
 		
-				MemAlloc::alignedFree(e); // Free old buffer.
+				MemAlloc::freeWithDefaultAlignmentAndThrow(e); // Free old buffer.
 			}
 			else // Else if we were storing directly (not on heap):
 			{
@@ -285,7 +285,7 @@ void String::reserveNoCopy(size_t n)
 			const size_t cur_size = size();
 
 			if(storingOnHeap()) // If we were storing on heap:
-				MemAlloc::alignedFree(e); // Free old buffer.
+				MemAlloc::freeWithDefaultAlignmentAndThrow(e); // Free old buffer.
 
 			e = new_e;
 			capacity_storage = (uint32)n;

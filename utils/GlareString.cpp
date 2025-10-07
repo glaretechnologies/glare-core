@@ -15,7 +15,7 @@ char* glare::String::allocOnHeapForSize(size_t n)
 	if(n > MAX_CAPACITY)
 		throw glare::Exception("Requested capacity exceeded max capacity");
 
-	return static_cast<char*>(MemAlloc::alignedSSEMalloc(n + 1)); // Allocate new memory on heap, + 1 for null terminator
+	return static_cast<char*>(MemAlloc::mallocWithDefaultAlignmentAndThrow(n + 1)); // Allocate new memory on heap, + 1 for null terminator
 }
 
 
