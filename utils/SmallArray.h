@@ -141,7 +141,7 @@ SmallArray<T, N>::~SmallArray()
 		e[i].~T();
 
 	if(storingOnHeap())
-		MemAlloc::alignedFree(e);
+		MemAlloc::alignedSSEFree(e);
 }
 
 
@@ -158,7 +158,7 @@ SmallArray<T, N>& SmallArray<T, N>::operator=(const SmallArray& other)
 	if(other.size_ <= N)
 	{
 		if(storingOnHeap())
-			MemAlloc::alignedFree(e); // Free existing mem
+			MemAlloc::alignedSSEFree(e); // Free existing mem
 
 		e = reinterpret_cast<T*>(direct.buf); // Store directly
 
@@ -171,7 +171,7 @@ SmallArray<T, N>& SmallArray<T, N>::operator=(const SmallArray& other)
 		assert(other.size_ > N);
 
 		if(storingOnHeap())
-			MemAlloc::alignedFree(e); // Free existing mem
+			MemAlloc::alignedSSEFree(e); // Free existing mem
 
 		// Allocate new memory
 		e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * other.size_));
@@ -205,7 +205,7 @@ void SmallArray<T, N>::resizeSmaller(size_t new_size)
 			for(size_t i=0; i<size_; ++i)
 				e[i].~T();
 
-			MemAlloc::alignedFree(e); // Free old buffer.
+			MemAlloc::alignedSSEFree(e); // Free old buffer.
 			e = new_e;
 		}
 		else
@@ -268,7 +268,7 @@ void SmallArray<T, N>::resize(size_t new_size)
 				e[i].~T();
 
 			if(storingOnHeap())
-				MemAlloc::alignedFree(e); // Free old buffer.
+				MemAlloc::alignedSSEFree(e); // Free old buffer.
 
 			e = new_e;
 		}
@@ -313,7 +313,7 @@ void SmallArray<T, N>::resize(size_t new_size, const T& val)
 				e[i].~T();
 
 			if(storingOnHeap())
-				MemAlloc::alignedFree(e); // Free old buffer.
+				MemAlloc::alignedSSEFree(e); // Free old buffer.
 
 			e = new_e;
 		}

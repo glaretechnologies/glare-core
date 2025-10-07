@@ -506,6 +506,8 @@ public:
 // Should match LightData struct in common_frag_structures.glsl etc.
 struct LightGPUData
 {
+	GLARE_ALIGNED_16_NEW_DELETE
+
 	LightGPUData() : light_type(0), cone_cos_angle_start(0.8f), cone_cos_angle_end(0.85f) {}
 	Vec4f pos;
 	Vec4f dir;
@@ -518,6 +520,8 @@ struct LightGPUData
 
 struct GLLight : public ThreadSafeRefCounted
 {
+	GLARE_ALIGNED_16_NEW_DELETE
+
 	js::AABBox aabb_ws;
 	LightGPUData gpu_data;
 	int buffer_index;

@@ -52,7 +52,7 @@ public:
 	inline STLArenaAllocator(const STLArenaAllocator<T2> & other) :  arena_allocator(other.arena_allocator) {}
 
 	// If this allocator needs to fall back to aligned allocations because the type requires it
-	static constexpr bool needs_aligned_allocate = alignof(T) > 8;
+	static constexpr bool needs_aligned_allocate = alignof(T) > GLARE_MALLOC_ALIGNMENT;
 
 	// Allocate memory
 	inline pointer allocate(size_type N)

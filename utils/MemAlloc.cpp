@@ -1,7 +1,7 @@
 /*=====================================================================
 MemAlloc.cpp
 ------------
-Copyright Glare Technologies Limited 2024 -
+Copyright Glare Technologies Limited 2025 -
 =====================================================================*/
 #include "MemAlloc.h"
 
@@ -12,6 +12,10 @@ Copyright Glare Technologies Limited 2024 -
 #include "AtomicInt.h"
 //#include <tracy/Tracy.hpp>
 #include <new>
+#include <stdlib.h>
+
+
+static_assert(sizeof(int*) == (GLARE_PLATFORM_IS_64_BIT ? 8 : 4));
 
 
 static glare::AtomicInt total_allocated_B(0); // total size of active allocations
@@ -45,8 +49,8 @@ size_t MemAlloc::getHighWaterMarkB()
 
 void* MemAlloc::traceMalloc(size_t n)
 {
-	// Allocate the requested allocation size, plus room for a uint64, in which we will store the size of the allocation.
-	void* data = malloc(n + sizeof(uint64));
+	// Allocate the requested allocation size, plus room for a uint64 (and padding to make it 16 bytes), in which we will store the size of the allocation.
+	void* data = malloc(n + 16);
 	if(!data)
 		throw std::bad_alloc();
 
@@ -58,18 +62,22 @@ void* MemAlloc::traceMalloc(size_t n)
 	num_allocations++;
 	num_active_allocations++;
 
-	return (uint64*)data + 1; // return a pointer just past the stored requested allocation size
+	// TracyAllocS(data, n, /*call stack capture depth=*/10);
+
+	return (uint64*)data + 2; // return a pointer just past the stored requested allocation size
 }
 
 
 void MemAlloc::traceFree(void* ptr)
 {
-	uint64* original_ptr = ((uint64*)ptr) - 1; // Recover original ptr
+	uint64* original_ptr = ((uint64*)ptr) - 2; // Recover original ptr
 	const uint64 size = *original_ptr;
 
 	assert(total_allocated_B >= (int64)size);
 	total_allocated_B -= size;
 	num_active_allocations--;
+
+	// TracyFreeS(original_ptr, /*call stack capture depth=*/10);
 
 	free(original_ptr);
 }
@@ -105,7 +113,34 @@ void operator delete(void* p)
 
 namespace MemAlloc
 {
-	
+
+
+void* mallocWithDefaultAlignmentAndThrow(size_t amount)
+{
+#if TRACE_ALLOCATIONS
+	void* ptr = traceMalloc(amount);
+#else
+	void* ptr = malloc(amount);
+#endif
+	if(!ptr)
+		throw std::bad_alloc();
+	return ptr;
+}
+
+
+void freeWithDefaultAlignmentAndThrow(void* mem)
+{
+	if(mem == NULL)
+		return;
+
+#if TRACE_ALLOCATIONS
+	traceFree(mem);
+#else
+	free(mem);
+#endif
+}
+
+
 void* alignedMalloc(size_t amount, size_t alignment)
 {
 	assert(Maths::isPowerOfTwo(alignment));
@@ -228,6 +263,12 @@ void MemAlloc::test()
 {
 	conPrint("MemAlloc::test()");
 
+#if TRACE_ALLOCATIONS
+	{
+		void* p = traceMalloc(10);
+		traceFree(p);
+	}
+#endif
 
 	if(false)
 	{

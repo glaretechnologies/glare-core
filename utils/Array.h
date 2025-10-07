@@ -109,7 +109,7 @@ Array<T>::~Array()
 	for(size_t i=0; i<size_; ++i)
 		e[i].~T();
 
-	MemAlloc::alignedFree(e);
+	MemAlloc::alignedSSEFree(e);
 }
 
 
@@ -123,7 +123,7 @@ Array<T>& Array<T>::operator=(const Array& other)
 	for(size_t i=0; i<size_; ++i)
 		e[i].~T();
 
-	MemAlloc::alignedFree(e); // Free existing mem
+	MemAlloc::alignedSSEFree(e); // Free existing mem
 
 	// Allocate new memory
 	e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * other.size_));
@@ -154,7 +154,7 @@ void Array<T>::resizeNoCopy(size_t new_size)
 		e[i].~T();
 
 	if(e)
-		MemAlloc::alignedFree(e); // Free old buffer.
+		MemAlloc::alignedSSEFree(e); // Free old buffer.
 
 	e = new_e;
 	size_ = new_size;
