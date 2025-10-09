@@ -1,13 +1,16 @@
 /*=====================================================================
 ArenaAllocator.h
 ----------------
-Copyright Glare Technologies Limited 2023 -
+Copyright Glare Technologies Limited 2025 -
 =====================================================================*/
 #pragma once
 
 
 #include "GlareAllocator.h"
 #include "Mutex.h"
+#include "Exception.h"
+#include "StringUtils.h"
+#include "../maths/mathstypes.h"
 #include <vector>
 
 
@@ -18,17 +21,12 @@ Copyright Glare Technologies Limited 2023 -
 
 #if CHECK_ALLOCATOR_USAGE
 #include <map>
+#include "ConPrint.h"
 #endif
 
 
 namespace glare
 {
-
-
-struct AllocationDebugInfo
-{
-	size_t size, alignment;
-};
 
 
 /*=====================================================================
@@ -44,26 +42,25 @@ class ArenaAllocator// : public glare::Allocator
 public:
 	ArenaAllocator(size_t arena_size_B);
 	ArenaAllocator(void* data, size_t arena_size_B); // Doesn't own data, doesn't delete it in destructor
+	ArenaAllocator(const ArenaAllocator& other);
 	~ArenaAllocator();
 
-	void* alloc(size_t size, size_t alignment);
+	ArenaAllocator& operator = (const ArenaAllocator& other) = delete;
 
-#if CHECK_ALLOCATOR_USAGE
-	void free(void* ptr);
-#else
-	void free(void* ptr) {} // Do nothing, we will free all allocated memory in clear().
-#endif
+	inline void* alloc(size_t size, size_t alignment);
 
-	void clear() { current_offset = 0; } // Reset arena, freeing all allocated memory
+	inline void free(void* ptr);
+
+	inline void clear(); // Reset arena, freeing all allocated memory
+
 
 	size_t arenaSizeB() const { return arena_size_B; }
 	size_t currentOffset() const { return current_offset; }
 	size_t highWaterMark() const { return high_water_mark; } // Highest current_offset seen so far, e.g. max total amount of mem allocated.
 
-
-	// Since this returns a ArenaAllocator value object, not a reference, will need to call
-	// res_allocator.incRefCount(); on it before passing to a function that will use a reference to it, and res_allocator.decRefCount(); afterwards.
-	ArenaAllocator getFreeAreaArenaAllocator() const { return ArenaAllocator((uint8*)data + current_offset, arena_size_B - current_offset); }
+	// Get a new arena allocator which has as its arena the remaining free space in this arena.
+	// Only one such 'child' allocator can exist at once (otherwise they will try and allocate the same memory!)
+	inline ArenaAllocator getFreeAreaArenaAllocator() const;
 
 	static void test();
 private:
@@ -74,9 +71,90 @@ private:
 	bool own_data;
 
 #if CHECK_ALLOCATOR_USAGE
+	struct AllocationDebugInfo
+	{
+		size_t size, alignment;
+	};
 	std::map<void*, AllocationDebugInfo> allocations;
+	ArenaAllocator* parent;
+	mutable int child_count;
 #endif
 };
+
+
+void* ArenaAllocator::alloc(size_t size, size_t alignment)
+{
+	const size_t new_start = Maths::roundUpToMultipleOfPowerOf2(current_offset, alignment);
+
+	const size_t new_offset = new_start + size;
+	if(new_offset > arena_size_B)
+		throw glare::Exception("ArenaAllocator: Allocation of " + toString(size) + " B with alignment " + toString(alignment) + " failed.  (Arena size: " + toString(arena_size_B) + ")");
+
+	current_offset = new_offset;
+	high_water_mark = myMax(high_water_mark, current_offset);
+	void* ptr = (void*)((uint8*)data + new_start);
+
+#if CHECK_ALLOCATOR_USAGE
+	AllocationDebugInfo info;
+	info.size = size;
+	info.alignment = alignment;
+	const bool inserted = allocations.insert(std::make_pair(ptr, info)).second;
+	if(!inserted)
+	{
+		conPrint("Error: ArenaAllocator: allocation at same address as existing allocation");
+		#if defined(_WIN32)
+		__debugbreak();
+		#endif
+	}
+#endif
+
+	return ptr;
+}
+
+
+void ArenaAllocator::free(void* ptr)
+{
+#if CHECK_ALLOCATOR_USAGE
+	doCheckAllocatorUsageFree(ptr);
+#endif
+
+	// Do nothing, we will free all allocated memory in clear().
+}
+
+
+// Reset arena, freeing all allocated memory
+void ArenaAllocator::clear()
+{ 
+	current_offset = 0;
+	
+#if CHECK_ALLOCATOR_USAGE
+	allocations.clear();
+#endif
+} 
+
+
+// Since this returns a ArenaAllocator value object, not a reference, will need to call
+// res_allocator.incRefCount(); on it before passing to a function that will use a reference to it, and res_allocator.decRefCount(); afterwards.
+ArenaAllocator ArenaAllocator::getFreeAreaArenaAllocator() const
+{
+#if CHECK_ALLOCATOR_USAGE
+	if(child_count > 0)
+	{
+		conPrint("Error: ArenaAllocator: Called getFreeAreaArenaAllocator() while another child allocator still exists!");
+		#if defined(_WIN32)
+		__debugbreak();
+		#endif
+	}
+#endif
+
+	ArenaAllocator new_allocator((uint8*)data + current_offset, arena_size_B - current_offset); 
+
+#if CHECK_ALLOCATOR_USAGE
+	new_allocator.parent = const_cast<ArenaAllocator*>(this);
+	child_count++;
+#endif
+	return new_allocator;
+}
 
 
 } // End namespace glare
