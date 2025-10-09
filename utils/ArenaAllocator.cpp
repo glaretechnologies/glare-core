@@ -19,75 +19,15 @@ ArenaAllocator::ArenaAllocator(size_t arena_size_B_)
 :	arena_size_B(arena_size_B_),
 	current_offset(0),
 	high_water_mark(0),
-	data(NULL),
-	own_data(true)
-#if CHECK_ALLOCATOR_USAGE
-	, parent(nullptr),
-	child_count(0)
-#endif
+	data(NULL)
 {
 	data = MemAlloc::alignedMalloc(arena_size_B, 64);
-}
-
-
-ArenaAllocator::ArenaAllocator(void* data_, size_t arena_size_B_)
-:	arena_size_B(arena_size_B_),
-	current_offset(0),
-	high_water_mark(0),
-	data(data_),
-	own_data(false)
-#if CHECK_ALLOCATOR_USAGE
-	, arent(nullptr),
-	child_count(0)
-#endif
-{
-}
-
-
-ArenaAllocator::ArenaAllocator(const ArenaAllocator& other)
-{
-	arena_size_B = other.arena_size_B;
-	current_offset = other.current_offset;
-	high_water_mark = other.high_water_mark;
-	data = other.data;
-	own_data = other.own_data;
-
-#if CHECK_ALLOCATOR_USAGE
-	child_count = other.child_count;
-	parent = other.parent;
-	if(parent)
-		parent->child_count++;
-#endif
 }
 
 
 ArenaAllocator::~ArenaAllocator()
 {
 #if CHECK_ALLOCATOR_USAGE
-	// There should be no alive children when this allocator is destroyed.
-	if(child_count != 0)
-	{
-		conPrint("Error: child_count != 0");
-		#if defined(_WIN32)
-		__debugbreak();
-		#endif
-	}
-
-	if(!own_data)
-	{
-		// This is the child of some other allocator
-		assert(parent);
-		if(parent->child_count <= 0)
-		{
-			conPrint("Error: parent->child_count <= 0");
-			#if defined(_WIN32)
-			__debugbreak();
-			#endif
-		}
-		parent->child_count--;
-	}
-
-
 	// Upon destruction of the arena, all allocations from it should have been deallocated.  Any that remain indicate an error.
 	for(auto it = allocations.begin(); it != allocations.end(); ++it)
 	{
@@ -97,15 +37,14 @@ ArenaAllocator::~ArenaAllocator()
 		__debugbreak();
 		#endif
 	}
-#endif
+#endif // CHECK_ALLOCATOR_USAGE
 
-	if(own_data)
-		MemAlloc::alignedFree(data);
+	MemAlloc::alignedFree(data);
 }
 
 
 #if CHECK_ALLOCATOR_USAGE
-void ArenaAllocator::free(void* ptr)
+void ArenaAllocator::doCheckUsageOnFree(void* ptr)
 {
 	auto res = allocations.find(ptr);
 	if(res == allocations.end())
@@ -118,7 +57,29 @@ void ArenaAllocator::free(void* ptr)
 	else
 		allocations.erase(ptr);
 }
-#endif
+
+
+void glare::ArenaAllocator::doCheckUsageOnPopFrame(size_t frame_begin_offset)
+{
+	// Upon popping of a frame, all allocations from it should have been deallocated.  Any that remain indicate an error.
+	// do reverse iteration, stop once we get ptr < data + new_offset
+	for(auto it = allocations.rbegin(); it != allocations.rend(); ++it)
+	{
+		void* ptr = it->first;
+		if(ptr < (uint8*)data + frame_begin_offset)
+			break;
+		else
+		{
+			const AllocationDebugInfo& info = it->second;
+		
+			conPrint("Error: ArenaAllocator: unfreed allocation upon frame pop, size: " + toString(info.size) + " B, alignment: " + toString(info.alignment));
+			#if defined(_WIN32)
+			__debugbreak();
+			#endif
+		}
+	}
+}
+#endif // CHECK_ALLOCATOR_USAGE
 
 
 } // End namespace glare
@@ -128,7 +89,6 @@ void ArenaAllocator::free(void* ptr)
 
 
 #include "TestUtils.h"
-#include "ConPrint.h"
 #include "Reference.h"
 #include "../maths/PCG32.h"
 #include <set>
@@ -190,33 +150,36 @@ void glare::ArenaAllocator::test()
 		{}
 	}
 
-	//---------------------- Test getFreeAreaArenaAllocator ----------------------
+	//---------------------- Test ArenaFrame ----------------------
 	{
 		glare::ArenaAllocator allocator(/*arena_size=*/256);
 
-		void* data = allocator.alloc(100, 8);
+		void* data = allocator.alloc(100, 4);
 		std::memset(data, 0, 100);
 
-
+		testAssert(allocator.currentOffset() == 100);
 		{
-			glare::ArenaAllocator suballocator = allocator.getFreeAreaArenaAllocator();
+			//glare::ArenaAllocator suballocator = allocator.getFreeAreaArenaAllocator();
+			glare::ArenaFrame frame(allocator);
 
-			testAssert(suballocator.arenaSizeB() == 156);
-			testAssert(suballocator.currentOffset() == 0);
+			//testAssert(suballocator.arenaSizeB() == 156);
+			testAssert(frame.frame_begin_offset == 100);
 
-			void* data2 = suballocator.alloc(156, 8);
+			void* data2 = allocator.alloc(156, 4);
 			std::memset(data2, /*val=*/1, 156);
 
-			suballocator.free(data2);
+			allocator.free(data2);
 
 			// Should give an error:
 			// glare::ArenaAllocator suballocator_2 = allocator.getFreeAreaArenaAllocator();
 		}
+		testAssert(allocator.currentOffset() == 100);
 
 		// Check we didn't overwrite first allocation
 		for(int i=0; i<100; ++i)
 			testAssert(((const uint8*)data)[i] == 0);
 
+		allocator.free(data);
 
 		// Test handling of references.
 		//{
@@ -230,7 +193,34 @@ void glare::ArenaAllocator::test()
 		//	testAssert(suballocator.getRefCount() == 0);
 		//}
 	}
+
+	// Test nested ArenaFrame
+	{
+		glare::ArenaAllocator allocator(/*arena_size=*/100);
+
+		testAssert(allocator.currentOffset() == 0);
+		{
+			glare::ArenaFrame frame1(allocator);
+			void* data = allocator.alloc(/*size=*/10, /*alignment=*/1);
+			testAssert((uint8*)data == (uint8*)allocator.data);
+			testAssert(allocator.currentOffset() == 10);
+			
+			{
+				glare::ArenaFrame frame2(allocator);
+				void* data2 = allocator.alloc(/*size=*/10, /*alignment=*/1);
+				testAssert((uint8*)data2 == (uint8*)allocator.data + 10);
+				testAssert(allocator.currentOffset() == 20);
+				allocator.free(data2);
+				testAssert(allocator.currentOffset() == 20); // offset is not reduced until frame pop
+			}
+
+			allocator.free(data);
+			testAssert(allocator.currentOffset() == 10);
+		}
+		testAssert(allocator.currentOffset() == 0);
+	}
 }
+
 
 
 #endif // BUILD_TESTS

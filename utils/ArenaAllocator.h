@@ -37,12 +37,11 @@ All allocations are freed at once with the clear() method.  free() does nothing 
 
 Not thread-safe, designed to be used only by a single thread.
 =====================================================================*/
-class ArenaAllocator// : public glare::Allocator
+class ArenaAllocator
 {
 public:
 	ArenaAllocator(size_t arena_size_B);
-	ArenaAllocator(void* data, size_t arena_size_B); // Doesn't own data, doesn't delete it in destructor
-	ArenaAllocator(const ArenaAllocator& other);
+	ArenaAllocator(const ArenaAllocator& other) = delete;
 	~ArenaAllocator();
 
 	ArenaAllocator& operator = (const ArenaAllocator& other) = delete;
@@ -58,17 +57,18 @@ public:
 	size_t currentOffset() const { return current_offset; }
 	size_t highWaterMark() const { return high_water_mark; } // Highest current_offset seen so far, e.g. max total amount of mem allocated.
 
-	// Get a new arena allocator which has as its arena the remaining free space in this arena.
-	// Only one such 'child' allocator can exist at once (otherwise they will try and allocate the same memory!)
-	inline ArenaAllocator getFreeAreaArenaAllocator() const;
+	// Used by ArenaFrame
+	inline void popFrame(size_t frame_begin_offset);
 
 	static void test();
 private:
+	void doCheckUsageOnFree(void* ptr);
+	void doCheckUsageOnPopFrame(size_t new_offset);
+
 	size_t arena_size_B;
 	size_t current_offset;
 	size_t high_water_mark;
 	void* data;
-	bool own_data;
 
 #if CHECK_ALLOCATOR_USAGE
 	struct AllocationDebugInfo
@@ -82,8 +82,28 @@ private:
 };
 
 
+class ArenaFrame
+{
+public:
+	ArenaFrame(ArenaAllocator& allocator)
+	{
+		m_allocator = &allocator;
+		frame_begin_offset = allocator.currentOffset();
+	}
+
+	~ArenaFrame()
+	{
+		m_allocator->popFrame(frame_begin_offset);
+	}
+
+	ArenaAllocator* m_allocator;
+	size_t frame_begin_offset;
+};
+
+
 void* ArenaAllocator::alloc(size_t size, size_t alignment)
 {
+	assert(alignment <= 64);
 	const size_t new_start = Maths::roundUpToMultipleOfPowerOf2(current_offset, alignment);
 
 	const size_t new_offset = new_start + size;
@@ -115,7 +135,7 @@ void* ArenaAllocator::alloc(size_t size, size_t alignment)
 void ArenaAllocator::free(void* ptr)
 {
 #if CHECK_ALLOCATOR_USAGE
-	doCheckAllocatorUsageFree(ptr);
+	doCheckUsageOnFree(ptr);
 #endif
 
 	// Do nothing, we will free all allocated memory in clear().
@@ -133,27 +153,13 @@ void ArenaAllocator::clear()
 } 
 
 
-// Since this returns a ArenaAllocator value object, not a reference, will need to call
-// res_allocator.incRefCount(); on it before passing to a function that will use a reference to it, and res_allocator.decRefCount(); afterwards.
-ArenaAllocator ArenaAllocator::getFreeAreaArenaAllocator() const
+void glare::ArenaAllocator::popFrame(size_t frame_begin_offset)
 {
 #if CHECK_ALLOCATOR_USAGE
-	if(child_count > 0)
-	{
-		conPrint("Error: ArenaAllocator: Called getFreeAreaArenaAllocator() while another child allocator still exists!");
-		#if defined(_WIN32)
-		__debugbreak();
-		#endif
-	}
+	doCheckUsageOnPopFrame(frame_begin_offset);
 #endif
 
-	ArenaAllocator new_allocator((uint8*)data + current_offset, arena_size_B - current_offset); 
-
-#if CHECK_ALLOCATOR_USAGE
-	new_allocator.parent = const_cast<ArenaAllocator*>(this);
-	child_count++;
-#endif
-	return new_allocator;
+	current_offset = frame_begin_offset;
 }
 
 
