@@ -37,8 +37,10 @@ public:
 	TextureParams tex_params;
 	Reference<TextureData> texture_data;
 
-	Reference<OpenGLTexture> old_tex; // When uploading a frame of an animated texture, upload into this already existing texture.  Otherwise create a new texture
-	Reference<OpenGLTexture> new_tex; // When uploading the animated tex frame is done, swap existing_opengl_tex and swap_with_tex on the object
+	// When uploading a frame of an animated texture, upload into the already existing texture new_tex.
+	// When uploading the animated tex frame is done, swap old_tex and new_tex on the object.
+	Reference<OpenGLTexture> old_tex;
+	Reference<OpenGLTexture> new_tex;
 
 	int frame_i;
 	Reference<UploadingUserInfo> user_info;
