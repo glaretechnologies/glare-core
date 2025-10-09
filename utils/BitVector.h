@@ -26,6 +26,8 @@ public:
 	// Bits are initialised to zero.
 	inline explicit BitVector(size_t num_bits_) : v(/*count=*/Maths::roundedUpDivide<size_t>(num_bits_, 32), /*val=*/0), num_bits(num_bits_) {}
 
+	inline void swapWith(BitVector& other);
+
 	inline bool operator == (const BitVector& other) const { return num_bits == other.num_bits && v == other.v; }
 
 	inline void setAllBits(uint32 newval);
@@ -59,6 +61,13 @@ public:
 
 
 void bitVectorTests();
+
+
+void BitVector::swapWith(BitVector& other)
+{
+	v.swapWith(other.v);
+	mySwap(num_bits, other.num_bits);
+}
 
 
 void BitVector::setAllBits(uint32 newval)
