@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2023 -
 
 #include "MemAlloc.h"
 #include "StringUtils.h"
+#include "ConPrint.h"
 #include "../maths/mathstypes.h"
 
 
@@ -38,6 +39,18 @@ ArenaAllocator::ArenaAllocator(void* data_, size_t arena_size_B_)
 
 ArenaAllocator::~ArenaAllocator()
 {
+#if CHECK_ALLOCATOR_USAGE
+	// Upon detruction of the arena, all allocations from it should have been deallocated.  Any that remain indicate an error.
+	for(auto it = allocations.begin(); it != allocations.end(); ++it)
+	{
+		const AllocationDebugInfo& info = it->second;
+		conPrint("Error: ArenaAllocator: unfreed allocation upon ArenaAllocator destruction, size: " + toString(info.size) + " B, alignment: " + toString(info.alignment));
+		#if defined(_WIN32)
+		__debugbreak();
+		#endif
+	}
+#endif
+
 	if(own_data)
 		MemAlloc::alignedFree(data);
 }
@@ -53,8 +66,41 @@ void* ArenaAllocator::alloc(size_t size, size_t alignment)
 
 	current_offset = new_offset;
 	high_water_mark = myMax(high_water_mark, current_offset);
-	return (void*)((uint8*)data + new_start);
+	void* ptr = (void*)((uint8*)data + new_start);
+
+#if CHECK_ALLOCATOR_USAGE
+	AllocationDebugInfo info;
+	info.size = size;
+	info.alignment = alignment;
+	const bool inserted = allocations.insert(std::make_pair(ptr, info)).second;
+	if(!inserted)
+	{
+		conPrint("Error: ArenaAllocator: allocation at same address as existing allocation");
+		#if defined(_WIN32)
+		__debugbreak();
+		#endif
+	}
+#endif
+
+	return ptr;
 }
+
+
+#if CHECK_ALLOCATOR_USAGE
+void ArenaAllocator::free(void* ptr)
+{
+	auto res = allocations.find(ptr);
+	if(res == allocations.end())
+	{
+		conPrint("Error: ArenaAllocator: tried to free memory that was not allocated");
+		#if defined(_WIN32)
+		__debugbreak();
+		#endif
+	}
+	else
+		allocations.erase(ptr);
+}
+#endif
 
 
 } // End namespace glare

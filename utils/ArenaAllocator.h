@@ -11,15 +11,31 @@ Copyright Glare Technologies Limited 2023 -
 #include <vector>
 
 
+#ifndef NDEBUG
+#define CHECK_ALLOCATOR_USAGE 1
+#endif
+
+
+#if CHECK_ALLOCATOR_USAGE
+#include <map>
+#endif
+
+
 namespace glare
 {
+
+
+struct AllocationDebugInfo
+{
+	size_t size, alignment;
+};
 
 
 /*=====================================================================
 ArenaAllocator
 --------------
 A fast memory allocator for temporary allocations.
-All allocations are freed at once with the clear() method.  free() does nothing.
+All allocations are freed at once with the clear() method.  free() does nothing (except for removing AllocationDebugInfo for the alloc).
 
 Not thread-safe, designed to be used only by a single thread.
 =====================================================================*/
@@ -30,8 +46,13 @@ public:
 	ArenaAllocator(void* data, size_t arena_size_B); // Doesn't own data, doesn't delete it in destructor
 	~ArenaAllocator();
 
-	virtual void* alloc(size_t size, size_t alignment);
-	virtual void free(void* ptr) {} // Do nothing, we will free all allocated memory in clear().
+	void* alloc(size_t size, size_t alignment);
+
+#if CHECK_ALLOCATOR_USAGE
+	void free(void* ptr);
+#else
+	void free(void* ptr) {} // Do nothing, we will free all allocated memory in clear().
+#endif
 
 	void clear() { current_offset = 0; } // Reset arena, freeing all allocated memory
 
@@ -51,6 +72,10 @@ private:
 	size_t high_water_mark;
 	void* data;
 	bool own_data;
+
+#if CHECK_ALLOCATOR_USAGE
+	std::map<void*, AllocationDebugInfo> allocations;
+#endif
 };
 
 
