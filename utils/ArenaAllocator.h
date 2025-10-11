@@ -6,12 +6,8 @@ Copyright Glare Technologies Limited 2025 -
 #pragma once
 
 
-#include "GlareAllocator.h"
-#include "Mutex.h"
 #include "Exception.h"
-#include "StringUtils.h"
 #include "../maths/mathstypes.h"
-#include <vector>
 
 
 #ifndef NDEBUG
@@ -20,8 +16,9 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #if CHECK_ALLOCATOR_USAGE
-#include <map>
 #include "ConPrint.h"
+#include "StringUtils.h"
+#include <map>
 #endif
 
 
@@ -33,7 +30,25 @@ namespace glare
 ArenaAllocator
 --------------
 A fast memory allocator for temporary allocations.
-All allocations are freed at once with the clear() method.  free() does nothing (except for removing AllocationDebugInfo for the alloc).
+
+The best way to use this is with ArenaFrame, which should be stack-allocated, like this:
+
+
+ArenaAllocator arena_allocator(1024);
+
+{
+	glare::ArenaFrame arena_frame(arena_allocator);
+
+	void* p = arena_allocator.alloc(...);
+
+	// do something with p
+
+	arena_allocator.free(p);
+
+} // arena_frame destructor runs on end of scope here and sets the allocator current offset back to what it was upon creation of the frame, effectively freeing all memory allocated while the frame was on the stack.
+
+
+All allocations can be freed at once with the clear() method.  free() does nothing (except for removing AllocationDebugInfo for the alloc).
 
 Not thread-safe, designed to be used only by a single thread.
 =====================================================================*/
@@ -46,6 +61,7 @@ public:
 
 	ArenaAllocator& operator = (const ArenaAllocator& other) = delete;
 
+	// alignment must be a power of 2 and <= 64.
 	inline void* alloc(size_t size, size_t alignment);
 
 	inline void free(void* ptr);
@@ -76,8 +92,6 @@ private:
 		size_t size, alignment;
 	};
 	std::map<void*, AllocationDebugInfo> allocations;
-	ArenaAllocator* parent;
-	mutable int child_count;
 #endif
 };
 
@@ -103,7 +117,8 @@ public:
 
 void* ArenaAllocator::alloc(size_t size, size_t alignment)
 {
-	assert(alignment <= 64);
+	assert(Maths::isPowerOfTwo(alignment) && (alignment <= 64));
+
 	const size_t new_start = Maths::roundUpToMultipleOfPowerOf2(current_offset, alignment);
 
 	const size_t new_offset = new_start + size;

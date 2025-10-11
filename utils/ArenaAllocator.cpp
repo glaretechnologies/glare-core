@@ -89,7 +89,6 @@ void glare::ArenaAllocator::doCheckUsageOnPopFrame(size_t frame_begin_offset)
 
 
 #include "TestUtils.h"
-#include "Reference.h"
 #include "../maths/PCG32.h"
 #include <set>
 
@@ -159,19 +158,14 @@ void glare::ArenaAllocator::test()
 
 		testAssert(allocator.currentOffset() == 100);
 		{
-			//glare::ArenaAllocator suballocator = allocator.getFreeAreaArenaAllocator();
 			glare::ArenaFrame frame(allocator);
 
-			//testAssert(suballocator.arenaSizeB() == 156);
 			testAssert(frame.frame_begin_offset == 100);
 
 			void* data2 = allocator.alloc(156, 4);
 			std::memset(data2, /*val=*/1, 156);
 
 			allocator.free(data2);
-
-			// Should give an error:
-			// glare::ArenaAllocator suballocator_2 = allocator.getFreeAreaArenaAllocator();
 		}
 		testAssert(allocator.currentOffset() == 100);
 
@@ -180,21 +174,9 @@ void glare::ArenaAllocator::test()
 			testAssert(((const uint8*)data)[i] == 0);
 
 		allocator.free(data);
-
-		// Test handling of references.
-		//{
-		//	glare::ArenaAllocator suballocator = allocator.getFreeAreaArenaAllocator();
-		//
-		//	suballocator.incRefCount(); // Need to manually call this when suballocator is on stack.
-		//	{
-		//		Reference<glare::ArenaAllocator> ref(&suballocator);
-		//	}
-		//	suballocator.decRefCount();
-		//	testAssert(suballocator.getRefCount() == 0);
-		//}
 	}
 
-	// Test nested ArenaFrame
+	// Test nested ArenaFrames
 	{
 		glare::ArenaAllocator allocator(/*arena_size=*/100);
 
@@ -220,7 +202,6 @@ void glare::ArenaAllocator::test()
 		testAssert(allocator.currentOffset() == 0);
 	}
 }
-
 
 
 #endif // BUILD_TESTS
