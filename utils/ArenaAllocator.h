@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2025 -
 
 #include "Exception.h"
 #include "../maths/mathstypes.h"
+#include "StringUtils.h"
 
 
 #ifndef NDEBUG
@@ -17,7 +18,6 @@ Copyright Glare Technologies Limited 2025 -
 
 #if CHECK_ALLOCATOR_USAGE
 #include "ConPrint.h"
-#include "StringUtils.h"
 #include <map>
 #endif
 
