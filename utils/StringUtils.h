@@ -290,7 +290,7 @@ void test();
 template <class StringType>
 const StringType removeDotAndExtension(const StringType& filename)
 {
-	const StringType::size_type dot_index = filename.find_last_of('.');
+	const typename StringType::size_type dot_index = filename.find_last_of('.');
 
 	if(dot_index == StringType::npos)
 		return filename;
