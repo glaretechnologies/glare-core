@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2025 -
 
 #include "IncludeXXHash.h"
 #include "MemAlloc.h"
+#include <cstring>
 
 
 namespace glare
