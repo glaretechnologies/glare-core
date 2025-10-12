@@ -338,7 +338,7 @@ bool fileExists(const string_view pathname)
 	return res != INVALID_FILE_ATTRIBUTES;
 #else
 	struct stat buffer;
-	const int status = stat(pathname.c_str(), &buffer);
+	const int status = stat(toString(pathname).c_str(), &buffer);
 	return status == 0;
 #endif
 }
@@ -365,7 +365,7 @@ uint64 getFileSize(const std::string& path)
 
 #else
 	struct stat info;
-	if(stat(StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(), &info) != 0)
+	if(stat(toString(StringUtils::UTF8ToPlatformUnicodeEncoding(path)).c_str(), &info) != 0)
 		throw FileUtilsExcep("Failed to get size of file: '" + path + "': " + PlatformUtils::getLastErrorString());
 	return info.st_size;
 #endif
@@ -1219,7 +1219,7 @@ const std::string convertUTF8ToFStreamPath(const std::string& p)
 
 const std::string convertUTF8ToFStreamPath(const std::string& p)
 {
-	return StringUtils::UTF8ToPlatformUnicodeEncoding(p);
+	return toString(StringUtils::UTF8ToPlatformUnicodeEncoding(p));
 }
 
 #endif

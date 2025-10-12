@@ -116,7 +116,7 @@ static void testHashMapPerf(const std::vector<T>& testdata, int N, int NUM_LOOKU
 		for(int i=0; i<NUM_LOOKUPS; ++i)
 		{
 			const T x = testdata[i];
-			std::unordered_map<T, T>::const_iterator it = m.find(x);
+			typename std::unordered_map<T, T>::const_iterator it = m.find(x);
 			if(it != m.end())
 				num_present++;
 		}
@@ -146,7 +146,7 @@ static void testHashMapPerf(const std::vector<T>& testdata, int N, int NUM_LOOKU
 		for(int i=0; i<NUM_LOOKUPS; ++i)
 		{
 			const T x = testdata[i];
-			HashMap<T, T>::const_iterator it = m.find(x);
+			typename HashMap<T, T>::const_iterator it = m.find(x);
 			if(it != m.end())
 				num_present++;
 		}
@@ -177,7 +177,7 @@ static void testHashMapPerf(const std::vector<T>& testdata, int N, int NUM_LOOKU
 		for(int i=0; i<NUM_LOOKUPS; ++i)
 		{
 			const T x = testdata[i];
-			HashMap2<T, T>::const_iterator it = m.find(x);
+			typename HashMap2<T, T>::const_iterator it = m.find(x);
 			if(it != m.end())
 				num_present++;
 		}

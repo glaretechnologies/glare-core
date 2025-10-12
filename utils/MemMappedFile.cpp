@@ -123,7 +123,7 @@ MemMappedFile::MemMappedFile(const string_view path)
 :	file_data(NULL)
 {
 	this->linux_file_handle = ::open(
-		StringUtils::UTF8ToPlatformUnicodeEncoding(path).c_str(),
+		toString(StringUtils::UTF8ToPlatformUnicodeEncoding(path)).c_str(),
 		O_RDONLY);
 
 	if(this->linux_file_handle <= 0)
