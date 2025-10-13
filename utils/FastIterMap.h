@@ -94,10 +94,7 @@ class FastIterMap
 public:
 	FastIterMap(Key empty_key) : key_info_map(empty_key) {}
 
-	~FastIterMap()
-	{
-		clear();
-	}
+	~FastIterMap() {}
 
 	void clear()
 	{

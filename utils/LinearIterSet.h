@@ -29,10 +29,7 @@ class LinearIterSet
 public:
 	LinearIterSet(T empty_val) : map(empty_val) {}
 
-	~LinearIterSet()
-	{
-		clear();
-	}
+	~LinearIterSet() {}
 
 	void clear()
 	{
@@ -43,6 +40,8 @@ public:
 	// Returns true if inserted, false otherwise.
 	bool insert(const T& elem)
 	{
+		assert(elem != map.empty_key);
+
 		auto res = map.find(elem);
 		if(res == map.end())
 		{
@@ -59,20 +58,19 @@ public:
 	// Returns num elements removed (1 if removed, 0 otherwise)
 	size_t erase(const T& elem)
 	{
+		assert(elem != map.empty_key);
+
 		auto res = map.find(elem);
 		if(res != map.end())
 		{
+			// Conceptually swap the item at vector[index] with the back element of the vector, then remove the back element of the vector.
 			const size_t index = res->second;
 			const size_t back_index = vector.size() - 1;
-			if(index == back_index)
-			{
-			}
-			else
+			if(index != back_index) // No swap to do if the item is already at the back
 			{
 				const T back_elem = vector[back_index];
-
-				vector[index] = vector[back_index];
-				map[back_elem] = index;
+				vector[index] = back_elem;
+				map[back_elem] = index; // Update map to index new location for the item
 			}
 
 			map.erase(elem);
@@ -88,10 +86,10 @@ public:
 	}
 
 	typename js::Vector<T, 16>::iterator begin() { return vector.begin(); }
-	typename js::Vector<T, 16>::iterator end() { return vector.end(); }
+	typename js::Vector<T, 16>::iterator end()   { return vector.end(); }
 
 	typename js::Vector<T, 16>::const_iterator begin() const { return vector.begin(); }
-	typename js::Vector<T, 16>::const_iterator end() const { return vector.end(); }
+	typename js::Vector<T, 16>::const_iterator end()   const { return vector.end(); }
 
 	size_t size() const { return map.size(); }
 
@@ -102,6 +100,7 @@ public:
 	void invariant()
 	{
 #ifndef NDEBUG
+		assert(map.size() == vector.size());
 		for(auto it = map.begin(); it != map.end(); ++it)
 		{
 			const size_t index = it->second;
