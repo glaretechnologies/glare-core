@@ -1486,9 +1486,9 @@ bool containsChar(const std::string& s, char c)
 }
 
 
-bool containsString(const std::string& s, const std::string& target)
+bool containsString(const string_view s, const string_view target)
 {
-	return s.find(target) != std::string::npos;
+	return s.find(target) != std::string_view::npos;
 }
 
 

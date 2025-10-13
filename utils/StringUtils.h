@@ -261,7 +261,7 @@ const std::string replaceAll(const std::string& s, const std::string& target, co
 void appendTabbed(std::string& s, const std::string& addition, int num_tabs);
 
 bool containsChar(const std::string& s, char c);
-bool containsString(const std::string& s, const std::string& target);
+bool containsString(const string_view s, const string_view target);
 bool containsStringCaseInvariant(const string_view s, const string_view target);
 
 // Replace non-printable chars with '?'
