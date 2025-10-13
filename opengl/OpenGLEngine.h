@@ -1411,7 +1411,7 @@ private:
 	OverlayObjectRef large_debug_overlay_ob;
 	OverlayObjectRef crosshair_overlay_ob;
 
-	ManagerWithCache<OpenGLTextureKey, Reference<OpenGLTexture>, OpenGLTextureKeyHash> opengl_textures;
+	ManagerWithCache<OpenGLTextureKey, Reference<OpenGLTexture>, OpenGLTextureKeyHasher> opengl_textures;
 private:
 	size_t outline_tex_w, outline_tex_h;
 	Reference<FrameBuffer> outline_solid_framebuffer;
