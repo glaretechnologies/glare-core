@@ -3781,6 +3781,8 @@ void OpenGLEngine::setObjectTransformData(GLObject& object)
 
 void OpenGLEngine::updateObjectDataOnGPU(GLObject& object)
 {
+	ZoneScoped; // Tracy profiler
+
 	if(use_ob_and_mat_data_gpu_resident)
 	{
 		PerObjectVertUniforms uniforms;
