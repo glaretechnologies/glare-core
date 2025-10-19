@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/PlatformUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
+#include <cassert>
 #ifdef _WIN32
 #include <mfidl.h>
 #include <mfapi.h>
@@ -239,6 +240,79 @@ void Direct3DUtils::saveTextureToBmp(const std::string& filename, ID3D11Texture2
 	}
 
 	d3dContext->Unmap(mappedTexture.ptr, 0);
+}
+
+
+ComObHandle<ID3D11Texture2D> Direct3DUtils::copyTextureToNewShareableTexture(const ComObHandle<ID3D11Device>& d3d_device, const ComObHandle<ID3D11Texture2D>& src_tex)
+{
+	ComObHandle<ID3D11DeviceContext> d3d_context;
+	d3d_device->GetImmediateContext(&d3d_context.ptr);
+
+	D3D11_TEXTURE2D_DESC desc;
+	src_tex->GetDesc(&desc);
+
+	//----------------- Create texture copy ---------------
+	D3D11_TEXTURE2D_DESC your_desc = desc;
+	//your_desc.MipLevels = 1;
+	your_desc.Usage = D3D11_USAGE_DEFAULT /*D3D11_USAGE_STAGING*/;  // TEMP D3D11_USAGE_STAGING for map
+	your_desc.CPUAccessFlags = 0; // D3D11_CPU_ACCESS_READ; // TEMP
+	your_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;// | D3D11_BIND_RENDER_TARGET;
+	your_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_NTHANDLE | D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
+
+	ComObHandle<ID3D11Texture2D> texture_copy;
+	HRESULT hr = d3d_device->CreateTexture2D(&your_desc, nullptr, &texture_copy.ptr);
+	if(!(SUCCEEDED(hr) && texture_copy))
+		throw glare::Exception("Failed to copy texture: " + PlatformUtils::COMErrorString(hr));
+
+	ComObHandle<IDXGIKeyedMutex> texture_copy_mutex = texture_copy.getInterface<IDXGIKeyedMutex>();
+	texture_copy_mutex->AcquireSync(0, INFINITE);
+
+	d3d_context->CopyResource(/*dest=*/texture_copy.ptr, /*source=*/src_tex.ptr); // Copy the texture
+	//d3d_context->Flush();
+
+	texture_copy_mutex->ReleaseSync(0);
+
+	return texture_copy;
+}
+
+
+void Direct3DUtils::copyTextureToExistingShareableTexture(const ComObHandle<ID3D11Device>& d3d_device, const ComObHandle<ID3D11Texture2D>& src_tex, ComObHandle<ID3D11Texture2D>& dest_tex)
+{
+	ComObHandle<ID3D11DeviceContext> d3d_context;
+	d3d_device->GetImmediateContext(&d3d_context.ptr);
+
+	ComObHandle<IDXGIKeyedMutex> texture_copy_mutex = dest_tex.getInterface<IDXGIKeyedMutex>();
+	texture_copy_mutex->AcquireSync(0, INFINITE);
+
+	d3d_context->CopyResource(/*dest=*/dest_tex.ptr, /*source=*/src_tex.ptr); // Copy the texture
+	//d3d_context->Flush();
+
+	texture_copy_mutex->ReleaseSync(0);
+}
+
+
+HANDLE Direct3DUtils::getSharedHandleForTexture(ComObHandle<ID3D11Texture2D>& tex)
+{
+#ifndef NDEBUG
+	D3D11_TEXTURE2D_DESC desc;
+	tex->GetDesc(&desc);
+
+	assert((desc.MiscFlags & D3D11_RESOURCE_MISC_SHARED_NTHANDLE) != 0);
+	assert((desc.MiscFlags & D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX) != 0);
+#endif
+
+	ComObHandle<IDXGIResource1> dxgi_resource = tex.getInterface<IDXGIResource1>();
+
+	HANDLE shared_handle = nullptr;
+	HRESULT hr = dxgi_resource->CreateSharedHandle(/*security attributes=*/nullptr,
+		DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE, // access
+		nullptr, // name
+		&shared_handle
+	);
+	if(!(SUCCEEDED(hr) && shared_handle))
+		throw glare::Exception("Failed to get shared handle from texture: " + PlatformUtils::COMErrorString(hr));
+
+	return shared_handle;
 }
 
 

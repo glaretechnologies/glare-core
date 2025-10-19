@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Mutex.h"
 #include "../utils/ThreadSafeQueue.h"
 #include "../utils/PoolAllocator.h"
+#include "../utils/Timer.h"
 #ifdef _WIN32
 #include <mfidl.h>
 #include <mfapi.h>
@@ -109,7 +110,7 @@ WMFVideoReader
 Windows Media Foundation video reader.  Also can read audio files.
 
 The following libs are needed for this code:
-mfplat.lib mfreadwrite.lib mfuuid.lib
+mfplat.lib mfreadwrite.lib mfuuid.lib Mf.lib d3d11.lib
 =====================================================================*/
 class WMFVideoReader : public VideoReader
 {
@@ -146,6 +147,8 @@ public:
 		LONGLONG llTimestamp,
 		IMFSample* pSample
 	);
+
+	Timer timer;
 
 private:
 	WMFSampleInfo* allocWMFSampleInfo();

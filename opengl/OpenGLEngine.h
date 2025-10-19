@@ -134,6 +134,7 @@ public:
 		decal(false),
 		participating_media(false),
 		alpha_blend(false),
+		allow_alpha_test(true),
 		sdf_text(false),
 		combined(false),
 		overlay_target_is_nonlinear(true),
@@ -176,6 +177,7 @@ public:
 	bool decal;
 	bool participating_media;
 	bool alpha_blend;
+	bool allow_alpha_test; // Alpha test (discard) will be done if albedo_texture has alpha.
 	bool sdf_text;
 	bool combined; // Is this a material on a combined object, consisting of multiple objects combined into a single object, using an atlas texture.
 	bool overlay_target_is_nonlinear;

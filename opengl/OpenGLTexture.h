@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2022 -
 
 #include "BasicOpenGLTypes.h"
 #include "OpenGLTextureKey.h"
+#include "OpenGLMemoryObject.h"
 #include "TextureAllocator.h"
 #include "../graphics/TextureData.h"
 #include "../utils/Reference.h"
@@ -78,7 +79,9 @@ public:
 		Wrapping wrapping = Wrapping_Repeat,
 		bool has_mipmaps = true,
 		int MSAA_samples = -1,
-		int num_array_images = 0); // 0 if not a array, >= 1 if an array texture.
+		int num_array_images = 0,  // 0 if not a array, >= 1 if an array texture.
+		Reference<OpenGLMemoryObject> mem_object = nullptr // non-null if this texture should be backed by a memory object
+	); 
 
 	// Create texture, specify exact GL formats
 	OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine,
@@ -204,6 +207,7 @@ private:
 	int num_array_images;
 	int num_mipmap_levels_allocated;
 	int MSAA_samples;
+	Reference<OpenGLMemoryObject> mem_object;
 	GLenum texture_target; // e.g. GL_TEXTURE_2D, GL_TEXTURE_2D_MULTISAMPLE or GL_TEXTURE_2D_ARRAY
 	size_t total_storage_size_B;
 public:

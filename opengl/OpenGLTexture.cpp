@@ -9,6 +9,8 @@ Copyright Glare Technologies Limited 2022 -
 #include "IncludeOpenGL.h"
 #include "OpenGLEngine.h"
 #include "OpenGLMeshRenderData.h"
+#include "OpenGLMemoryObject.h"
+#include "OpenGLExtensions.h"
 #include "graphics/TextureProcessing.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
@@ -74,7 +76,9 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	Wrapping wrapping_,
 	bool has_mipmaps_,
 	int MSAA_samples_,
-	int num_array_images_)
+	int num_array_images_,
+	Reference<OpenGLMemoryObject> mem_object_
+)
 :	texture_handle(0),
 	xres(0),
 	yres(0),
@@ -86,7 +90,8 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 	is_bindless_tex_resident(false),
 	texture_target((MSAA_samples_ > 1) ? GL_TEXTURE_2D_MULTISAMPLE : ((num_array_images_ > 0) ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D)),
 	total_storage_size_B(0),
-	inserted_into_opengl_textures(false)
+	inserted_into_opengl_textures(false),
+	mem_object(mem_object_)
 {
 	this->allocated_tex_view_info.texture_handle = 0;
 
@@ -635,7 +640,12 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		
 		glBindTexture(texture_target, texture_handle);
 
-		if(is_MSAA_tex)
+		if(mem_object.nonNull()) // If this texture should use a memory object as the backing memory:
+		{
+			const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
+			glTextureStorageMem2DEXT(texture_handle, /*lod levels=*/num_levels, /*internal format=*/gl_internal_format, (GLsizei)xres, (GLsizei)yres, mem_object->mem_obj, /*offset=*/0); 
+		}
+		else if(is_MSAA_tex)
 		{
 #if defined(EMSCRIPTEN)
 			// glTexStorage2DMultisample is OpenGL ES 3.1+: https://registry.khronos.org/OpenGL-Refpages/es3.1/html/glTexStorage2DMultisample.xhtml
@@ -660,6 +670,8 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 		}
 		else
 		{
+			assert(texture_target == GL_TEXTURE_2D);
+
 			// Allocate / specify immutable storage for the texture.
 			const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
 			glTexStorage2D(texture_target, num_levels, gl_internal_format, (GLsizei)xres, (GLsizei)yres);

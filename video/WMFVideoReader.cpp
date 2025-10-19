@@ -1097,6 +1097,8 @@ void WMFVideoReader::seek(double time)
 	HRESULT hr = this->reader->SetCurrentPosition(GUID_NULL, var);
 	if(FAILED(hr))
 		throw glare::Exception("SetCurrentPosition failed: " + PlatformUtils::COMErrorString(hr));
+
+	timer.reset();
 }
 
 

@@ -27,5 +27,12 @@ public:
 
 	// For debugging: dump a texture to disk
 	static void saveTextureToBmp(const std::string& filename, ID3D11Texture2D* texture);
+
+	static ComObHandle<ID3D11Texture2D> copyTextureToNewShareableTexture(const ComObHandle<ID3D11Device>& d3d_device, const ComObHandle<ID3D11Texture2D>& tex);
+	
+	static void copyTextureToExistingShareableTexture(const ComObHandle<ID3D11Device>& d3d_device, const ComObHandle<ID3D11Texture2D>& src_tex, ComObHandle<ID3D11Texture2D>& dest_tex);
+
+	// returns HANDLE
+	static void* getSharedHandleForTexture(ComObHandle<ID3D11Texture2D>& tex);
 #endif
 };

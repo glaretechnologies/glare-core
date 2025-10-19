@@ -31,6 +31,8 @@ public:
 	// Locks the queue mutex (threadsafe)
 	inline void enqueue(const T& t);
 
+	inline void enqueueFront(const T& t);
+
 	inline void enqueueItems(const T* items, size_t num_items);
 
 	inline Mutex& getMutex()					RETURN_CAPABILITY(mutex);
@@ -104,6 +106,20 @@ void ThreadSafeQueue<T>::enqueue(const T& t)
 		Lock lock(mutex); // Lock the queue
 
 		queue.push_back(t); // Add item to queue
+	}
+	
+	// According to MS "It is usually better to release the lock before waking other threads to reduce the number of context switches." (https://docs.microsoft.com/en-us/windows/win32/sync/condition-variables)
+	nonempty.notify(); // Notify one or more suspended threads that there is an item in the queue.
+}
+
+
+template<class T>
+inline void ThreadSafeQueue<T>::enqueueFront(const T& t)
+{
+	{
+		Lock lock(mutex); // Lock the queue
+
+		queue.push_front(t); // Add item to queue
 	}
 	
 	// According to MS "It is usually better to release the lock before waking other threads to reduce the number of context switches." (https://docs.microsoft.com/en-us/windows/win32/sync/condition-variables)

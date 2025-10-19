@@ -448,6 +448,7 @@ vec3 ACESFilm(vec3 x)
 vec3 toneMapToNonLinear(vec3 col3)
 {
 	return toNonLinear(ACESFilm(col3 * 2.0));
+	//return toNonLinear(col3 * 4.0); // linear tone-mapping
 }
 
 

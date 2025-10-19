@@ -87,6 +87,10 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderStatsWidget.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderStatsWidget.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLUploadThread.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLUploadThread.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLMemoryObject.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLMemoryObject.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLExtensions.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLExtensions.h
 )
 
 

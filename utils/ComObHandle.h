@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "Platform.h"
+#include "Exception.h"
 
 
 /*=====================================================================
@@ -19,7 +20,7 @@ template <class T>
 class ComObHandle
 {
 public:
-	ComObHandle() : ptr(0) {}
+	ComObHandle() : ptr(nullptr) {}
 	ComObHandle(T* ptr_) : ptr(ptr_)
 	{
 		if(ptr)
@@ -33,12 +34,16 @@ public:
 			ptr->AddRef();
 	}
 
-	~ComObHandle() { if(ptr) ptr->Release(); }
+	~ComObHandle()
+	{
+		if(ptr)
+			ptr->Release();
+	}
 
 	// Recommended to use explicit operator bool here: https://quuxplusone.github.io/blog/2023/04/08/most-ctors-should-be-explicit/#you-should-never-declare-convers
 	explicit inline operator bool () const
 	{
-		return ptr != 0;
+		return ptr != nullptr;
 	}
 
 	void operator = (const ComObHandle& other)
@@ -52,7 +57,7 @@ public:
 
 		// Decrement reference count for the object that this reference used to refer to.
 		if(old_ptr)
-			ptr->Release();
+			old_ptr->Release();
 	}
 
 
@@ -68,6 +73,16 @@ public:
 			return false;
 		}
 	}
+
+	template <class SubClassT>
+	inline ComObHandle<SubClassT> getInterface()
+	{
+		ComObHandle<SubClassT> res;
+		if(!queryInterface<SubClassT>(res))
+			throw glare::Exception("Failed to get interface.");
+		return res;
+	}
+
 
 	inline void release()
 	{

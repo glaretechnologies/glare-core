@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "OpenGLShader.h"
 #include "RenderBuffer.h"
 #include "ShadowMapping.h"
+#include "OpenGLExtensions.h"
 #include "GLMeshBuilding.h"
 #include "MeshPrimitiveBuilding.h"
 #include "OpenGLMeshRenderData.h"
@@ -485,6 +486,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	show_ssao(true),
 	num_draw_commands(0)
 {
+	OpenGLExtensions::init();
+
 	current_index_type = 0;
 	current_bound_prog = NULL;
 	current_bound_prog_index = std::numeric_limits<uint32>::max();
@@ -4019,7 +4022,7 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 			return;
 	}
 
-	const bool alpha_test = material.albedo_texture.nonNull() && material.albedo_texture->hasAlpha() && !material.decal && !material.alpha_blend;
+	const bool alpha_test = material.albedo_texture && material.albedo_texture->hasAlpha() && material.allow_alpha_test && !material.decal && !material.alpha_blend;
 
 	const bool uses_lightmapping = this->texture_compression_BC6H_support && material.lightmap_texture.nonNull();
 
