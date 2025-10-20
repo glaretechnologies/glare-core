@@ -190,6 +190,9 @@ void GLUISlider::doHandleMouseMoved(MouseEvent& mouse_event)
 
 void GLUISlider::doHandleMouseWheelEvent(MouseWheelEvent& event)
 {
+	if(!track_ob->draw) // If not visible:
+		return;
+
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inOpenRectangle(coords))
 	{
