@@ -1516,6 +1516,9 @@ public:
 	bool parallel_shader_compile_support;
 	bool EXT_color_buffer_float_support;
 	bool float_texture_filtering_support;
+	bool GL_EXT_memory_object_support;
+	bool GL_EXT_memory_object_win32_support;
+	bool GL_EXT_win32_keyed_mutex_support;
 	float max_anisotropy;
 	int max_texture_size;
 	bool use_bindless_textures;

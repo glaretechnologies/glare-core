@@ -1753,6 +1753,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->float_texture_filtering_support = true;
 #endif
 	this->EXT_disjoint_timer_query_webgl2_support = false;
+	this->GL_EXT_memory_object_support = false;
+	this->GL_EXT_memory_object_win32_support = false;
+	this->GL_EXT_win32_keyed_mutex_support = false;
 
 	// Check OpenGL extensions
 	GLint n = 0;
@@ -1766,6 +1769,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		if(stringEqual(ext, "GL_ARB_clip_control")) this->clip_control_support = true;
 		if(stringEqual(ext, "GL_ARB_shader_storage_buffer_object")) this->GL_ARB_shader_storage_buffer_object_support = true;
 		if(stringEqual(ext, "GL_KHR_parallel_shader_compile")) parallel_shader_compile_support = true;
+		if(stringEqual(ext, "GL_EXT_memory_object")) GL_EXT_memory_object_support = true;
+		if(stringEqual(ext, "GL_EXT_memory_object_win32")) GL_EXT_memory_object_win32_support = true;
+		if(stringEqual(ext, "GL_EXT_win32_keyed_mutex")) GL_EXT_win32_keyed_mutex_support = true;
 
 #if EMSCRIPTEN
 		if(stringEqual(ext, "WEBGL_compressed_texture_s3tc")) this->texture_compression_s3tc_support = true;
