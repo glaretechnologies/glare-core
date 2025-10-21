@@ -469,6 +469,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_blur_ssao_GPU_time(0),
 	last_copy_prepass_buffers_GPU_time(0),
 	last_decal_copy_buffers_GPU_time(0),
+	last_draw_overlay_obs_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	last_num_decal_batches_drawn(0),
 	next_program_index(0),
@@ -1682,6 +1683,8 @@ struct DataUpdateStruct
 void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureServer> texture_server_, PrintOutput* print_output_, glare::TaskManager* main_task_manager_, glare::TaskManager* high_priority_task_manager_,
 	Reference<glare::Allocator> mem_allocator_)
 {
+	ZoneScoped; // Tracy profiler
+
 	data_dir = data_dir_;
 	texture_server = texture_server_;
 	print_output = print_output_;
@@ -2483,6 +2486,7 @@ void OpenGLEngine::checkCreateProfilingQueries()
 		this->blur_ssao_gpu_timer = new Query();
 		this->copy_prepass_buffers_gpu_timer = new Query();
 		this->decal_copy_buffers_timer = new Query();
+		this->draw_overlays_gpu_timer = new Query();
 
 #if EMSCRIPTEN
 		// Chrome/web doesn't support timestamp queries: https://codereview.chromium.org/1800383002
@@ -2497,6 +2501,8 @@ void OpenGLEngine::checkCreateProfilingQueries()
 
 void OpenGLEngine::startAsyncLoadingData(AsyncTextureLoader* async_texture_loader_)
 {
+	ZoneScoped; // Tracy profiler
+
 	async_texture_loader = async_texture_loader_;
 
 	// Load water caustic textures
@@ -2570,6 +2576,8 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 
 void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 {
+	ZoneScoped; // Tracy profiler
+
 	this->vert_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/vert_utils.glsl");
 	this->frag_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/frag_utils.glsl");
 
@@ -7684,6 +7692,9 @@ void OpenGLEngine::draw()
 
 		if(decal_copy_buffers_timer->waitingForResult() && decal_copy_buffers_timer->checkResultAvailable())
 			last_decal_copy_buffers_GPU_time = decal_copy_buffers_timer->getTimeElapsed();
+
+		if(draw_overlays_gpu_timer->waitingForResult() && draw_overlays_gpu_timer->checkResultAvailable())
+			last_draw_overlay_obs_GPU_time = draw_overlays_gpu_timer->getTimeElapsed();
 	}
 
 	if(current_scene->collect_stats)
@@ -10434,6 +10445,9 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 	DebugGroup debug_group("drawUIOverlayObjects()");
 	TracyGpuZone("drawUIOverlayObjects");
 
+	if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && draw_overlays_gpu_timer->isIdle())
+		draw_overlays_gpu_timer->beginTimerQuery();
+
 	// Bind requested target frame buffer as output buffer
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
 	setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targeting default framebuffer
@@ -10522,6 +10536,9 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 	glEnable(GL_DEPTH_TEST); // Restore depth testing
 	glDepthMask(GL_TRUE); // Restore depth buffer writes
 	glDisable(GL_BLEND);
+
+	if(query_profiling_enabled && draw_overlays_gpu_timer->isRunning())
+		draw_overlays_gpu_timer->endTimerQuery();
 }
 
 
@@ -12650,6 +12667,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "blur SSAO         : " + doubleToStringNSigFigs(last_blur_ssao_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "decal copy buffers: " + doubleToStringNSigFigs(last_decal_copy_buffers_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "overlay obs       : " + doubleToStringNSigFigs(last_draw_overlay_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "total             : " + doubleToStringNSigFigs(last_total_draw_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "\n";
 

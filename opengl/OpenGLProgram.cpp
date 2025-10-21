@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
+#include <tracy/Tracy.hpp>
 
 
 #define GL_COMPLETION_STATUS_KHR			0x91B1
@@ -60,6 +61,8 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	uses_skinning(false),
 	built_successfully(false)
 {
+	ZoneScoped; // Tracy profiler
+
 	// conPrint("Creating OpenGLProgram " + prog_name_ + "...");
 	build_start_time = Clock::getCurTimeRealSec();
 

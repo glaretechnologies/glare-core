@@ -23,6 +23,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/PlatformUtils.h"
 #include "../utils/ComObHandle.h"
 #include "../utils/Lock.h"
+#include <tracy/Tracy.hpp>
 #include <mfidl.h>
 #include <mfapi.h>
 #include <mferror.h>
@@ -71,6 +72,8 @@ void WMFVideoReader::shutdownCOM()
 
 void WMFVideoReader::initialiseWMF()
 {
+	ZoneScoped; // Tracy profiler
+
 	// Initialize the Media Foundation platform.
 	HRESULT hr = MFStartup(MF_VERSION);
 	if(!SUCCEEDED(hr))
@@ -80,6 +83,8 @@ void WMFVideoReader::initialiseWMF()
 
 void WMFVideoReader::shutdownWMF()
 {
+	ZoneScoped; // Tracy profiler
+
 	MFShutdown();
 }
 

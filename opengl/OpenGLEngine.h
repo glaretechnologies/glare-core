@@ -1564,6 +1564,7 @@ private:
 	Reference<Query> blur_ssao_gpu_timer;
 	Reference<Query> copy_prepass_buffers_gpu_timer;
 	Reference<Query> decal_copy_buffers_timer;
+	Reference<Query> draw_overlays_gpu_timer;
 	Reference<BufferedTimeElapsedQuery> buffered_total_timer;
 	
 	uint32 last_num_prog_changes;
@@ -1591,6 +1592,7 @@ private:
 	double last_blur_ssao_GPU_time;
 	double last_copy_prepass_buffers_GPU_time;
 	double last_decal_copy_buffers_GPU_time;
+	double last_draw_overlay_obs_GPU_time;
 
 	uint32 last_num_animated_obs_processed;
 

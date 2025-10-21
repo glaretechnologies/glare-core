@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/PlatformUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
+#include <tracy/Tracy.hpp>
 #include <cassert>
 #ifdef _WIN32
 #include <mfidl.h>
@@ -35,6 +36,8 @@ static inline void throwOnError(HRESULT hres)
 
 void Direct3DUtils::createGPUDeviceAndMFDeviceManager(ComObHandle<ID3D11Device>& d3d_device_out, ComObHandle<IMFDXGIDeviceManager>& device_manager_out)
 {
+	ZoneScoped; // Tracy profiler
+
 	const D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 };
 
 #ifndef NDEBUG // If in debug config:
