@@ -47,6 +47,8 @@ static const bool COPY_D3D_TEXTURES = true;
 // Returns true if COM inited, or false if we got RPC_E_CHANGED_MODE, in which case COM is fine to use but shutdownCOM shouldn't be called.
 bool WMFVideoReader::initialiseCOM()
 {
+	ZoneScoped; // Tracy profiler
+
 	HRESULT hr = CoInitializeEx(0, COINIT_MULTITHREADED);
 	if(hr == RPC_E_CHANGED_MODE)
 	{ 
