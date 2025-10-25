@@ -13,11 +13,11 @@ Copyright Glare Technologies Limited 2024 -
 
 void runtimeCheckFailed(const char* message)
 {
+	conPrint("RUNTIME CHECK FAILED: " + std::string(message));
 	assert(false);
 #if defined(_WIN32)
 	__debugbreak();
 #endif
-	conPrint("RUNTIME CHECK FAILED: " + std::string(message));
 	throw glare::Exception("RUNTIME CHECK FAILED: " + std::string(message));
 }
 
