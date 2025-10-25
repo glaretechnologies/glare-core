@@ -642,8 +642,12 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 
 		if(mem_object.nonNull()) // If this texture should use a memory object as the backing memory:
 		{
+#if defined(EMSCRIPTEN)
+			assert(0);
+#else
 			const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
 			glTextureStorageMem2DEXT(texture_handle, /*lod levels=*/num_levels, /*internal format=*/gl_internal_format, (GLsizei)xres, (GLsizei)yres, mem_object->mem_obj, /*offset=*/0); 
+#endif
 		}
 		else if(is_MSAA_tex)
 		{

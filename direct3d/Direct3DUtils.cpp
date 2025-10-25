@@ -16,7 +16,6 @@ Copyright Glare Technologies Limited 2021 -
 #include <mfapi.h>
 #include <mferror.h>
 #include <mfreadwrite.h>
-#include <mfidl.h>
 #include <d3d11.h>
 #include <d3d11_3.h>
 #include <d3d11_4.h>

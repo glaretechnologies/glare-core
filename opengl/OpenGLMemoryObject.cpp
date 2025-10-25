@@ -13,13 +13,17 @@ Copyright Glare Technologies Limited 2025 -
 OpenGLMemoryObject::OpenGLMemoryObject()
 :	mem_obj(0)
 {
+#if !EMSCRIPTEN
 	glCreateMemoryObjectsEXT(1, &mem_obj);
+#endif
 }
 
 
 OpenGLMemoryObject::~OpenGLMemoryObject()
 {
+#if !EMSCRIPTEN
 	glDeleteMemoryObjectsEXT(1, &mem_obj);
+#endif
 }
 
 

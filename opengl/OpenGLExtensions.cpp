@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2025 -
 
 void OpenGLExtensions::init()
 {
+#if !EMSCRIPTEN
 	if(glCreateMemoryObjectsEXT == nullptr)
 	{
 		glCreateMemoryObjectsEXT = (PFNGLCREATEMEMORYOBJECTSEXTPROC)gl3wGetProcAddress("glCreateMemoryObjectsEXT");
@@ -25,12 +26,15 @@ void OpenGLExtensions::init()
 		glReleaseKeyedMutexWin32EXT = (PFNGLRELEASEKEYEDMUTEXWIN32EXTPROC)gl3wGetProcAddress("glReleaseKeyedMutexWin32EXT");
 		glTextureStorageMem2DEXT = (PFNGLTEXTURESTORAGEMEM2DEXTPROC)gl3wGetProcAddress("glTextureStorageMem2DEXT");
 	}
+#endif
 }
 
 
+#if !EMSCRIPTEN
 PFNGLCREATEMEMORYOBJECTSEXTPROC glCreateMemoryObjectsEXT = nullptr;
 PFNGLDELETEMEMORYOBJECTSEXTPROC glDeleteMemoryObjectsEXT = nullptr;
 PFNGLIMPORTMEMORYWIN32HANDLEEXTPROC glImportMemoryWin32HandleEXT = nullptr;
 PFNGLACQUIREKEYEDMUTEXWIN32EXTPROC glAcquireKeyedMutexWin32EXT = nullptr;
 PFNGLRELEASEKEYEDMUTEXWIN32EXTPROC glReleaseKeyedMutexWin32EXT = nullptr;
 PFNGLTEXTURESTORAGEMEM2DEXTPROC glTextureStorageMem2DEXT = nullptr;
+#endif

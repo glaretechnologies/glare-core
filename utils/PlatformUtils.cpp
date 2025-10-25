@@ -1036,7 +1036,7 @@ uint64 PlatformUtils::getCurrentThreadID()
 	assertOrDeclareUsed(res == 0);
 	return thread_id;
 #elif defined(EMSCRIPTEN)
-	assert(0);
+	//assert(0);
 	return 0;
 #else
 	// NOTE: pid_t is actually signed.  Improve this, or use pthread_equal, see https://stackoverflow.com/a/27238113
