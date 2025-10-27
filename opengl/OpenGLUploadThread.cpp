@@ -38,7 +38,7 @@ void OpenGLUploadThread::doRun()
 	std::vector<PBORef> pbos(1);
 	for(size_t i=0; i<pbos.size(); ++i)
 	{
-		pbos[i] = new PBO(64 * 1024 * 1024, /*for upload=*/true, /*create_persistent_buffer*/true);
+		pbos[i] = new PBO(64 * 1024 * 1024, /*for upload=*/true, /*create_persistently_mapped_buffer=*/true);
 		pbos[i]->map();
 	}
 
@@ -46,7 +46,7 @@ void OpenGLUploadThread::doRun()
 	std::vector<VBORef> vbos(1);
 	for(size_t i=0; i<vbos.size(); ++i)
 	{
-		vbos[i] = new VBO(NULL, 128 * 1024 * 1024, GL_ARRAY_BUFFER, /*usage (not used)=*/GL_STREAM_DRAW, /*create_persistent_buffer*/true);
+		vbos[i] = new VBO(NULL, 128 * 1024 * 1024, GL_ARRAY_BUFFER, /*usage (not used)=*/GL_STREAM_DRAW, /*create_persistently_mapped_buffer=*/true);
 		vbos[i]->map();
 	}
 
