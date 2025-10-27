@@ -945,10 +945,10 @@ void OpenGLTexture::setSwizzle(GLint r_src, GLint g_src, GLint b_src, GLint a_sr
 {
 	bind();
 
-	glTextureParameteri(texture_target, GL_TEXTURE_SWIZZLE_R, r_src);
-	glTextureParameteri(texture_target, GL_TEXTURE_SWIZZLE_G, g_src);
-	glTextureParameteri(texture_target, GL_TEXTURE_SWIZZLE_B, b_src);
-	glTextureParameteri(texture_target, GL_TEXTURE_SWIZZLE_A, a_src);
+	glTexParameteri(texture_target, GL_TEXTURE_SWIZZLE_R, r_src);
+	glTexParameteri(texture_target, GL_TEXTURE_SWIZZLE_G, g_src);
+	glTexParameteri(texture_target, GL_TEXTURE_SWIZZLE_B, b_src);
+	glTexParameteri(texture_target, GL_TEXTURE_SWIZZLE_A, a_src);
 
 	unbind();
 }
