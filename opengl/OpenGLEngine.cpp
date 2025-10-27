@@ -6613,7 +6613,7 @@ inline static void setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1)
 }
 
 
-inline static void setThreeDrawBuffers(GLenum buffer_0, GLenum buffer_1, GLenum buffer_2)
+[[maybe_unused]] inline static void setThreeDrawBuffers(GLenum buffer_0, GLenum buffer_1, GLenum buffer_2)
 {
 	const GLenum draw_buffers[] = { buffer_0, buffer_1, buffer_2 };
 	glDrawBuffers(/*num=*/3, draw_buffers);
@@ -7747,7 +7747,7 @@ inline static void setFaceCulling(uint32 culling_bits)
 }
 
 
-inline static std::string faceCullingBitsDescrip(uint32 culling_bits)
+[[maybe_unused]] inline static std::string faceCullingBitsDescrip(uint32 culling_bits)
 {
 	if(culling_bits != 0)
 	{
