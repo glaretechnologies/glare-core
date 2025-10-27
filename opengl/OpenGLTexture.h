@@ -115,6 +115,8 @@ public:
 
 	void clearRegion2D(int mipmap_level, size_t x, size_t y, size_t region_w, size_t region_h, void* data);
 	void clearRegion3D(int mipmap_level, size_t x, size_t y, size_t z, size_t region_w, size_t region_h, size_t region_d, void* data);
+
+	void setSwizzle(GLint r_src, GLint g_src, GLint b_src, GLint a_src);
 	//---------------------------------------------------------------------------------------------------------------------
 
 	void readBackTexture(int mipmap_level, ArrayRef<uint8> buffer);

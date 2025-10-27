@@ -941,6 +941,19 @@ void OpenGLTexture::clearRegion3D(int mipmap_level, size_t x, size_t y, size_t z
 }
 
 
+void OpenGLTexture::setSwizzle(GLint r_src, GLint g_src, GLint b_src, GLint a_src)
+{
+	bind();
+
+	glTextureParameteri(texture_target, GL_TEXTURE_SWIZZLE_R, r_src);
+	glTextureParameteri(texture_target, GL_TEXTURE_SWIZZLE_G, g_src);
+	glTextureParameteri(texture_target, GL_TEXTURE_SWIZZLE_B, b_src);
+	glTextureParameteri(texture_target, GL_TEXTURE_SWIZZLE_A, a_src);
+
+	unbind();
+}
+
+
 void OpenGLTexture::readBackTexture(int mipmap_level, ArrayRef<uint8> buffer)
 {
 	ZoneScopedN("OpenGLTexture::readBackTexture"); // Tracy profiler
