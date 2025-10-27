@@ -10,11 +10,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "OpenGLEngine.h"
 
 
-#define GL_SHADER_STORAGE_BUFFER          0x90D2
-#define GL_MAP_PERSISTENT_BIT             0x0040
-
-
-#if !EMSCRIPTEN
+#if !EMSCRIPTEN && !defined(__APPLE__)
 #define VBO_MEM_MAPPING_SUPPORT 1
 #endif
 

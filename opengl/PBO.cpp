@@ -11,10 +11,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <tracy/Tracy.hpp>
 
 
-#define GL_MAP_PERSISTENT_BIT             0x0040
-
-
-#if !EMSCRIPTEN
+#if !EMSCRIPTEN && !defined(__APPLE__)
 #define PBO_MEM_MAPPING_SUPPORT 1
 #endif
 
