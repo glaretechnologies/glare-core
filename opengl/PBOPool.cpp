@@ -19,14 +19,14 @@ PBOPool::PBOInfo::PBOInfo() : used(false) {}
 
 PBOPool::PBOPool()
 {
-	const bool create_persistent_buffer = false;
+	const bool create_persistently_mapped_buffer = false;
 
 	// total size: 1 MB
 	size_info.push_back(SizeInfo({64 * 1024, pbo_infos.size()}));
 	for(int i=0; i<16; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(64 * 1024, /*for upload=*/true, create_persistent_buffer);
+		info.pbo = new PBO(64 * 1024, /*for upload=*/true, create_persistently_mapped_buffer);
 		pbo_infos.push_back(info);
 	}
 
@@ -35,7 +35,7 @@ PBOPool::PBOPool()
 	for(int i=0; i<32; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(512 * 1024, /*for upload=*/true, create_persistent_buffer);
+		info.pbo = new PBO(512 * 1024, /*for upload=*/true, create_persistently_mapped_buffer);
 		pbo_infos.push_back(info);
 	}
 
@@ -44,7 +44,7 @@ PBOPool::PBOPool()
 	for(int i=0; i<8; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(1024 * 1024, /*for upload=*/true, create_persistent_buffer);
+		info.pbo = new PBO(1024 * 1024, /*for upload=*/true, create_persistently_mapped_buffer);
 		pbo_infos.push_back(info);
 	}
 
@@ -53,7 +53,7 @@ PBOPool::PBOPool()
 	for(int i=0; i<8; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(4 * 1024 * 1024, /*for upload=*/true, create_persistent_buffer);
+		info.pbo = new PBO(4 * 1024 * 1024, /*for upload=*/true, create_persistently_mapped_buffer);
 		pbo_infos.push_back(info);
 	}
 	
@@ -62,7 +62,7 @@ PBOPool::PBOPool()
 	for(int i=0; i<4; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(8 * 1024 * 1024, /*for upload=*/true, create_persistent_buffer);
+		info.pbo = new PBO(8 * 1024 * 1024, /*for upload=*/true, create_persistently_mapped_buffer);
 		pbo_infos.push_back(info);
 	}
 
@@ -71,7 +71,7 @@ PBOPool::PBOPool()
 	for(int i=0; i<2; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(16 * 1024 * 1024, /*for upload=*/true, create_persistent_buffer);
+		info.pbo = new PBO(16 * 1024 * 1024, /*for upload=*/true, create_persistently_mapped_buffer);
 		pbo_infos.push_back(info);
 	}
 
@@ -80,7 +80,7 @@ PBOPool::PBOPool()
 	for(int i=0; i<1; ++i)
 	{
 		PBOInfo info;
-		info.pbo = new PBO(32 * 1024 * 1024, /*for upload=*/true, create_persistent_buffer);
+		info.pbo = new PBO(32 * 1024 * 1024, /*for upload=*/true, create_persistently_mapped_buffer);
 		pbo_infos.push_back(info);
 	}
 
@@ -109,7 +109,7 @@ PBORef PBOPool::getUnusedVBO(size_t size_B)
 {
 	Lock lock(mutex);
 
-	// Work out start index
+	// Work out start index: where we can start searching in pbo_infos for a PBO of sufficient size.
 	size_t start_index = pbo_infos.size();
 	for(size_t i=0; i<size_info.size(); ++i)
 		if(size_info[i].size >= size_B)

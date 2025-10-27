@@ -11,12 +11,15 @@ Copyright Glare Technologies Limited 2025 -
 #include <tracy/Tracy.hpp>
 
 
+#define GL_MAP_PERSISTENT_BIT             0x0040
+
+
 #if !EMSCRIPTEN
 #define PBO_MEM_MAPPING_SUPPORT 1
 #endif
 
 
-PBO::PBO(size_t size_, bool for_upload, bool create_persistent_buffer)
+PBO::PBO(size_t size_, bool for_upload, bool create_persistently_mapped_buffer)
 :	buffer_name(0),
 	buffer_type(for_upload ? GL_PIXEL_UNPACK_BUFFER : GL_PIXEL_PACK_BUFFER),
 	size(size_),
@@ -29,9 +32,15 @@ PBO::PBO(size_t size_, bool for_upload, bool create_persistent_buffer)
 	// Make buffer active
 	glBindBuffer(buffer_type, buffer_name);
 
+#if EMSCRIPTEN || defined(__APPLE__)
+	// Mem-mapping is not supported in WebGL.
+	// GL_MAP_PERSISTENT_BIT is not defined/supported on Mac.
+	assert(!create_persistently_mapped_buffer);
+#endif
+
 	// Upload data to the GPU
 #if PBO_MEM_MAPPING_SUPPORT
-	if(create_persistent_buffer)
+	if(create_persistently_mapped_buffer)
 		glBufferStorage(buffer_type, size, nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 	else
 #endif

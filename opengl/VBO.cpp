@@ -10,16 +10,16 @@ Copyright Glare Technologies Limited 2022 -
 #include "OpenGLEngine.h"
 
 
-#ifndef GL_SHADER_STORAGE_BUFFER
 #define GL_SHADER_STORAGE_BUFFER          0x90D2
-#endif
+#define GL_MAP_PERSISTENT_BIT             0x0040
+
 
 #if !EMSCRIPTEN
 #define VBO_MEM_MAPPING_SUPPORT 1
 #endif
 
 
-VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage, bool create_persistent_buffer)
+VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage, bool create_persistently_mapped_buffer)
 :	buffer_name(0),
 	buffer_type(buffer_type_),
 	size(size_),
@@ -32,9 +32,15 @@ VBO::VBO(const void* data, size_t size_, GLenum buffer_type_, GLenum usage, bool
 	// Make buffer active
 	glBindBuffer(buffer_type, buffer_name);
 
+#if EMSCRIPTEN || defined(__APPLE__)
+	// Mem-mapping is not supported in WebGL.
+	// GL_MAP_PERSISTENT_BIT is not defined/supported on Mac.
+	assert(!create_persistently_mapped_buffer);
+#endif
+
 	// Upload vertex data to the video device
 #if VBO_MEM_MAPPING_SUPPORT
-	if(create_persistent_buffer)
+	if(create_persistently_mapped_buffer)
 		glBufferStorage(buffer_type, size, data, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 	else
 #endif

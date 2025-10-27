@@ -21,7 +21,7 @@ class PBO : public ThreadSafeRefCounted
 {
 public:
 	// data can be NULL
-	PBO(size_t size, bool for_upload = true, bool create_persistent_buffer = false);
+	PBO(size_t size, bool for_upload = true, bool create_persistently_mapped_buffer = false);
 	~PBO();
 
 

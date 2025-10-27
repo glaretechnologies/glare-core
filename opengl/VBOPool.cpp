@@ -18,13 +18,13 @@ VBOPool::VBOPool(GLenum buffer_type)
 {
 	const GLenum usage = GL_STREAM_DRAW;
 
-	const bool create_persistent_buffer = false;
+	const bool create_persistently_mapped_buffer = false;
 
 	size_info.push_back(SizeInfo({64 * 1024, vbo_infos.size()}));
 	for(int i=0; i<16; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 64 * 1024, buffer_type, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 64 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -32,7 +32,7 @@ VBOPool::VBOPool(GLenum buffer_type)
 	for(int i=0; i<32; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 512 * 1024, buffer_type, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 512 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -40,7 +40,7 @@ VBOPool::VBOPool(GLenum buffer_type)
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 1024 * 1024, buffer_type, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 1024 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -48,7 +48,7 @@ VBOPool::VBOPool(GLenum buffer_type)
 	for(int i=0; i<8; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, buffer_type, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -56,7 +56,7 @@ VBOPool::VBOPool(GLenum buffer_type)
 	for(int i=0; i<4; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, buffer_type, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -64,7 +64,7 @@ VBOPool::VBOPool(GLenum buffer_type)
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, buffer_type, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -72,7 +72,7 @@ VBOPool::VBOPool(GLenum buffer_type)
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
-		info.vbo = new VBO(nullptr, 32 * 1024 * 1024, buffer_type, usage, create_persistent_buffer);
+		info.vbo = new VBO(nullptr, 32 * 1024 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
 		vbo_infos.push_back(info);
 	}
 
@@ -101,7 +101,7 @@ VBORef VBOPool::getUnusedVBO(size_t size_B)
 {
 	Lock lock(mutex);
 
-	// Work out start index
+	// Work out start index: where we can start searching in vbo_infos for a VBO of sufficient size.
 	size_t start_index = vbo_infos.size();
 	for(size_t i=0; i<size_info.size(); ++i)
 		if(size_info[i].size >= size_B)
