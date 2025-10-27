@@ -3449,7 +3449,7 @@ namespace basisu
 		}
 		default:
 			assert(0);
-			fmt_debug_printf("HERE 1\n");
+			//fmt_debug_printf("HERE 1\n");
 			return false;
 		}
 
@@ -3457,7 +3457,7 @@ namespace basisu
 		{
 			if ((m_params.m_ktx2_uastc_supercompression != basist::KTX2_SS_NONE) && (m_params.m_ktx2_uastc_supercompression != basist::KTX2_SS_ZSTANDARD))
 			{
-				fmt_debug_printf("HERE 2\n");
+				//fmt_debug_printf("HERE 2\n");
 				return false;
 			}
 		}
@@ -3493,7 +3493,7 @@ namespace basisu
 		}
 
 		basist::ktx2_header header;
-		memset(&header, 0, sizeof(header));
+		memset((void *)&header, 0, sizeof(header));
 
 		memcpy(header.m_identifier, basist::g_ktx2_file_identifier, sizeof(basist::g_ktx2_file_identifier));
 		header.m_pixel_width = base_width;
@@ -3545,7 +3545,7 @@ namespace basisu
 			}
 			default:
 				assert(0);
-				fmt_debug_printf("HERE 3\n");
+				//fmt_debug_printf("HERE 3\n");
 				return false;
 			}
 		}
@@ -3585,7 +3585,7 @@ namespace basisu
 
 				if (ZSTD_isError(result))
 				{
-					fmt_debug_printf("HERE 5\n");
+					//fmt_debug_printf("HERE 5\n");
 					return false;
 				}
 
@@ -3594,7 +3594,7 @@ namespace basisu
 #else
 			// Can't get here
 			assert(0);
-			fmt_debug_printf("HERE 6\n");
+			//fmt_debug_printf("HERE 6\n");
 			return false;
 #endif
 		}
@@ -3619,7 +3619,7 @@ namespace basisu
 			etc1s_global_data_header.m_tables_byte_length = backend_output.m_slice_image_tables.size();
 
 			basisu::vector<basist::ktx2_etc1s_image_desc> etc1s_image_descs(total_levels * total_layers * total_faces);
-			memset(etc1s_image_descs.data(), 0, etc1s_image_descs.size_in_bytes());
+			memset((void *)etc1s_image_descs.data(), 0, etc1s_image_descs.size_in_bytes());
 
 			for (uint32_t slice_index = 0; slice_index < m_slice_descs.size(); slice_index++)
 			{
@@ -3663,7 +3663,7 @@ namespace basisu
 		else if (m_fmt_mode == basist::basis_tex_format::cASTC_HDR_6x6_INTERMEDIATE)
 		{
 			basisu::vector<basist::ktx2_astc_hdr_6x6_intermediate_image_desc> image_descs(total_levels * total_layers * total_faces);
-			memset(image_descs.data(), 0, image_descs.size_in_bytes());
+			memset((void *)image_descs.data(), 0, image_descs.size_in_bytes());
 
 			for (uint32_t slice_index = 0; slice_index < m_slice_descs.size(); slice_index++)
 			{
@@ -3718,7 +3718,7 @@ namespace basisu
 		uint8_vec dfd;
 		if (!get_dfd(dfd, header))
 		{
-			fmt_debug_printf("HERE 7\n");
+			//fmt_debug_printf("HERE 7\n");
 			return false;
 		}
 
@@ -3730,20 +3730,20 @@ namespace basisu
 			{
 				if (key_values[i].m_key.size() < 2)
 				{
-					fmt_debug_printf("HERE 8\n");
+					//fmt_debug_printf("HERE 8\n");
 					return false;
 				}
 
 				if (key_values[i].m_key.back() != 0)
 				{
-					fmt_debug_printf("HERE 9\n");
+					//fmt_debug_printf("HERE 9\n");
 					return false;
 				}
 
 				const uint64_t total_len = (uint64_t)key_values[i].m_key.size() + (uint64_t)key_values[i].m_value.size();
 				if (total_len >= UINT32_MAX)
 				{
-					fmt_debug_printf("HERE 10\n");
+					//fmt_debug_printf("HERE 10\n");
 					return false;
 				}
 
@@ -3778,7 +3778,7 @@ namespace basisu
 			assert(!pass);
 			if (pass)
 			{
-				fmt_debug_printf("HERE 11\n");
+				//fmt_debug_printf("HERE 11\n");
 				return false;
 			}
 
@@ -3806,7 +3806,7 @@ namespace basisu
 		}
 
 		basisu::vector<basist::ktx2_level_index> level_index_array(total_levels);
-		memset(level_index_array.data(), 0, level_index_array.size_in_bytes());
+		memset((void *)level_index_array.data(), 0, level_index_array.size_in_bytes());
 				
 		m_output_ktx2_file.clear();
 		m_output_ktx2_file.reserve(m_output_basis_file.size());

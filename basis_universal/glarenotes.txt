@@ -1,5 +1,5 @@
 Checked out from https://github.com/BinomialLLC/basis_universal master
-on 16th march 2025.
+on 27th October 2025.
 
 ALso did this:
 #if BASISD_SUPPORT_KTX2_ZSTD

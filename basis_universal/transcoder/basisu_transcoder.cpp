@@ -16,10 +16,10 @@
 #include "basisu_transcoder.h"
 #include "basisu_containers_impl.h"
 
+#include "basisu_astc_hdr_core.h"
+
 #define BASISU_ASTC_HELPERS_IMPLEMENTATION
 #include "basisu_astc_helpers.h"
-
-#include "basisu_astc_hdr_core.h"
 
 #include <limits.h>
 
@@ -4623,6 +4623,7 @@ namespace basist
 		const int CHROMA_THRESH = 10;
 		
 		uint32_t total_filtered_blocks = 0;
+		BASISU_NOTE_UNUSED(total_filtered_blocks);
 
 		for (int by = 0; by < (int)num_blocks_y; by++)
 		{
@@ -9447,7 +9448,7 @@ namespace basist
 			void* pOutput_blocks, uint32_t output_blocks_buf_size_in_blocks_or_pixels,
 			const uint8_t* pCompressed_data, uint32_t compressed_data_length,
 			uint32_t num_blocks_x, uint32_t num_blocks_y, uint32_t orig_width, uint32_t orig_height, uint32_t level_index,
-			uint32_t rgb_offset, uint32_t rgb_length, uint32_t alpha_offset, uint32_t alpha_length,
+			uint64_t rgb_offset, uint32_t rgb_length, uint64_t alpha_offset, uint32_t alpha_length,
 			uint32_t decode_flags,
 			bool basis_file_has_alpha_slices,
 			bool is_video,
@@ -10312,7 +10313,7 @@ namespace basist
 		void* pOutput_blocks, uint32_t output_blocks_buf_size_in_blocks_or_pixels,
 		const uint8_t* pCompressed_data, uint32_t compressed_data_length,
 		uint32_t num_blocks_x, uint32_t num_blocks_y, uint32_t orig_width, uint32_t orig_height, uint32_t level_index,
-		uint32_t slice_offset, uint32_t slice_length,
+		uint64_t slice_offset, uint32_t slice_length,
 		uint32_t decode_flags,
 		bool has_alpha,
 		bool is_video,
@@ -10803,7 +10804,7 @@ namespace basist
 		void* pOutput_blocks, uint32_t output_blocks_buf_size_in_blocks_or_pixels,
 		const uint8_t* pCompressed_data, uint32_t compressed_data_length,
 		uint32_t num_blocks_x, uint32_t num_blocks_y, uint32_t orig_width, uint32_t orig_height, uint32_t level_index,
-		uint32_t slice_offset, uint32_t slice_length,
+		uint64_t slice_offset, uint32_t slice_length,
 		uint32_t decode_flags,
 		bool has_alpha,
 		bool is_video,
@@ -11239,7 +11240,7 @@ namespace basist
 		void* pOutput_blocks, uint32_t output_blocks_buf_size_in_blocks_or_pixels,
 		const uint8_t* pCompressed_data, uint32_t compressed_data_length,
 		uint32_t num_blocks_x, uint32_t num_blocks_y, uint32_t orig_width, uint32_t orig_height, uint32_t level_index,
-		uint32_t slice_offset, uint32_t slice_length,
+		uint64_t slice_offset, uint32_t slice_length,
 		uint32_t decode_flags,
 		bool has_alpha,
 		bool is_video,
@@ -11686,7 +11687,7 @@ namespace basist
 		void* pOutput_blocks, uint32_t output_blocks_buf_size_in_blocks_or_pixels,
 		const uint8_t* pCompressed_data, uint32_t compressed_data_length,
 		uint32_t num_blocks_x, uint32_t num_blocks_y, uint32_t orig_width, uint32_t orig_height, uint32_t level_index,
-		uint32_t slice_offset, uint32_t slice_length,
+		uint64_t slice_offset, uint32_t slice_length,
 		uint32_t decode_flags,
 		bool has_alpha,
 		bool is_video,
@@ -11863,26 +11864,6 @@ namespace basist
 
 		if ((pHeader->m_sig != basis_file_header::cBASISSigValue) || (pHeader->m_ver != BASISD_SUPPORTED_BASIS_VERSION) || (pHeader->m_header_size != sizeof(basis_file_header)))
 		{
-			for(int i=0; i<10; ++i)
-			{
-				char c = ((char*)pData)[i];
-			}
-
-			// TEMP NEW:
-			if(pHeader->m_sig != basis_file_header::cBASISSigValue)
-				return false;
-
-			// TEMP NEW:
-			if(pHeader->m_ver != BASISD_SUPPORTED_BASIS_VERSION)
-				return false;
-
-
-			// TEMP NEW:
-			if(pHeader->m_header_size != sizeof(basis_file_header))
-				return false;
-
-
-
 			BASISU_DEVEL_ERROR("basisu_transcoder::get_total_images: header has an invalid signature, or file version is unsupported\n");
 			return false;
 		}
@@ -18870,11 +18851,11 @@ namespace basist
 		m_pData = nullptr;
 		m_data_size = 0;
 
-		memset(&m_header, 0, sizeof(m_header));
+		memset((void *)&m_header, 0, sizeof(m_header));
 		m_levels.clear();
 		m_dfd.clear();
 		m_key_values.clear();
-		memset(&m_etc1s_header, 0, sizeof(m_etc1s_header));
+		memset((void *)&m_etc1s_header, 0, sizeof(m_etc1s_header));
 		m_etc1s_image_descs.clear();
 		m_astc_6x6_intermediate_image_descs.clear();
 				
@@ -18923,7 +18904,7 @@ namespace basist
 		m_pData = static_cast<const uint8_t *>(pData);
 		m_data_size = data_size;
 
-		memcpy(&m_header, pData, sizeof(m_header));
+		memcpy((void *)&m_header, pData, sizeof(m_header));
 
 		// Check for supported VK formats. We may also need to parse the DFD.
 		if ((m_header.m_vk_format != KTX2_VK_FORMAT_UNDEFINED) && 
@@ -18996,13 +18977,13 @@ namespace basist
 			}
 #endif
 
-			if (m_header.m_sgd_byte_offset < sizeof(ktx2_header))
+			if (m_header.m_sgd_byte_offset.get_uint64() < sizeof(ktx2_header))
 			{
 				BASISU_DEVEL_ERROR("ktx2_transcoder::init: Supercompression global data offset is too low\n");
 				return false;
 			}
 
-			if (m_header.m_sgd_byte_offset + m_header.m_sgd_byte_length > m_data_size)
+			if (m_header.m_sgd_byte_offset.get_uint64() + m_header.m_sgd_byte_length.get_uint64() > m_data_size)
 			{
 				BASISU_DEVEL_ERROR("ktx2_transcoder::init: Supercompression global data offset and/or length is too high\n");
 				return false;
@@ -19023,23 +19004,23 @@ namespace basist
 			return false;
 		}
 
-		memcpy(&m_levels[0], m_pData + sizeof(ktx2_header), level_index_size_in_bytes);
+		memcpy((void *)&m_levels[0], m_pData + sizeof(ktx2_header), level_index_size_in_bytes);
 		
 		// Sanity check the level offsets and byte sizes
 		for (uint32_t i = 0; i < m_levels.size(); i++)
 		{
-			if (m_levels[i].m_byte_offset < sizeof(ktx2_header))
+			if (m_levels[i].m_byte_offset.get_uint64() < sizeof(ktx2_header))
 			{
 				BASISU_DEVEL_ERROR("ktx2_transcoder::init: Invalid level offset (too low)\n");
 				return false;
 			}
 
-			if (!m_levels[i].m_byte_length)
+			if (!m_levels[i].m_byte_length.get_uint64())
 			{
 				BASISU_DEVEL_ERROR("ktx2_transcoder::init: Invalid level byte length\n");
 			}
 
-			if ((m_levels[i].m_byte_offset + m_levels[i].m_byte_length) > m_data_size)
+			if ((m_levels[i].m_byte_offset.get_uint64() + m_levels[i].m_byte_length.get_uint64()) > m_data_size)
 			{
 				BASISU_DEVEL_ERROR("ktx2_transcoder::init: Invalid level offset and/or length\n");
 				return false;
@@ -19047,7 +19028,7 @@ namespace basist
 			
 			const uint64_t MAX_SANE_LEVEL_UNCOMP_SIZE = 2048ULL * 1024ULL * 1024ULL;
 			
-			if (m_levels[i].m_uncompressed_byte_length >= MAX_SANE_LEVEL_UNCOMP_SIZE)
+			if (m_levels[i].m_uncompressed_byte_length.get_uint64() >= MAX_SANE_LEVEL_UNCOMP_SIZE)
 			{
 				BASISU_DEVEL_ERROR("ktx2_transcoder::init: Invalid level offset (too large)\n");
 				return false;
@@ -19055,7 +19036,7 @@ namespace basist
 
 			if (m_header.m_supercompression_scheme == KTX2_SS_BASISLZ)
 			{
-				if (m_levels[i].m_uncompressed_byte_length)
+				if (m_levels[i].m_uncompressed_byte_length.get_uint64())
 				{
 					BASISU_DEVEL_ERROR("ktx2_transcoder::init: Invalid uncompressed length (0)\n");
 					return false;
@@ -19063,7 +19044,7 @@ namespace basist
 			}
 			else if (m_header.m_supercompression_scheme >= KTX2_SS_ZSTANDARD)
 			{
-				if (!m_levels[i].m_uncompressed_byte_length)
+				if (!m_levels[i].m_uncompressed_byte_length.get_uint64())
 				{
 					BASISU_DEVEL_ERROR("ktx2_transcoder::init: Invalid uncompressed length (1)\n");
 					return false;
@@ -19458,8 +19439,8 @@ namespace basist
 			return false;
 		}
 
-		const uint8_t* pComp_level_data = m_pData + m_levels[level_index].m_byte_offset;
-		uint64_t comp_level_data_size = m_levels[level_index].m_byte_length;
+		const uint8_t* pComp_level_data = m_pData + m_levels[level_index].m_byte_offset.get_uint64();
+		uint64_t comp_level_data_size = m_levels[level_index].m_byte_length.get_uint64();
 		
 		const uint8_t* pUncomp_level_data = pComp_level_data;
 		uint64_t uncomp_level_data_size = comp_level_data_size;
@@ -19521,8 +19502,8 @@ namespace basist
 				pOutput_blocks, output_blocks_buf_size_in_blocks_or_pixels, m_pData, m_data_size,
 				num_blocks4_x, num_blocks4_y, level_width, level_height,
 				level_index,
-				m_levels[level_index].m_byte_offset + image_desc.m_rgb_slice_byte_offset, image_desc.m_rgb_slice_byte_length,
-				image_desc.m_alpha_slice_byte_length ? (m_levels[level_index].m_byte_offset + image_desc.m_alpha_slice_byte_offset) : 0, image_desc.m_alpha_slice_byte_length,
+				m_levels[level_index].m_byte_offset.get_uint64() + image_desc.m_rgb_slice_byte_offset, image_desc.m_rgb_slice_byte_length,
+				image_desc.m_alpha_slice_byte_length ? (m_levels[level_index].m_byte_offset.get_uint64() + image_desc.m_alpha_slice_byte_offset) : 0, image_desc.m_alpha_slice_byte_length,
 				decode_flags, m_has_alpha,
 				m_is_video, output_row_pitch_in_blocks_or_pixels, &pState->m_transcoder_state, output_rows_in_pixels))
 			{
@@ -19559,7 +19540,7 @@ namespace basist
 			if (!m_astc_hdr_6x6_intermediate_transcoder.transcode_image(fmt,
 				pOutput_blocks, output_blocks_buf_size_in_blocks_or_pixels,
 				m_pData, m_data_size, num_blocks6_x, num_blocks6_y, level_width, level_height, level_index,
-				m_levels[level_index].m_byte_offset + image_desc.m_rgb_slice_byte_offset, image_desc.m_rgb_slice_byte_length,
+				m_levels[level_index].m_byte_offset.get_uint64() + image_desc.m_rgb_slice_byte_offset, image_desc.m_rgb_slice_byte_length,
 				decode_flags, m_has_alpha, m_is_video, output_row_pitch_in_blocks_or_pixels, nullptr, output_rows_in_pixels, channel0, channel1))
 			{
 				BASISU_DEVEL_ERROR("ktx2_transcoder::transcode_image_2D: ASTC 6x6 HDR transcode_image() failed, this is either a bug or the file is corrupted/invalid\n");
@@ -19572,7 +19553,7 @@ namespace basist
 			const uint32_t num_blocks6_y = (level_height + 5) / 6;
 
 			// Compute length and offset to uncompressed 2D UASTC texture data, given the face/layer indices.
-			assert(uncomp_level_data_size == m_levels[level_index].m_uncompressed_byte_length);
+			assert(uncomp_level_data_size == m_levels[level_index].m_uncompressed_byte_length.get_uint64());
 			const uint32_t total_2D_image_size = num_blocks6_x * num_blocks6_y * sizeof(astc_helpers::astc_block);
 
 			const uint32_t uncomp_ofs = (layer_index * m_header.m_face_count + face_index) * total_2D_image_size;
@@ -19604,7 +19585,7 @@ namespace basist
 			     (m_format == basist::basis_tex_format::cUASTC_HDR_4x4))
 		{
 			// Compute length and offset to uncompressed 2D UASTC texture data, given the face/layer indices.
-			assert(uncomp_level_data_size == m_levels[level_index].m_uncompressed_byte_length);
+			assert(uncomp_level_data_size == m_levels[level_index].m_uncompressed_byte_length.get_uint64());
 			const uint32_t total_2D_image_size = num_blocks4_x * num_blocks4_y * KTX2_UASTC_BLOCK_SIZE;
 						
 			const uint32_t uncomp_ofs = (layer_index * m_header.m_face_count + face_index) * total_2D_image_size;
@@ -19660,10 +19641,10 @@ namespace basist
 		
 	bool ktx2_transcoder::decompress_level_data(uint32_t level_index, basisu::uint8_vec& uncomp_data)
 	{
-		const uint8_t* pComp_data = m_levels[level_index].m_byte_offset + m_pData;
-		const uint64_t comp_size = m_levels[level_index].m_byte_length;
+		const uint8_t* pComp_data = m_levels[level_index].m_byte_offset.get_uint64() + m_pData;
+		const uint64_t comp_size = m_levels[level_index].m_byte_length.get_uint64();
 		
-		const uint64_t uncomp_size = m_levels[level_index].m_uncompressed_byte_length;
+		const uint64_t uncomp_size = m_levels[level_index].m_uncompressed_byte_length.get_uint64();
 
 		if (((size_t)comp_size) != comp_size)
 		{
@@ -19710,9 +19691,9 @@ namespace basist
 		const uint32_t image_count = basisu::maximum<uint32_t>(m_header.m_layer_count, 1) * m_header.m_face_count * m_header.m_level_count;
 		assert(image_count);
 
-		const uint8_t* pSrc = m_pData + m_header.m_sgd_byte_offset;
+		const uint8_t* pSrc = m_pData + m_header.m_sgd_byte_offset.get_uint64();
 
-		if (m_header.m_sgd_byte_length != image_count * sizeof(ktx2_astc_hdr_6x6_intermediate_image_desc))
+		if (m_header.m_sgd_byte_length.get_uint64() != image_count * sizeof(ktx2_astc_hdr_6x6_intermediate_image_desc))
 		{
 			BASISU_DEVEL_ERROR("ktx2_transcoder::decompress_astc_6x6_hdr_intermediate_global_data: Invalid global data length\n");
 			return false;
@@ -19720,7 +19701,7 @@ namespace basist
 
 		m_astc_6x6_intermediate_image_descs.resize(image_count);
 		
-		memcpy(m_astc_6x6_intermediate_image_descs.data(), pSrc, sizeof(ktx2_astc_hdr_6x6_intermediate_image_desc) * image_count);
+		memcpy((void *)m_astc_6x6_intermediate_image_descs.data(), pSrc, sizeof(ktx2_astc_hdr_6x6_intermediate_image_desc) * image_count);
 
 		// Sanity check the image descs
 		for (uint32_t i = 0; i < image_count; i++)
@@ -19747,9 +19728,9 @@ namespace basist
 		const uint32_t image_count = basisu::maximum<uint32_t>(m_header.m_layer_count, 1) * m_header.m_face_count * m_header.m_level_count;
 		assert(image_count);
 
-		const uint8_t* pSrc = m_pData + m_header.m_sgd_byte_offset;
+		const uint8_t* pSrc = m_pData + m_header.m_sgd_byte_offset.get_uint64();
 
-		memcpy(&m_etc1s_header, pSrc, sizeof(ktx2_etc1s_global_data_header));
+		memcpy((void *)&m_etc1s_header, pSrc, sizeof(ktx2_etc1s_global_data_header));
 		pSrc += sizeof(ktx2_etc1s_global_data_header);
 
 		if ((!m_etc1s_header.m_endpoints_byte_length) || (!m_etc1s_header.m_selectors_byte_length) || (!m_etc1s_header.m_tables_byte_length))
@@ -19770,7 +19751,7 @@ namespace basist
 			m_etc1s_header.m_endpoints_byte_length +
 			m_etc1s_header.m_selectors_byte_length +
 			m_etc1s_header.m_tables_byte_length +
-			m_etc1s_header.m_extended_byte_length) > m_header.m_sgd_byte_length)
+			m_etc1s_header.m_extended_byte_length) > m_header.m_sgd_byte_length.get_uint64())
 		{
 			BASISU_DEVEL_ERROR("ktx2_transcoder::decompress_etc1s_global_data: SGD byte length is too small, file is invalid or corrupted\n");
 			return false;
@@ -19782,7 +19763,7 @@ namespace basist
 			return false;
 		}
 		
-		memcpy(m_etc1s_image_descs.data(), pSrc, sizeof(ktx2_etc1s_image_desc) * image_count);
+		memcpy((void *)m_etc1s_image_descs.data(), pSrc, sizeof(ktx2_etc1s_image_desc) * image_count);
 		pSrc += sizeof(ktx2_etc1s_image_desc) * image_count;
 
 		// Sanity check the ETC1S image descs

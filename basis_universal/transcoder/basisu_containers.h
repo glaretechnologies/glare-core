@@ -1656,7 +1656,7 @@ namespace basisu
 #endif         
 #endif
 				if ((m_p) && (other.m_p))
-					memcpy(m_p, other.m_p, other.m_size * sizeof(T));
+					memcpy((void *)m_p, other.m_p, other.m_size * sizeof(T));
 #ifndef __EMSCRIPTEN__          
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
@@ -2241,7 +2241,7 @@ namespace basisu
 #endif
 #endif
 
-				memmove(pDst, pSrc, num_to_move * sizeof(T));
+				memmove((void *)pDst, pSrc, num_to_move * sizeof(T));
 
 #ifndef __EMSCRIPTEN__
 #ifdef __GNUC__
@@ -3349,7 +3349,7 @@ namespace basisu
 
 		inline size_t hash_key(const Key& k) const
 		{
-			//GLARE NEW  assert((safe_shift_left(1ULL, (SIZE_T_BITS - m_hash_shift))) == m_values.size());
+			assert((safe_shift_left(static_cast<uint64_t>(1), (SIZE_T_BITS - m_hash_shift))) == m_values.size());
 
 			// Fibonacci hashing
 			if (SIZE_T_BITS == 32)
@@ -3433,7 +3433,7 @@ namespace basisu
 				return false;
 
 			new_map.m_hash_shift = SIZE_T_BITS - helpers::floor_log2i((uint64_t)new_hash_size);
-			//GLARE NEW assert(new_hash_size == safe_shift_left(1ULL, SIZE_T_BITS - new_map.m_hash_shift));
+			assert(new_hash_size == safe_shift_left(static_cast<uint64_t>(1), SIZE_T_BITS - new_map.m_hash_shift));
 
 			new_map.m_grow_threshold = std::numeric_limits<size_t>::max();
 
