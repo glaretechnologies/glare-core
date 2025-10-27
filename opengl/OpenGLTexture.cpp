@@ -642,7 +642,7 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 
 		if(mem_object.nonNull()) // If this texture should use a memory object as the backing memory:
 		{
-#if defined(EMSCRIPTEN)
+#if defined(EMSCRIPTEN) || defined(OSX)
 			assert(0);
 #else
 			const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
