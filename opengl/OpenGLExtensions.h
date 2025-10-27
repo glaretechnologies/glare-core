@@ -9,7 +9,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "IncludeOpenGL.h"
 
 
-#if !EMSCRIPTEN
+#if !EMSCRIPTEN && !defined(__APPLE__)
 typedef void (*PFNGLCREATEMEMORYOBJECTSEXTPROC) (GLsizei n, GLuint *memoryObjects);
 typedef void (*PFNGLDELETEMEMORYOBJECTSEXTPROC) (GLsizei n, const GLuint *memoryObjects);
 typedef void (*PFNGLIMPORTMEMORYWIN32HANDLEEXTPROC) (GLuint memory, GLuint64 size, GLenum handleType, void *handle);

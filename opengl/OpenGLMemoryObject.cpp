@@ -10,10 +10,15 @@ Copyright Glare Technologies Limited 2025 -
 #include "IncludeOpenGL.h"
 
 
+#if !EMSCRIPTEN && !defined(__APPLE__)
+#define OPENGL_MEMORY_OBJECT_SUPPORT 1
+#endif
+
+
 OpenGLMemoryObject::OpenGLMemoryObject()
 :	mem_obj(0)
 {
-#if !EMSCRIPTEN
+#if OPENGL_MEMORY_OBJECT_SUPPORT
 	glCreateMemoryObjectsEXT(1, &mem_obj);
 #endif
 }
@@ -21,7 +26,7 @@ OpenGLMemoryObject::OpenGLMemoryObject()
 
 OpenGLMemoryObject::~OpenGLMemoryObject()
 {
-#if !EMSCRIPTEN
+#if OPENGL_MEMORY_OBJECT_SUPPORT
 	glDeleteMemoryObjectsEXT(1, &mem_obj);
 #endif
 }
