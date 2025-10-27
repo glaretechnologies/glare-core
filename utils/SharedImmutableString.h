@@ -31,7 +31,7 @@ public:
 	SharedImmutableString() {}
 	explicit SharedImmutableString(const Reference<SharedImmutableStringData>& string_) : string(string_) {}
 
-	inline const size_t size() const;
+	inline size_t size() const;
 	inline const char* data() const;
 
 	inline bool empty() const { return string.isNull(); }
@@ -125,7 +125,7 @@ SharedImmutableString makeEmptySharedImmutableString() { return SharedImmutableS
 
 
 
-const size_t SharedImmutableString::size() const { return string ? string->size() : 0; }
+size_t SharedImmutableString::size() const { return string ? string->size() : 0; }
 const char* SharedImmutableString::data() const { return string ? string->data() : nullptr; }
 
 bool SharedImmutableString::operator == (const SharedImmutableString& other) const

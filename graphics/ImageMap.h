@@ -1202,9 +1202,9 @@ void ImageMap<V, VTraits>::blitToImage(int src_start_x, int src_start_y, int src
 template<class V, class ComponentValueTraits>
 inline Reference<ImageMap<V, ComponentValueTraits>> ImageMap<V, ComponentValueTraits>::cropImage(int start_x, int start_y, int cropped_width, int cropped_height) const
 {
-	if((start_x < 0) || (cropped_width  < 0) || ((start_x +  cropped_width) > width))
+	if((start_x < 0) || (cropped_width  < 0) || ((start_x +  cropped_width) > (int)width))
 		throw glare::Exception("invalid start_x or cropped_width");
-	if((start_y < 0) || (cropped_height < 0) || ((start_y + cropped_height) > height))
+	if((start_y < 0) || (cropped_height < 0) || ((start_y + cropped_height) > (int)height))
 		throw glare::Exception("invalid start_y or cropped_height");
 
 	Reference<ImageMap<V, ComponentValueTraits>> cropped_im = new ImageMap<V, ComponentValueTraits>(cropped_width, cropped_height, N);
