@@ -22,7 +22,8 @@ Therefore they don't have to be cloned to send to multiple threads.
 class ThreadMessage : public ThreadSafeRefCounted
 {
 public:
-	ThreadMessage() : allocator(nullptr) {}
+	ThreadMessage() : allocator(nullptr), id(-1) {}
+	ThreadMessage(int id_) : allocator(nullptr), id(id_) {}
 
 	virtual ~ThreadMessage() {}
 
@@ -32,6 +33,8 @@ public:
 
 	glare::FastPoolAllocator* allocator; // non-null if this object was allocated from a pool allocator.
 	int allocation_index; // Uses for freeing from the pool allocator.
+
+	int id;
 };
 
 

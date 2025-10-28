@@ -20,6 +20,16 @@ class OpenGLMeshRenderData;
 struct GLObject;
 
 
+// These need to not clash with other enums in ThreadMessages.h so start at a large value.
+enum OpenGLUploadThreadMessages
+{
+	OpenGLUploadThreadMessages_TextureUploadedMessage   = 1000,
+	OpenGLUploadThreadMessages_AnimatedTextureUpdated   = 1001,
+	OpenGLUploadThreadMessages_GeometryUploadedMessage  = 1002,
+	OpenGLUploadThreadMessages_OpenGLUploadErrorMessage = 1003,
+};
+
+
 class UploadingUserInfo : public ThreadSafeRefCounted
 {
 public:
@@ -53,6 +63,8 @@ template <> inline void destroyAndFreeOb<UploadTextureMessage>(UploadTextureMess
 class TextureUploadedMessage : public ThreadMessage
 {
 public:
+	TextureUploadedMessage() : ThreadMessage(OpenGLUploadThreadMessages_TextureUploadedMessage) {}
+
 	OpenGLTextureKey tex_path;
 	Reference<TextureData> texture_data;
 	Reference<OpenGLTexture> opengl_tex;
@@ -63,6 +75,7 @@ public:
 class AnimatedTextureUpdated : public ThreadMessage
 {
 public:
+	AnimatedTextureUpdated() : ThreadMessage(OpenGLUploadThreadMessages_AnimatedTextureUpdated) {}
 	Reference<OpenGLTexture> old_tex; // When uploading a frame of an animated texture, upload into this already existing texture.  Otherwise create a new texture
 	Reference<OpenGLTexture> new_tex; // When uploading the animated tex frame is done, swap existing_opengl_tex and swap_with_tex on the object
 };
@@ -96,6 +109,8 @@ public:
 class GeometryUploadedMessage : public ThreadMessage
 {
 public:
+	GeometryUploadedMessage() : ThreadMessage(OpenGLUploadThreadMessages_GeometryUploadedMessage) {}
+
 	Reference<OpenGLMeshRenderData> meshdata;
 
 	Reference<UploadingUserInfo> user_info;
@@ -105,7 +120,7 @@ public:
 class OpenGLUploadErrorMessage : public ThreadMessage
 {
 public:
-	OpenGLUploadErrorMessage(const std::string& msg_) : msg(msg_) {}
+	OpenGLUploadErrorMessage(const std::string& msg_) : ThreadMessage(OpenGLUploadThreadMessages_OpenGLUploadErrorMessage), msg(msg_) {}
 	std::string msg;
 };
 
