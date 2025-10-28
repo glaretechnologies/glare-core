@@ -102,6 +102,14 @@ public:
 };
 
 
+class OpenGLUploadErrorMessage : public ThreadMessage
+{
+public:
+	OpenGLUploadErrorMessage(const std::string& msg_) : msg(msg_) {}
+	std::string msg;
+};
+
+
 /*=====================================================================
 OpenGLUploadThread
 ------------------

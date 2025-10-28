@@ -85,7 +85,8 @@ void OpenGLUploadThread::doRun()
 
 			if(source_data.dataSizeBytes() > pbo->getSize())
 			{
-				conPrint("Texture is too big for PBO!!!");
+				const std::string msg = "Error while uploading texture to GPU: Trying to upload texture of " + getNiceByteSize(source_data.dataSizeBytes()) + ", max size is " + getNiceByteSize(pbo->getSize()) + ".";
+				out_msg_queue->enqueue(new OpenGLUploadErrorMessage(msg));
 				continue; // Just drop this texture for now
 			}
 
@@ -207,7 +208,8 @@ void OpenGLUploadThread::doRun()
 
 			if(upload_msg->total_geom_size_B > vbo->getSize())
 			{
-				conPrint("Geometry is too big for VBO!!!");
+				const std::string msg = "Error while uploading geometry to GPU: Trying to upload mesh of " + getNiceByteSize(upload_msg->total_geom_size_B) + ", max size is " + getNiceByteSize(vbo->getSize()) + ".";
+				out_msg_queue->enqueue(new OpenGLUploadErrorMessage(msg));
 				continue; // Just drop this geometry for now
 			}
 
