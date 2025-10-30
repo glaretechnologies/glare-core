@@ -28,7 +28,7 @@ void PBOAsyncTextureUploader::clear()
 }
 
 
-void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef texture_data, Reference<OpenGLTexture> opengl_tex, Reference<OpenGLTexture> dummy_opengl_tex, PBORef dummy_pbo, uint64 frame_num,
+void PBOAsyncTextureUploader::startUploadingTexture(PBORef pbo, TextureDataRef texture_data, Reference<OpenGLTexture> opengl_tex, uint64 frame_num,
 	Reference<UploadingTextureUserInfo> user_info)
 {
 	ZoneScoped; // Tracy profiler
