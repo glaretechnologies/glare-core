@@ -20,55 +20,20 @@ VBOPool::VBOPool(GLenum buffer_type)
 
 	const bool create_persistently_mapped_buffer = false;
 
-	size_info.push_back(SizeInfo({64 * 1024, vbo_infos.size()}));
-	for(int i=0; i<16; ++i)
+	for(int i=0; i<4; ++i)
 	{
 		VBOInfo info;
 		info.vbo = new VBO(nullptr, 64 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
 		vbo_infos.push_back(info);
 	}
-
-	size_info.push_back(SizeInfo({512 * 1024, vbo_infos.size()}));
-	for(int i=0; i<32; ++i)
-	{
-		VBOInfo info;
-		info.vbo = new VBO(nullptr, 512 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
-		vbo_infos.push_back(info);
-	}
-
-	size_info.push_back(SizeInfo({1024 * 1024, vbo_infos.size()}));
-	for(int i=0; i<8; ++i)
+	
+	for(int i=0; i<4; ++i)
 	{
 		VBOInfo info;
 		info.vbo = new VBO(nullptr, 1024 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
 		vbo_infos.push_back(info);
 	}
 
-	size_info.push_back(SizeInfo({4 * 1024 * 1024, vbo_infos.size()}));
-	for(int i=0; i<8; ++i)
-	{
-		VBOInfo info;
-		info.vbo = new VBO(nullptr, 4 * 1024 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
-		vbo_infos.push_back(info);
-	}
-
-	size_info.push_back(SizeInfo({8 * 1024 * 1024, vbo_infos.size()}));
-	for(int i=0; i<4; ++i)
-	{
-		VBOInfo info;
-		info.vbo = new VBO(nullptr, 8 * 1024 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
-		vbo_infos.push_back(info);
-	}
-
-	size_info.push_back(SizeInfo({16 * 1024 * 1024, vbo_infos.size()}));
-	for(int i=0; i<1; ++i)
-	{
-		VBOInfo info;
-		info.vbo = new VBO(nullptr, 16 * 1024 * 1024, buffer_type, usage, create_persistently_mapped_buffer);
-		vbo_infos.push_back(info);
-	}
-
-	size_info.push_back(SizeInfo({32 * 1024 * 1024, vbo_infos.size()}));
 	for(int i=0; i<1; ++i)
 	{
 		VBOInfo info;
@@ -76,12 +41,17 @@ VBOPool::VBOPool(GLenum buffer_type)
 		vbo_infos.push_back(info);
 	}
 
+	size_t prev_VBO_size = std::numeric_limits<size_t>::max();
 	size_t total_size = 0;
 	for(size_t i=0; i<vbo_infos.size(); ++i)
 	{
 		vbo_infos[i].vbo->pool_index = i;
 
 		total_size += vbo_infos[i].vbo->getSize();
+
+		if(vbo_infos[i].vbo->getSize() != prev_VBO_size)
+			size_info.push_back(SizeInfo({vbo_infos[i].vbo->getSize(), /*offset=*/i}));
+		prev_VBO_size = vbo_infos[i].vbo->getSize();
 	}
 	conPrint("Total VBO pool size: " + uInt32ToStringCommaSeparated((uint32)total_size) + " B");
 }
