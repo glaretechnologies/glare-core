@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/ConPrint.h>
 #include <utils/RuntimeCheck.h>
 #include <tracy/Tracy.hpp>
+#include <limits>
 
 
 PBOPool::PBOInfo::PBOInfo() : used(false) {}

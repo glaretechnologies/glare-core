@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/StringUtils.h>
 #include <utils/ConPrint.h>
 #include <utils/RuntimeCheck.h>
+#include <limits>
 
 
 VBOPool::VBOPool(GLenum buffer_type)
