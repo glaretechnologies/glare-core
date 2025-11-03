@@ -700,8 +700,8 @@ void main()
 				// light_type == 1: spotlight
 				float from_light_cos_angle = -dot(light_data[light_index].dir.xyz, unit_pos_to_light);
 				dir_factor =
-					smoothstep(0.4f, 0.9f, from_light_cos_angle) * 0.03 + // A little light outside of the main cone
-					smoothstep(light_data[light_index].cone_cos_angle_start, light_data[light_index].cone_cos_angle_end, from_light_cos_angle);
+					//smoothstep(0.4f, 0.9f, from_light_cos_angle) * 0.03 + // A little light outside of the main cone
+					smoothstep(light_data[light_index].cone_min_cos_angle, light_data[light_index].cone_max_cos_angle, from_light_cos_angle);
 			}
 
 			float cos_theta_term = max(0.f, dot(unit_normal_ws, unit_pos_to_light));

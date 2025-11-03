@@ -122,8 +122,8 @@ struct LightData
 	vec4 dir;
 	vec4 col;
 	int light_type; // 0 = point light, 1 = spotlight
-	float cone_cos_angle_start;
-	float cone_cos_angle_end;
+	float cone_min_cos_angle;
+	float cone_max_cos_angle;
 
 	float padding_l0;
 };

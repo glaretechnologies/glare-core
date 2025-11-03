@@ -510,13 +510,13 @@ struct LightGPUData
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	LightGPUData() : light_type(0), cone_cos_angle_start(0.8f), cone_cos_angle_end(0.85f) {}
+	LightGPUData() : light_type(0), cone_min_cos_angle(0.8f), cone_max_cos_angle(0.85f) {}
 	Vec4f pos;
 	Vec4f dir;
 	Colour4f col;
 	int light_type; // 0 = point light, 1 = spotlight
-	float cone_cos_angle_start;
-	float cone_cos_angle_end;
+	float cone_min_cos_angle;
+	float cone_max_cos_angle; // >= cone_min_cos_angle
 };
 
 

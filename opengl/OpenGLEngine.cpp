@@ -3922,8 +3922,8 @@ static inline js::AABBox computelightAABB(const GLLight& light)
 
 	const float max_light_dist = light.max_light_dist;
 
-	const float a = max_light_dist * light.gpu_data.cone_cos_angle_end;
-	const float op = max_light_dist * Maths::sinForCos(light.gpu_data.cone_cos_angle_end);
+	const float a = max_light_dist * light.gpu_data.cone_min_cos_angle;
+	const float op = max_light_dist * Maths::sinForCos(light.gpu_data.cone_min_cos_angle);
 
 	js::AABBox aabb(light.gpu_data.pos, light.gpu_data.pos);
 	aabb.enlargeToHoldPoint(light.gpu_data.pos + light.gpu_data.dir*a + v1 * op + v2 * op);
