@@ -96,7 +96,7 @@ Copyright Glare Technologies Limited 2021 -
 		#define GLARE_PLATFORM_IS_64_BIT 0
 	#endif
 #else
-	#if defined(__x86_64__) || defined(_M_X64)
+	#if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__)
 		#define GLARE_PLATFORM_IS_64_BIT 1
 	#else
 		#define GLARE_PLATFORM_IS_64_BIT 0
