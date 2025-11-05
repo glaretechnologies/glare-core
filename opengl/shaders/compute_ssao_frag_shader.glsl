@@ -245,7 +245,11 @@ void main()
 
 				if(n_j_cos_theta > -0.3)
 				{
-					vec3 common_factors = scalar_factors * textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
+					vec3 tex_col = textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
+					const float MAX_TEX_COL_LEN = 2.0; // Clamp max contribution, otherwise we get fireflies near small, bright emissive surfaces.
+					if(dot(tex_col, tex_col) > square(MAX_TEX_COL_LEN))
+						tex_col *= MAX_TEX_COL_LEN / length(tex_col);
+					vec3 common_factors = scalar_factors * tex_col;
 					irradiance += common_factors;
 				}
 			}
