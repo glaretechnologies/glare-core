@@ -936,7 +936,7 @@ void OpenGLTexture::clearRegion3D(int mipmap_level, size_t x, size_t y, size_t z
 #if defined(OSX) || defined(EMSCRIPTEN)
 	assert(0); // glClearTexSubImage is OpenGL 4.4+: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glClearTexSubImage.xhtml
 #else
-	glClearTexSubImage(texture_handle, mipmap_level, x, y, z, region_w, region_h, region_d, gl_format, gl_type, data);
+	glClearTexSubImage(texture_handle, mipmap_level, (GLint)x, (GLint)y, (GLint)z, (GLsizei)region_w, (GLsizei)region_h, (GLsizei)region_d, gl_format, gl_type, data);
 #endif
 }
 
