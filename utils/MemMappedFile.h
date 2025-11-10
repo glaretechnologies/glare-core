@@ -44,7 +44,7 @@ private:
 class SharedMemMappedFile : public ThreadSafeRefCounted
 {
 public:
-	SharedMemMappedFile(const std::string& path); // Throws glare::Exception on failure.
+	SharedMemMappedFile(const string_view path); // Throws glare::Exception on failure.
 	~SharedMemMappedFile();
 
 	size_t fileSize() const { return file.fileSize(); } // Returns file size in bytes.

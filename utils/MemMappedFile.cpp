@@ -165,7 +165,7 @@ MemMappedFile::~MemMappedFile()
 #endif
 
 
-SharedMemMappedFile::SharedMemMappedFile(const std::string& path)
+SharedMemMappedFile::SharedMemMappedFile(const string_view path)
 :	file(path)
 {}
 
