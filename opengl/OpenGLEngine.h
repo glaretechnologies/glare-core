@@ -219,7 +219,7 @@ public:
 
 	uint64 userdata;
 
-	// Kind-of user-data.  Only used in OpenGLEngine::addOpenGLTexture() and OpenGLEngine::assignLoadedTextureToObMaterials() currently, which should be removed/refactored:
+	// Kind-of user-data.
 	OpenGLTextureKey tex_path;
 	OpenGLTextureKey metallic_roughness_tex_path;
 	OpenGLTextureKey lightmap_path;
@@ -932,6 +932,8 @@ public:
 	const std::string& getVersionDirective() const { return version_directive; } // for compiling shader programs
 
 	const std::string& getDataDir() const { return data_dir; }
+
+	void waitForAllBuildingProgramsToBuild();
 	//----------------------------------------------------------------------------------------
 
 
@@ -1050,7 +1052,7 @@ public:
 
 
 	//------------------------------- Environment material/map management --------------------
-	void setSunDir(const Vec4f& d);
+	void setSunDir(const Vec4f& d); // Set direction to sun.
 	const Vec4f getSunDir() const;
 
 	void setEnvMapTransform(const Matrix3f& transform);
@@ -1129,6 +1131,8 @@ public:
 
 	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > getRenderedColourBuffer(size_t xres, size_t yres, bool buffer_has_alpha);
 
+	// Creates some off-screen render buffers, sets as target_frame_buffer, draws the current scene.
+	// Then captures the draw result using glReadPixels() in getRenderedColourBuffer() and returns as an ImageMapUInt8.
 	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > drawToBufferAndReturnImageMap();
 	//----------------------------------------------------------------------------------------
 
@@ -1201,7 +1205,7 @@ private:
 	void drawBatchWithDenormalisedData(const GLObject& ob, const GLObjectBatchDrawInfo& batch, uint32 batch_index);
 	void buildOutlineTextures();
 	void createSSAOTextures();
-private:
+public:
 	void addDebugSphere(const Vec4f& centre, float radius, const Colour4f& col);
 	void addDebugAABB(const js::AABBox& aabb, const Colour4f& col);
 	void addDebugLine(const Vec4f& start_point, const Vec4f& end_point, float radius, const Colour4f& col);

@@ -350,6 +350,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	env_ob->ob_to_world_matrix = Matrix4f::identity();
 	env_ob->ob_to_world_normal_matrix = Matrix4f::identity();
 	env_ob->materials.resize(1);
+	env_ob->mesh_data = engine.getSphereMeshData();
 }
 
 
@@ -4098,6 +4099,37 @@ void OpenGLEngine::assignShaderProgToMaterial(OpenGLMaterial& material, bool use
 }
 
 
+void OpenGLEngine::waitForAllBuildingProgramsToBuild()
+{
+	//================= Check if any building programs are done. =================
+	while(!building_progs.empty())
+	{
+		for(auto it = building_progs.begin(); it != building_progs.end(); )
+		{
+			OpenGLProgram* prog = *it;
+			if(prog->checkLinkingDone())
+			{
+				it = building_progs.erase(it);
+
+				try
+				{
+					finishBuildingProg(prog);
+				}
+				catch(glare::Exception& e)
+				{
+					conPrint("Error building program: " + e.what());
+				}
+			}
+			else
+				++it;
+		}
+
+		if(!building_progs.empty())
+			PlatformUtils::Sleep(1);
+	}
+}
+
+
 Reference<GLObject> OpenGLEngine::allocateObject()
 {
 	return new GLObject();
@@ -4838,7 +4870,7 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 	if(have_materialise_effect)
 		current_scene->materialise_objects.insert(&object);
 	else
-		current_scene->materialise_objects.erase(&object);// Remove from materialise effect object list if it is currently in there.
+		current_scene->materialise_objects.erase(&object); // Remove from materialise effect object list if it is currently in there.
 
 
 	// Update material data on GPU
@@ -12333,9 +12365,6 @@ void OpenGLEngine::trimTextureUsage()
 void OpenGLEngine::addScene(const Reference<OpenGLScene>& scene)
 {
 	scenes.insert(scene);
-
-	if(scene->env_ob.nonNull())
-		scene->env_ob->mesh_data = sphere_meshdata;
 }
 
 
