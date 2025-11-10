@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/PlatformUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Exception.h"
+#include "../utils/ConPrint.h"
 #include <tracy/Tracy.hpp>
 #include <cassert>
 #ifdef _WIN32
@@ -37,6 +38,28 @@ void Direct3DUtils::createGPUDeviceAndMFDeviceManager(ComObHandle<ID3D11Device>&
 {
 	ZoneScoped; // Tracy profiler
 
+	// Try and pick the discrete Nvidia or AMD GPU if it exists.
+	// Adapted from https://github.com/ValveSoftware/openvr/issues/539#issuecomment-306371490
+	ComObHandle<IDXGIAdapter1> recommended_adapter;
+	ComObHandle<IDXGIFactory1> factory;
+	HRESULT hr = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)(&factory.ptr));
+	if(SUCCEEDED(hr))
+	{
+		ComObHandle<IDXGIAdapter1> adapter;
+		UINT index = 0;
+		while(factory->EnumAdapters1(index, &adapter.ptr) != DXGI_ERROR_NOT_FOUND)
+		{
+			DXGI_ADAPTER_DESC1 desc;
+			adapter->GetDesc1(&desc);
+
+			conPrint("Adapter description: " + StringUtils::PlatformToUTF8UnicodeEncoding(desc.Description));
+
+			if(desc.VendorId == 0x10de || desc.VendorId == 0x1002) // if vendor is Nvidia or AMD:
+				recommended_adapter = adapter;
+			index++;
+		}
+	}
+
 	const D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 };
 
 #ifndef NDEBUG // If in debug config:
@@ -44,9 +67,10 @@ void Direct3DUtils::createGPUDeviceAndMFDeviceManager(ComObHandle<ID3D11Device>&
 #else
 	const UINT flags = D3D11_CREATE_DEVICE_VIDEO_SUPPORT;
 #endif
-	HRESULT hr = D3D11CreateDevice(
-		NULL, // pAdapter - use the default adaptor
-		D3D_DRIVER_TYPE_HARDWARE, // DriverType
+
+	hr = D3D11CreateDevice(
+		recommended_adapter.ptr, // pAdapter
+		recommended_adapter.ptr ? D3D_DRIVER_TYPE_UNKNOWN : D3D_DRIVER_TYPE_HARDWARE, // DriverType
 		NULL, // Software rasteriser
 		flags,
 		levels, ARRAYSIZE(levels), 
@@ -267,7 +291,9 @@ ComObHandle<ID3D11Texture2D> Direct3DUtils::copyTextureToNewShareableTexture(con
 		throw glare::Exception("Failed to copy texture: " + PlatformUtils::COMErrorString(hr));
 
 	ComObHandle<IDXGIKeyedMutex> texture_copy_mutex = texture_copy.getInterface<IDXGIKeyedMutex>();
-	texture_copy_mutex->AcquireSync(0, INFINITE);
+	hr = texture_copy_mutex->AcquireSync(0, INFINITE);
+	if(hr != S_OK)
+		throw glare::Exception("Failed to AcquireSync on texture_copy_mutex: " + PlatformUtils::COMErrorString(hr));
 
 	d3d_context->CopyResource(/*dest=*/texture_copy.ptr, /*source=*/src_tex.ptr); // Copy the texture
 	//d3d_context->Flush();
@@ -284,7 +310,9 @@ void Direct3DUtils::copyTextureToExistingShareableTexture(const ComObHandle<ID3D
 	d3d_device->GetImmediateContext(&d3d_context.ptr);
 
 	ComObHandle<IDXGIKeyedMutex> texture_copy_mutex = dest_tex.getInterface<IDXGIKeyedMutex>();
-	texture_copy_mutex->AcquireSync(0, INFINITE);
+	HRESULT res = texture_copy_mutex->AcquireSync(0, INFINITE);
+	if(res != S_OK)
+		throw glare::Exception("Failed to AcquireSync on texture_copy_mutex: " + PlatformUtils::COMErrorString(res));
 
 	d3d_context->CopyResource(/*dest=*/dest_tex.ptr, /*source=*/src_tex.ptr); // Copy the texture
 	//d3d_context->Flush();
