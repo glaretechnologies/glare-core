@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "Platform.h"
 #include "Exception.h"
+#include "string_view.h"
 
 
 /*=====================================================================
@@ -74,12 +75,23 @@ public:
 		}
 	}
 
+
 	template <class SubClassT>
 	inline ComObHandle<SubClassT> getInterface()
 	{
 		ComObHandle<SubClassT> res;
 		if(!queryInterface<SubClassT>(res))
 			throw glare::Exception("Failed to get interface.");
+		return res;
+	}
+
+
+	template <class SubClassT>
+	inline ComObHandle<SubClassT> getInterface(string_view interface_name)
+	{
+		ComObHandle<SubClassT> res;
+		if(!queryInterface<SubClassT>(res))
+			throw glare::Exception("Failed to get interface '" + toString(interface_name) + "'");
 		return res;
 	}
 

@@ -16,12 +16,14 @@ void OpenGLExtensions::init()
 #if !EMSCRIPTEN && !defined(__APPLE__)
 	if(glCreateMemoryObjectsEXT == nullptr)
 	{
-		glCreateMemoryObjectsEXT = (PFNGLCREATEMEMORYOBJECTSEXTPROC)gl3wGetProcAddress("glCreateMemoryObjectsEXT");
-		glDeleteMemoryObjectsEXT = (PFNGLDELETEMEMORYOBJECTSEXTPROC)gl3wGetProcAddress("glDeleteMemoryObjectsEXT");
-		glImportMemoryWin32HandleEXT = (PFNGLIMPORTMEMORYWIN32HANDLEEXTPROC)gl3wGetProcAddress("glImportMemoryWin32HandleEXT");
-		glAcquireKeyedMutexWin32EXT = (PFNGLACQUIREKEYEDMUTEXWIN32EXTPROC)gl3wGetProcAddress("glAcquireKeyedMutexWin32EXT");
-		glReleaseKeyedMutexWin32EXT = (PFNGLRELEASEKEYEDMUTEXWIN32EXTPROC)gl3wGetProcAddress("glReleaseKeyedMutexWin32EXT");
-		glTextureStorageMem2DEXT = (PFNGLTEXTURESTORAGEMEM2DEXTPROC)gl3wGetProcAddress("glTextureStorageMem2DEXT");
+		glCreateMemoryObjectsEXT = (PFNGLCREATEMEMORYOBJECTSEXTPROC)gl3wGetProcAddress("glCreateMemoryObjectsEXT"); // from EXT_external_objects
+		glDeleteMemoryObjectsEXT = (PFNGLDELETEMEMORYOBJECTSEXTPROC)gl3wGetProcAddress("glDeleteMemoryObjectsEXT"); // from EXT_external_objects
+		glTextureStorageMem2DEXT = (PFNGLTEXTURESTORAGEMEM2DEXTPROC)gl3wGetProcAddress("glTextureStorageMem2DEXT"); // from EXT_external_objects
+
+		glImportMemoryWin32HandleEXT = (PFNGLIMPORTMEMORYWIN32HANDLEEXTPROC)gl3wGetProcAddress("glImportMemoryWin32HandleEXT"); // from EXT_external_objects_win32
+
+		glAcquireKeyedMutexWin32EXT = (PFNGLACQUIREKEYEDMUTEXWIN32EXTPROC)gl3wGetProcAddress("glAcquireKeyedMutexWin32EXT"); // from EXT_win32_keyed_mutex
+		glReleaseKeyedMutexWin32EXT = (PFNGLRELEASEKEYEDMUTEXWIN32EXTPROC)gl3wGetProcAddress("glReleaseKeyedMutexWin32EXT"); // from EXT_win32_keyed_mutex
 	}
 #endif
 }
@@ -30,8 +32,10 @@ void OpenGLExtensions::init()
 #if !EMSCRIPTEN && !defined(__APPLE__)
 PFNGLCREATEMEMORYOBJECTSEXTPROC glCreateMemoryObjectsEXT = nullptr;
 PFNGLDELETEMEMORYOBJECTSEXTPROC glDeleteMemoryObjectsEXT = nullptr;
+PFNGLTEXTURESTORAGEMEM2DEXTPROC glTextureStorageMem2DEXT = nullptr;
+
 PFNGLIMPORTMEMORYWIN32HANDLEEXTPROC glImportMemoryWin32HandleEXT = nullptr;
+
 PFNGLACQUIREKEYEDMUTEXWIN32EXTPROC glAcquireKeyedMutexWin32EXT = nullptr;
 PFNGLRELEASEKEYEDMUTEXWIN32EXTPROC glReleaseKeyedMutexWin32EXT = nullptr;
-PFNGLTEXTURESTORAGEMEM2DEXTPROC glTextureStorageMem2DEXT = nullptr;
 #endif

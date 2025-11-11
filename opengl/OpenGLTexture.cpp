@@ -645,6 +645,12 @@ void OpenGLTexture::doCreateTexture(ArrayRef<uint8> tex_data,
 #if defined(EMSCRIPTEN) || defined(OSX)
 			assert(0);
 #else
+			// Set optimal tiling (used for D3D textures?) before we call glTextureStorageMem2DEXT.
+			#define GL_TEXTURE_TILING_EXT             0x9580
+			#define GL_OPTIMAL_TILING_EXT             0x9584
+
+			glTexParameteri(texture_target, GL_TEXTURE_TILING_EXT, GL_OPTIMAL_TILING_EXT);
+
 			const int num_levels = ((filtering == Filtering_Fancy) && use_mipmaps) ? TextureProcessing::computeNumMIPLevels(xres, yres) : 1;
 			glTextureStorageMem2DEXT(texture_handle, /*lod levels=*/num_levels, /*internal format=*/gl_internal_format, (GLsizei)xres, (GLsizei)yres, mem_object->mem_obj, /*offset=*/0); 
 #endif

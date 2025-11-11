@@ -52,7 +52,7 @@ void Direct3DUtils::createGPUDeviceAndMFDeviceManager(ComObHandle<ID3D11Device>&
 			DXGI_ADAPTER_DESC1 desc;
 			adapter->GetDesc1(&desc);
 
-			conPrint("Adapter description: " + StringUtils::PlatformToUTF8UnicodeEncoding(desc.Description));
+			// conPrint("Adapter: " + StringUtils::PlatformToUTF8UnicodeEncoding(desc.Description) + ", LUID: {" + toString((uint32)desc.AdapterLuid.LowPart) + ", " + toString(desc.AdapterLuid.HighPart) + "}");
 
 			if(desc.VendorId == 0x10de || desc.VendorId == 0x1002) // if vendor is Nvidia or AMD:
 				recommended_adapter = adapter;
