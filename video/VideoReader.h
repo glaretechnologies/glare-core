@@ -12,6 +12,8 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/Platform.h"
 #include "../utils/PoolAllocator.h"
 #include "../utils/GlareAllocator.h"
+#include "../utils/ThreadSafeQueue.h"
+#include "../utils/ArrayRef.h"
 
 
 class VideoReader;
@@ -20,8 +22,10 @@ class VideoReader;
 class SampleInfo : public ThreadSafeRefCounted
 {
 public:
-	SampleInfo() : frame_buffer(0), width(0), height(0), stride_B(0), top_down(true), buffer_len_B(0), is_audio(false) {}
+	SampleInfo() : is_EOS_marker(false), frame_buffer(0), width(0), height(0), stride_B(0), top_down(true), buffer_len_B(0), is_audio(false) {}
 	virtual ~SampleInfo() {}
+
+	bool is_EOS_marker;
 
 	double frame_time; // presentation time
 	double frame_duration;
@@ -35,7 +39,7 @@ public:
 	// Audio:
 	uint32 num_channels;
 	uint32 sample_rate_hz;
-	uint64 buffer_len_B;
+	uint64 buffer_len_B; // Size of frame_buffer, in bytes.
 	uint32 bits_per_sample;
 
 	Reference<glare::PoolAllocator> allocator;
@@ -62,14 +66,14 @@ inline void destroyAndFreeOb<SampleInfo>(SampleInfo* ob)
 }
 
 
-class VideoReaderCallback
-{
-public:
-	// NOTE: These methods may be called from another thread!
-	virtual void frameDecoded(VideoReader* vid_reader, const Reference<SampleInfo>& frameinfo) = 0;
-
-	virtual void endOfStream(VideoReader* /*vid_reader*/) {}
-};
+//class VideoReaderCallback
+//{
+//public:
+//	// NOTE: These methods may be called from another thread!
+//	virtual void frameDecoded(VideoReader* vid_reader, const Reference<SampleInfo>& frameinfo) = 0;
+//
+//	virtual void endOfStream(VideoReader* /*vid_reader*/) {}
+//};
 
 
 /*=====================================================================
@@ -77,7 +81,7 @@ VideoReader
 -----------
 
 =====================================================================*/
-class VideoReader : public RefCounted
+class VideoReader : public ThreadSafeRefCounted
 {
 public:
 	VideoReader();
@@ -85,7 +89,10 @@ public:
 
 	virtual void startReadingNextSample() = 0;
 
-	virtual Reference<SampleInfo> getAndLockNextSample(bool just_get_vid_sample) = 0; // SampleInfo.frame_buffer will be set to NULL if we have reached EOF.
+	virtual Reference<SampleInfo> getAndLockNextSample(bool just_get_vid_sample) = 0;
 
 	virtual void seek(double time) = 0;
+
+
+	ThreadSafeQueue<Reference<SampleInfo>> frame_queue; // Decoded frames, oldest at the front.
 };

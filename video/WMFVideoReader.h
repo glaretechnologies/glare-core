@@ -65,7 +65,7 @@ class TexturePool : public ThreadSafeRefCounted
 {
 public:
 	Mutex mutex;
-	// We'll just store raw pointers.  objects should be AddRef'd before breing added to the pool, and Released afterwards.
+	// We'll just store raw pointers.  objects should be AddRef'd before being added to the pool, and Released afterwards.
 	std::set<ID3D11Texture2D*> used_textures; // Textures currently used by a sample
 	std::vector<ID3D11Texture2D*> free_textures; // Textures that were used by a sample, but have been freed.
 };
@@ -121,13 +121,14 @@ public:
 	static void shutdownWMF();
 
 	// COM and WMF should be initialised before a WMFVideoReader is constructed.
-	WMFVideoReader(bool read_from_video_device, bool just_read_audio, const std::string& URL, VideoReaderCallback* reader_callback, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws Indigo::Exception
+	WMFVideoReader(bool read_from_video_device, bool just_read_audio, const std::string& URL, /*VideoReaderCallback* reader_callback, */IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws Indigo::Exception
 	~WMFVideoReader();
 
 	virtual void startReadingNextSample() override;
 
-	virtual Reference<SampleInfo> getAndLockNextSample(bool just_get_vid_sample) override; // FrameInfo.frame_buffer will be set to NULL if we have reached EOF
+	virtual Reference<SampleInfo> getAndLockNextSample(bool just_get_vid_sample) override;
 
+	virtual void seekToStart(); // Resets timer as well
 	virtual void seek(double time) override;
 
 	static void test();
@@ -139,7 +140,7 @@ public:
 
 	bool isReadingFromVidDevice() const { return read_from_video_device; }
 
-	// Called from WMFVideoReaderCallback
+	// Implementation: Called from WMFVideoReaderCallback
 	void OnReadSample(
 		HRESULT hrStatus,
 		DWORD dwStreamIndex,
@@ -161,7 +162,7 @@ private:
 
 	bool stream_is_video[10];
 
-	VideoReaderCallback* reader_callback;
+	//VideoReaderCallback* reader_callback;
 
 	WMFVideoReaderCallback* com_reader_callback;
 

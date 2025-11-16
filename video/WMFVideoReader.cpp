@@ -376,9 +376,9 @@ static bool isStreamVideo(ComObHandle<IMFSourceReader>& reader, DWORD stream_ind
 }
 
 
-WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audio, const std::string& URL, VideoReaderCallback* reader_callback_, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex_)
+WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audio, const std::string& URL, /*VideoReaderCallback* reader_callback_, */IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex_)
 :	read_from_video_device(read_from_video_device_),
-	reader_callback(reader_callback_),
+	//reader_callback(reader_callback_),
 	com_reader_callback(NULL),
 	decode_to_d3d_tex(decode_to_d3d_tex_),
 	frame_info_allocator(new glare::PoolAllocator(/*ob alloc size=*/sizeof(WMFSampleInfo), /*alignment=*/16, /*block capacity=*/16))
@@ -406,7 +406,7 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 		}
 	}
 
-	if(reader_callback != NULL)
+	//if(reader_callback != NULL)
 	{
 		this->com_reader_callback = new WMFVideoReaderCallback();
 		this->com_reader_callback->AddRef();
@@ -1023,10 +1023,11 @@ void WMFVideoReader::OnReadSample(
 					}
 				}
 
-				this->reader_callback->frameDecoded(this, frame_info);
+				//this->reader_callback->frameDecoded(this, frame_info);
+				this->frame_queue.enqueue(frame_info);
 			}
 		}
-		else //================================================================================
+		else // else if !vid:
 		{
 			//conPrint("got audio sample");
 		
@@ -1073,13 +1074,19 @@ void WMFVideoReader::OnReadSample(
 				frame_info->media_buffer_locked = true;
 				frame_info->media_buffer = media_buffer;
 
-				this->reader_callback->frameDecoded(this, frame_info);
+				//this->reader_callback->frameDecoded(this, frame_info);
+				this->frame_queue.enqueue(frame_info);
 			}
 		}
 
 		if(dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
 		{
-			this->reader_callback->endOfStream(this);
+			//this->reader_callback->endOfStream(this);
+			//this->frame_queue.enqueue(nullptr);
+
+			Reference<WMFSampleInfo> frame_info = allocWMFSampleInfo();
+			frame_info->is_EOS_marker = true;
+			this->frame_queue.enqueue(frame_info);
 		}
 	}
 	else
@@ -1087,6 +1094,13 @@ void WMFVideoReader::OnReadSample(
 		// There was an error while streaming.
 		conPrint("OnReadSample: Error while streaming: " + PlatformUtils::COMErrorString(hrStatus));
 	}
+}
+
+
+void WMFVideoReader::seekToStart()
+{
+	seek(0.0);
+	timer.reset();
 }
 
 
@@ -1104,8 +1118,6 @@ void WMFVideoReader::seek(double time)
 	HRESULT hr = this->reader->SetCurrentPosition(GUID_NULL, var);
 	if(FAILED(hr))
 		throw glare::Exception("SetCurrentPosition failed: " + PlatformUtils::COMErrorString(hr));
-
-	timer.reset();
 }
 
 
@@ -1132,21 +1144,21 @@ WMFSampleInfo* WMFVideoReader::allocWMFSampleInfo()
 #include "../utils/ThreadSafeQueue.h"
 
 
-class TestWMFVideoReaderCallback : public VideoReaderCallback
-{
-public:
-	virtual void frameDecoded(VideoReader* vid_reader, const Reference<SampleInfo>& frameinfo)
-	{
-		frame_queue->enqueue(frameinfo);
-	}
-
-	virtual void endOfStream(VideoReader* vid_reader)
-	{
-		frame_queue->enqueue(NULL);
-	}
-
-	ThreadSafeQueue<Reference<SampleInfo>>* frame_queue;
-};
+//class TestWMFVideoReaderCallback : public VideoReaderCallback
+//{
+//public:
+//	virtual void frameDecoded(VideoReader* vid_reader, const Reference<SampleInfo>& frameinfo)
+//	{
+//		frame_queue->enqueue(frameinfo);
+//	}
+//
+//	virtual void endOfStream(VideoReader* vid_reader)
+//	{
+//		frame_queue->enqueue(NULL);
+//	}
+//
+//	ThreadSafeQueue<Reference<SampleInfo>>* frame_queue;
+//};
 
 
 void WMFVideoReader::test()
@@ -1173,10 +1185,10 @@ void WMFVideoReader::test()
 		const std::string URL = "C:\\Users\\nick\\Videos\\2022-04-22 13-30-59.mp4";
 
 		ThreadSafeQueue<Reference<SampleInfo>> frame_queue;
-		TestWMFVideoReaderCallback callback;
+		//TestWMFVideoReaderCallback callback;
 
 		const bool TEST_ASYNC_CALLBACK = true;
-		callback.frame_queue = &frame_queue;
+		//callback.frame_queue = &frame_queue;
 
 		conPrint("Reading vid '" + URL + "'...");
 
@@ -1188,7 +1200,7 @@ void WMFVideoReader::test()
 		ComObHandle<IMFDXGIDeviceManager> device_manager;
 		Direct3DUtils::createGPUDeviceAndMFDeviceManager(d3d_device, device_manager);
 
-		WMFVideoReader reader(/*read_from_video_device*/false, /*just_read_audio=*/false, URL, TEST_ASYNC_CALLBACK ? &callback : NULL, device_manager.ptr, /*decode_to_d3d_tex=*/true);
+		WMFVideoReader reader(/*read_from_video_device*/false, /*just_read_audio=*/false, URL, /*TEST_ASYNC_CALLBACK ? &callback : NULL, */device_manager.ptr, /*decode_to_d3d_tex=*/true);
 
 		// Test interoperability with OpenGL
 		WGL wgl_funcs;

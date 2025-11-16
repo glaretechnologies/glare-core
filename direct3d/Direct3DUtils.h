@@ -16,7 +16,9 @@ struct IMFDXGIDeviceManager;
 /*=====================================================================
 Direct3DUtils
 -------------
-
+Requires linking with
+d3d11.lib
+DXGI.lib
 =====================================================================*/
 class Direct3DUtils
 {
