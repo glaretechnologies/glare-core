@@ -376,9 +376,10 @@ static bool isStreamVideo(ComObHandle<IMFSourceReader>& reader, DWORD stream_ind
 }
 
 
-WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audio, const std::string& URL, /*VideoReaderCallback* reader_callback_, */IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex_)
+WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audio_, const std::string& URL, /*VideoReaderCallback* reader_callback_, */IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex_)
 :	read_from_video_device(read_from_video_device_),
 	//reader_callback(reader_callback_),
+	just_read_audio(just_read_audio_),
 	com_reader_callback(NULL),
 	decode_to_d3d_tex(decode_to_d3d_tex_),
 	frame_info_allocator(new glare::PoolAllocator(/*ob alloc size=*/sizeof(WMFSampleInfo), /*alignment=*/16, /*block capacity=*/16))
@@ -1081,12 +1082,15 @@ void WMFVideoReader::OnReadSample(
 
 		if(dwStreamFlags & MF_SOURCE_READERF_ENDOFSTREAM)
 		{
-			//this->reader_callback->endOfStream(this);
-			//this->frame_queue.enqueue(nullptr);
+			// If we are just playing audio, or if we have reached the EOS on the video stream, insert a EOS sample into our output frame_queue.
+			if(just_read_audio || is_vid)
+			{
+				//this->reader_callback->endOfStream(this);
 
-			Reference<WMFSampleInfo> frame_info = allocWMFSampleInfo();
-			frame_info->is_EOS_marker = true;
-			this->frame_queue.enqueue(frame_info);
+				Reference<WMFSampleInfo> frame_info = allocWMFSampleInfo();
+				frame_info->is_EOS_marker = true;
+				this->frame_queue.enqueue(frame_info);
+			}
 		}
 	}
 	else

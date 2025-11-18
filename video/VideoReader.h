@@ -95,4 +95,7 @@ public:
 
 
 	ThreadSafeQueue<Reference<SampleInfo>> frame_queue; // Decoded frames, oldest at the front.
+
+	CircularBuffer<Reference<SampleInfo>> audio_frame_queue;
+	CircularBuffer<Reference<SampleInfo>> video_frame_queue;
 };

@@ -162,6 +162,7 @@ private:
 
 	bool stream_is_video[10];
 
+	bool just_read_audio;
 	//VideoReaderCallback* reader_callback;
 
 	WMFVideoReaderCallback* com_reader_callback;

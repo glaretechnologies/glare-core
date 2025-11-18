@@ -69,6 +69,8 @@ public:
 	// Undefined if empty.
 	inline void pop_front();
 
+	inline T popAndReturnFront();
+
 	inline T& front();
 
 	inline T& back();
@@ -90,6 +92,8 @@ public:
 	inline void popFrontNItems(size_t N); // N must be <= size()
 
 	inline void pushBackNItems(const T* src, size_t N);
+
+	inline void popBackNItems(size_t N); // N must be <= size()
 
 	inline size_t getFirstSegmentSize() const { return (begin <= end) ? (end - begin) : (data_size - begin); } // Number of items in segment from begin to either end or where it wraps (data_size).
 
@@ -316,6 +320,15 @@ void CircularBuffer<T>::pop_front()
 		begin++;
 
 	invariant();
+}
+
+
+template<class T>
+inline T CircularBuffer<T>::popAndReturnFront()
+{
+	T t = front();
+	pop_front();
+	return t;
 }
 
 
@@ -594,6 +607,17 @@ void CircularBuffer<T>::pushBackNItems(const T* src, size_t N)
 	end = new_end;
 	if(end == data_size)
 		end = 0; // Wrap end if needed.
+
+	invariant();
+}
+
+template<class T>
+inline void CircularBuffer<T>::popBackNItems(size_t N)
+{
+	assert(N <= size());
+
+	for(size_t i=0; i<N; ++i)
+		pop_back();
 
 	invariant();
 }
