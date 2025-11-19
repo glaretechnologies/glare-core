@@ -160,7 +160,7 @@ public:
 	bool imposter; // Use imposter shader?
 	bool imposterable; // Fade out with distance, for transition to imposter.
 	bool transparent; // Material is transparent (e.g. glass).  Should use transparent shader.
-	bool hologram; // E.g. just emission, no light scattering.
+	bool hologram; // E.g. just emission, no light scattering.  Affects handling in transparent_frag_shader.glsl.
 	bool gen_planar_uvs; // Generate planar UVs.  Useful for voxels.
 	bool draw_planar_uv_grid;
 	bool convert_albedo_from_srgb; // If true, diffuse colour (including texture colour) is treated as non-linear sRGB, and manually converted to linear sRGB in fragment shader.  Not needed when using a sRGB texture type.  
@@ -1214,8 +1214,8 @@ public:
 
 public:
 	static void getUniformLocations(Reference<OpenGLProgram>& prog);
-private:
 	static void setStandardTextureUnitUniformsForProgram(const OpenGLProgram& program);
+private:
 	static void doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLProgram& program);
 	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const;
 	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) const;

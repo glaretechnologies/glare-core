@@ -48,6 +48,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/ArrayRef.h"
 #include "../utils/TaskManager.h"
 #include "../utils/Sort.h"
+#include "../utils/ContainerUtils.h"
 #include "../utils/RuntimeCheck.h"
 #include "../utils/BestFitAllocator.h"
 #include "../utils/PlatformUtils.h"
@@ -2907,7 +2908,7 @@ void OpenGLEngine::finishBuildingProg(OpenGLProgram* prog)
 		doPostBuildForDepthDrawProgram(prog);
 	else
 	{
-		assert(0);
+		// User-defined custom program
 	}
 
 
@@ -3119,9 +3120,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 		progs[key] = phong_prog;
 
-		if(parallel_shader_compile_support)
-			building_progs.push_back(phong_prog.ptr());
-		else
+		if(!parallel_shader_compile_support)
 		{
 			phong_prog->forceFinishLinkAndDoPostLinkCode();
 			doPostBuildForPhongProgram(phong_prog);
@@ -3206,9 +3205,7 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 
 		progs[key] = prog;
 
-		if(parallel_shader_compile_support)
-			building_progs.push_back(prog.ptr());
-		else
+		if(!parallel_shader_compile_support)
 		{
 			prog->forceFinishLinkAndDoPostLinkCode();
 			doPostBuildForTransparentProgram(prog);
@@ -3265,6 +3262,12 @@ void OpenGLEngine::addProgram(OpenGLProgramRef prog)
 		prog_vector.resize(prog->program_index + 1);
 
 	prog_vector[prog->program_index] = prog;
+
+	if(!prog->built_successfully)
+	{
+		assert(!ContainerUtils::contains(building_progs, prog.ptr()));
+		building_progs.push_back(prog.ptr());
+	}
 }
 
 
@@ -3422,9 +3425,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 
 		progs[key] = prog;
 
-		if(parallel_shader_compile_support)
-			building_progs.push_back(prog.ptr());
-		else
+		if(!parallel_shader_compile_support)
 		{
 			prog->forceFinishLinkAndDoPostLinkCode();
 			doPostBuildForDepthDrawProgram(prog);
@@ -11359,7 +11360,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
 			if(this->cirrus_tex.nonNull())
 				assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
-	}
+		}
 
 		assert(getBoundTexture2D(BLUE_NOISE_TEXTURE_UNIT_INDEX) == blue_noise_tex->texture_handle);
 		assert(getBoundTexture2D(FBM_TEXTURE_UNIT_INDEX) == fbm_tex->texture_handle);
@@ -11691,8 +11692,10 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 					glUniform3fv(prog->colour_loc, 1, &opengl_mat.albedo_linear_rgb.r);
 				}
 
-				if(prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
+				if(prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture)
 					bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/prog->albedo_texture_loc);
+
+				assert(getBoundTexture2D(FBM_TEXTURE_UNIT_INDEX)        == fbm_tex->texture_handle);
 
 				// Set user uniforms
 				for(size_t i=0; i<prog->user_uniform_info.size(); ++i)
