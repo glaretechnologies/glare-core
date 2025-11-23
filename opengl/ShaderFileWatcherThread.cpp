@@ -16,8 +16,8 @@ Copyright Glare Technologies Limited 2023 -
 #include <utils/Lock.h>
 
 
-ShaderFileWatcherThread::ShaderFileWatcherThread(const std::string& watch_dir_, OpenGLEngine* gl_engine_)
-:	watch_dir(watch_dir_),
+ShaderFileWatcherThread::ShaderFileWatcherThread(const std::vector<std::string>& watch_dirs_, OpenGLEngine* gl_engine_)
+:	watch_dirs(watch_dirs_),
 	gl_engine(gl_engine_)
 #if defined(_WIN32)
 	, kill_event(NULL)
@@ -59,8 +59,6 @@ void ShaderFileWatcherThread::doRun()
 	try
 	{
 #if defined(_WIN32)
-		conPrint("ShaderFileWatcherThread: Watching for shader changes in '" + watch_dir + "'...");
-
 		kill_event = CreateEvent( 
 			NULL,   // lpEventAttributes: default security attributes
 			FALSE,  // bManualReset: auto-reset event object
@@ -71,7 +69,11 @@ void ShaderFileWatcherThread::doRun()
 			throw glare::Exception("CreateEvent failed: " + PlatformUtils::getLastErrorString());
 
 		std::vector<HANDLE> wait_handles;
-		wait_handles.push_back(makeWaitHandleForDir(watch_dir, /*watch subtree=*/true));
+		for(size_t i=0; i<watch_dirs.size(); ++i)
+		{
+			// conPrint("ShaderFileWatcherThread: Watching for shader changes in '" + watch_dirs[i] + "'...");
+			wait_handles.push_back(makeWaitHandleForDir(watch_dirs[i], /*watch subtree=*/true));
+		}
 		wait_handles.push_back(kill_event);
 		
 		while(1)

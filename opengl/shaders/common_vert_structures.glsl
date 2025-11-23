@@ -4,7 +4,7 @@
 layout (std140) uniform SharedVertUniforms
 {
 	mat4 proj_matrix; // same for all objects
-	mat4 view_matrix; // same for all objects
+	mat4 view_matrix; // World space to camera space matrix.  Same for all objects.
 
 	//#if NUM_DEPTH_TEXTURES > 0
 	mat4 shadow_texture_matrix[5]; // same for all objects
@@ -27,7 +27,7 @@ layout (std140) uniform SharedVertUniforms
 struct PerObjectVertUniformsStruct
 {
 	mat4 model_matrix; // ob_to_world_matrix
-	mat4 normal_matrix; // ob_to_world_inv_transpose_matrix
+	mat4 normal_matrix; // sign(det(M)) adj(M)^T      where M = upper-left 3x3 submatrix of ob_to_world_matrix
 
 	vec4 dequantise_scale;
 	vec4 dequantise_translation;

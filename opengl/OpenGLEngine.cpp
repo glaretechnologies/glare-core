@@ -487,7 +487,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	async_texture_loader(NULL),
 	current_bound_phong_uniform_buf_ob_index(0),
 	show_ssao(true),
-	num_draw_commands(0)
+	num_draw_commands(0),
+	reload_shaders_callback(nullptr)
 {
 	OpenGLExtensions::init();
 
@@ -2457,7 +2458,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 #endif
 
 #if BUILD_TESTS && !defined(EMSCRIPTEN)
-		thread_manager.addThread(new ShaderFileWatcherThread(data_dir, this));
+		{
+			std::vector<std::string> watch_dirs(1, data_dir);
+			ContainerUtils::append(watch_dirs, this->additional_shader_dirs);
+			thread_manager.addThread(new ShaderFileWatcherThread(watch_dirs, this));
+		}
 #endif
 
 		init_succeeded = true;
@@ -4128,6 +4133,13 @@ void OpenGLEngine::waitForAllBuildingProgramsToBuild()
 		if(!building_progs.empty())
 			PlatformUtils::Sleep(1);
 	}
+}
+
+
+void OpenGLEngine::bindCommonVertUniformBlocksToProgram(const Reference<OpenGLProgram>& prog)
+{
+	bindUniformBlockToProgram(prog, "SharedVertUniforms",		SHARED_VERT_UBO_BINDING_POINT_INDEX);
+	bindUniformBlockToProgram(prog, "PerObjectVertUniforms",	PER_OBJECT_VERT_UBO_BINDING_POINT_INDEX);
 }
 
 
@@ -6782,6 +6794,9 @@ void OpenGLEngine::draw()
 
 		progs.clear(); // Clear built-program cache
 		building_progs.clear();
+
+		if(reload_shaders_callback)
+			reload_shaders_callback->reloadShaders();
 
 		const std::string use_shader_dir = data_dir + "/shaders";
 
@@ -11267,7 +11282,7 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			else
 			{
 				glUniformMatrix4fv(shader_prog->model_matrix_loc, 1, false, ob.ob_to_world_matrix.e);
-				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_normal_matrix.e); // inverse transpose model matrix
+				glUniformMatrix4fv(shader_prog->normal_matrix_loc, 1, false, ob.ob_to_world_normal_matrix.e);
 			}
 
 			if(shader_prog->uses_skinning)
@@ -11383,10 +11398,15 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		if(shader_prog->time_loc >= 0)
 			glUniform1f(shader_prog->time_loc, this->current_time);
 		if(shader_prog->colour_loc >= 0)
-		{
 			glUniform3fv(shader_prog->colour_loc, 1, &opengl_mat.albedo_linear_rgb.r);
+		if(shader_prog->campos_os_loc >= 0)
+		{
+			Matrix4f world_to_ob;
+			ob.ob_to_world_matrix.getInverseForAffine3Matrix(world_to_ob);
+			const Vec4f campos_ws = this->current_scene->cam_to_world.getColumn(3);
+			const Vec4f campos_os = world_to_ob * campos_ws;
+			glUniform3fv(shader_prog->campos_os_loc, 1, campos_os.x);
 		}
-
 		if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
 			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/shader_prog->albedo_texture_loc);
 
@@ -11688,8 +11708,14 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 				if(prog->time_loc >= 0)
 					glUniform1f(prog->time_loc, this->current_time);
 				if(prog->colour_loc >= 0)
-				{
 					glUniform3fv(prog->colour_loc, 1, &opengl_mat.albedo_linear_rgb.r);
+				if(prog->campos_os_loc >= 0)
+				{
+					Matrix4f world_to_ob;
+					ob.ob_to_world_matrix.getInverseForAffine3Matrix(world_to_ob);
+					const Vec4f campos_ws = this->current_scene->cam_to_world.getColumn(3);
+					const Vec4f campos_os = world_to_ob * campos_ws;
+					glUniform3fv(prog->campos_os_loc, 1, campos_os.x);
 				}
 
 				if(prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture)

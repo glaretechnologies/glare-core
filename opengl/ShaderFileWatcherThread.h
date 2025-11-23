@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2023 -
 #include <utils/MessageableThread.h>
 #include <utils/Reference.h>
 #include <string>
+#include <vector>
 
 
 class OpenGLEngine;
@@ -23,7 +24,7 @@ calls gl_engine->shaderFileChanged() when a file changes.
 class ShaderFileWatcherThread : public MessageableThread
 {
 public:
-	ShaderFileWatcherThread(const std::string& watch_dir, OpenGLEngine* gl_engine);
+	ShaderFileWatcherThread(const std::vector<std::string>& watch_dirs, OpenGLEngine* gl_engine);
 	virtual ~ShaderFileWatcherThread();
 
 	virtual void doRun();
@@ -31,7 +32,7 @@ public:
 	virtual void kill();
 
 private:
-	std::string watch_dir;
+	std::vector<std::string> watch_dirs;
 	OpenGLEngine* gl_engine;
 
 #if defined(_WIN32)

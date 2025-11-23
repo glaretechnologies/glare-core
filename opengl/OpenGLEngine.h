@@ -903,6 +903,13 @@ struct MeshDataLoadingProgress
 	size_t index_next_i;
 };
 
+
+struct ReloadShadersCallback
+{
+	virtual void reloadShaders() = 0;
+};
+
+
 class OpenGLEngine final : public ThreadSafeRefCounted, public AsyncTextureLoadedHandler
 {
 public:
@@ -934,6 +941,10 @@ public:
 	const std::string& getDataDir() const { return data_dir; }
 
 	void waitForAllBuildingProgramsToBuild();
+
+	void setReloadShadersCallback(ReloadShadersCallback* new_callback) { reload_shaders_callback = new_callback; }
+
+	void bindCommonVertUniformBlocksToProgram(const Reference<OpenGLProgram>& prog);
 	//----------------------------------------------------------------------------------------
 
 
@@ -1407,6 +1418,10 @@ private:
 	//size_t index_mem_used; // B
 
 	std::string data_dir;
+public:
+	std::vector<std::string> additional_shader_dirs; // For ShaderFileWatcherThread
+private:
+	ReloadShadersCallback* reload_shaders_callback;
 
 	Reference<ShadowMapping> shadow_mapping;
 public:

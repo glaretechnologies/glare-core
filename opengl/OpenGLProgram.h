@@ -215,6 +215,7 @@ public:
 	int time_loc;
 	int colour_loc;
 	int albedo_texture_loc;
+	int campos_os_loc;
 
 	Reference<OpenGLShader> vert_shader;
 	Reference<OpenGLShader> frag_shader;
