@@ -376,10 +376,10 @@ static bool isStreamVideo(ComObHandle<IMFSourceReader>& reader, DWORD stream_ind
 }
 
 
-WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audio_, const std::string& URL, /*VideoReaderCallback* reader_callback_, */IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex_)
+WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audio_, const std::string& URL, bool async_mode_, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex_)
 :	read_from_video_device(read_from_video_device_),
-	//reader_callback(reader_callback_),
 	just_read_audio(just_read_audio_),
+	async_mode(async_mode_),
 	com_reader_callback(NULL),
 	decode_to_d3d_tex(decode_to_d3d_tex_),
 	frame_info_allocator(new glare::PoolAllocator(/*ob alloc size=*/sizeof(WMFSampleInfo), /*alignment=*/16, /*block capacity=*/16))
@@ -407,7 +407,7 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 		}
 	}
 
-	//if(reader_callback != NULL)
+	if(async_mode)
 	{
 		this->com_reader_callback = new WMFVideoReaderCallback();
 		this->com_reader_callback->AddRef();
@@ -595,6 +595,8 @@ double WMFVideoReader::getSourceDuration() const
 
 void WMFVideoReader::startReadingNextSample()
 {
+	assert(async_mode);
+
 	if(reader.ptr)
 	{
 		num_pending_reads++;
@@ -616,6 +618,8 @@ void WMFVideoReader::startReadingNextSample()
 
 Reference<SampleInfo> WMFVideoReader::getAndLockNextSample(bool just_get_vid_sample)
 {
+	assert(!async_mode);
+
 	ComObHandle<IMFSample> cur_sample;
 
 	DWORD streamIndex, flags;
@@ -1204,7 +1208,7 @@ void WMFVideoReader::test()
 		ComObHandle<IMFDXGIDeviceManager> device_manager;
 		Direct3DUtils::createGPUDeviceAndMFDeviceManager(d3d_device, device_manager);
 
-		WMFVideoReader reader(/*read_from_video_device*/false, /*just_read_audio=*/false, URL, /*TEST_ASYNC_CALLBACK ? &callback : NULL, */device_manager.ptr, /*decode_to_d3d_tex=*/true);
+		WMFVideoReader reader(/*read_from_video_device*/false, /*just_read_audio=*/false, URL, /*async_mode=*/TEST_ASYNC_CALLBACK, device_manager.ptr, /*decode_to_d3d_tex=*/true);
 
 		// Test interoperability with OpenGL
 		WGL wgl_funcs;

@@ -121,11 +121,13 @@ public:
 	static void shutdownWMF();
 
 	// COM and WMF should be initialised before a WMFVideoReader is constructed.
-	WMFVideoReader(bool read_from_video_device, bool just_read_audio, const std::string& URL, /*VideoReaderCallback* reader_callback, */IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws Indigo::Exception
+	WMFVideoReader(bool read_from_video_device, bool just_read_audio, const std::string& URL, bool async_mode, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws Indigo::Exception
 	~WMFVideoReader();
 
+	// Must be in async mode to call this.
 	virtual void startReadingNextSample() override;
 
+	// Must not be in async mode to call this.
 	virtual Reference<SampleInfo> getAndLockNextSample(bool just_get_vid_sample) override;
 
 	virtual void seekToStart(); // Resets timer as well
@@ -159,6 +161,7 @@ private:
 	FormatInfo current_format;
 	bool read_from_video_device;
 	bool decode_to_d3d_tex;
+	bool async_mode;
 
 	bool stream_is_video[10];
 
