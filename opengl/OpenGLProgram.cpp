@@ -52,6 +52,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	colour_loc(-1),
 	albedo_texture_loc(-1),
 	campos_os_loc(-1),
+	ob_random_num_loc(-1),
 	uses_phong_uniforms(false),
 	is_depth_draw(false),
 	is_depth_draw_with_alpha_test(false),
@@ -165,6 +166,7 @@ void OpenGLProgram::forceFinishLinkAndDoPostLinkCode()
 	colour_loc         = glGetUniformLocation(program, "colour");
 	albedo_texture_loc = glGetUniformLocation(program, "albedo_texture");
 	campos_os_loc      = glGetUniformLocation(program, "campos_os");
+	ob_random_num_loc  = glGetUniformLocation(program, "ob_random_num");
 
 	built_successfully = true;
 }

@@ -11407,6 +11407,9 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 			const Vec4f campos_os = world_to_ob * campos_ws;
 			glUniform3fv(shader_prog->campos_os_loc, 1, campos_os.x);
 		}
+		if(shader_prog->ob_random_num_loc >= 0)
+			glUniform1i(shader_prog->ob_random_num_loc, ob.random_num);
+
 		if(shader_prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture.nonNull())
 			bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/shader_prog->albedo_texture_loc);
 
@@ -11717,6 +11720,8 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 					const Vec4f campos_os = world_to_ob * campos_ws;
 					glUniform3fv(prog->campos_os_loc, 1, campos_os.x);
 				}
+				if(prog->ob_random_num_loc >= 0)
+					glUniform1ui(prog->ob_random_num_loc, ob.random_num);
 
 				if(prog->albedo_texture_loc >= 0 && opengl_mat.albedo_texture)
 					bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/DIFFUSE_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/prog->albedo_texture_loc);
