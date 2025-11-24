@@ -342,12 +342,12 @@ static void configureAudioStream(IMFSourceReader *pReader, DWORD dwStreamIndex, 
 }
 
 
-//static bool isStreamValid(ComObHandle<IMFSourceReader>& reader, DWORD stream_index)
-//{
-//	ComObHandle<IMFMediaType> media_type;
-//	HRESULT hr = reader->GetCurrentMediaType(/*stream index=*/stream_index, &media_type.ptr);
-//	return !FAILED(hr);
-//}
+static bool isStreamValid(ComObHandle<IMFSourceReader>& reader, DWORD stream_index)
+{
+	ComObHandle<IMFMediaType> media_type;
+	HRESULT hr = reader->GetCurrentMediaType(/*stream index=*/stream_index, &media_type.ptr);
+	return !FAILED(hr);
+}
 
 
 static bool isStreamVideo(ComObHandle<IMFSourceReader>& reader, DWORD stream_index)
@@ -479,15 +479,17 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 		throw glare::Exception("Error while configuring video stream: " + e.what());
 	}
 
-	//const bool have_audio_stream = isStreamValid(this->reader, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM);
-
-	try
+	const bool have_audio_stream = isStreamValid(this->reader, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM);
+	if(have_audio_stream)
 	{
-		configureAudioStream(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, this->current_format);
-	}
-	catch(glare::Exception& e)
-	{
-		throw glare::Exception("Error while configuring audio stream: " + e.what());
+		try
+		{
+			configureAudioStream(this->reader.ptr, (DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, this->current_format);
+		}
+		catch(glare::Exception& e)
+		{
+			throw glare::Exception("Error while configuring audio stream: " + e.what());
+		}
 	}
 
 	// Work out what streams we have on various indices
@@ -1190,7 +1192,8 @@ void WMFVideoReader::test()
 		//const std::string URL = "D:\\audio\\signer - Isolated Dreams EP10\\signer - Isolated Dreams EP10 - 01 271 Redux- No sales pitch.mp3";
 		//const std::string URL = "C:\\Users\\nick\\Downloads\\take2.mp4";
 		//const std::string URL = "D:\\video\\gannet.MP4";
-		const std::string URL = "C:\\Users\\nick\\Videos\\2022-04-22 13-30-59.mp4";
+		//const std::string URL = "C:\\Users\\nick\\Videos\\2022-04-22 13-30-59.mp4";
+		const std::string URL = "D:\\video\\Tideflood_1_mp4_16370957426315837076.mp4"; // video with no audio stream
 
 		ThreadSafeQueue<Reference<SampleInfo>> frame_queue;
 		//TestWMFVideoReaderCallback callback;

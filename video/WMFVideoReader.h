@@ -133,8 +133,6 @@ public:
 	virtual void seekToStart(); // Resets timer as well
 	virtual void seek(double time) override;
 
-	static void test();
-
 	double getSourceDuration() const;
 
 	// NOTE: be careful using this with async callbacks, may not match current frame.  Better to use the values in FrameInfo instead.
@@ -150,6 +148,9 @@ public:
 		LONGLONG llTimestamp,
 		IMFSample* pSample
 	);
+
+
+	static void test();
 
 	Timer timer;
 
