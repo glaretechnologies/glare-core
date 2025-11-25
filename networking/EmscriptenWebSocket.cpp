@@ -65,6 +65,9 @@ static EM_BOOL onMessageCallback(int event_type, const EmscriptenWebSocketMessag
 
 void EmscriptenWebSocket::connect(const std::string& protocol, const std::string& hostname, int port)
 {
+	if(closing)
+		throw MySocketExcep("Socket is closing", MySocketExcep::ExcepType_ConnectionClosedGracefully);
+
 	const std::string URL = protocol + "://" + hostname + ":" + toString(port);
 
 	conPrint("EmscriptenWebSocket::connect(), URL: " + URL);
@@ -91,6 +94,9 @@ void EmscriptenWebSocket::connect(const std::string& protocol, const std::string
 	// Block until we are in connected state
 	while(1)
 	{
+		if(closing)
+			throw MySocketExcep("Socket is closing", MySocketExcep::ExcepType_ConnectionClosedGracefully);
+
 		// Get state
 		unsigned short ready_state = 0;
 		emscripten_websocket_get_ready_state(socket, &ready_state);
@@ -105,9 +111,9 @@ void EmscriptenWebSocket::connect(const std::string& protocol, const std::string
 			break;
 		}
 		else if(ready_state == 2) // closing state
-			throw glare::Exception("Socket closing while connecting");
+			throw MySocketExcep("Socket closing while connecting", MySocketExcep::ExcepType_ConnectionClosedGracefully);
 		else if(ready_state == 3) // closed state
-			throw glare::Exception("Socket closed while connecting");
+			throw MySocketExcep("Socket closed while connecting", MySocketExcep::ExcepType_ConnectionClosedGracefully);
 		else
 			throw glare::Exception("Socket has invalid ready state while connecting");
 	}
@@ -141,13 +147,16 @@ void EmscriptenWebSocket::waitForGracefulDisconnect()
 
 void EmscriptenWebSocket::startGracefulShutdown()
 {
-	closing = 1;
+	if(closing == 0)
+	{
+		closing = 1;
 
-	emscripten_websocket_close(socket,
-		1000, // close code: 1001 = "endpoint going away", such as "browser having navigated away from a page". (https://datatracker.ietf.org/doc/html/rfc6455#section-7.4)
-		// However get an error using code 1001 so just use code 1000.
-		"" // close reason
-	);
+		emscripten_websocket_close(socket,
+			1000, // close code: 1001 = "endpoint going away", such as "browser having navigated away from a page". (https://datatracker.ietf.org/doc/html/rfc6455#section-7.4)
+			// However get an error using code 1001 so just use code 1000.
+			"" // close reason
+		);
+	}
 
 	new_data_condition.notify(); // Wake up any threads suspended in readTo()
 }
@@ -162,7 +171,7 @@ void EmscriptenWebSocket::readTo(void* buffer, size_t readlen)
 		new_data_condition.wait(mutex); 
 
 	if(closing)
-		throw glare::Exception("Socket is closing");
+		throw MySocketExcep("Socket is closing", MySocketExcep::ExcepType_ConnectionClosedGracefully);
 
 	read_buffer.popFrontNItems(/*dest=*/(uint8*)buffer, readlen);
 }
@@ -170,12 +179,18 @@ void EmscriptenWebSocket::readTo(void* buffer, size_t readlen)
 
 void EmscriptenWebSocket::writeInt32(int32 x)
 {
+	if(closing)
+		throw MySocketExcep("Socket is closing", MySocketExcep::ExcepType_ConnectionClosedGracefully);
+
 	emscripten_websocket_send_binary(socket, &x, sizeof(int32));
 }
 
 
 void EmscriptenWebSocket::writeUInt32(uint32 x)
 {
+	if(closing)
+		throw MySocketExcep("Socket is closing", MySocketExcep::ExcepType_ConnectionClosedGracefully);
+
 	emscripten_websocket_send_binary(socket, &x, sizeof(uint32));
 }
 
@@ -210,6 +225,9 @@ bool EmscriptenWebSocket::endOfStream()
 
 void EmscriptenWebSocket::writeData(const void* data, size_t num_bytes)
 {
+	if(closing)
+		throw MySocketExcep("Socket is closing", MySocketExcep::ExcepType_ConnectionClosedGracefully);
+
 	emscripten_websocket_send_binary(socket, (void*)data, num_bytes);
 }
 
