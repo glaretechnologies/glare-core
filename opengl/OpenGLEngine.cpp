@@ -8054,11 +8054,12 @@ void OpenGLEngine::doFinalImaging(OpenGLTexture* colour_tex_input)
 void OpenGLEngine::renderToShadowMapDepthBuffer()
 {
 	assertCurrentProgramIsZero();
-	DebugGroup debug_group("renderToShadowMapDepthBuffer()");
-	TracyGpuZone("renderToShadowMapDepthBuffer");
 
 	if(shadow_mapping.nonNull())
 	{
+		DebugGroup debug_group("renderToShadowMapDepthBuffer()");
+		TracyGpuZone("renderToShadowMapDepthBuffer");
+
 		ZoneScopedN("Shadow depth draw"); // Tracy profiler
 
 		if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && dynamic_depth_draw_gpu_timer->isIdle())
