@@ -1754,3 +1754,15 @@ void doCheckForOpenGLErrorsAtLocation(long line, const char* file);
 void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size);
 void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index);
 
+
+
+// Removes a GLObject from the OpenGLEngine if the object reference is non-null.
+// Sets object reference to null also.
+inline void checkRemoveObAndSetRefToNull(const Reference<OpenGLEngine>& engine, Reference<GLObject>& gl_ob)
+{
+	if(gl_ob)
+	{
+		engine->removeObject(gl_ob);
+		gl_ob = nullptr;
+	}
+}
