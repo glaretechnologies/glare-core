@@ -1766,3 +1766,13 @@ inline void checkRemoveObAndSetRefToNull(const Reference<OpenGLEngine>& engine, 
 		gl_ob = nullptr;
 	}
 }
+
+
+inline void checkRemoveObAndSetRefToNull(OpenGLEngine& engine, Reference<GLObject>& gl_ob)
+{
+	if(gl_ob)
+	{
+		engine.removeObject(gl_ob);
+		gl_ob = nullptr;
+	}
+}
