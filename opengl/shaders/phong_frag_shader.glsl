@@ -566,7 +566,7 @@ void main()
 
 	//float rock_heightmap_val = texture(detail_heightmap_0, detail_map_0_uvs).x;
 
-	float non_beach_factor = smoothstep(water_level_z + 2.0, water_level_z + 3.0, pos_ws.z);
+	float non_beach_factor = smoothstep(water_level_z + 0.0, water_level_z + 2.0, pos_ws.z);
 	float beach_factor = 1.0 - non_beach_factor;
 
 	float rock_weight = 0.0; // Disable any rock for now.

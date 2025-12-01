@@ -27,7 +27,7 @@ struct VertexStruct
 };
 
 
-// Needs to match ShaderChunkInfo in TerrainSystem.cpp
+// Needs to match ShaderChunkInfo in TerrainScattering.cpp
 struct ChunkInfo
 {
 	int chunk_x_index;
@@ -38,6 +38,7 @@ struct ChunkInfo
 	float base_scale;
 	float imposter_width_over_height;
 	float terrain_scale_factor;
+	float water_level_z;
 	uint vert_data_offset_B;
 };
 
@@ -273,7 +274,8 @@ void main()
 	vec2 main_tex_coords = vec2(pos_x * chunk_info.terrain_scale_factor, pos_y * chunk_info.terrain_scale_factor);
 
 	vec2 detail_map_2_uvs = main_tex_coords * (8.0 * 1024 / 4.0);
-	float beach_factor = 0;
+	float non_beach_factor = smoothstep(chunk_info.water_level_z + 0.0, chunk_info.water_level_z + 2.0, heightmap_terrain_z);
+	float beach_factor = 1.0 - non_beach_factor;
 	float veg_frac = ((mask_val.z > fbmMix(detail_map_2_uvs * 0.2).x * 0.3 + 0.5 + beach_factor) ? 1.0 : 0.0);
 
 	veg_frac = max(veg_frac, texture(detail_mask_tex, vec2(pos_x / DETAIL_MASK_MAP_WIDTH_M, pos_y / DETAIL_MASK_MAP_WIDTH_M)).x); // Apply detail mask texture
