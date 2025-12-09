@@ -93,6 +93,17 @@ layout(location = 1) out vec3 normal_out;
 #endif
 
 
+// https://www.shadertoy.com/view/MdcfDj
+#define M1 1597334677U     //1719413*929
+#define M2 3812015801U     //140473*2467*11
+float hash( uvec2 q )
+{
+	q *= uvec2(M1, M2); 
+
+	uint n = (q.x ^ q.y) * M1;
+
+	return float(n) * (1.0/float(0xffffffffU));
+}
 
 // 'A Survey of Efficient Representations for Independent Unit Vectors', listing 1+2.
 // Returns +- 1
@@ -231,14 +242,50 @@ void main()
 	vec3 unit_normal_ws = normalize(normal_ws);
 
 	float deriv = length(dFdx(pos_ws));
-	float sin_window = 1.0 - smoothstep(0.0, 0.01, deriv);
+	float sin_window = 1.0 - smoothstep(0.0, 0.04, deriv);
 
 	float fbm_window = 1.0 - smoothstep(0.0, 0.2, deriv);
+
+	float k_len = 0.2;
+	//for(int i=0; i<1000; ++i)
+	for(int i=0; i<200; ++i)
+	{
+		// f(x) = a sin(k.(x,y) - omega*t)
+		// f(x) = a sin(k_x*x + k_y*y)
+		// df/dx = a k_x cos(k_x*x + k_y*y)
+		// df/dy = a k_y cos(k_x*x + k_y*y)
+
+		//float a = 0.05 * exp(-0.5 * float(i + 1.0));//0.05 / k_len; //(float(i + 1.0));
+		float a = 0.02  * pow(max(1.0, k_len), -1.5);
+		if(k_len > 50.0)
+			a *= 0.2;
+		if(k_len > 1000.0)
+			break;
+
+		//float omega = float(i) + 1.0;
+		vec2 k = vec2(
+			-0.5 + hash(uvec2(uint(i), 0)), 
+			-0.5 + hash(uvec2(uint(i), 1))
+		) * k_len;
+
+		float omega = sqrt(9.8 * length(k)); // Deep water dispersion relation. // 2.0 - float(i) * 0.01;
+		vec2 df_dxy = a * k * cos(dot(k, pos_ws.xy) - omega * time);
+
+		//df_dxy *= sin_window;
+		//float omega = float(i) + 1.0;
+		//unit_normal_ws.x += a * omega * cos(pos_ws.x * omega);
+		unit_normal_ws.x -= df_dxy.x;
+		unit_normal_ws.y -= df_dxy.y;
+
+		//k_len *= 2.0;
+		k_len += 0.3;
+	}
+
 	
-	unit_normal_ws.y += (fbmMix(pos_ws.xy * 0.1 + vec2(0, -time * 0.1), fbm_tex) * 0.04 + sin(dot(pos_ws.xy, vec2(0.6, 0.3)) * 10.0 + time * 2.0) * 0.003 + sin(pos_ws.y * 20.0 + -time * 2.0) * 0.04) * sin_window;
+	//unit_normal_ws.y += (fbmMix(pos_ws.xy * 0.1 + vec2(0, -time * 0.1), fbm_tex) * 0.04 + sin(dot(pos_ws.xy, vec2(0.6, 0.3)) * 10.0 + time * 2.0) * 0.003 + sin(pos_ws.y * 20.0 + -time * 2.0) * 0.04) * sin_window;
 	//unit_normal_ws.x += sin(dot(pos_ws.xy, vec2(0.2, 0.3)) * 10.0 + time * 2.0) * 0.003 + sin(pos_ws.y * 10.0 + -time * 2.0) * 0.002;
 
-	unit_normal_ws.x += (fbmMix(pos_ws.xy * 0.1, fbm_tex) * 0.01 + fbmMix(pos_ws.xy * 0.01, fbm_tex) * 0.01) * fbm_window;
+	//unit_normal_ws.x += (fbmMix(pos_ws.xy * 0.1, fbm_tex) * 0.01 + fbmMix(pos_ws.xy * 0.01, fbm_tex) * 0.01) * fbm_window;
 
 //	unit_normal_ws = normalize(unit_normal_ws);
 	
@@ -377,6 +424,9 @@ void main()
 		// Reflect cam-to-fragment vector in ws normal
 		float unit_cam_to_pos_ws_dot_normal_ws = dot(unit_normal_ws, unit_cam_to_pos_ws);
 		vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * unit_cam_to_pos_ws_dot_normal_ws);
+
+		if(reflected_dir_ws.z < 0.0)
+			reflected_dir_ws.z = 0.05;
 
 
 		vec3 refracted_dir_ws = refract(unit_cam_to_pos_ws, unit_normal_ws, 1.0 / 1.33);
