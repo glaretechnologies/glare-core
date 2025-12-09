@@ -189,7 +189,7 @@ public:
 	bool draw_into_depth_buffer; // Internal
 
 	Reference<OpenGLTexture> albedo_texture;
-	Reference<OpenGLTexture> metallic_roughness_texture;
+	Reference<OpenGLTexture> metallic_roughness_texture; // The metallic value is read from the blue channel, the roughness value is read from the green channel.
 	Reference<OpenGLTexture> lightmap_texture;
 	Reference<OpenGLTexture> backface_albedo_texture;
 	Reference<OpenGLTexture> transmission_texture;
