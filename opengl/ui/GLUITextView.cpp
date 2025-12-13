@@ -139,6 +139,7 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 			text_create_args.alpha = args.text_alpha;
 			text_create_args.z = args.z;
 			GLUITextRef glui_text = new GLUIText(glui_, opengl_engine, toString(line_string), botleft, text_create_args);
+			glui_text->setVisible(visible);
 
 			// Compute position of current text line
 			Vec2f textpos = botleft - Vec2f(0, cur_line_y_offset);
