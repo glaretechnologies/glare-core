@@ -6122,31 +6122,6 @@ public:
 
 			const AnimationData& anim_data = ob->mesh_data->animation_data;
 
-			if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
-			{
-				//TEMP create debug visualisation of the joints
-				//if(false)
-				//	if(debug_joint_obs.empty())
-				//	{
-				//		debug_joint_obs.resize(256);//anim_data.sorted_nodes.size());
-				//		for(size_t i=0; i<debug_joint_obs.size(); ++i)
-				//		{
-				//			debug_joint_obs[i] = new GLObject();
-				//			debug_joint_obs[i]->mesh_data = MeshPrimitiveBuilding::make3DBasisArrowMesh(*vert_buf_allocator); // Base will be at origin, tip will lie at (1, 0, 0)
-				//			debug_joint_obs[i]->materials.resize(3);
-				//			debug_joint_obs[i]->materials[0].albedo_linear_rgb = Colour3f(0.9f, 0.5f, 0.3f);
-				//			debug_joint_obs[i]->materials[1].albedo_linear_rgb = Colour3f(0.5f, 0.9f, 0.5f);
-				//			debug_joint_obs[i]->materials[2].albedo_linear_rgb = Colour3f(0.3f, 0.5f, 0.9f);
-				//			//debug_joint_obs[i]->materials[0].shader_prog = getProgramWithFallbackOnError(ProgramKey("phong", /*alpha_test=*/false, /*vert_colours=*/false, /*instance_matrices=*/false, /*lightmapping=*/false,
-				//			//	/*gen_planar_uvs=*/false, /*draw_planar_uv_grid=*/false, /*convert_albedo_from_srgb=*/false, false));
-				//			debug_joint_obs[i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
-				//
-				//			addObject(debug_joint_obs[i]);
-				//		}
-				//	}
-			}
-
-
 			if(!anim_data.animations.empty())
 			{
 				ob->anim_node_data.resize(anim_data.nodes.size());
@@ -6481,8 +6456,11 @@ public:
 						}
 					}
 
+					GLObjectAnimNodeData& ob_anim_node_data_i = ob->anim_node_data[node_i];
+
 					const Vec4f trans = Maths::lerp(trans_a, trans_b, transition_frac);
-					const Quatf rot   = Quatf::nlerp(rot_a, rot_b, transition_frac);
+					const Quatf anim_rot = Quatf::nlerp(rot_a, rot_b, transition_frac);
+					const Quatf rot = select(ob_anim_node_data_i.procedural_rot, anim_rot, bitcastToVec4f(Vec4i(ob_anim_node_data_i.procedural_rot_mask)));
 					const Vec4f scale = Maths::lerp(scale_a, scale_b, transition_frac);
 
 					const Matrix4f rot_mat = rot.toMatrix();
@@ -6498,22 +6476,9 @@ public:
 
 					node_matrices[node_i] = node_transform;
 
-					ob->anim_node_data[node_i].last_pre_proc_to_object = last_pre_proc_to_object;
-					ob->anim_node_data[node_i].last_rot = rot;
-					ob->anim_node_data[node_i].node_hierarchical_to_object = node_transform;
-
-					// Set location of debug joint visualisation objects
-					// const Matrix4f to_z_up(Vec4f(1,0,0,0), Vec4f(0, 0, 1, 0), Vec4f(0, -1, 0, 0), Vec4f(0,0,0,1));
-					//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
-					//if(false)
-					//	if(!debug_joint_obs.empty())
-					//	{
-					//		if(node_i == 4)
-					//			debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.6f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
-					//		else
-					//			debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
-					//		updateObjectTransformData(*debug_joint_obs[node_i]);
-					//	}
+					ob_anim_node_data_i.last_pre_proc_to_object = last_pre_proc_to_object;
+					ob_anim_node_data_i.last_rot = rot;
+					ob_anim_node_data_i.node_hierarchical_to_object = node_transform;
 				}
 			}
 			else // else if anim_data.animations.empty():
@@ -6545,19 +6510,6 @@ public:
 						node_matrices[node_i] = node_transform;
 
 						ob->anim_node_data[node_i].node_hierarchical_to_object = node_transform;
-
-
-						// Set location of debug joint visualisation objects
-						//debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
-						//if(false)
-						//	if(!debug_joint_obs.empty())
-						//	{
-						//		if(node_i == 27 || node_i == 28)
-						//			debug_joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * node_transform * Matrix4f::uniformScaleMatrix(0.2f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
-						//		else
-						//			debug_joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
-						//		updateObjectTransformData(*debug_joint_obs[node_i]);
-						//	}
 					}
 				}
 			}
@@ -7021,6 +6973,48 @@ void OpenGLEngine::draw()
 			}
 
 			high_priority_task_manager->runTaskGroup(animated_objects_task_group);
+		}
+
+
+		// Create/update debug visualisation of the joints
+		if(false)
+		{
+			for(size_t z=0; z<animated_obs_to_process.size(); ++z)
+			{
+				const GLObject* ob = animated_obs_to_process[z];
+				const AnimationData& anim_data = ob->mesh_data->animation_data;
+				if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
+				{
+					std::vector<GLObjectRef>& joint_obs = debug_joint_obs[ob];
+					if(joint_obs.empty())
+					{
+						joint_obs.resize(anim_data.nodes.size());
+						for(size_t node_i=0; node_i<anim_data.nodes.size(); ++node_i)
+						{
+							if(node_i == 27)
+							{
+								joint_obs[node_i] = new GLObject();
+								joint_obs[node_i]->mesh_data = MeshPrimitiveBuilding::make3DBasisArrowMesh(*vert_buf_allocator); // Base will be at origin, tip will lie at (1, 0, 0)
+								joint_obs[node_i]->materials.resize(3);
+								joint_obs[node_i]->materials[0].albedo_linear_rgb = Colour3f(0.9f, 0.1f, 0.1f);
+								joint_obs[node_i]->materials[1].albedo_linear_rgb = Colour3f(0.1f, 0.9f, 0.1f);
+								joint_obs[node_i]->materials[2].albedo_linear_rgb = Colour3f(0.1f, 0.1f, 0.9f);
+								joint_obs[node_i]->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 0, 0);
+					
+								addObject(joint_obs[node_i]);
+							}
+						}
+					}
+
+					// Set location of debug joint visualisation objects
+					for(size_t node_i=0; node_i<anim_data.nodes.size(); ++node_i)
+						if(joint_obs[node_i])
+						{
+							joint_obs[node_i]->ob_to_world_matrix = ob->ob_to_world_matrix * ob->anim_node_data[node_i].node_hierarchical_to_object/*node_transform*/ * Matrix4f::uniformScaleMatrix(0.6f);//Matrix4f::translationMatrix(-0.5, 0, 0) * /*to_z_up * */Matrix4f::translationMatrix(node_transform.getColumn(3)) * Matrix4f::uniformScaleMatrix(0.02f);
+							updateObjectTransformData(*joint_obs[node_i]);
+						}
+				}
+			}
 		}
 
 

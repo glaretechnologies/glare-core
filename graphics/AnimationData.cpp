@@ -563,7 +563,7 @@ AnimationNodeData* AnimationData::findNode(const std::string& name) // Returns N
 }
 
 
-int AnimationData::getNodeIndex(const std::string& name) // Returns -1 if not found
+int AnimationData::getNodeIndex(const std::string& name) const // Returns -1 if not found
 {
 	for(size_t i=0; i<nodes.size(); ++i)
 		if(nodes[i].name == name)
@@ -1256,38 +1256,61 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 }
 
 
-Vec4f AnimationData::getNodePositionModelSpace(int node_index, bool use_retarget_adjustment)
+Matrix4f AnimationData::getNodeToObjectSpaceTransform(int node_index, bool use_retarget_adjustment) const
 {
-	const size_t num_nodes = sorted_nodes.size();
-	js::Vector<Matrix4f, 16> node_matrices(num_nodes);
-
-	for(size_t n=0; n<sorted_nodes.size(); ++n)
-	{
-		const int node_i = sorted_nodes[n];
-		const AnimationNodeData& node_data = nodes[node_i];
+	const AnimationNodeData& node_data = nodes[node_index];
 		
-		const Matrix4f rot_mat = node_data.rot.toMatrix();
+	const Matrix4f rot_mat = node_data.rot.toMatrix();
 
-		const Matrix4f TRS(
-			rot_mat.getColumn(0) * copyToAll<0>(node_data.scale),
-			rot_mat.getColumn(1) * copyToAll<1>(node_data.scale),
-			rot_mat.getColumn(2) * copyToAll<2>(node_data.scale),
-			setWToOne(node_data.trans));
+	const Matrix4f TRS(
+		rot_mat.getColumn(0) * copyToAll<0>(node_data.scale),
+		rot_mat.getColumn(1) * copyToAll<1>(node_data.scale),
+		rot_mat.getColumn(2) * copyToAll<2>(node_data.scale),
+		setWToOne(node_data.trans));
 
-		const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * (use_retarget_adjustment ? node_data.retarget_adjustment : Matrix4f::identity()) * TRS);
+	//const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (node_matrices[node_data.parent_index] * (use_retarget_adjustment ? node_data.retarget_adjustment : Matrix4f::identity()) * TRS);
 
-		node_matrices[node_i] = node_transform;
-
-		if(node_i == node_index)
-			return node_transform.getColumn(3);
-	}
-
-	assert(0);
-	return Vec4f(0,0,0,1);
+	if(node_data.parent_index == -1)
+		return TRS;
+	else
+		return getNodeToObjectSpaceTransform(node_data.parent_index, use_retarget_adjustment) * 
+			(use_retarget_adjustment ? node_data.retarget_adjustment : Matrix4f::identity()) * TRS;
 }
 
 
-Vec4f AnimationData::getNodePositionModelSpace(const std::string& name, bool use_retarget_adjustment)
+Vec4f AnimationData::transformPointToNodeParentSpace(int node_index, bool use_retarget_adjustment, const Vec4f& point_node_space) const
+{
+	const AnimationNodeData& node_data = nodes[node_index];
+		
+	const Matrix4f rot_mat = node_data.rot.toMatrix();
+
+	const Matrix4f TRS(
+		rot_mat.getColumn(0) * copyToAll<0>(node_data.scale),
+		rot_mat.getColumn(1) * copyToAll<1>(node_data.scale),
+		rot_mat.getColumn(2) * copyToAll<2>(node_data.scale),
+		setWToOne(node_data.trans));
+
+	if(node_data.parent_index == -1)
+		return TRS * point_node_space;
+	else
+		return transformPointToNodeParentSpace(node_data.parent_index, use_retarget_adjustment,
+			(use_retarget_adjustment ? node_data.retarget_adjustment : Matrix4f::identity()) * (TRS * point_node_space));
+}
+
+
+Vec4f AnimationData::getNodePositionModelSpace(int node_index, bool use_retarget_adjustment) const
+{
+	if(node_index >= 0 && node_index < (int)nodes.size())
+		return transformPointToNodeParentSpace(node_index, use_retarget_adjustment, Vec4f(0,0,0,1));
+	else
+	{
+		assert(0);
+		return Vec4f(0,0,0,1);
+	}
+}
+
+
+Vec4f AnimationData::getNodePositionModelSpace(const std::string& name, bool use_retarget_adjustment) const
 {
 	for(size_t n=0; n<sorted_nodes.size(); ++n)
 	{

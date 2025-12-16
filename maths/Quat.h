@@ -40,6 +40,9 @@ public:
 
 	static inline const Quat fromAxisAndAngle(const Vec4f& unit_axis, Real angle);
 	static inline const Quat fromAxisAndAngle(const Vec3<Real>& unit_axis, Real angle);
+	static inline const Quat xAxisRot(Real angle);
+	static inline const Quat yAxisRot(Real angle);
+	static inline const Quat zAxisRot(Real angle);
 
 	inline void toAxisAndAngle(Vec4f& unit_axis_out, Real& angle_out) const;
 
@@ -133,6 +136,27 @@ template <class Real> const Quat<Real> Quat<Real>::fromAxisAndAngle(const Vec3<R
 
 	const Real omega = angle * (Real)0.5;
 	return Quat(unit_axis * sin(omega), cos(omega));
+}
+
+
+template<class Real> const Quat<Real> Quat<Real>::xAxisRot(Real angle)
+{
+	const Real omega = angle * (Real)0.5;
+	return Quat(sin(omega), 0, 0, cos(omega));
+}
+
+
+template<class Real> const Quat<Real> Quat<Real>::yAxisRot(Real angle)
+{
+	const Real omega = angle * (Real)0.5;
+	return Quat(0, sin(omega), 0, cos(omega));
+}
+
+
+template<class Real> const Quat<Real> Quat<Real>::zAxisRot(Real angle)
+{
+	const Real omega = angle * (Real)0.5;
+	return Quat(0, 0, sin(omega), cos(omega));
 }
 
 
@@ -422,6 +446,14 @@ template <class Real> const Quat<Real> Quat<Real>::nlerp(const Quat<Real>& q0, c
 		q1 = -q1;
 
 	return normalise(Maths::lerp(q0, q1, t));
+}
+
+
+// If mask element has higher bit set, return a element, else return b element.
+template <class Real> 
+GLARE_STRONG_INLINE const Quat<Real> select(const Quat<Real>& a, const Quat<Real>& b, const Vec4f& mask)
+{
+	return Quat<Real>(_mm_blendv_ps(b.v.v, a.v.v, mask.v));
 }
 
 

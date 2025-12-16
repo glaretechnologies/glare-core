@@ -125,15 +125,19 @@ struct AnimationData
 	int getAnimationIndex(const std::string& name);
 
 	AnimationNodeData* findNode(const std::string& name); // Returns NULL if not found
-	int getNodeIndex(const std::string& name); // Returns -1 if not found
+	int getNodeIndex(const std::string& name) const; // Returns -1 if not found
 	int getNodeIndexWithNameSuffix(const std::string& name_suffix); // Returns -1 if not found
 
 	void loadAndRetargetAnim(InStream& stream);
 
-	Vec4f getNodePositionModelSpace(int node_index, bool use_retarget_adjustment);
-	Vec4f getNodePositionModelSpace(const std::string& name, bool use_retarget_adjustment);
+	Vec4f getNodePositionModelSpace(int node_index, bool use_retarget_adjustment) const;
+	Vec4f getNodePositionModelSpace(const std::string& name, bool use_retarget_adjustment) const;
 
 	size_t getTotalMemUsage() const;
+private:
+	Matrix4f getNodeToObjectSpaceTransform(int node_index, bool use_retarget_adjustment) const;
+	Vec4f transformPointToNodeParentSpace(int node_index, bool use_retarget_adjustment, const Vec4f& point_node_space) const;
+public:
 	
 	// NOTE: update operator = if changing fields.
 	std::vector<AnimationNodeData> nodes;

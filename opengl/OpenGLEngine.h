@@ -246,12 +246,15 @@ struct GLObjectAnimNodeData
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLObjectAnimNodeData() : procedural_transform(Matrix4f::identity()) {}
+	GLObjectAnimNodeData() : procedural_transform(Matrix4f::identity()), procedural_rot_mask(0), procedural_rot(Quatf::identity()) {}
 
 	Matrix4f node_hierarchical_to_object; // The overall transformation from bone space to object space, computed by walking up the node hierarchy.  Ephemeral data computed every frame.
 	Matrix4f last_pre_proc_to_object; // Same as node_hierarchical_to_object, but without procedural_transform applied.
 	Quatf last_rot;
 	Matrix4f procedural_transform;
+
+	Quatf procedural_rot; // A procedural rotation.
+	uint32 procedural_rot_mask; // 0 to apply the animation rotation, 0xFFFFFFFF to apply the procedural rotation instead.
 };
 
 
@@ -1507,7 +1510,7 @@ private:
 	GLObjectRef debug_arrow_ob;
 	GLObjectRef debug_sphere_ob;
 
-	std::vector<GLObjectRef> debug_joint_obs;
+	std::map<const GLObject*, std::vector<GLObjectRef>> debug_joint_obs;
 
 	std::vector<GLObjectRef> debug_draw_obs;
 
