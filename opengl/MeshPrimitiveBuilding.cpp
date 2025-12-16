@@ -233,18 +233,18 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh(Vert
 	const int res = 20;
 
 	js::Vector<Vec3f, 16> verts;
-	verts.resize(res * 4 * 2 * 3);
+	verts.resize(res * 4 * 2 * 3); // res * 4 verts/quad * 2 quads/arrow (shaft and head) * 3 arrows
 	js::Vector<Vec3f, 16> normals;
 	normals.resize(res * 4 * 2 * 3);
 	js::Vector<Vec2f, 16> uvs;
 	uvs.resize(res * 4 * 2 * 3);
 	js::Vector<uint32, 16> indices;
-	indices.resize(res * 6 * 2 * 3); // two tris per quad
+	indices.resize(res * 6 * 2 * 3); // res * 2 tris/quad * 3 verts/tri * 2 quads/arrow (shaft and head) * 3 arrows
 
 	for(int z=0; z<3; ++z)
 	{
-		const int verts_offset   = res * 4 * 2 * z;
-		const int indices_offset = res * 6 * 2 * z;
+		const int verts_offset   = res * 4 * 2 * z; // Offset for this arrow
+		const int indices_offset = res * 6 * 2 * z; // Offset for this arrow
 		Vec3f dir, basis_i, basis_j;
 		if(z == 0)
 		{
@@ -351,7 +351,7 @@ Reference<OpenGLMeshRenderData> MeshPrimitiveBuilding::make3DBasisArrowMesh(Vert
 	{
 		mesh_data->batches[z].material_index = z;
 		mesh_data->batches[z].num_indices = (uint32)res * 6 * 2;
-		mesh_data->batches[z].prim_start_offset_B = sizeof(uint32) * res * 6 * 2 * z;
+		mesh_data->batches[z].prim_start_offset_B = mesh_data->getIndexTypeSize() * res * 6 * 2 * z;
 	}
 
 	return mesh_data;
