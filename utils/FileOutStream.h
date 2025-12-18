@@ -35,6 +35,8 @@ public:
 	size_t getWriteIndex() const { return write_i; } // std::ofstream.tellp() is non-const, so maintain the write index ourselves.
 
 	void flush();
+
+	std::ofstream& getFileStream() { return file; }
 private:
 	std::ofstream file;
 	size_t write_i; 
