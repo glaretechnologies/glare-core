@@ -1190,6 +1190,8 @@ public:
 	bool openglDriverVendorIsATI() const; // Works after opengl_vendor is set in initialise().
 	bool show_ssao;
 	void toggleShowTexDebug(int index);
+
+	bool shouldUseSharedTextures() const; // For sharing D3D11 textures with OpenGL
 	//----------------------------------------------------------------------------------------
 
 

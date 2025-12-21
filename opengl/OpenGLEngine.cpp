@@ -8630,8 +8630,13 @@ void OpenGLEngine::drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matri
 			}
 			else
 			{
-				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-				setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+				if(this->target_frame_buffer)
+				{
+					this->target_frame_buffer->bindForDrawing();
+					setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+				}
+				else
+					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
 			}
 			
 		
@@ -8689,8 +8694,13 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 		}
 		else
 		{
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-			setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+			if(this->target_frame_buffer)
+			{
+				this->target_frame_buffer->bindForDrawing();
+				setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+			}
+			else
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
 		}
 		
 
@@ -9063,8 +9073,13 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 		}
 		else
 		{
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-			setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+			if(this->target_frame_buffer)
+			{
+				this->target_frame_buffer->bindForDrawing();
+				setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+			}
+			else
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
 		}
 
 		glDepthMask(GL_TRUE);
@@ -9215,8 +9230,13 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	}
 	else
 	{
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-		setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+		if(this->target_frame_buffer)
+		{
+			this->target_frame_buffer->bindForDrawing();
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+		}
+		else
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
 	}
 	
 
@@ -9417,8 +9437,13 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	}
 	else
 	{
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-		setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targeting default framebuffer
+		if(this->target_frame_buffer)
+		{
+			this->target_frame_buffer->bindForDrawing();
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+		}
+		else
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
 	}
 
 	if(use_order_indep_transparency && current_scene->render_to_main_render_framebuffer)
@@ -10276,8 +10301,13 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 		}
 		else
 		{
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-			setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
+			if(this->target_frame_buffer)
+			{
+				this->target_frame_buffer->bindForDrawing();
+				setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+			}
+			else
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
 		}
 
 
@@ -10492,8 +10522,13 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 		draw_overlays_gpu_timer->beginTimerQuery();
 
 	// Bind requested target frame buffer as output buffer
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-	setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targeting default framebuffer
+	if(this->target_frame_buffer)
+	{
+		this->target_frame_buffer->bindForDrawing();
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer, not normal buffer.
+	}
+	else
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer already set already for it.
 
 	glEnable(GL_BLEND);
 
@@ -12492,6 +12527,13 @@ void OpenGLEngine::toggleShowTexDebug(int index)
 			//large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_specular_texture;
 		}
 	}
+}
+
+
+bool OpenGLEngine::shouldUseSharedTextures() const
+{
+	// Shared textures seem to crash using Intel drivers.
+	return GL_EXT_memory_object_win32_support && GL_EXT_memory_object_win32_support && !openglDriverVendorIsIntel();
 }
 
 
