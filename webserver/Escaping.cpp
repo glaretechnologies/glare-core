@@ -44,9 +44,20 @@ Since we're encoding ' ' to '+', we'll encode '+' as well, to guarantee a one-to
 */
 const std::string Escaping::URLEscape(const std::string& s)
 {
-	std::string result;
 	const size_t s_size = s.size();
-	result.reserve(s_size);
+
+	// Do a pass to get an upper bound on escaped string size.
+	size_t escaped_size_upper_bound = 0;
+	for(size_t i=0; i<s_size; ++i)
+	{
+		if(::isAlphaNumeric(s[i]))
+			escaped_size_upper_bound++;
+		else
+			escaped_size_upper_bound += 3;
+	}
+
+	std::string result;
+	result.reserve(escaped_size_upper_bound);
 
 	for(size_t i=0; i<s_size; ++i)
 	{
@@ -78,6 +89,7 @@ const std::string Escaping::URLEscape(const std::string& s)
 			result.push_back(toHexChar(x & 0xF));
 		}
 	}
+	assert(result.size() <= escaped_size_upper_bound);
 	return result;
 }
 
