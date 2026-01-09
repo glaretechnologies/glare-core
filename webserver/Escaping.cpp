@@ -8,10 +8,22 @@ Copyright Glare Technologies Limited 2023 -
 
 #include "../utils/TestUtils.h"
 #include "../utils/StringUtils.h"
+#include "../utils/ConPrint.h"
 
 
 namespace web
 {
+
+
+inline static char toHexChar(unsigned char i)
+{
+	assert(i < 16);
+
+	if(i <= 9)
+		return '0' + (char)i;
+	else
+		return 'A' + (char)(i - 10);
+}
 
 
 /*
@@ -33,34 +45,37 @@ Since we're encoding ' ' to '+', we'll encode '+' as well, to guarantee a one-to
 const std::string Escaping::URLEscape(const std::string& s)
 {
 	std::string result;
-	result.reserve(s.size());
+	const size_t s_size = s.size();
+	result.reserve(s_size);
 
-	for(size_t i=0; i<s.size(); ++i)
+	for(size_t i=0; i<s_size; ++i)
 	{
-		if(::isAlphaNumeric(s[i]) || 
-			s[i] == '$' ||
-			s[i] == '-' ||
-			s[i] == '_' ||
-			s[i] == '.' ||
-			s[i] == '!' ||
-			s[i] == '*' ||
-			s[i] == '\'' ||
-			s[i] == '(' ||
-			s[i] == ')' ||
-			s[i] == ',')
+		const char c = s[i];
+		if(::isAlphaNumeric(c) || 
+			c == '$' ||
+			c == '-' ||
+			c == '_' ||
+			c == '.' ||
+			c == '!' ||
+			c == '*' ||
+			c == '\'' ||
+			c == '(' ||
+			c == ')' ||
+			c == ',')
 		{
-			result.push_back(s[i]);
+			result.push_back(c);
 		}
-		else if(s[i] == ' ')
+		else if(c == ' ')
 		{
 			result.push_back('+');
 		}
 		else
 		{
 			// Encode using '%'.
-			// TODO: How is unicode handled?  Is unicode valid in URLs?
 			result.push_back('%');
-			result += ::toHexString((uint64)s[i]);
+			const unsigned char x = (unsigned char)c;
+			result.push_back(toHexChar(x >> 4));
+			result.push_back(toHexChar(x & 0xF));
 		}
 	}
 	return result;
@@ -236,6 +251,8 @@ static void testInvalidUnescape(const std::string& str)
 
 void Escaping::test()
 {
+	conPrint("Escaping::test()");
+
 	//======================== Test URLEscape ==========================
 	testAssert(Escaping::URLEscape("") == "");
 	testAssert(Escaping::URLEscape("a") == "a");
@@ -244,6 +261,9 @@ void Escaping::test()
 	testAssert(Escaping::URLEscape("#a") == "%23a");
 	testAssert(Escaping::URLEscape("##") == "%23%23");
 
+	// Test URLEscape of newline.  Will need a leading zero to make two hex digits.
+	testAssert(Escaping::URLEscape("\n") == "%0A");
+
 	// Test URLEscape of space
 	testAssert(Escaping::URLEscape(" ") == "+");
 
@@ -251,6 +271,9 @@ void Escaping::test()
 	testAssert(Escaping::URLEscape("+") == "%2B");
 
 	testAssert(Escaping::URLEscape("+ +") == "%2B+%2B");
+
+	// Test URLEscape of some UTF-8. (U+00E9, Latin small letter e with acute in this case)
+	testAssert(Escaping::URLEscape("\xC3\x89") == "%C3%89");
 
 	// Test some characters that should not be escaped
 	testAssert(Escaping::URLEscape("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ") == "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
@@ -266,13 +289,19 @@ void Escaping::test()
 	testUnescape("%23a", "#a");
 	testUnescape("%23%23", "##");
 
-	// Test URLEscape of space
+	// Test URLUnescape of newline
+	testUnescape("%0A", "\n");
+
+	// Test URLUnescape of space
 	testUnescape("+", " ");
 
-	// Test URLEscape of plus
+	// Test URLUnescape of plus
 	testUnescape("%2B", "+");
 
-	testUnescape( "%2B+%2B", "+ +");
+	testUnescape("%2B+%2B", "+ +");
+
+	// Test URLUnescape of UTF-8
+	testUnescape("%C3%89", "\xC3\x89");
 
 	// Test some characters that should not be escaped
 	testUnescape("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
@@ -328,6 +357,8 @@ void Escaping::test()
 	testAssert(Escaping::HTMLUnescape("&quot;") == "\"");
 
 	testAssert(Escaping::HTMLUnescape("A&lt; &gt; &quot; &amp;B") == "A< > \" &B");
+
+	conPrint("Escaping::test() done.");
 }
 
 
