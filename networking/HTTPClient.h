@@ -115,3 +115,6 @@ private:
 
 	bool keepalive_socket;
 };
+
+
+typedef Reference<HTTPClient> HTTPClientRef;
