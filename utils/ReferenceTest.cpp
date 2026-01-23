@@ -177,6 +177,7 @@ public:
 	TestWeakRefCountedClass(int* i_)
 	:	i(i_)
 	{
+		x = 0;
 		(*i)++;
 	}
 	~TestWeakRefCountedClass()
@@ -184,13 +185,116 @@ public:
 		(*i)--;
 	}
 
+	int x;
 private:
 	int* i;
 };
 
 
+
+class TestWeakRefCountedClass2 : public WeakRefCounted
+{
+public:
+	TestWeakRefCountedClass2()
+	{
+		x = 0;
+	}
+	~TestWeakRefCountedClass2()
+	{
+	}
+
+	int x;
+};
+
+
+
+
+class StrongRefDestroyerThread : public MyThread
+{
+public:
+	virtual void run()
+	{
+		conPrint("Running StrongRefThread...");
+
+		for(size_t i=0; i<obs->size(); ++i)
+		{
+			// Destroy the reference (lower strong ref count to zero)
+			(*obs)[i] = Reference<TestWeakRefCountedClass2>();
+		}
+		conPrint("StrongRefThread done.");
+	}
+
+	std::vector<Reference<TestWeakRefCountedClass2>>* obs;
+};
+
+
+class WeakRefUserThread : public MyThread
+{
+public:
+	virtual void run()
+	{
+		conPrint("Running WeakRefUserThread...");
+
+		for(size_t i=0; i<weak_refs->size(); ++i)
+		{
+			// Get a weak reference to the object
+			WeakReference<TestWeakRefCountedClass2>& weak_ref = (*weak_refs)[i];
+
+			{
+				// Upgrade to strong ref
+				Reference<TestWeakRefCountedClass2> strong_ref = weak_ref.upgradeToStrongRef();
+				bool got_strong_ref = false;
+				if(strong_ref)
+				{
+					got_strong_ref = true;
+					strong_ref->x++; // Modify it
+				}
+			}
+		}
+		conPrint("WeakRefUserThread done.");
+	}
+
+	std::vector<WeakReference<TestWeakRefCountedClass2>>* weak_refs;
+};
+
+
+// Remove all strong references to some objects in one thread, while simultaneously trying to upgrade weak to strong references to the same objects in another thread.
+// Tests for any race conditions between object deletion and weak->strong ref upgrading. 
+void stressTestWeakRefs()
+{
+	const size_t N = 1000000;
+
+	std::vector<    Reference<TestWeakRefCountedClass2>> obs      (N);
+	std::vector<WeakReference<TestWeakRefCountedClass2>> weak_refs(N);
+
+	for(size_t i=0; i<N; ++i)
+	{
+		obs[i] = new TestWeakRefCountedClass2();
+		weak_refs[i] = obs[i];
+	}
+
+
+	Reference<StrongRefDestroyerThread> destroyer_thread = new StrongRefDestroyerThread();
+	destroyer_thread->obs = &obs;
+	destroyer_thread->launch();
+
+	
+	Reference<WeakRefUserThread> user_thread = new WeakRefUserThread();
+	user_thread->weak_refs = &weak_refs;
+	user_thread->launch();
+
+	destroyer_thread->join();
+	
+	user_thread->join();
+}
+
+
 void run()
 {
+	conPrint("ReferenceTest::run()");
+
+	stressTestWeakRefs();
+
 	/////////////////////// Test takeFrom() ///////////////////////
 	{
 		int i = 0;
@@ -305,7 +409,7 @@ void run()
 		strongref = NULL;
 		testAssert(i == 0);
 
-		testAssert(weakref.control_block->ob_is_alive == false);
+		testAssert(weakref.control_block->ob_is_alive == 0);
 
 		testAssert(weakref.upgradeToStrongRef().isNull());
 	}
@@ -699,6 +803,8 @@ void run()
 			}
 		}
 	}
+
+	conPrint("ReferenceTest::run() done.");
 }
 
 

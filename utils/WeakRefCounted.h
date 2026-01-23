@@ -9,6 +9,9 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "Reference.h"
+#include "ThreadSafeRefCounted.h"
+#include "Mutex.h"
+#include "Lock.h"
 #include <cassert>
 
 
@@ -16,6 +19,8 @@ Copyright Glare Technologies Limited 2024 -
 WeakRefCounted
 --------------
 A reference-counted object, that may have both strong and weak references to it.
+
+See WeakReference.h
 
 _________________________                       ________________________________
 |  WeakRefCounted       |                       |  WeakRefCountedControlBlock  |
@@ -41,11 +46,12 @@ ________________________                       ________________________________
 
 =====================================================================*/
 
-class WeakRefCountedControlBlock : public RefCounted
+class WeakRefCountedControlBlock : public ThreadSafeRefCounted
 {
 public:
-	WeakRefCountedControlBlock() : ob_is_alive(true) {}
-	bool ob_is_alive;
+	WeakRefCountedControlBlock() : ob_is_alive(1) {}
+	int64 ob_is_alive;
+	Mutex ob_is_alive_mutex;
 };
 
 
@@ -64,38 +70,38 @@ public:
 	inline void incRefCount() const
 	{ 
 		assert(refcount >= 0);
-		refcount++;
+		refcount.increment();
 	}
 
 	/// Returns previous reference count
-	inline int64 decRefCount() const
+	inline glare::atomic_int decRefCount() const
 	{
-		const int64 prev_ref_count = refcount;
-		refcount--;
+		Lock lock(control_block->ob_is_alive_mutex); // Needs to go before refcount.decrement() to prevent another thread from reading ob_is_alive=1 after refcount.decrement() but before control_block->ob_is_alive = 0;.
+
+		const glare::atomic_int prev_ref_count = refcount.decrement();
 
 		// If the last strong reference has been removed, mark this object as dead in the control block, so that any weak references will know it is dead.
-		if(refcount == 0)
-			control_block->ob_is_alive = false;
+		if(prev_ref_count == 1)
+			control_block->ob_is_alive = 0;
 
-		assert(refcount >= 0);
 		return prev_ref_count;
 	}
 
-	inline int64 getRefCount() const
+	inline glare::atomic_int getRefCount() const
 	{ 
 		assert(refcount >= 0);
 		return refcount; 
 	}
 	
 private:
-	// Classes inheriting from WeakRefCounted shouldn't rely on the default copy constructor or assigment operator, 
+	// Classes inheriting from WeakRefCounted shouldn't rely on the default copy constructor or assignment operator, 
 	// as these may cause memory leaks when refcount is copied directly.
 	GLARE_DISABLE_COPY(WeakRefCounted)
 
-	mutable int64 refcount;
+	mutable glare::AtomicInt refcount; // Strong reference count
 public:
 	Reference<WeakRefCountedControlBlock> control_block;
 };
 
 
-#endif // GLARE_WEAKREFCOUNTED_H
+#endif // GLARE_WEAKREFCOUNTED_

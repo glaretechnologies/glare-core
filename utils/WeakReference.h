@@ -20,9 +20,11 @@ T should be a subclass of WeakRefCounted or implement the same interface.
 
 A weak reference does not prevent the object being destroyed, so before
 accessing the object, the control block is checked to see if the object is still alive.
-Use getPtrIfAlive() or upgradeToStrongRef() to do this check.
+Use upgradeToStrongRef() or getPtrIfAlive() to do this check.
 
 Similar to std::weak_ptr.
+
+Tests in ReferenceTest.cpp.
 =====================================================================*/
 template <class T>
 class WeakReference
@@ -67,16 +69,21 @@ public:
 	{
 	}
 
+	// Note: dangerous to use by itself (without external locking) because it does not keep the referenced object alive while the pointer is used.
 	T* getPtrIfAlive()
 	{
+		Lock lock(control_block->ob_is_alive_mutex);
+
 		if(control_block->ob_is_alive)
 			return ob;
 		else
-			return NULL; // Return NULL ref
+			return NULL;
 	}
 
 	Reference<T> upgradeToStrongRef()
 	{
+		Lock lock(control_block->ob_is_alive_mutex);
+
 		if(control_block->ob_is_alive)
 			return Reference<T>(ob);
 		else
