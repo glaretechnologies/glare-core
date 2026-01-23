@@ -167,13 +167,13 @@ const std::string XMLParseUtils::parseString(pugi::xml_node parent_elem, const c
 }
 
 
-const std::string XMLParseUtils::parseStringWithDefault(pugi::xml_node parent_elem, const char* elemname, const char* default_val)
+const std::string XMLParseUtils::parseStringWithDefault(pugi::xml_node parent_elem, const char* elemname, const string_view default_val)
 {
 	pugi::xml_node childnode = parent_elem.child(elemname);
 	if(childnode)
 		return childnode.child_value();
 	else
-		return default_val;
+		return toString(default_val);
 }
 
 
