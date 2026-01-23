@@ -54,6 +54,23 @@ int RequestInfo::getPostIntField(const std::string& key) const // Throws Website
 }
 
 
+double RequestInfo::getPostDoubleField(const std::string& key) const
+{
+	try
+	{
+		UnsafeString s = getPostField(key);
+		if(s.empty())
+			throw WebsiteExcep("value for key '" + key + "' not found or empty");
+		else
+			return stringToDouble(s.str());
+	}
+	catch(StringUtilsExcep& )
+	{
+		throw WebsiteExcep("value for key '" + key + "' could not be parsed as an int.");
+	}
+}
+
+
 bool RequestInfo::isURLParamPresent(const std::string& key) const
 {
 	for(size_t i=0; i<URL_params.size(); ++i)
@@ -85,6 +102,23 @@ int RequestInfo::getURLIntParam(const std::string& key) const // Throws WebsiteE
 	catch(StringUtilsExcep& )
 	{
 		throw WebsiteExcep("value for key '" + key + "' could not be parsed as an int.");
+	}
+}
+
+
+double RequestInfo::getURLDoubleParam(const std::string& key) const
+{
+	try
+	{
+		UnsafeString s = getURLParam(key);
+		if(s.empty())
+			throw WebsiteExcep("value for key '" + key + "' not found or empty");
+		else
+			return stringToDouble(s.str());
+	}
+	catch(StringUtilsExcep& )
+	{
+		throw WebsiteExcep("value for key '" + key + "' could not be parsed as a double.");
 	}
 }
 

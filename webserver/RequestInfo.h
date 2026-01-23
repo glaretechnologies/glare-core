@@ -79,10 +79,12 @@ public:
 
 	UnsafeString getPostField(const std::string& key) const; // Returns empty string if key not present.
 	int getPostIntField(const std::string& key) const; // Throws WebsiteExcep on failure
+	double getPostDoubleField(const std::string& key) const; // Throws WebsiteExcep on failure
 
 	bool isURLParamPresent(const std::string& key) const;
 	UnsafeString getURLParam(const std::string& key) const; // Returns empty string if key not present.
 	int getURLIntParam(const std::string& key) const; // Throws WebsiteExcep on failure
+	double getURLDoubleParam(const std::string& key) const; // Throws WebsiteExcep on failure
 
 	Reference<FormField> getPostFieldForName(const std::string& name) const; // Throws WebsiteExcep on failure
 	Reference<FormField> getPostFieldForNameIfPresent(const std::string& name) const; // Returns null ref if not present
