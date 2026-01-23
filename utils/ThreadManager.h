@@ -27,6 +27,8 @@ public:
 
 	// Add a thread.  Launches the thread after adding it.
 	void addThread(const Reference<MessageableThread>& t);
+
+	void removeThread(const Reference<MessageableThread>& t);
 	
 	// Enqueue a message for all the managed threads.
 	void enqueueMessage(const Reference<ThreadMessage>& m);

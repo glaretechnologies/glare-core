@@ -108,6 +108,14 @@ void ThreadManager::addThread(const Reference<MessageableThread>& t)
 }
 
 
+void ThreadManager::removeThread(const Reference<MessageableThread>& t)
+{
+	Lock lock(mutex);
+
+	threads.erase(t);
+}
+
+
 size_t ThreadManager::getNumThreads()
 {
 	Lock lock(mutex);
