@@ -28,8 +28,10 @@ public:
 	const std::string elapsedStringNSWIthNSigFigs(int n) const; // Print number of nanoseconds elapsed, e.g. "1.34 ns"
 
 	inline void reset();
+	inline void resetAndUnpause();
 
-	inline bool isPaused();
+	inline bool isPaused() const { return paused; }
+	inline bool isRunning() const { return !paused; }
 
 	inline void pause(); // Has no effect if already paused.
 	inline void unpause(); // Has no effect if already running.
@@ -66,9 +68,11 @@ void Timer::reset()
 }
 
 
-bool Timer::isPaused()
+void Timer::resetAndUnpause()
 {
-	return paused;
+	last_time_started = Clock::getCurTimeRealSec();
+	time_so_far = 0;
+	paused = false;
 }
 
 
