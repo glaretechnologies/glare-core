@@ -50,7 +50,7 @@ class WeakRefCountedControlBlock : public ThreadSafeRefCounted
 {
 public:
 	WeakRefCountedControlBlock() : ob_is_alive(1) {}
-	int64 ob_is_alive;
+	int64 ob_is_alive			GUARDED_BY(ob_is_alive_mutex);
 	Mutex ob_is_alive_mutex;
 };
 

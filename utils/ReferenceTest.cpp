@@ -243,10 +243,10 @@ public:
 			{
 				// Upgrade to strong ref
 				Reference<TestWeakRefCountedClass2> strong_ref = weak_ref.upgradeToStrongRef();
-				bool got_strong_ref = false;
+				//bool got_strong_ref = false;
 				if(strong_ref)
 				{
-					got_strong_ref = true;
+					//got_strong_ref = true;
 					strong_ref->x++; // Modify it
 				}
 			}
@@ -385,7 +385,10 @@ void run()
 
 		testAssert(i == 1);
 		testAssert(strongref->getRefCount() == 1);
-		testAssert(strongref->control_block->ob_is_alive);
+		{
+			Lock lock(strongref->control_block->ob_is_alive_mutex);
+			testAssert(strongref->control_block->ob_is_alive);
+		}
 
 
 		// Make weak reference
@@ -394,7 +397,10 @@ void run()
 		testAssert(strongref->control_block.ptr() == weakref.control_block.ptr());
 
 		testAssert(strongref->getRefCount() == 1);
-		testAssert(weakref.control_block->ob_is_alive);
+		{
+			Lock lock(weakref.control_block->ob_is_alive_mutex);
+			testAssert(weakref.control_block->ob_is_alive);
+		}
 
 
 		// Upgrade weak reference to strong ref
@@ -409,7 +415,10 @@ void run()
 		strongref = NULL;
 		testAssert(i == 0);
 
-		testAssert(weakref.control_block->ob_is_alive == 0);
+		{
+			Lock lock(weakref.control_block->ob_is_alive_mutex);
+			testAssert(weakref.control_block->ob_is_alive == 0);
+		}
 
 		testAssert(weakref.upgradeToStrongRef().isNull());
 	}
