@@ -52,7 +52,8 @@ public:
 	void setValue(double new_val); // Set value and emit a value changed event.
 	void setValueNoEvent(double new_val); // Set value and don't emit a value changed event.
 
-	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
+	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
+	virtual void setClipRegion(const Rect2f& clip_rect) override;
 
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;

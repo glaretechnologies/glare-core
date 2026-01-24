@@ -64,6 +64,8 @@ public:
 	void setPos(const Vec2f& botleft);
 	Vec2f getPos() const { return botleft; }
 
+	void setZ(float new_z) { z = new_z; }
+
 	// Call when e.g. viewport has changed
 	void updateGLTransform();
 
@@ -88,6 +90,7 @@ public:
 private:
 	GLARE_DISABLE_COPY(GLUIText);
 
+	GLUI* gl_ui;
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;
 

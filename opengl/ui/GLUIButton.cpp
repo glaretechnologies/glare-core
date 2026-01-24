@@ -144,6 +144,12 @@ void GLUIButton::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
 }
 
 
+void GLUIButton::setClipRegion(const Rect2f& clip_rect)
+{
+	overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
+}
+
+
 void GLUIButton::setToggled(bool toggled_)
 {
 	toggled = toggled_;

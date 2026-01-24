@@ -105,7 +105,7 @@ void GLUIInertWidget::setVisible(bool visible)
 }
 
 
-void GLUIInertWidget::updateGLTransform(GLUI& glui)
+void GLUIInertWidget::updateGLTransform()
 {
 }
 
@@ -117,4 +117,10 @@ void GLUIInertWidget::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
 	background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+}
+
+
+void GLUIInertWidget::setClipRegion(const Rect2f& clip_rect)
+{
+	background_overlay_ob->clip_region = gl_ui->OpenGLRectCoordsForUICoords(clip_rect);
 }

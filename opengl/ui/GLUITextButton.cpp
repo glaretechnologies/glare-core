@@ -118,9 +118,9 @@ void GLUITextButton::doHandleMouseMoved(MouseEvent& mouse_event)
 }
 
 
-void GLUITextButton::updateGLTransform(GLUI& gl_ui)
+void GLUITextButton::updateGLTransform()
 {
-	text_view->updateGLTransform(gl_ui);
+	text_view->updateGLTransform();
 
 	this->rect = text_view->getBackgroundRect();
 }
@@ -151,9 +151,21 @@ void GLUITextButton::rebuild()
 void GLUITextButton::setPos(const Vec2f& botleft)
 {
 	//Vec2f extra = text_vuiewgetRect
-	text_view->setPos(*glui, botleft + Vec2f(text_view->getPaddingWidth()));
+	text_view->setPos(botleft + Vec2f(text_view->getPaddingWidth()));
 
 	rect = text_view->getBackgroundRect();
+}
+
+
+void GLUITextButton::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
+{
+	setPos(botleft);
+}
+
+
+void GLUITextButton::setClipRegion(const Rect2f& clip_rect)
+{
+	text_view->setClipRegion(clip_rect);
 }
 
 

@@ -147,14 +147,14 @@ void RenderStatsWidget::updateWidgetPositions()
 
 		background_widget->setPosAndDims(/*botleft=*/Vec2f(graph_left_x, min_max_y - margin - graph_h), Vec2f(graph_w, graph_h));
 
-		plot_label->setPos(*gl_ui, Vec2f(graph_left_x + graph_h/2 - plot_label->getRect().getWidths().x/2, min_max_y - margin + gl_ui->getUIWidthForDevIndepPixelWidth(10)));
+		plot_label->setPos(Vec2f(graph_left_x + graph_h/2 - plot_label->getRect().getWidths().x/2, min_max_y - margin + gl_ui->getUIWidthForDevIndepPixelWidth(10)));
 
 		if(frame_num % 100 == 0) // label_update_timer.elapsed() > 1.0)
 		{
 			stats_label->setText(*gl_ui, "av time: " + doubleToStringNDecimalPlaces(average_frame_time * 1.0e3, 2) + " ms");
 			//label_update_timer.reset();
 		}
-		stats_label->setPos(*gl_ui, Vec2f(graph_left_x + graph_h/2 - stats_label->getRect().getWidths().x/2, min_max_y - margin - graph_h - gl_ui->getUIWidthForDevIndepPixelWidth(20)));
+		stats_label->setPos(Vec2f(graph_left_x + graph_h/2 - stats_label->getRect().getWidths().x/2, min_max_y - margin - graph_h - gl_ui->getUIWidthForDevIndepPixelWidth(20)));
 	}
 }
 

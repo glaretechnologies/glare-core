@@ -238,7 +238,7 @@ void GLUILineEdit::recreateTextWidget()
 	glui_text = new GLUIText(*glui, opengl_engine, text, /*botleft=*/Vec2f(0.f), text_create_args);
 
 	// Set clip region so text doesn't draw outside of line edit.
-	glui_text->setClipRegion(Rect2f(glui->OpenGLCoordsForUICoords(botleft), glui->OpenGLCoordsForUICoords(botleft + Vec2f(args.width, glui->getUIWidthForDevIndepPixelWidth(this->height_px)))));
+	glui_text->setClipRegion(Rect2f(botleft, botleft + Vec2f(args.width, glui->getUIWidthForDevIndepPixelWidth(this->height_px))));
 
 	updateTextTransform();
 }
@@ -261,7 +261,7 @@ void GLUILineEdit::updateTextTransform()
 		glui_text->setPos(text_botleft);
 
 		// Set clip region so text doesn't draw outside of line edit.
-		glui_text->setClipRegion(Rect2f(glui->OpenGLCoordsForUICoords(botleft), glui->OpenGLCoordsForUICoords(botleft + Vec2f(args.width, glui->getUIWidthForDevIndepPixelWidth(this->height_px)))));
+		glui_text->setClipRegion(Rect2f(botleft, botleft + Vec2f(args.width, glui->getUIWidthForDevIndepPixelWidth(this->height_px))));
 	}
 }
 
@@ -554,7 +554,7 @@ void GLUILineEdit::handleCopyEvent(std::string& clipboard_contents_out)
 }
 
 
-void GLUILineEdit::updateGLTransform(GLUI& /*glui*/)
+void GLUILineEdit::updateGLTransform()
 {
 	updateTextTransform();
 	updateOverlayObTransforms();
@@ -595,6 +595,23 @@ void GLUILineEdit::setPos(const Vec2f& botleft_)
 
 	updateTextTransform();
 	updateOverlayObTransforms();
+}
+
+
+void GLUILineEdit::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
+{
+	setPos(botleft);
+}
+
+
+void GLUILineEdit::setClipRegion(const Rect2f& clip_rect)
+{
+	if(background_overlay_ob)
+		background_overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
+
+	// TODO: cursor_overlay_ob etc.
+
+	glui_text->setClipRegion(clip_rect);
 }
 
 

@@ -41,6 +41,6 @@ void GLUIWidget::handleTextInputEvent(TextInputEvent& text_input_event)
 }
 
 
-void GLUIWidget::updateGLTransform(GLUI& /*glui*/)
+void GLUIWidget::updateGLTransform()
 {
 }

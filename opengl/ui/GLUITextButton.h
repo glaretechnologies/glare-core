@@ -48,11 +48,14 @@ public:
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
-	virtual void updateGLTransform(GLUI& glui) override; // Called when e.g. the viewport changes size
+	virtual void updateGLTransform() override; // Called when e.g. the viewport changes size
 
 	void rebuild();
 
 	void setPos(const Vec2f& botleft);
+
+	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
+	virtual void setClipRegion(const Rect2f& clip_rect) override;
 
 	bool isToggled() const { return toggled; }
 	void setToggled(bool toggled_);

@@ -51,12 +51,21 @@ public:
 	virtual bool isVisible() = 0;
 	virtual void setVisible(bool visible) = 0;
 
+	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) = 0;
+
+	virtual void setClipRegion(const Rect2f& clip_rect) = 0; // clip_rect is in UI coords
+
 	// Called when e.g. the viewport changes size
-	virtual void updateGLTransform(GLUI& glui);
+	virtual void updateGLTransform();
 
 	virtual void think(GLUI& /*glui*/) {}
 
 	virtual bool acceptsTextInput() { return false; }
+
+	inline Rect2f getRect() const { return rect; }
+	inline float getZ() const { return m_z; }
+	
+	virtual void setZ(float new_z) { m_z = new_z; } // Subclasses should override this if they need to set z explicitly on anything.
 
 	std::string client_data;
 

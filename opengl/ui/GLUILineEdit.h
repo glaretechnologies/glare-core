@@ -64,6 +64,9 @@ public:
 
 	void setPos(const Vec2f& botleft);
 
+	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
+	virtual void setClipRegion(const Rect2f& clip_rect) override;
+
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
 	virtual void handleMouseDoubleClick(MouseEvent& event) override;
@@ -77,7 +80,7 @@ public:
 	virtual void handleCopyEvent(std::string& clipboard_contents_out) override;
 
 	// Called when e.g. the viewport changes size
-	virtual void updateGLTransform(GLUI& glui) override;
+	virtual void updateGLTransform() override;
 
 	virtual bool acceptsTextInput() override { return true; }
 

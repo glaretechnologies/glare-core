@@ -261,6 +261,13 @@ void GLUISlider::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
 }
 
 
+void GLUISlider::setClipRegion(const Rect2f& clip_rect)
+{
+	track_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
+	knob_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
+}
+
+
 void GLUISlider::setVisible(bool visible)
 {
 	track_ob->draw = visible;

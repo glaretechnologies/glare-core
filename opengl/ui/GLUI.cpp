@@ -332,7 +332,7 @@ void GLUI::viewportResized(int /*w*/, int /*h*/)
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
-		widget->updateGLTransform(*this);
+		widget->updateGLTransform();
 	}
 }
 
@@ -443,6 +443,6 @@ void GLUI::setCurrentDevicePixelRatio(float new_device_pixel_ratio)
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
-		widget->updateGLTransform(*this);
+		widget->updateGLTransform();
 	}
 }

@@ -55,6 +55,8 @@ public:
 
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
 
+	virtual void setClipRegion(const Rect2f& clip_rect) override;
+
 	void setToggled(bool toggled_);
 
 	virtual void setVisible(bool visible) override;

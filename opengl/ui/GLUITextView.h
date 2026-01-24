@@ -34,6 +34,7 @@ public:
 		std::string tooltip;
 		Colour3f background_colour; // Linear
 		float background_alpha;
+		float background_corner_radius_px; // Background uses rounded corners if radius > 0.
 		Colour3f text_colour; // Linear
 		float text_alpha;
 		int padding_px; // Padding around text for background box.  default = 10 pixels.
@@ -58,11 +59,17 @@ public:
 	void setBackgroundColour(const Colour3f& col);
 	void setBackgroundAlpha(float alpha);
 
-	void setPos(GLUI& glui, const Vec2f& botleft); // Sets baseline position of text on first line.  Text descenders will be below this position.  Background quad can extend past this.
+	void setPos(const Vec2f& botleft); // Sets baseline position of text on first line.  Text descenders will be below this position.  Background quad can extend past this.
+
+	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
+
+	virtual void setZ(float new_z) override;
+
+	float getOffsetToTopLine() const; // For multi-line text, the top line will be some vertical offset above the bottom line.  Compute this offset and return it.
 
 	float getPaddingWidth() const;
 
-	void setClipRegion(const Rect2f& rect);
+	virtual void setClipRegion(const Rect2f& rect) override;
 
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
@@ -77,7 +84,7 @@ public:
 	virtual void handleMouseDoubleClick(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual void handleLosingKeyboardFocus() override;
-	virtual void updateGLTransform(GLUI& glui) override; // Called when e.g. the viewport changes size
+	virtual void updateGLTransform() override; // Called when e.g. the viewport changes size
 
 	virtual void handleCutEvent(std::string& clipboard_contents_out) override;
 	virtual void handleCopyEvent(std::string& clipboard_contents_out) override;
@@ -92,7 +99,7 @@ private:
 	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef background_overlay_ob;
-	std::vector<GLUITextRef> glui_texts;
+	std::vector<GLUITextRef> glui_texts; // Lines of text.  glui_texts[0] is the top line.
 
 	OverlayObjectRef selection_overlay_ob;
 
@@ -104,6 +111,8 @@ private:
 	bool visible;
 
 	Vec2f botleft; // in GL UI coords
+
+	Vec2f last_rounded_background_dims;
 };
 
 

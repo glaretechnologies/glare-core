@@ -128,18 +128,6 @@ void GLUIImage::setDims(const Vec2f& dims)
 }
 
 
-void GLUIImage::setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z_)
-{
-	pos = botleft;
-	m_z = z_;
-	rect = Rect2f(botleft, botleft + dims);
-
-	const float y_scale = opengl_engine->getViewPortAspectRatio();
-
-	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
-}
-
-
 void GLUIImage::setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z_)
 {
 	pos = botleft;
@@ -154,9 +142,27 @@ void GLUIImage::setTransform(const Vec2f& botleft, const Vec2f& dims, float rota
 }
 
 
+void GLUIImage::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
+{
+	pos = botleft;
+	rect = Rect2f(botleft, botleft + dims);
+
+	const float y_scale = opengl_engine->getViewPortAspectRatio();
+
+	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+}
+
+
+void GLUIImage::setClipRegion(const Rect2f& clip_rect)
+{
+	if(overlay_ob)
+		overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
+}
+
+
 void GLUIImage::setVisible(bool visible)
 {
-	if(overlay_ob.nonNull())
+	if(overlay_ob)
 		overlay_ob->draw = visible;
 }
 

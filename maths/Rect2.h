@@ -118,6 +118,27 @@ bool Rect2<Real>::intersectsRect2(const Rect2<Real>& other) const
 }
 
 
+template <class Real>
+Rect2<Real> intersection(const Rect2<Real>& a, const Rect2<Real>& b)
+{
+	return Rect2<Real>(max(a.getMin(), b.getMin()), min(a.getMax(), b.getMax()));
+}
+
+
+template <class Real>
+bool operator == (const Rect2<Real>& a, const Rect2<Real>& b)
+{
+	return (a.getMin() == b.getMin()) && (a.getMax() == b.getMax());
+}
+
+
+template <class Real>
+bool operator != (const Rect2<Real>& a, const Rect2<Real>& b)
+{
+	return (a.getMin() != b.getMin()) || (a.getMax() != b.getMax());
+}
+
+
 typedef Rect2<float> Rect2f;
 typedef Rect2<double> Rect2d;
 typedef Rect2<int> Rect2i;

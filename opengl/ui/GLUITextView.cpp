@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "TextEditingUtils.h"
 #include "../graphics/SRGBUtils.h"
 #include "../OpenGLMeshRenderData.h"
+#include "../MeshPrimitiveBuilding.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
@@ -25,6 +26,7 @@ GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 	opengl_engine = opengl_engine_;
 	tooltip = args.tooltip;
 	m_z = args_.z;
+	last_rounded_background_dims = Vec2f(-1.f);
 
 	selection_start = selection_end = -1;
 	selection_start_text_index = selection_end_text_index = 0;
@@ -86,7 +88,7 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 			const size_t num_codepoints = UTF8Utils::numCodePointsInString(text);
 
 			size_t cur_string_byte_i = 0;
-			Vec3f cur_char_pos(args.line_0_x_offset / x_scale, 0, 0); // in pixel coords
+			float cur_char_pos_x = args.line_0_x_offset / x_scale; // in pixel coords
 			for(size_t i=0; i<num_codepoints; ++i)
 			{
 				runtimeCheck(cur_string_byte_i < text.size());
@@ -94,28 +96,41 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 				if(cur_string_byte_i + char_num_bytes > text.size())
 					throw glare::Exception("Invalid UTF-8 string.");
 				const string_view substring(text.data() + cur_string_byte_i, char_num_bytes);
-				const CharTexInfo info = glui->font_char_text_cache->getCharTexture(opengl_engine, glui->getFonts(), glui->getEmojiFonts(), substring, args.font_size_px, /*render_SDF=*/false);
-		
-				const float vert_pos_scale = 1.f;
-				const Vec3f max_pos_px = (cur_char_pos + Vec3f((float)info.size_info.max_bounds.x, (float)info.size_info.max_bounds.y, 0)) * vert_pos_scale;
-
-				const float max_pos_x_ui = max_pos_px.x * x_scale;
-
-				if(max_pos_x_ui >= args.max_width)
+				if(substring == "\n")
 				{
-					// This char needs to start on a new line
-					if(cur_string_byte_i > last_line_start_byte_i)
-					{
-						// Record last line
-						line_begin_end_bytes.push_back(std::make_pair(last_line_start_byte_i, cur_string_byte_i));
+					// Record last line
+					line_begin_end_bytes.push_back(std::make_pair(last_line_start_byte_i, cur_string_byte_i));
 
-						// Start new line
-						last_line_start_byte_i = cur_string_byte_i;
-						cur_char_pos = Vec3f(0.f);
+					// Start new line after the newline char
+					last_line_start_byte_i = cur_string_byte_i + 1;
+					cur_char_pos_x = 0;
+				}
+				else
+				{
+					const CharTexInfo info = glui->font_char_text_cache->getCharTexture(opengl_engine, glui->getFonts(), glui->getEmojiFonts(), substring, args.font_size_px, /*render_SDF=*/false);
+		
+					const float vert_pos_scale = 1.f;
+					const Vec3f max_pos_px = (Vec3f(cur_char_pos_x + (float)info.size_info.max_bounds.x, (float)info.size_info.max_bounds.y, 0)) * vert_pos_scale;
+
+					const float max_pos_x_ui = max_pos_px.x * x_scale;
+
+					if(max_pos_x_ui >= args.max_width)
+					{
+						// This char needs to start on a new line
+						if(cur_string_byte_i > last_line_start_byte_i)
+						{
+							// Record last line
+							line_begin_end_bytes.push_back(std::make_pair(last_line_start_byte_i, cur_string_byte_i));
+
+							// Start new line
+							last_line_start_byte_i = cur_string_byte_i;
+							cur_char_pos_x = 0;
+						}
 					}
+
+					cur_char_pos_x += info.size_info.hori_advance;
 				}
 
-				cur_char_pos.x += info.size_info.hori_advance;
 				cur_string_byte_i += char_num_bytes;
 			}
 
@@ -168,8 +183,23 @@ void GLUITextView::updateOverlayObTransforms()
 
 		const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
 		const float z = args.z + 0.001f;
+
+		const bool use_rounded_corners = args.background_corner_radius_px > 0;
+
 		background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(background_rect.getMin().x, background_rect.getMin().y * y_scale, z) * 
-			Matrix4f::scaleMatrix(background_rect.getWidths().x, background_rect.getWidths().y * y_scale, 1);
+			(use_rounded_corners ? Matrix4f::scaleMatrix(1, y_scale, 1) : // For rounded corner geometry
+				Matrix4f::scaleMatrix(background_rect.getWidths().x, background_rect.getWidths().y * y_scale, 1));
+
+		if((args.background_corner_radius_px > 0) && (last_rounded_background_dims != background_rect.getWidths()))
+		{
+			//conPrint("GLUITextView: recreating rounded-corner rect for text '" + this->text + "'");
+
+			background_overlay_ob->mesh_data = MeshPrimitiveBuilding::makeRoundedCornerRect(*opengl_engine->vert_buf_allocator, /*i=*/Vec4f(1,0,0,0), /*j=*/Vec4f(0,1,0,0), 
+				/*w=*/background_rect.getWidths().x, /*h=*/background_rect.getWidths().y, 
+				/*corner radius=*/glui->getUIWidthForDevIndepPixelWidth(args.background_corner_radius_px), /*tris_per_corner=*/8);
+	
+			this->last_rounded_background_dims = background_rect.getWidths();
+		}
 	}
 
 	// Update selection ob
@@ -274,7 +304,7 @@ void GLUITextView::setBackgroundAlpha(float alpha)
 }
 
 
-void GLUITextView::updateGLTransform(GLUI& /*glui_*/)
+void GLUITextView::updateGLTransform()
 {
 	for(size_t i=0; i<glui_texts.size(); ++i)
 		glui_texts[i]->updateGLTransform();
@@ -287,7 +317,7 @@ void GLUITextView::updateGLTransform(GLUI& /*glui_*/)
 
 void GLUITextView::handleCutEvent(std::string& /*clipboard_contents_out*/)
 {
-	// Since GLUITextView is a read-only widget, we can't cut. So do nothiong.
+	// Since GLUITextView is a read-only widget, we can't cut. So do nothing.
 }
 
 
@@ -306,15 +336,24 @@ void GLUITextView::handleCopyEvent(std::string& clipboard_contents_out)
 }
 
 
-void GLUITextView::setPos(GLUI& /*glui_*/, const Vec2f& new_botleft)
+// For multi-line text, the top line will be some vertical offset above the bottom line.  Compute this offset and return it.
+float GLUITextView::getOffsetToTopLine() const
+{
+	return glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f) * myMax(0, (int)glui_texts.size() - 1);
+}
+
+
+void GLUITextView::setPos(const Vec2f& new_botleft)
 {
 	botleft = new_botleft;
+
+	const float total_line_y_offset = getOffsetToTopLine();
 
 	float cur_line_y_offset = 0;
 	for(size_t i=0; i<glui_texts.size(); ++i)
 	{
 		// Compute position of current text line
-		Vec2f textpos = botleft - Vec2f(0, cur_line_y_offset);
+		Vec2f textpos = botleft + Vec2f(0, total_line_y_offset - cur_line_y_offset);
 		if(i == 0)
 			textpos.x += args.line_0_x_offset;
 
@@ -324,6 +363,22 @@ void GLUITextView::setPos(GLUI& /*glui_*/, const Vec2f& new_botleft)
 
 	recomputeRect();
 	updateOverlayObTransforms();
+}
+
+
+void GLUITextView::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
+{
+	setPos(botleft);
+}
+
+
+void GLUITextView::setZ(float new_z)
+{
+	for(size_t i=0; i<glui_texts.size(); ++i)
+		glui_texts[i]->setZ(new_z);
+
+	args.z = new_z;
+	this->m_z = new_z;
 }
 
 
@@ -338,8 +393,11 @@ void GLUITextView::setClipRegion(const Rect2f& clip_rect)
 	for(size_t i=0; i<glui_texts.size(); ++i)
 		glui_texts[i]->setClipRegion(clip_rect);
 
-	if(selection_overlay_ob.nonNull())
-		selection_overlay_ob->clip_region = clip_rect;
+	if(background_overlay_ob)
+		background_overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
+
+	if(selection_overlay_ob)
+		selection_overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
 }
 
 
@@ -483,6 +541,7 @@ void GLUITextView::handleLosingKeyboardFocus()
 GLUITextView::CreateArgs::CreateArgs():
 	background_colour(0.f),
 	background_alpha(1),
+	background_corner_radius_px(0),
 	text_colour(1.f),
 	text_alpha(1.f),
 	padding_px(10),

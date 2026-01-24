@@ -1,7 +1,7 @@
 /*=====================================================================
-GLUIInertWidget.h
------------------
-Copyright Glare Technologies Limited 2025 -
+GLUIGridContainer.h
+-------------------
+Copyright Glare Technologies Limited 2026 -
 =====================================================================*/
 #pragma once
 
@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "../OpenGLEngine.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
+#include "../utils/Array2D.h"
 #include "../maths/Rect2.h"
 #include <string>
 
@@ -22,12 +23,11 @@ class TextInputEvent;
 
 
 /*=====================================================================
-GLUIInertWidget
----------------
-Just a widget that does nothing but accept clicks.
-Is a solid colour.
+GLUIGridContainer
+-----------------
+A grid of widgets.
 =====================================================================*/
-class GLUIInertWidget : public GLUIWidget
+class GLUIGridContainer : public GLUIWidget
 {
 public:
 	struct CreateArgs
@@ -37,10 +37,14 @@ public:
 		Colour3f background_colour; // Linear
 		float background_alpha;
 		float z;
+
+		float cell_padding_px;
+
+		bool background_consumes_events; // Should the background behind the grid consume click events etc.?
 	};
 
-	GLUIInertWidget(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
-	virtual ~GLUIInertWidget();
+	GLUIGridContainer(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
+	virtual ~GLUIGridContainer();
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
@@ -59,19 +63,28 @@ public:
 
 	virtual bool acceptsTextInput() override { return false; }
 
-	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
-	virtual void setClipRegion(const Rect2f& clip_rect) override;
+	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
+	void setClipRegion(const Rect2f& rect) override;
+
+	void setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widget);
+
+	float getCellPaddding() const; // in UI coords
+
+	Rect2f getClippedContentRect() const; // Get the rectangle around any non-null widgets in the cells, intersected with the container rectangle (in case of overflow).
 
 private:
-	GLARE_DISABLE_COPY(GLUIInertWidget);
+	GLARE_DISABLE_COPY(GLUIGridContainer);
 	
 	GLUI* gl_ui;
 	Reference<OpenGLEngine> opengl_engine;
 
 	CreateArgs args;
 
+public:
+	Array2D<GLUIWidgetRef> cell_widgets; // (0, 0) is the bottom left cell.
+private:
 	OverlayObjectRef background_overlay_ob;
 };
 
 
-typedef Reference<GLUIInertWidget> GLUIInertWidgetRef;
+typedef Reference<GLUIGridContainer> GLUIGridContainerRef;

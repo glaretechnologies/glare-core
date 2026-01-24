@@ -38,8 +38,11 @@ public:
 	const Vec2f& getPos() const { return pos; }
 
 	void setDims(const Vec2f& dims);
-	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims, float z = -0.9f);
 	void setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z = -0.9f);
+
+	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
+
+	virtual void setClipRegion(const Rect2f& clip_rect) override;
 
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;

@@ -137,6 +137,7 @@ Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(Reference<OpenGLEn
 
 GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args)
 {
+	gl_ui = &glui;
 	opengl_engine = opengl_engine_;
 
 	text_colour = args.colour;
@@ -291,7 +292,7 @@ int GLUIText::cursorPosForUICoords(GLUI& /*glui*/, const Vec2f& coords)
 void GLUIText::setClipRegion(const Rect2f& clip_region_rect)
 {
 	if(overlay_ob.nonNull())
-		overlay_ob->clip_region = clip_region_rect;
+		overlay_ob->clip_region = gl_ui->OpenGLRectCoordsForUICoords(clip_region_rect);
 }
 
 
