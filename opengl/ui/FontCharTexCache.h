@@ -21,7 +21,7 @@ class GLUIMouseWheelEvent;
 struct CharTexInfo
 {
 	Reference<OpenGLTexture> tex;
-	TextRendererFontFace::SizeInfo size_info;
+	TextRenderer::SizeInfo size_info;
 	Vec2f atlas_glyph_min_texcoords; // top left tex coordinates, corresponding to corner of glyph rectange (not bitmap)
 	Vec2f atlas_glyph_max_texcoords; // bottom right tex coordinates, corresponding to corner of glyph rectange (not bitmap)
 };

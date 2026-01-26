@@ -369,9 +369,10 @@ float GLUI::getDevIndepPixelWidthForUIWidth(float ui_width)
 
 OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 {
-	TextRendererFontFaceRef font = fonts->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio * ui_scale));
+	TextRendererFontFaceRef font       = fonts      ->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio * ui_scale));
+	TextRendererFontFaceRef emoji_font = emoji_fonts->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio * ui_scale));
 
-	const TextRendererFontFace::SizeInfo size_info = font->getTextSize(tooltip_text);
+	const TextRenderer::SizeInfo size_info = font->renderer->getTextSize(tooltip_text, font.ptr(), emoji_font.ptr());
 
 	const int use_font_height = size_info.max_bounds.y; //text_renderer_font->getFontSizePixels();
 	const int padding_x = (int)(use_font_height * 0.6f);
@@ -381,7 +382,7 @@ OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 	ImageMapUInt8Ref map = new ImageMapUInt8(size_info.glyphSize().x + padding_x * 2, use_font_height + padding_y * 2, 3);
 	map->set(240); // Set to light grey colour
 
-	font->drawText(*map, tooltip_text, padding_x, padding_y + use_font_height, Colour3f(0.05f), /*render SDF=*/false);
+	font->renderer->drawText(*map, tooltip_text, padding_x, padding_y + use_font_height, Colour3f(0.05f), /*render SDF=*/false, font.ptr(), emoji_font.ptr());
 
 
 	TextureParams tex_params;

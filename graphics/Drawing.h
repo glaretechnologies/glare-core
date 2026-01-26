@@ -24,6 +24,7 @@ namespace Drawing
 	void drawLine(Bitmap& bitmap, const Colour3f& colour, const Vec2f& start, const Vec2f& end);
 
 
+	// Draw unfilled rectangle
 	void drawRect(ImageMapUInt8& map, int x0, int y0, int width, int height, const uint8* border_col);
 
 	void test();

@@ -721,12 +721,12 @@ static void makeMipMapTestTexture()
 				for(size_t y=0; y<=level_W; y += cell_w_px)
 				for(size_t x=0; x<=level_W; x += cell_w_px)
 				{
-					font->drawText(*im, toString(level), (int)x + cell_w_px/2 - 4, (int)y - cell_w_px/2 + font_size_px/2 + /*line w/2=*/2, font_col, false);
+					text_renderer->drawText(*im, toString(level), (int)x + cell_w_px/2 - 4, (int)y - cell_w_px/2 + font_size_px/2 + /*line w/2=*/2, font_col, false, font.ptr(), /*emoji_font=*/nullptr);
 				}
 			}
 			else if(level < 8)
 			{
-				small_font->drawText(*im, toString(level), level_W/2 - 4, level_W/2 + small_font_size_px/2, font_col, false);
+				text_renderer->drawText(*im, toString(level), level_W/2 - 4, level_W/2 + small_font_size_px/2, font_col, false, font.ptr(), /*emoji_font=*/nullptr);
 			}
 				
 			// Draw (x, y) coords for lower MIP levels.
@@ -740,7 +740,7 @@ static void makeMipMapTestTexture()
 					float tex_y = 1.f - (float)y / level_W;
 						
 					const int text_padding_px = 5;
-					font->drawText(*im, "x=" + doubleToStringMaxNDecimalPlaces(tex_x, 2) + ", y=" + doubleToStringMaxNDecimalPlaces(tex_y, 2), (int)x + text_padding_px, (int)y - text_padding_px, xy_font_col, false);
+					text_renderer->drawText(*im, "x=" + doubleToStringMaxNDecimalPlaces(tex_x, 2) + ", y=" + doubleToStringMaxNDecimalPlaces(tex_y, 2), (int)x + text_padding_px, (int)y - text_padding_px, xy_font_col, false, font.ptr(), /*emoji_font=*/nullptr);
 				}
 			}
 		}

@@ -90,7 +90,7 @@ Example of a letter like 'g' with a descender, in which case size_info.min_bound
 static const int margin_px = 1;
 
 
-static void drawBorderAroundGlyph(ImageMapUInt8& map, const Vec2i& topleft, const TextRendererFontFace::SizeInfo size_info, const uint8* border_col)
+static void drawBorderAroundGlyph(ImageMapUInt8& map, const Vec2i& topleft, const TextRenderer::SizeInfo size_info, const uint8* border_col)
 {
 	for(int x=topleft.x; x<topleft.x + size_info.bitmap_width + margin_px*2; ++x)
 	{
@@ -108,7 +108,7 @@ static void drawBorderAroundGlyph(ImageMapUInt8& map, const Vec2i& topleft, cons
 
 // Draws into image map, updates gl texture, updates row info
 static CharTexInfo drawIntoRowPosition(AtlasTexInfo* atlas, AtlasRowInfo* row, const Vec2i& topleft, 
-	TextRendererFontFace* font, const string_view charstring, const TextRendererFontFace::SizeInfo size_info, bool render_SDF, bool is_emoji)
+	TextRendererFontFace* font, const string_view charstring, const TextRenderer::SizeInfo size_info, bool render_SDF, bool is_emoji)
 {
 	const Vec2i topleft_plus_margin = topleft + Vec2i(margin_px);
 
@@ -187,7 +187,7 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 	TextRendererFontFaceSizeSet* use_font_set = is_emoji ? text_renderer_emoji_fonts_ : text_renderer_fonts_;
 	TextRendererFontFaceRef use_font = use_font_set->getFontFaceForSize(font_size_px);
 
-	const TextRendererFontFace::SizeInfo size_info = use_font->getGlyphSize(charstring, render_SDF);
+	const TextRenderer::SizeInfo size_info = use_font->getGlyphSize(charstring, render_SDF);
 
 	//bool atlas_created = false;
 	while(1)
