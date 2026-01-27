@@ -322,7 +322,7 @@ struct GLObject
 
 	// For placement new in PoolAllocator:
 #if __cplusplus >= 201703L
-		void* operator new  (size_t size, std::align_val_t alignment, void* ptr) { return ptr; }
+		void* operator new  (size_t /*size*/, std::align_val_t /*alignment*/, void* ptr) { return ptr; }
 #else
 		void* operator new  (size_t /*size*/, void* ptr) { return ptr; }
 #endif
