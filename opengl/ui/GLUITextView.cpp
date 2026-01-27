@@ -21,6 +21,8 @@ Copyright Glare Technologies Limited 2024 -
 
 GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args_)
 {
+	this->clip_rect = Rect2f(Vec2f(-1.0e10f), Vec2f(1.0e10f));
+
 	glui = &glui_;
 	args = args_;
 	opengl_engine = opengl_engine_;
@@ -388,8 +390,10 @@ float GLUITextView::getPaddingWidth() const
 }
 
 
-void GLUITextView::setClipRegion(const Rect2f& clip_rect)
+void GLUITextView::setClipRegion(const Rect2f& clip_rect_)
 {
+	this->clip_rect = clip_rect_;
+
 	for(size_t i=0; i<glui_texts.size(); ++i)
 		glui_texts[i]->setClipRegion(clip_rect);
 
@@ -444,7 +448,7 @@ void GLUITextView::handleMousePress(MouseEvent& event)
 	if(args.text_selectable)
 	{
 		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-		if(rect.inClosedRectangle(coords))
+		if(rect.inClosedRectangle(coords) && clip_rect.inClosedRectangle(coords))
 		{
 			//conPrint("GLUITextView taking keyboard focus");
 			glui->setKeyboardFocusWidget(this);
@@ -481,7 +485,7 @@ void GLUITextView::handleMouseDoubleClick(MouseEvent& event)
 	if(args.text_selectable)
 	{
 		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-		if(rect.inClosedRectangle(coords))
+		if(rect.inClosedRectangle(coords) && clip_rect.inClosedRectangle(coords))
 		{
 			for(size_t i=0; i<glui_texts.size(); ++i)
 			{

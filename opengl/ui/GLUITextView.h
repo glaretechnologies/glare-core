@@ -113,6 +113,8 @@ private:
 	Vec2f botleft; // in GL UI coords
 
 	Vec2f last_rounded_background_dims;
+
+	Rect2f clip_rect;
 };
 
 

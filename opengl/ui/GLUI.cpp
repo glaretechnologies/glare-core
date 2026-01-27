@@ -132,7 +132,7 @@ struct GLUIWidgetZComparator
 };
 
 
-// Get list of widgets whose rectangle contains ui_coords, sorted by widget z.
+// Get list of widgets whose rectangle contains ui_coords, sorted into ascending widget z order (e.g. near to far)
 static void getSortedWidgetsAtEventPos(const std::set<GLUIWidgetRef>& widgets, const Vec2f ui_coords, std::vector<GLUIWidget*>& temp_widgets_out)
 {
 	temp_widgets_out.clear();
