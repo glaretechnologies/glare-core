@@ -135,9 +135,11 @@ Replace "<" with "&lt;" etc..
 const std::string Escaping::HTMLEscape(const std::string& s)
 {
 	std::string result;
-	result.reserve(s.size());
 
-	for(size_t i=0; i<s.size(); ++i)
+	const size_t s_size = s.size();
+	result.reserve(s_size);
+
+	for(size_t i=0; i<s_size; ++i)
 	{
 		if(s[i] == '<')
 			result += "&lt;";

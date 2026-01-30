@@ -937,9 +937,9 @@ const std::string eatExtension(const std::string& filename)
 
 string_view removeDotAndExtensionStringView(string_view filename)
 {
-	const string_view::size_type dot_index = filename.find_last_of('.');
+	const std::string::size_type dot_index = filename.find_last_of('.');
 
-	if(dot_index == string_view::npos)
+	if(dot_index == std::string::npos)
 		return filename;
 	else
 		return filename.substr(0, dot_index);
@@ -1433,18 +1433,20 @@ const std::string replaceAll(const std::string& s, const std::string& target, co
 
 	size_t searchpos = 0;
 	std::string newstring;
+	newstring.reserve(s.size() * 3 / 2); // Reserve an estimated size for the new string.  Alternatively, could do a first pass to compute the final string size exactly.
 	while(1)
 	{
-		size_t next = s.find(target, searchpos);
+		const size_t next = s.find(target, searchpos);
 		if(next == std::string::npos)
 		{
 			// No more matches.
-			return newstring + s.substr(searchpos, s.size() - searchpos); // Add remaining part of string
+			newstring += std::string_view(s).substr(searchpos); // Add remaining part of string
+			return newstring;
 		}
 		else
 		{
 			// Found a match at 'next'
-			newstring += s.substr(searchpos, next - searchpos); // Add string up to location of target
+			newstring += std::string_view(s).substr(searchpos, next - searchpos); // Add string up to location of target
 			newstring += replacement;
 
 			searchpos = next + target.size(); // Advance search pos to one past end of found target.
