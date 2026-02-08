@@ -3467,44 +3467,7 @@ void FormatDecoderGLTF::test()
 
 	try
 	{
-		if(false)
-		{
-			// Extract anims
-			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\arm_lower.glb", data);
-
-			{
-				FileOutStream file("D:\\models\\extracted_avatar_anim.bin");
-				mesh->animation_data.writeToStream(file);
-			}
-
-			{
-				FileInStream file("D:\\models\\extracted_avatar_anim.bin");
-				AnimationData anim_data;
-				anim_data.readFromStream(file);
-			}
-		}
-
-		if(false)
-		{
-			// Extract anims
-			GLTFLoadedData data;
-			Reference<BatchedMesh> mesh = loadGLBFile("D:\\models\\readyplayerme_avatar_animation_15.glb", data);
-
-			{
-				FileOutStream file("D:\\models\\extracted_avatar_anim.bin");
-				mesh->animation_data.writeToStream(file);
-			}
-
-			{
-				FileInStream file("D:\\models\\extracted_avatar_anim.bin");
-				AnimationData anim_data;
-				anim_data.readFromStream(file);
-			}
-		}
-
-
-
+	
 		/*{
 			// Test loading a VRM file
 			conPrint("---------------------------------meebit_09842_t_solid-----------------------------------");
