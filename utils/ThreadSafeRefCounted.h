@@ -60,7 +60,7 @@ public:
 	}
 	
 private:
-	GLARE_DISABLE_COPY(ThreadSafeRefCounted)
+	//GLARE_DISABLE_COPY(ThreadSafeRefCounted)
 
 	mutable glare::AtomicInt refcount;
 };

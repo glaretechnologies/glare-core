@@ -32,6 +32,7 @@ class AtomicInt
 {
 public:
 	explicit inline AtomicInt(atomic_int val_ = 0) : val(val_) { /*assert(((uint64)this % 8) == 0);*/ }
+	inline AtomicInt(const AtomicInt& other) : val(other.val) {}
 	inline ~AtomicInt() {}
 
 	inline operator atomic_int() const;
