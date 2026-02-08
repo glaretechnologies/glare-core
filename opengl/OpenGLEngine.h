@@ -1200,6 +1200,7 @@ public:
 
 	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
 private:
+	static void staticInit();
 	void checkCreateProfilingQueries();
 	void loadMapsForSunDir();
 	void buildObjectData(const Reference<GLObject>& object);
@@ -1309,6 +1310,7 @@ private:
 	void bindStandardShadowMappingDepthTextures();
 	static size_t getTotalGPUMemAllocated();
 
+	static bool static_init_done;
 	bool init_succeeded;
 	std::string initialisation_error_msg;
 	

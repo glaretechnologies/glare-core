@@ -490,8 +490,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	num_draw_commands(0),
 	reload_shaders_callback(nullptr)
 {
-	OpenGLExtensions::init();
-
 	current_index_type = 0;
 	current_bound_prog = NULL;
 	current_bound_prog_index = std::numeric_limits<uint32>::max();
@@ -1683,6 +1681,28 @@ struct DataUpdateStruct
 };
 
 
+bool OpenGLEngine::static_init_done = false;
+
+
+void OpenGLEngine::staticInit()
+{
+	if(static_init_done)
+		return;
+
+#if !defined(OSX) && !defined(EMSCRIPTEN)
+	if(gl3wInit() != 0)
+	{
+		conPrint("gl3wInit failed.");
+		return;
+	}
+#endif
+
+	OpenGLExtensions::init();
+
+	static_init_done = true;
+}
+
+
 void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureServer> texture_server_, PrintOutput* print_output_, glare::TaskManager* main_task_manager_, glare::TaskManager* high_priority_task_manager_,
 	Reference<glare::Allocator> mem_allocator_)
 {
@@ -1695,15 +1715,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	high_priority_task_manager = high_priority_task_manager_;
 	mem_allocator = mem_allocator_;
 
-#if !defined(OSX) && !defined(EMSCRIPTEN)
-	if(gl3wInit() != 0)
-	{
-		conPrint("gl3wInit failed.");
-		init_succeeded = false;
-		initialisation_error_msg = "gl3wInit failed.";
-		return;
-	}
-#endif
+	if(!static_init_done)
+		staticInit();
 
 	this->opengl_vendor		= std::string((const char*)glGetString(GL_VENDOR));
 	this->opengl_renderer	= std::string((const char*)glGetString(GL_RENDERER));
