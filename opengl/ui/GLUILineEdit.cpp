@@ -598,9 +598,9 @@ void GLUILineEdit::setPos(const Vec2f& botleft_)
 }
 
 
-void GLUILineEdit::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
+void GLUILineEdit::setPosAndDims(const Vec2f& new_botleft, const Vec2f& dims)
 {
-	setPos(botleft);
+	setPos(new_botleft);
 }
 
 

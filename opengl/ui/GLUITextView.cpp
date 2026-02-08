@@ -368,9 +368,9 @@ void GLUITextView::setPos(const Vec2f& new_botleft)
 }
 
 
-void GLUITextView::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
+void GLUITextView::setPosAndDims(const Vec2f& new_botleft, const Vec2f& dims)
 {
-	setPos(botleft);
+	setPos(new_botleft);
 }
 
 
