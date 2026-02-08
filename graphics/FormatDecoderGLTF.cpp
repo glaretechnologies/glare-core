@@ -1527,16 +1527,9 @@ static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const st
 
 	//--------------------------- Set default translations, scales, rotations with the non-animated static values. ---------------------------
 
-	anim_datum_out.per_anim_node_data.resize(data.nodes.size());
+	anim_datum_out.raw_per_anim_node_data.resize(data.nodes.size());
 	for(size_t n=0; n<data.nodes.size(); ++n)
-	{
-		anim_datum_out.per_anim_node_data[n].translation_input_accessor = -1;
-		anim_datum_out.per_anim_node_data[n].translation_output_accessor = -1;
-		anim_datum_out.per_anim_node_data[n].rotation_input_accessor = -1;
-		anim_datum_out.per_anim_node_data[n].rotation_output_accessor = -1;
-		anim_datum_out.per_anim_node_data[n].scale_input_accessor = -1;
-		anim_datum_out.per_anim_node_data[n].scale_output_accessor = -1;
-	}
+		anim_datum_out.raw_per_anim_node_data[n].init();
 	
 
 	for(size_t c=0; c<anim.channels.size(); ++c)
@@ -1555,26 +1548,26 @@ static void processAnimation(GLTFData& data, const GLTFAnimation& anim, const st
 		checkProperty(input_accessor.count == output_accessor.count, "Animation: The number output of elements must equal the number of input elements.");
 
 		// channel.target_node is user-controlled and not checked yet.
-		checkProperty(channel.target_node >= 0 && channel.target_node < (int)anim_datum_out.per_anim_node_data.size(), "channel.target_node is invalid.");
+		checkProperty(channel.target_node >= 0 && channel.target_node < (int)anim_datum_out.raw_per_anim_node_data.size(), "channel.target_node is invalid.");
 
 		if(channel.target_path == GLTFChannel::Path_translation)
 		{
-			anim_datum_out.per_anim_node_data[channel.target_node].translation_input_accessor  = new_input_index [sampler.input];
-			anim_datum_out.per_anim_node_data[channel.target_node].translation_output_accessor = new_output_index[sampler.output];
+			anim_datum_out.raw_per_anim_node_data[channel.target_node].translation_input_accessor  = new_input_index [sampler.input];
+			anim_datum_out.raw_per_anim_node_data[channel.target_node].translation_output_accessor = new_output_index[sampler.output];
 
 			checkProperty(typeNumComponents(output_accessor.type) == 3, "invalid number of components for animated translation");
 		}
 		else if(channel.target_path == GLTFChannel::Path_rotation)
 		{
-			anim_datum_out.per_anim_node_data[channel.target_node].rotation_input_accessor  = new_input_index [sampler.input];
-			anim_datum_out.per_anim_node_data[channel.target_node].rotation_output_accessor = new_output_index[sampler.output];
+			anim_datum_out.raw_per_anim_node_data[channel.target_node].rotation_input_accessor  = new_input_index [sampler.input];
+			anim_datum_out.raw_per_anim_node_data[channel.target_node].rotation_output_accessor = new_output_index[sampler.output];
 
 			checkProperty(typeNumComponents(output_accessor.type) == 4, "invalid number of components for animated rotation");
 		}
 		else if(channel.target_path == GLTFChannel::Path_scale)
 		{
-			anim_datum_out.per_anim_node_data[channel.target_node].scale_input_accessor  = new_input_index [sampler.input];
-			anim_datum_out.per_anim_node_data[channel.target_node].scale_output_accessor = new_output_index[sampler.output];
+			anim_datum_out.raw_per_anim_node_data[channel.target_node].scale_input_accessor  = new_input_index [sampler.input];
+			anim_datum_out.raw_per_anim_node_data[channel.target_node].scale_output_accessor = new_output_index[sampler.output];
 
 			checkProperty(typeNumComponents(output_accessor.type) == 3, "invalid number of components for animated scale");
 		}

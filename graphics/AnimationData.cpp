@@ -1,22 +1,26 @@
 /*=====================================================================
 AnimationData.cpp
 -----------------
-Copyright Glare Technologies Limited 2021 -
+Copyright Glare Technologies Limited 2026 -
 =====================================================================*/
 #include "AnimationData.h"
 
 
+#include "../meshoptimizer/src/meshoptimizer.h"
 #include "../utils/InStream.h"
+#include "../utils/RandomAccessInStream.h"
 #include "../utils/OutStream.h"
 #include "../utils/Exception.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/ContainerUtils.h"
 #include "../utils/RuntimeCheck.h"
+#include "../utils/Timer.h"
 #include <unordered_map>
 #include <algorithm>
 #include <set>
 #include <tracy/Tracy.hpp>
+#include <zstd.h>
 
 
 AnimationNodeData::AnimationNodeData() : retarget_adjustment(Matrix4f::identity()) {}
@@ -66,38 +70,29 @@ void PerAnimationNodeData::readFromStream(InStream& stream)
 }
 
 
-void AnimationDatum::copyFrom(const AnimationDatum& other)
-{
-	name = other.name;
-	per_anim_node_data = other.per_anim_node_data;
-	used_input_accessor_indices = other.used_input_accessor_indices;
-	anim_len = other.anim_len;
-}
-
-
 void AnimationDatum::writeToStream(OutStream& stream) const
 {
 	stream.writeStringLengthFirst(name);
 
-	// Write per_anim_node_data
-	stream.writeUInt32((uint32)per_anim_node_data.size());
-	for(size_t i=0; i<per_anim_node_data.size(); ++i)
-		per_anim_node_data[i].writeToStream(stream);
+	// Write raw_per_anim_node_data
+	stream.writeUInt32((uint32)raw_per_anim_node_data.size());
+	for(size_t i=0; i<raw_per_anim_node_data.size(); ++i)
+		raw_per_anim_node_data[i].writeToStream(stream);
 }
 
 
-void AnimationDatum::readFromStream(uint32 file_version, InStream& stream, std::vector<KeyFrameTimeInfo>& old_keyframe_times_out, std::vector<js::Vector<Vec4f, 16> >& old_output_data)
+void AnimationDatum::readFromStream(uint32 file_version, InStream& stream, js::Vector<KeyFrameTimeInfo>& old_keyframe_times_out, js::Vector<js::Vector<Vec4f, 16> >& old_output_data)
 {
 	name = stream.readStringLengthFirst(10000);
 
-	// Read per_anim_node_data
+	// Read raw_per_anim_node_data
 	{
 		const uint32 num = stream.readUInt32();
 		if(num > 100000)
 			throw glare::Exception("invalid num");
-		per_anim_node_data.resize(num);
-		for(size_t i=0; i<per_anim_node_data.size(); ++i)
-			per_anim_node_data[i].readFromStream(stream);
+		raw_per_anim_node_data.resize(num);
+		for(size_t i=0; i<raw_per_anim_node_data.size(); ++i)
+			raw_per_anim_node_data[i].readFromStream(stream);
 	}
 
 	// Read keyframe_times
@@ -138,13 +133,16 @@ void AnimationDatum::readFromStream(uint32 file_version, InStream& stream, std::
 }
 
 
-void AnimationDatum::checkData(const std::vector<KeyFrameTimeInfo>& keyframe_times, const std::vector<js::Vector<Vec4f, 16> >& output_data) const
+void AnimationDatum::checkData(const js::Vector<KeyFrameTimeInfo>& shared_keyframe_times, const js::Vector<js::Vector<Vec4f, 16> >& shared_output_data) const
 {
+	const js::Vector<KeyFrameTimeInfo>&       keyframe_times = (!m_keyframe_times.empty()) ? m_keyframe_times : shared_keyframe_times;
+	const js::Vector<js::Vector<Vec4f, 16> >& output_data    = (!m_output_data.empty())    ? m_output_data    : shared_output_data;
+
 	// Bounds-check data
-	for(size_t i=0; i<per_anim_node_data.size(); ++i)
+	for(size_t i=0; i<raw_per_anim_node_data.size(); ++i)
 	{
 		// -1 is a valid value
-		const PerAnimationNodeData& data = per_anim_node_data[i];
+		const PerAnimationNodeData& data = raw_per_anim_node_data[i];
 		checkProperty(data.translation_input_accessor  >= -1 && data.translation_input_accessor   < (int)keyframe_times.size(), "invalid input accessor index");
 		checkProperty(data.rotation_input_accessor     >= -1 && data.rotation_input_accessor      < (int)keyframe_times.size(), "invalid input accessor index");
 		checkProperty(data.scale_input_accessor        >= -1 && data.scale_input_accessor         < (int)keyframe_times.size(), "invalid input accessor index");
@@ -160,17 +158,17 @@ void AnimationDatum::checkData(const std::vector<KeyFrameTimeInfo>& keyframe_tim
 		// Output data vectors should be the same size as the input keyframe vectors, when they are used together.
 		if(data.translation_input_accessor >= 0)
 		{
-			checkProperty(data.translation_output_accessor >= 0, "invalid output_accessor");
+			checkProperty(data.translation_output_accessor >= 0, "invalid output_accessor, must be >= 0 for >= 0 input accessor.");
 			checkProperty(keyframe_times[data.translation_input_accessor].times.size() == output_data[data.translation_output_accessor].size(), "num keyframes != output_data size");
 		}
 		if(data.rotation_input_accessor    >= 0)
 		{
-			checkProperty(data.rotation_output_accessor >= 0, "invalid output_accessor");
+			checkProperty(data.rotation_output_accessor >= 0, "invalid output_accessor, must be >= 0 for >= 0 input accessor.");
 			checkProperty(keyframe_times[data.rotation_input_accessor   ].times.size() == output_data[data.rotation_output_accessor   ].size(), "num keyframes != output_data size");
 		}
 		if(data.scale_input_accessor       >= 0)
 		{
-			checkProperty(data.scale_output_accessor >= 0, "invalid output_accessor");
+			checkProperty(data.scale_output_accessor >= 0, "invalid output_accessor, must be >= 0 for >= 0 input accessor.");
 			checkProperty(keyframe_times[data.scale_input_accessor      ].times.size() == output_data[data.scale_output_accessor      ].size(), "num keyframes != output_data size");
 		}
 	}
@@ -179,24 +177,35 @@ void AnimationDatum::checkData(const std::vector<KeyFrameTimeInfo>& keyframe_tim
 
 size_t AnimationDatum::getTotalMemUsage() const
 {
-	return 
+	size_t sum =
 		name.capacity() + 
-		per_anim_node_data.capacity() * sizeof(PerAnimationNodeData) + 
-		used_input_accessor_indices.capacity() * sizeof(int) + 
-		sizeof(anim_len);
+		raw_per_anim_node_data.capacity() * sizeof(PerAnimationNodeData) + 
+		used_input_accessor_indices.capacity() * sizeof(int);
+
+	for(size_t i=0; i<m_keyframe_times.size(); ++i)
+		sum += m_keyframe_times[i].times.capacity() * sizeof(float);
+
+	for(size_t i=0; i<m_output_data.size(); ++i)
+		sum += m_output_data[i].capacitySizeBytes();
+
+	return sum;
 }
 
 
-static const uint32 ANIMATION_DATA_VERSION = 3;
-// Version 3: added serialisation of vrm_data if present
+static const uint32 ANIMATION_DATA_VERSION = 4;
+// Version 3: Added serialisation of vrm_data if present
+// Version 4: Added compression of quaternions.  Removed old_skeleton_root_transform serialisation.
+
+static const uint32 OUTPUT_COMPRESSION_TYPE_NONE = 0;
+static const uint32 OUTPUT_COMPRESSION_TYPE_QUAT_MESHOPT_ZSTD = 1;
+
 
 
 void AnimationData::writeToStream(OutStream& stream) const
 {
-	stream.writeUInt32(ANIMATION_DATA_VERSION);
+	ZoneScoped; // Tracy profiler
 
-	const Matrix4f old_skeleton_root_transform = Matrix4f::identity();
-	stream.writeData(old_skeleton_root_transform.e, sizeof(float)*16);
+	stream.writeUInt32(ANIMATION_DATA_VERSION);
 
 	// Write nodes
 	stream.writeUInt32((uint32)nodes.size());
@@ -221,12 +230,67 @@ void AnimationData::writeToStream(OutStream& stream) const
 	}
 
 	// Write output_data
+
+	// Work out which output data vectors are rotation data
+	std::vector<bool> is_rot_output_data(output_data.size(), false);
+	for(size_t i=0; i<animations.size(); ++i)
+		for(size_t z=0; z<animations[i]->raw_per_anim_node_data.size(); ++z)
+			if(animations[i]->raw_per_anim_node_data[z].rotation_output_accessor != -1)
+			{
+				runtimeCheck(animations[i]->raw_per_anim_node_data[z].rotation_output_accessor < is_rot_output_data.size());
+				is_rot_output_data[animations[i]->raw_per_anim_node_data[z].rotation_output_accessor] = true;
+			}
+
+
 	stream.writeUInt32((uint32)output_data.size());
 	for(size_t i=0; i<output_data.size(); ++i)
 	{
 		const js::Vector<Vec4f, 16>& vec = output_data[i];
-		stream.writeUInt32((uint32)vec.size());
-		stream.writeData(vec.data(), sizeof(Vec4f) * vec.size());
+
+		if(is_rot_output_data[i])
+		{
+			// Write compression type
+			stream.writeUInt32(OUTPUT_COMPRESSION_TYPE_QUAT_MESHOPT_ZSTD);
+
+			// Write vec size (num quats)
+			stream.writeUInt32((uint32)vec.size()); 
+
+			// Filter data
+			std::vector<uint8> filtered(vec.size() * 4 * sizeof(uint16));
+			meshopt_encodeFilterQuat(/*destination=*/filtered.data(), /*count=*/vec.size(), /*(destination) stride=*/4 * sizeof(uint16), /*bits=*/16, /*data=*/(const float*)vec.data());
+
+			// Encode
+			const size_t encoded_size_bound = meshopt_encodeVertexBufferBound(/*vertex count=*/vec.size(), /*attr size=*/4 * sizeof(uint16));
+			js::Vector<uint8> encoded_buf(encoded_size_bound);
+
+			// Note 2 is the default meshopt compression level.
+			const size_t res_encoded_vert_buf_size = meshopt_encodeVertexBufferLevel(encoded_buf.data(), encoded_buf.size(), filtered.data(), vec.size(), /*attr size=*/4 * sizeof(uint16), /*compression level=*/2, /*vertex version=*/1);
+			encoded_buf.resize(res_encoded_vert_buf_size);
+
+			// Compress the buffer with zstandard
+			const size_t compressed_bound = ZSTD_compressBound(encoded_buf.size());
+			js::Vector<uint8, 16> compressed_data(compressed_bound);
+			const size_t compressed_size = ZSTD_compress(/*dest=*/compressed_data.data(), /*destsize=*/compressed_data.size(), /*src=*/encoded_buf.data(), /*srcsize=*/encoded_buf.size(),
+				9 // compression level
+			);
+
+			if(ZSTD_isError(compressed_size))
+				throw glare::Exception("Compression failed: " + toString(compressed_size));
+
+			// Write compressed size
+			stream.writeUInt32((uint32)compressed_size);
+
+			// Write compressed data
+			stream.writeData(compressed_data.data(), compressed_size);
+		}
+		else
+		{
+			// Write compression type
+			stream.writeUInt32(OUTPUT_COMPRESSION_TYPE_NONE);
+
+			stream.writeUInt32((uint32)vec.size());
+			stream.writeData(vec.data(), sizeof(Vec4f) * vec.size());
+		}
 	}
 
 	// Write animations
@@ -249,7 +313,7 @@ void AnimationData::writeToStream(OutStream& stream) const
 }
 
 
-void AnimationData::readFromStream(InStream& stream)
+void AnimationData::readFromStream(RandomAccessInStream& stream)
 {
 	ZoneScoped; // Tracy profiler
 
@@ -257,14 +321,17 @@ void AnimationData::readFromStream(InStream& stream)
 	if(version > ANIMATION_DATA_VERSION)
 		throw glare::Exception("Invalid animation data version: " + toString(version));
 
-	Matrix4f skeleton_root_transform; // unused
-	stream.readData(skeleton_root_transform.e, sizeof(float)*16);
+	if(version <= 3)
+	{
+		Matrix4f skeleton_root_transform; // unused
+		stream.readData(skeleton_root_transform.e, sizeof(float)*16);
+	}
 
 	// Read nodes
 	{
 		const uint32 num = stream.readUInt32();
 		if(num > 100000)
-			throw glare::Exception("invalid num");
+			throw glare::Exception("invalid num nodes: " + toString(num));
 		nodes.resize(num);
 		for(size_t i=0; i<nodes.size(); ++i)
 			nodes[i].readFromStream(stream);
@@ -313,29 +380,103 @@ void AnimationData::readFromStream(InStream& stream)
 		if(num > 100000)
 			throw glare::Exception("invalid num");
 		output_data.resize(num);
+
+
+		js::Vector<uint8> decompressed;
+		js::Vector<uint8> decoded;
+
 		for(size_t i=0; i<output_data.size(); ++i)
 		{
-			js::Vector<Vec4f, 16>& vec = output_data[i];
-			const uint32 vec_size = stream.readUInt32();
-			if(vec_size > 100000)
-				throw glare::Exception("invalid vec_size");
-			vec.resize(vec_size);
-			stream.readData(vec.data(), vec_size * sizeof(Vec4f));
+			if(version <= 3)
+			{
+				js::Vector<Vec4f, 16>& vec = output_data[i];
+				const uint32 vec_size = stream.readUInt32();
+				if(vec_size > 100000)
+					throw glare::Exception("invalid vec_size");
+				vec.resize(vec_size);
+				stream.readData(vec.data(), vec_size * sizeof(Vec4f));
+			}
+			else
+			{
+				const uint32 compression_type = stream.readUInt32();
+
+				js::Vector<Vec4f, 16>& vec = output_data[i];
+				const uint32 vec_size = stream.readUInt32();
+				if(vec_size > 100000)
+					throw glare::Exception("invalid vec_size");
+				vec.resize(vec_size);
+
+				if(compression_type == OUTPUT_COMPRESSION_TYPE_NONE)
+				{
+					stream.readData(vec.data(), vec_size * sizeof(Vec4f));
+				}
+				else if(compression_type == OUTPUT_COMPRESSION_TYPE_QUAT_MESHOPT_ZSTD)
+				{
+					const uint32 compressed_size = stream.readUInt32(); // Read compressed size
+
+					// Check that reading the compressed data will be in the file bounds.
+					if(!stream.canReadNBytes(compressed_size))
+						throw glare::Exception("Compressed data extends past end of stream (file truncated?)");
+
+					// Read decompressed size
+					const uint64 decompressed_size = ZSTD_getFrameContentSize(stream.currentReadPtr(), /*src size=*/compressed_size);
+					if(decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN || decompressed_size == ZSTD_CONTENTSIZE_ERROR)
+						throw glare::Exception("Failed to get decompressed_size");
+
+					const size_t max_decompressed_size = 1'000'000;
+					if(decompressed_size > max_decompressed_size) // Sanity check decompressed_size
+						throw glare::Exception("decompressed_size too large.");
+
+					// Decompress data
+					decompressed.resizeNoCopy(decompressed_size);
+					const size_t res = ZSTD_decompress(/*des=*/decompressed.data(), decompressed.size(), stream.currentReadPtr(), compressed_size);
+					if(ZSTD_isError(res))
+						throw glare::Exception("Decompression of buffer failed: " + toString(res));
+					if(res < decompressed_size)
+						throw glare::Exception("Decompression of buffer failed: not enough bytes in result");
+
+					stream.advanceReadIndex(compressed_size);
+
+					// meshopt decode
+					decoded.resizeNoCopy(vec.size() * 4 * sizeof(uint16));
+					if(meshopt_decodeVertexBuffer(/*destination=*/decoded.data(), /*vertex count=*/vec.size(), /*vertex size=*/4 * sizeof(uint16), decompressed.data(), decompressed.size()) != 0)
+						throw glare::Exception("meshopt_decodeVertexBuffer failed.");
+
+					// unfilter (in-place)
+					meshopt_decodeFilterQuat(/*buffer=*/decoded.data(), vec.size(), /*stride=*/4 * sizeof(uint16));
+
+					// Dequantize into the final quat vector
+					// Note that we normalise in Quatf::nlerp when doing animation with this data, so we shouldn't need a normalise here.
+					const int16* const decoded_data = (int16*)decoded.data();
+					Vec4f* const vec_data = vec.data();
+					for(size_t z=0; z<vec.size(); ++z)
+					{
+						vec_data[z] = Vec4f(
+							decoded_data[4 * z + 0],
+							decoded_data[4 * z + 1],
+							decoded_data[4 * z + 2],
+							decoded_data[4 * z + 3]
+						) * (1 / 32767.f);
+					}
+				}
+				else
+					throw glare::Exception("Unknown compression type " + toString(compression_type));
+			}
 		}
 	}
 
 	// Read animations
 	{
 		const uint32 num = stream.readUInt32();
-		if(num > 100000)
-			throw glare::Exception("invalid num");
+		if(num > 10000)
+			throw glare::Exception("invalid num anims: " + toString(num));
 		animations.resize(num);
 		for(size_t i=0; i<animations.size(); ++i)
 		{
 			animations[i] = new AnimationDatum();
 
-			std::vector<KeyFrameTimeInfo> old_keyframe_times;
-			std::vector<js::Vector<Vec4f, 16> > old_output_data;
+			js::Vector<KeyFrameTimeInfo> old_keyframe_times;
+			js::Vector<js::Vector<Vec4f, 16> > old_output_data;
 
 			animations[i]->readFromStream(version, stream, old_keyframe_times, old_output_data);
 
@@ -348,9 +489,9 @@ void AnimationData::readFromStream(InStream& stream)
 				ContainerUtils::append(output_data, old_output_data);
 
 				// Offset accessors
-				for(size_t z=0; z<animations[i]->per_anim_node_data.size(); ++z)
+				for(size_t z=0; z<animations[i]->raw_per_anim_node_data.size(); ++z)
 				{
-					PerAnimationNodeData& data = animations[i]->per_anim_node_data[z];
+					PerAnimationNodeData& data = animations[i]->raw_per_anim_node_data[z];
 					if(data.translation_input_accessor != -1)	data.translation_input_accessor		+= keyframe_times_offset;
 					if(data.rotation_input_accessor != -1)		data.rotation_input_accessor		+= keyframe_times_offset;
 					if(data.scale_input_accessor != -1)			data.scale_input_accessor			+= keyframe_times_offset;
@@ -389,30 +530,406 @@ void AnimationData::readFromStream(InStream& stream)
 	checkDataIsValid();
 	
 	build();
+
+	checkPerAnimNodeDataIsValid();
+}
+
+
+// Mixamo animations exported from Blender have some scales of 100 and 0.01 due to use of cm units.  Remove this.
+void AnimationData::removeInverseBindMatrixScaling()
+{
+	for(size_t i=0; i<this->animations.size(); ++i)
+	{
+		AnimationDatum& anim = *this->animations[i];
+
+		for(size_t node_i=0; node_i < anim.raw_per_anim_node_data.size(); ++node_i) // For each new node index:
+		{
+			if(node_i == 67) // Armature node
+			{
+				// conPrint("scale: " + this->nodes[node_i].scale.toStringMaxNDecimalPlaces(4));
+				this->nodes[node_i].scale = Vec4f(1,1,1,0); // Set root armature node scale = 1
+			}
+
+			this->nodes[node_i].trans *= 0.01;
+
+			// Adjust inverse_bind_matrices that have a 100 scaling.
+			if(node_i < 65) // Could also check determinant or max scaling or something
+				this->nodes[node_i].inverse_bind_matrix = Matrix4f::uniformScaleMatrix(0.01f) * this->nodes[node_i].inverse_bind_matrix;
+
+
+			js::Vector<js::Vector<Vec4f, 16> >& use_output_data = (!anim.m_output_data.empty()) ? anim.m_output_data : output_data;
+
+			PerAnimationNodeData& anim_node_data = anim.raw_per_anim_node_data[node_i];
+			//if(anim_node_data.scale_output_accessor != -1)
+			//{
+			//	js::Vector<Vec4f, 16>& scale_output_data = use_output_data[anim_node_data.scale_output_accessor];
+			//	for(size_t z=0; z<scale_output_data.size(); ++z)
+			//	{
+			//		Vec4f& v = scale_output_data[z];
+			//		//conPrint("scale_output_data: " + scale_output_data[z].toStringMaxNDecimalPlaces(4));
+			//		//conPrint(doubleToStringNSigFigs(v[0], 4));
+			//	}
+			//}
+
+			if(anim_node_data.translation_output_accessor != -1)
+			{
+				js::Vector<Vec4f, 16>& trans_output_data = use_output_data[anim_node_data.translation_output_accessor];
+				for(size_t z=0; z<trans_output_data.size(); ++z)
+				{
+					//conPrint("trans_output_data: " + trans_output_data[z].toStringMaxNDecimalPlaces(4));
+
+					Vec4f& v = trans_output_data[z];
+
+					const float factor = 0.01f;
+					v = mul(v, Vec4f(factor, factor, factor, 1.0f));
+				}
+			}
+		}
+	}
+}
+
+
+void AnimationData::removeUnneededOutputData()
+{
+	// Which output data is actually needed? (e.g. which is accessed via accessors where the animated output data is != the node data?)
+	std::vector<bool> output_data_needed(output_data.size(), false);
+
+	for(size_t anim_i=0; anim_i<animations.size(); ++anim_i)
+	{
+		AnimationDatum& anim = *animations[anim_i];
+
+		for(size_t i=0; i<anim.raw_per_anim_node_data.size(); ++i)
+		{
+			const PerAnimationNodeData& node_data = anim.raw_per_anim_node_data[i];
+			if(node_data.scale_output_accessor != -1)
+			{
+				js::Vector<Vec4f, 16>& data = output_data[node_data.scale_output_accessor];
+				//conPrint("Found scale data with " + toString(data.size()) + " output values.");
+			
+				bool all_equal_to_node_scale = true;
+				for(size_t z=0; z<data.size(); ++z)
+				{
+					//conPrint("value " + toString(z) + ": " + data[z].toStringMaxNDecimalPlaces(10));
+
+					if(!epsEqual(data[z], nodes[i].scale, /*eps=*/1.0e-4f))
+						all_equal_to_node_scale = false;
+				}
+
+				//conPrint("all_equal_to_node_scale: " + boolToString(all_equal_to_node_scale));
+				if(!all_equal_to_node_scale)
+					output_data_needed[node_data.scale_output_accessor] = true;
+			}
+
+			//const PerAnimationNodeData& node_data = anim.raw_per_anim_node_data[i];
+			if(node_data.translation_output_accessor != -1)
+			{
+				js::Vector<Vec4f, 16>& data = output_data[node_data.translation_output_accessor];
+				//conPrint("Found translation data with " + toString(data.size()) + " output values.");
+
+				bool all_equal_to_node_trans = true;
+				for(size_t z=0; z<data.size(); ++z)
+				{
+					//conPrint("value " + toString(z) + ": " + data[z].toStringMaxNDecimalPlaces(10));
+
+					if(!epsEqual(data[z], nodes[i].trans, /*eps=*/1.0e-4f))
+						all_equal_to_node_trans = false;
+				}
+
+				//conPrint("node translation: " + nodes[i].trans.toStringMaxNDecimalPlaces(10));
+				//conPrint("all_equal_to_node_trans: " + boolToString(all_equal_to_node_trans));
+
+				if(!all_equal_to_node_trans)
+					output_data_needed[node_data.translation_output_accessor] = true;
+			}
+
+			if(node_data.rotation_output_accessor != -1)
+			{
+				js::Vector<Vec4f, 16>& data = output_data[node_data.rotation_output_accessor];
+				//conPrint("Found rotation data with " + toString(data.size()) + " output values.");
+
+				bool all_equal_to_node_rot = true;
+				for(size_t z=0; z<data.size(); ++z)
+				{
+					//conPrint("value " + toString(z) + ": " + data[z].toStringMaxNDecimalPlaces(10));
+
+					if(!epsEqual(data[z], nodes[i].rot.v, /*eps=*/1.0e-4f))
+						all_equal_to_node_rot = false;
+				}
+
+				//conPrint("node rotation: " + nodes[i].rot.toString());
+				//conPrint("all_equal_to_node_rot: " + boolToString(all_equal_to_node_rot));
+
+				if(!all_equal_to_node_rot)
+					output_data_needed[node_data.rotation_output_accessor] = true;
+			}
+		}
+	}
+
+
+	js::Vector<js::Vector<Vec4f, 16> > new_output_data;
+	std::vector<int> new_output_indices(output_data.size());
+	int new_i = 0;
+	for(size_t i=0; i<output_data.size(); ++i)
+	{
+		if(output_data_needed[i])
+		{
+			new_output_indices[i] = new_i;
+			new_output_data.push_back(output_data[i]);
+			new_i++;
+		}
+		else
+			new_output_indices[i] = -1;
+	}
+
+	assert(new_output_data.size() == new_i);
+
+	conPrint("\tremoveUnneededOutputData(): keeping " + toString(new_i) + " / " + toString(output_data.size()) + " output_data vectors");
+
+	for(size_t anim_i=0; anim_i<animations.size(); ++anim_i)
+	{
+		AnimationDatum& anim = *animations[anim_i];
+
+		// Update accessor indices
+		for(size_t i=0; i<anim.raw_per_anim_node_data.size(); ++i)
+		{
+			PerAnimationNodeData& node_data = anim.raw_per_anim_node_data[i];
+			if(node_data.rotation_output_accessor != -1)
+			{
+				node_data.rotation_output_accessor = new_output_indices[node_data.rotation_output_accessor];
+				if(node_data.rotation_output_accessor == -1)
+					node_data.rotation_input_accessor = -1;
+			}
+
+			if(node_data.translation_output_accessor != -1)
+			{
+				node_data.translation_output_accessor = new_output_indices[node_data.translation_output_accessor];
+				if(node_data.translation_output_accessor == -1)
+					node_data.translation_input_accessor = -1;
+			}
+
+			if(node_data.scale_output_accessor != -1)
+			{
+				node_data.scale_output_accessor = new_output_indices[node_data.scale_output_accessor];
+				if(node_data.scale_output_accessor == -1)
+					node_data.scale_input_accessor = -1;
+			}
+		}
+	}
+
+
+	output_data = new_output_data;
+
+
+	checkDataIsValid();
+}
+
+
+void AnimationData::printStats()
+{
+	size_t total_trans_output_size = 0;
+	size_t total_rot_output_size = 0;
+	size_t total_scale_output_size = 0;
+	size_t total_compressed_output_size_B = 0;
+
+	for(size_t anim_i=0; anim_i<animations.size(); ++anim_i)
+	{
+		AnimationDatum& anim = *animations[anim_i];
+
+		conPrint("----- Animation " + toString(anim_i) + " ('" + anim.name + "') -----");
+
+		for(size_t i=0; i<anim.raw_per_anim_node_data.size(); ++i)
+		{
+			const PerAnimationNodeData& node_data = anim.raw_per_anim_node_data[i];
+
+			if(node_data.translation_output_accessor != -1)
+				total_trans_output_size += output_data[node_data.translation_output_accessor].size();
+
+			if(node_data.scale_output_accessor != -1)
+				total_scale_output_size += output_data[node_data.scale_output_accessor].size();
+
+			if(node_data.rotation_output_accessor != -1)
+			{
+				total_rot_output_size += output_data[node_data.rotation_output_accessor].size();
+
+				// Try compressing
+				std::vector<uint8> filtered(output_data[node_data.rotation_output_accessor].size() * 4 * sizeof(uint16));
+				meshopt_encodeFilterQuat(filtered.data(), /*count=*/output_data[node_data.rotation_output_accessor].size(), /*(destination) stride=*/4 * sizeof(uint16), /*bits=*/16, /*data=*/(const float*)output_data[node_data.rotation_output_accessor].data());
+
+#if 1
+				const size_t encoded_size_bound = meshopt_encodeVertexBufferBound(/*vertex count=*/output_data[node_data.rotation_output_accessor].size(), /*attr size=*/4 * sizeof(uint16));
+				js::Vector<uint8> encoded_buf(encoded_size_bound);
+
+				// Note 2 is the default meshopt compression level.
+				const size_t res_encoded_vert_buf_size = meshopt_encodeVertexBufferLevel(encoded_buf.data(), encoded_buf.size(), filtered.data(), output_data[node_data.rotation_output_accessor].size(), /*attr size=*/4 * sizeof(uint16), /*compression level=*/2, /*vertex version=*/1);
+				encoded_buf.resize(res_encoded_vert_buf_size);
+
+				// Compress the buffer with zstandard
+				const size_t compressed_bound = ZSTD_compressBound(encoded_buf.size());
+				js::Vector<uint8, 16> compressed_data(compressed_bound);
+				const size_t compressed_size = ZSTD_compress(/*dest=*/compressed_data.data(), /*destsize=*/compressed_data.size(), /*src=*/encoded_buf.data(), /*srcsize=*/encoded_buf.size(),
+					9 // compression level
+				);
+#else
+				// Compress the buffer with zstandard
+				const size_t compressed_bound = ZSTD_compressBound(filtered.size());
+				js::Vector<uint8, 16> compressed_data(compressed_bound);
+				const size_t compressed_size = ZSTD_compress(/*dest=*/compressed_data.data(), /*destsize=*/compressed_data.size(), /*src=*/filtered.data(), /*srcsize=*/filtered.size(),
+					9 // compression level
+				);
+
+#endif
+				if(ZSTD_isError(compressed_size))
+					throw glare::Exception("Compression failed: " + toString(compressed_size));
+
+				const size_t old_size_B = output_data[node_data.rotation_output_accessor].size() * sizeof(Vec4f);
+				const float compression_ratio = (float)old_size_B / compressed_size;
+				conPrint("old size: " + uInt64ToStringCommaSeparated(old_size_B) + " B, new size: " + uInt64ToStringCommaSeparated(compressed_size) + " B (compression_ratio: " + doubleToStringMaxNDecimalPlaces(compression_ratio, 3) + ")");
+
+				total_compressed_output_size_B += compressed_size;
+			}
+		}
+
+		printVar(total_trans_output_size);
+		printVar(total_scale_output_size);
+		printVar(total_rot_output_size);
+		printVar(total_compressed_output_size_B);
+	}
+}
+
+
+
+void dumpNodeData(const AnimationData& data)
+{
+	for(size_t i=0; i<data.nodes.size(); ++i)
+	{
+		conPrint("-----node " + toString(i) + ":--------");
+		conPrint("inverse_bind_matrix: " + data.nodes[i].inverse_bind_matrix.toString());
+		conPrint("name: " + data.nodes[i].name);
+		conPrint("");
+	}
+}
+
+
+// Copy keyframe_times and output_data from the AnimationData object to the AnimationDatum object, so it can be used by multiple different avatars
+void AnimationData::prepareForMultipleUse()
+{
+	runtimeCheck(animations.size() > 0);
+	animations[0]->m_keyframe_times.takeFrom(keyframe_times);
+	animations[0]->m_output_data   .takeFrom(output_data);
+}
+
+
+void AnimationData::appendAnimationData(const AnimationData& other)
+{
+	ZoneScoped; // Tracy profiler
+
+	//conPrint("appendAnimationData(): this data:");
+	//dumpNodeData(*this);
+
+	//conPrint("appendAnimationData(): other data:");
+	//dumpNodeData(other);
+
+	const size_t new_anim_start = this->animations.size();
+	this->animations.insert(this->animations.end(), other.animations.begin(), other.animations.end());
+
+	this->per_anim_node_data.resize(this->animations.size());
+	
+	for(size_t i=new_anim_start; i<this->animations.size(); ++i)
+	{
+		const AnimationDatum& anim = *this->animations[i];
+
+		std::vector<PerAnimationNodeData>& anim_i_node_data = this->per_anim_node_data[i];
+	
+		const std::vector<PerAnimationNodeData>& anim_0_per_node_data = this->per_anim_node_data[0];
+		anim_i_node_data.resize(anim_0_per_node_data.size()); // Make the same size as for animation 0 (may have added some nodes in retargetting)
+	
+		// When we retargetted animation data, nodes where shuffled, new nodes added etc.
+		// So we need to assign the node data from other to the correct node data for this.
+	
+		//Timer timer;
+
+		for(size_t node_i=0; node_i < anim_i_node_data.size(); ++node_i) // For each new node index:
+		{
+			// Find corresponding old index.
+			int other_node_i = -1;
+
+			for(size_t q=0; q<other.nodes.size(); ++q)
+				if(other.nodes[q].name == this->nodes[node_i].name)
+				{
+					other_node_i = (int)q;
+					break;
+				}
+	
+			if((other_node_i == -1) || (other_node_i >= anim.raw_per_anim_node_data.size()))
+			{
+				anim_i_node_data[node_i].init(); // Set all to accessors to -1
+			}
+			else
+			{
+				anim_i_node_data[node_i] = anim.raw_per_anim_node_data[other_node_i];
+			}
+		}
+
+		//conPrint("node reordering took " + timer.elapsedStringNSWIthNSigFigs(4));
+	}
+
+	checkDataIsValid();
+	checkPerAnimNodeDataIsValid();
 }
 
 
 void AnimationData::operator =(const AnimationData& other)
 {
+	ZoneScoped; // Tracy profiler
+
 	nodes = other.nodes;
 	sorted_nodes = other.sorted_nodes;
 	joint_nodes = other.joint_nodes;
 	keyframe_times = other.keyframe_times;
 	output_data = other.output_data;
 
-	animations.resize(other.animations.size());
-	for(size_t i=0; i<other.animations.size(); ++i)
-	{
-		animations[i] = new AnimationDatum();
-		animations[i]->copyFrom(*other.animations[i]);
-	}
+	animations = other.animations; // Note: shallow copy.
+
+	per_anim_node_data = other.per_anim_node_data;
 
 	vrm_data = other.vrm_data; // Note: shallow copy.
 }
 
 
-void AnimationData::checkDataIsValid()
+// Check sorted nodes are indeed sorted.
+// Throws glare::Exception if not.
+static void checkSortedNodesAreSorted(const std::vector<int>& sorted_nodes, const std::vector<AnimationNodeData>& nodes)
 {
+	// Make map from node index to index in sorted_nodes
+	std::vector<int> in_sorted_nodes_index(nodes.size(), -1);
+	for(size_t i=0; i<sorted_nodes.size(); ++i)
+	{
+		const int node_i = sorted_nodes[i];
+		if(in_sorted_nodes_index[node_i] != -1)
+			throw glare::Exception("node appears twice in sorted_nodes");
+		in_sorted_nodes_index[node_i] = (int)i;
+	}
+
+	for(size_t i=0; i<sorted_nodes.size(); ++i)
+	{
+		const int node_i = sorted_nodes[i];
+		const int parent_node_i = nodes[node_i].parent_index; // Will be -1 if no parent
+		if(parent_node_i != -1)
+		{
+			const int parent_i_in_sorted_nodes = in_sorted_nodes_index[parent_node_i];
+			if(parent_i_in_sorted_nodes == -1)
+				throw glare::Exception("Parent is not in sorted nodes");
+			if(parent_i_in_sorted_nodes > i)
+				throw glare::Exception("Parent is after in sorted nodes");
+		}
+	}
+}
+
+
+void AnimationData::checkDataIsValid() const
+{
+	ZoneScoped; // Tracy profiler
+
 	// Bounds-check data
 	for(size_t i=0; i<sorted_nodes.size(); ++i)
 		checkProperty(sorted_nodes[i] >= 0 && sorted_nodes[i] < (int)nodes.size(), "invalid sorted_nodes index");
@@ -427,30 +944,7 @@ void AnimationData::checkDataIsValid()
 		throw glare::Exception("sorted_nodes.size() != nodes.size()");
 
 	// Check sorted nodes are indeed sorted
-	{
-		// Make map from node index to index in sorted_nodes
-		std::vector<int> in_sorted_nodes_index(nodes.size(), -1);
-		for(size_t i=0; i<sorted_nodes.size(); ++i)
-		{
-			const int node_i = sorted_nodes[i];
-			if(in_sorted_nodes_index[node_i] != -1)
-				throw glare::Exception("node appears twice in sorted_nodes");
-			in_sorted_nodes_index[node_i] = (int)i;
-		}
-
-		for(size_t i=0; i<sorted_nodes.size(); ++i)
-		{
-			const int node_i = sorted_nodes[i];
-			if(nodes[node_i].parent_index != -1)
-			{
-				const int parent_i_in_sorted_nodes = in_sorted_nodes_index[nodes[node_i].parent_index];
-				if(parent_i_in_sorted_nodes == -1)
-					throw glare::Exception("Parent is not in sorted nodes");
-				if(parent_i_in_sorted_nodes > i)
-					throw glare::Exception("Parent is after in sorted nodes");
-			}
-		}
-	}
+	checkSortedNodesAreSorted(sorted_nodes, nodes);
 
 	for(size_t a=0; a<animations.size(); ++a)
 	{
@@ -463,6 +957,10 @@ void AnimationData::checkDataIsValid()
 void AnimationData::build() // Builds keyframe_times data, computes animation length.
 {
 	// For each animation, compute length of animation - largest input timestamp, as well as used input accessor indices.
+
+	ZoneScoped; // Tracy profiler
+
+	this->per_anim_node_data.resize(animations.size());
 	
 	for(size_t anim_i=0; anim_i<animations.size(); ++anim_i)
 	{
@@ -470,9 +968,9 @@ void AnimationData::build() // Builds keyframe_times data, computes animation le
 
 		std::set<int> used_input_accessor_indices;
 		float max_len = 0.f;
-		for(size_t z=0; z<anim->per_anim_node_data.size(); ++z)
+		for(size_t z=0; z<anim->raw_per_anim_node_data.size(); ++z)
 		{
-			PerAnimationNodeData& data = anim->per_anim_node_data[z];
+			PerAnimationNodeData& data = anim->raw_per_anim_node_data[z];
 			if(data.translation_input_accessor != -1)	max_len = myMax(max_len, keyframe_times[data.translation_input_accessor].times.back());
 			if(data.rotation_input_accessor != -1)		max_len = myMax(max_len, keyframe_times[data.rotation_input_accessor].times.back());
 			if(data.scale_input_accessor != -1)			max_len = myMax(max_len, keyframe_times[data.scale_input_accessor].times.back());
@@ -490,6 +988,9 @@ void AnimationData::build() // Builds keyframe_times data, computes animation le
 			anim->used_input_accessor_indices.push_back(*it);
 		
 		assert(std::is_sorted(anim->used_input_accessor_indices.begin(), anim->used_input_accessor_indices.end()));
+
+
+		this->per_anim_node_data[anim_i] = anim->raw_per_anim_node_data;
 	}
 
 	// Check if keyframe_times are equally spaced.  If they are, store some info that will allow fast finding of the current frame given the time in the animation.
@@ -533,6 +1034,15 @@ void AnimationData::build() // Builds keyframe_times data, computes animation le
 		else
 			keyframe_times[i].equally_spaced = false;
 	}
+}
+
+
+void AnimationData::checkPerAnimNodeDataIsValid() const
+{
+	// Check per_anim_node_data
+	checkProperty(per_anim_node_data.size() == animations.size(), "per_anim_node_data.size() != animations.size()");
+	for(size_t a=0; a<animations.size(); ++a)
+		checkProperty(per_anim_node_data[a].size() >= nodes.size(), "per_anim_node_data[a].size() was not >= nodes.size()");
 }
 
 
@@ -583,8 +1093,10 @@ int AnimationData::getNodeIndexWithNameSuffix(const std::string& name_suffix)
 
 // Load animation data from a GLB file from the stream.
 // Take the animation data, retarget it (adjust bone lengths etc.) and store in the current object.
-void AnimationData::loadAndRetargetAnim(InStream& stream)
+void AnimationData::loadAndRetargetAnim(const AnimationData& other)
 {
+	ZoneScoped; // Tracy profiler
+
 	const bool VERBOSE = false;
 
 	const char* VRM_to_RPM_name_data[] = {
@@ -857,13 +1369,22 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		RPM_to_VRM_bone_name[RPM_bone_names[z]] = VRM_bone_names[z];
 	
 
+	// The old nodes have the correct sizing, the new nodes are associated with the correct animation data.
 	const std::vector<AnimationNodeData> old_nodes = nodes; // Copy old node data
 	const std::vector<int> old_joint_nodes = joint_nodes;
 	const std::vector<int> old_sorted_nodes = sorted_nodes;
 
 	GLTFVRMExtensionRef old_vrm_data = vrm_data;
 
-	this->readFromStream(stream); // Read in animation data.  The old nodes have the correct sizing, the new nodes are associated with the correct animation data.
+	this->nodes = other.nodes;
+	this->sorted_nodes = other.sorted_nodes;
+	this->joint_nodes = other.joint_nodes;
+	this->keyframe_times = other.keyframe_times;
+	this->output_data = other.output_data;
+	this->animations = other.animations;
+	this->per_anim_node_data = other.per_anim_node_data;
+	this->vrm_data = other.vrm_data;
+
 
 	std::unordered_map<std::string, int> new_bone_names_to_index;
 	for(size_t z=0; z<nodes.size(); ++z)
@@ -874,22 +1395,23 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		old_node_names_to_index.insert(std::make_pair(old_nodes[z].name, (int)z));
 
 
-	// Build mapping from old node index to new node index
-
-	// Add to mappings based on VRM metadata
+	// Build mapping from old node index to new node index and vice-versa.
 	std::map<int, int> old_to_new_node_index;
 	std::map<int, int> new_to_old_node_index;
 	for(size_t i=0; i<nodes.size(); ++i) // For each new node (node from GLB animation data):
 	{
-		AnimationNodeData& new_node = nodes[i];
+		const AnimationNodeData& new_node = nodes[i];
+		const std::string new_node_name = eatPrefix(new_node.name, "mixamorig:");
 
 		int old_node_index = -1;
+
+		// Add to mappings based on VRM metadata
 		if(old_vrm_data.nonNull()) // If we had VRM metadata:
 		{
 			// We have the new node name (RPM name).
 			// Find corresponding VRM bone name.
 			// Then look up in VRM metadata to get the node index from the bone name.
-			auto res = RPM_to_VRM_bone_name.find(new_node.name);
+			auto res = RPM_to_VRM_bone_name.find(new_node_name);
 			if(res != RPM_to_VRM_bone_name.end())
 			{
 				const std::string VRM_name = res->second;
@@ -911,7 +1433,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		if(old_node_index == -1) // If no mapping found yet:
 		{
 			// See if there is an old node with the same name as the new node
-			auto res = old_node_names_to_index.find(new_node.name);
+			auto res = old_node_names_to_index.find(new_node_name);
 			if(res != old_node_names_to_index.end())
 				old_node_index = res->second;
 		}
@@ -996,13 +1518,8 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 
 					for(size_t z=0; z<this->animations.size(); ++z)
 					{
-						this->animations[z]->per_anim_node_data.push_back(PerAnimationNodeData());
-						this->animations[z]->per_anim_node_data.back().translation_input_accessor = -1;
-						this->animations[z]->per_anim_node_data.back().translation_output_accessor = -1;
-						this->animations[z]->per_anim_node_data.back().rotation_input_accessor = -1;
-						this->animations[z]->per_anim_node_data.back().rotation_output_accessor = -1;
-						this->animations[z]->per_anim_node_data.back().scale_input_accessor = -1;
-						this->animations[z]->per_anim_node_data.back().scale_output_accessor = -1;
+						this->per_anim_node_data[z].push_back(PerAnimationNodeData());
+						this->per_anim_node_data[z].back().init(); // Init all accessors to -1.
 					}
 			
 					/*
@@ -1081,6 +1598,27 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 	}
 
 
+	js::Vector<Matrix4f, 16> new_node_hier_to_world_matrices(sorted_nodes.size());
+
+	for(size_t n=0; n<sorted_nodes.size(); ++n)
+	{
+		const int node_i = sorted_nodes[n];
+		const AnimationNodeData& node_data = nodes[node_i];
+
+		const Matrix4f rot_mat = node_data.rot.toMatrix();
+
+		const Matrix4f TRS(
+			rot_mat.getColumn(0) * copyToAll<0>(node_data.scale),
+			rot_mat.getColumn(1) * copyToAll<1>(node_data.scale),
+			rot_mat.getColumn(2) * copyToAll<2>(node_data.scale),
+			setWToOne(node_data.trans));
+
+		const Matrix4f node_transform = (node_data.parent_index == -1) ? TRS : (new_node_hier_to_world_matrices[node_data.parent_index] * TRS);
+
+		new_node_hier_to_world_matrices[node_i] = node_transform;
+	}
+
+
 	for(size_t i=0; i<nodes.size(); ++i)
 	{
 		AnimationNodeData& new_node = nodes[i];
@@ -1111,8 +1649,7 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 					      AnimationNodeData& new_parent = nodes[new_node.parent_index];
 
 					// Get bone->world transform for the parent of the new node.
-					Matrix4f new_parent_to_world;
-					new_parent.inverse_bind_matrix.getInverseForAffine3Matrix(new_parent_to_world); // bind matrix = bone space to model/object/world space.  So inverse bind matrix = world to bone space.
+					Matrix4f new_parent_to_world = new_node_hier_to_world_matrices[new_node.parent_index]; // Use new_node_hier_to_world_matrices for bone -> posed mesh space.  (was using bind matrix)
 					
 					// Compute the translation for the new node in model space.
 					Vec4f new_translation_model_space = new_parent_to_world * new_translation_bs;
@@ -1192,20 +1729,19 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 	joint_nodes = old_joint_nodes;
 	for(size_t i=0; i<joint_nodes.size(); ++i)
 	{
-		if(VERBOSE) conPrint("");
 		const int old_joint_node_i = joint_nodes[i];
 		const AnimationNodeData& old_node = old_nodes[old_joint_node_i];
-		const std::string old_joint_node_name = old_node.name;
-		if(VERBOSE) conPrint("old_joint_node_name: " + old_joint_node_name);
 		auto res = old_to_new_node_index.find(old_joint_node_i);
 
 		if(res != old_to_new_node_index.end())
 		{
-			joint_nodes[i] = res->second;
+			const int new_joint_node_i = res->second;
+			joint_nodes[i] = new_joint_node_i;
 
-			AnimationNodeData& new_node = nodes[joint_nodes[i]];
+			AnimationNodeData& new_node = nodes[new_joint_node_i];
 
-			if(VERBOSE) conPrint("new_joint_node_name: " + new_node.name);
+			if(VERBOSE)
+				conPrint("old joint node index: " + toString(old_joint_node_i) + " (" + old_node.name + "), new index: " + toString(new_joint_node_i) + " (" + new_node.name + ")");
 
 			// Our inverse bind matrix will take a point on the old mesh (VRM mesh)
 			// It will transform into a basis with origin at the old bone position, but with orientation given by the new bone.
@@ -1246,11 +1782,15 @@ void AnimationData::loadAndRetargetAnim(InStream& stream)
 		}
 		else
 		{
-			if(VERBOSE) conPrint("!!!!! Corresponding new node not found (old_joint_node_name: " + old_joint_node_name + ")");
+			if(VERBOSE) conPrint("!!!!! Corresponding new node not found (old_joint_node_name: " + old_node.name + ")");
 
 			joint_nodes[i] = 0;
 		}
 	}
+
+
+	checkDataIsValid();
+	checkPerAnimNodeDataIsValid();
 
 	this->retarget_adjustments_set = true;
 }
@@ -1330,15 +1870,84 @@ size_t AnimationData::getTotalMemUsage() const
 	size_t sum =
 		nodes.capacity() * sizeof(AnimationNodeData) + 
 		sorted_nodes.capacity() * sizeof(int) +
-		joint_nodes.capacity() * sizeof(int) +
-		keyframe_times.capacity() * sizeof(KeyFrameTimeInfo);
+		joint_nodes.capacity() * sizeof(int);
+
+	for(size_t i=0; i<keyframe_times.size(); ++i)
+		sum += keyframe_times[i].times.capacity() * sizeof(float);
 
 	for(size_t i=0; i<output_data.size(); ++i)
 		sum += output_data[i].capacitySizeBytes();
 
 	for(size_t i=0; i<animations.size(); ++i)
-		sum += animations[i]->getTotalMemUsage();
+		if(animations[i]->getRefCount() == 1) // Only count animation mem usage if this is the only user of the animation data.  Don't count shared animation data. (walk anim shared by all avatars etc.)
+			sum += animations[i]->getTotalMemUsage();
+
+	for(size_t i=0; i<per_anim_node_data.size(); ++i)
+		sum += per_anim_node_data[i].capacity() * sizeof(PerAnimationNodeData);
 
 	// Skip vrm_data
+
 	return sum;
 }
+
+
+#if BUILD_TESTS
+
+
+#include <utils/TestUtils.h>
+#include <utils/FileInStream.h>
+#include <utils/PlatformUtils.h>
+#include "../graphics/BatchedMesh.h"
+
+
+static inline float dequantiseSNorm(int x)
+{
+	 return x * (1 / 32767.f);
+}
+
+
+void AnimationData::test()
+{
+	int a = meshopt_quantizeSnorm(-1.0f, /*N=*/16);
+	int b = meshopt_quantizeSnorm( 1.0f, /*N=*/16);
+	int c = meshopt_quantizeSnorm( 0.0f, /*N=*/16);
+	float fa = dequantiseSNorm(a);
+	float fb = dequantiseSNorm(b);
+	float fc = dequantiseSNorm(c);
+	testAssert(fa == -1.f);
+	testAssert(fb ==  1.f);
+	testAssert(fc ==  0.f);
+
+
+	for(int i=0; i<10; ++i)
+	{
+		AnimationData data;
+		FileInStream file(TestUtils::getTestReposDir() + "/testfiles/animations/Idle.subanim");
+		file.advanceReadIndex(4); // Skip magic number
+
+
+		Timer timer;
+		data.readFromStream(file);
+		conPrint("Reading anim from disk took " + timer.elapsedStringMSWIthNSigFigs(4));
+	}
+
+
+	// Test animation retargetting
+	{
+		BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/meebit_09842_t_solid_vrm.bmesh", NULL);
+
+		FileInStream file(TestUtils::getTestReposDir() + "/testfiles/animations/Idle.subanim");
+		file.advanceReadIndex(4); // Skip magic number
+		AnimationData data;
+		data.readFromStream(file);
+
+		mesh->animation_data.loadAndRetargetAnim(data);
+
+		testAssert(mesh->animation_data.nodes.size() == 68);
+	}
+}
+
+
+#endif
+
+

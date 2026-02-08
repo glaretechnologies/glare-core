@@ -29,7 +29,10 @@ public:
 class OpenGLMeshRenderData // : public ThreadSafeRefCounted
 {
 public:
-	OpenGLMeshRenderData() : has_vert_colours(false), has_vert_tangents(false), pos_coords_quantised(false), position_w_is_oct16_normal(false), uv0_scale(1), uv1_scale(1), num_materials_referenced(0), refcount(0), index_type_bits(0) {}
+	OpenGLMeshRenderData() : has_vert_colours(false), has_vert_tangents(false), pos_coords_quantised(false), position_w_is_oct16_normal(false), uv0_scale(1), uv1_scale(1), num_materials_referenced(0), refcount(0), index_type_bits(0)
+	{
+		animation_data.setAsNotIndependentlyHeapAllocated();
+	}
 
 	GLARE_ALIGNED_16_NEW_DELETE
 

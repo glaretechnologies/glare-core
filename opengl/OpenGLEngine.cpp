@@ -6128,10 +6128,12 @@ public:
 
 				const float DEBUG_SPEED_FACTOR = 1;
 
-				const AnimationDatum& anim_datum_a = *anim_data.animations[myClamp(ob->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
+				const AnimationDatum& anim_datum_a                       = *anim_data.animations        [myClamp(ob->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
+				const std::vector<PerAnimationNodeData>& anim_a_node_data = anim_data.per_anim_node_data[myClamp(ob->current_anim_i, 0, (int)anim_data.animations.size() - 1)];
 
 				const int use_next_anim_i = (ob->next_anim_i == -1) ? ob->current_anim_i : ob->next_anim_i;
-				const AnimationDatum& anim_datum_b = *anim_data.animations[myClamp(use_next_anim_i,    0, (int)anim_data.animations.size() - 1)];
+				const AnimationDatum& anim_datum_b                        = *anim_data.animations       [myClamp(use_next_anim_i,    0, (int)anim_data.animations.size() - 1)];
+				const std::vector<PerAnimationNodeData>& anim_b_node_data = anim_data.per_anim_node_data[myClamp(use_next_anim_i,    0, (int)anim_data.animations.size() - 1)];
 
 				const float transition_frac = (float)Maths::smoothStep<double>(ob->transition_start_time, ob->transition_end_time, current_time);
 
@@ -6155,17 +6157,19 @@ public:
 				// For example the avatar idle animation only uses input accessor 9, and there are 33 input accessors in total.
 				// So for the idle animation we only need to do the keyframe search for input accessor 9, not the 32 other accessors.
 
-				const size_t keyframe_times_size = anim_data.keyframe_times.size();
+				const size_t keyframe_times_size = myMax(anim_data.keyframe_times.size(), anim_datum_a.m_keyframe_times.size(), anim_datum_b.m_keyframe_times.size());
 				key_frame_locs.resizeNoCopy(keyframe_times_size * 2); // keyframe times for animation a are first, then keyframe times for animation b.
 
 				//------------------------ Compute keyframe times for animation a -------------------------
 				if(transition_frac < 1.f) // At transition_frac = 1, result is fully animation b, a is used if transition_frac < 1
 				{
+					const js::Vector<KeyFrameTimeInfo>& keyframe_times_a = (!anim_datum_a.m_keyframe_times.empty()) ? anim_datum_a.m_keyframe_times : anim_data.keyframe_times;
+
 					for(size_t q=0; q<anim_datum_a.used_input_accessor_indices.size(); ++q)
 					{
 						const int input_accessor_i = anim_datum_a.used_input_accessor_indices[q];
 
-						const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[input_accessor_i];
+						const KeyFrameTimeInfo& keyframe_time_info = keyframe_times_a[input_accessor_i];
 						assert(keyframe_time_info.times_size == (int)keyframe_time_info.times.size());
 
 						const float in_anim_time = use_in_anim_time_a;
@@ -6267,11 +6271,13 @@ public:
 				//------------------------ Compute keyframe times for animation b -------------------------
 				if(transition_frac > 0.f) // At transition_frac = 0, result is fully animation a, b is used if transition_frac > 0
 				{
+					const js::Vector<KeyFrameTimeInfo>& keyframe_times_b = (!anim_datum_b.m_keyframe_times.empty()) ? anim_datum_b.m_keyframe_times : anim_data.keyframe_times;
+
 					for(size_t q=0; q<anim_datum_b.used_input_accessor_indices.size(); ++q)
 					{
 						const int input_accessor_i = anim_datum_b.used_input_accessor_indices[q];
 
-						const KeyFrameTimeInfo& keyframe_time_info = anim_data.keyframe_times[input_accessor_i];
+						const KeyFrameTimeInfo& keyframe_time_info = keyframe_times_b[input_accessor_i];
 						assert(keyframe_time_info.times_size == (int)keyframe_time_info.times.size());
 
 						const float in_anim_time = use_in_anim_time_b;
@@ -6362,12 +6368,15 @@ public:
 
 				node_matrices.resizeNoCopy(anim_data.sorted_nodes.size()); // A temp buffer to store node transforms that we can look up parent node transforms in.
 
+				const js::Vector<js::Vector<Vec4f, 16> >& output_data_a = (!anim_datum_a.m_output_data.empty()) ? anim_datum_a.m_output_data : anim_data.output_data;
+				const js::Vector<js::Vector<Vec4f, 16> >& output_data_b = (!anim_datum_b.m_output_data.empty()) ? anim_datum_b.m_output_data : anim_data.output_data;
+
 				for(size_t n=0; n<anim_data.sorted_nodes.size(); ++n)
 				{
 					const int node_i = anim_data.sorted_nodes[n];
 					const AnimationNodeData& node_data = anim_data.nodes[node_i];
-					const PerAnimationNodeData& node_a = anim_datum_a.per_anim_node_data[node_i];
-					const PerAnimationNodeData& node_b = anim_datum_b.per_anim_node_data[node_i];
+					const PerAnimationNodeData& node_a = anim_a_node_data[node_i];
+					const PerAnimationNodeData& node_b = anim_b_node_data[node_i];
 
 					Vec4f trans_a = node_data.trans;
 					Vec4f trans_b = node_data.trans;
@@ -6387,8 +6396,8 @@ public:
 							const float frac = key_frame_locs[node_a.translation_input_accessor].frac;
 
 							// read translation values from output accessor.
-							const Vec4f trans_0 = (anim_data.output_data[node_a.translation_output_accessor])[i_0];
-							const Vec4f trans_1 = (anim_data.output_data[node_a.translation_output_accessor])[i_1];
+							const Vec4f trans_0 = (output_data_a[node_a.translation_output_accessor])[i_0];
+							const Vec4f trans_1 = (output_data_a[node_a.translation_output_accessor])[i_1];
 							trans_a = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
 						}
 
@@ -6399,8 +6408,8 @@ public:
 							const float frac = key_frame_locs[node_a.rotation_input_accessor].frac;
 
 							// read rotation values from output accessor
-							const Quatf rot_0 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_0]);
-							const Quatf rot_1 = Quatf((anim_data.output_data[node_a.rotation_output_accessor])[i_1]);
+							const Quatf rot_0 = Quatf((output_data_a[node_a.rotation_output_accessor])[i_0]);
+							const Quatf rot_1 = Quatf((output_data_a[node_a.rotation_output_accessor])[i_1]);
 							rot_a = Quatf::nlerp(rot_0, rot_1, frac);
 						}
 
@@ -6411,8 +6420,8 @@ public:
 							const float frac = key_frame_locs[node_a.scale_input_accessor].frac;
 
 							// read scale values from output accessor
-							const Vec4f scale_0 = (anim_data.output_data[node_a.scale_output_accessor])[i_0];
-							const Vec4f scale_1 = (anim_data.output_data[node_a.scale_output_accessor])[i_1];
+							const Vec4f scale_0 = (output_data_a[node_a.scale_output_accessor])[i_0];
+							const Vec4f scale_1 = (output_data_a[node_a.scale_output_accessor])[i_1];
 							scale_a = Maths::lerp(scale_0, scale_1, frac);
 						}
 					}
@@ -6426,8 +6435,8 @@ public:
 							const float frac = key_frame_locs[keyframe_times_size + node_b.translation_input_accessor].frac;
 
 							// read translation values from output accessor.
-							const Vec4f trans_0 = (anim_data.output_data[node_b.translation_output_accessor])[i_0];
-							const Vec4f trans_1 = (anim_data.output_data[node_b.translation_output_accessor])[i_1];
+							const Vec4f trans_0 = (output_data_b[node_b.translation_output_accessor])[i_0];
+							const Vec4f trans_1 = (output_data_b[node_b.translation_output_accessor])[i_1];
 							trans_b = Maths::lerp(trans_0, trans_1, frac); // TODO: handle step interpolation, cubic lerp etc..
 						}
 
@@ -6438,8 +6447,8 @@ public:
 							const float frac = key_frame_locs[keyframe_times_size + node_b.rotation_input_accessor].frac;
 
 							// read rotation values from output accessor
-							const Quatf rot_0 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_0]);
-							const Quatf rot_1 = Quatf((anim_data.output_data[node_b.rotation_output_accessor])[i_1]);
+							const Quatf rot_0 = Quatf((output_data_b[node_b.rotation_output_accessor])[i_0]);
+							const Quatf rot_1 = Quatf((output_data_b[node_b.rotation_output_accessor])[i_1]);
 							rot_b = Quatf::nlerp(rot_0, rot_1, frac);
 						}
 
@@ -6450,8 +6459,8 @@ public:
 							const float frac = key_frame_locs[keyframe_times_size + node_b.scale_input_accessor].frac;
 
 							// read scale values from output accessor
-							const Vec4f scale_0 = (anim_data.output_data[node_b.scale_output_accessor])[i_0];
-							const Vec4f scale_1 = (anim_data.output_data[node_b.scale_output_accessor])[i_1];
+							const Vec4f scale_0 = (output_data_b[node_b.scale_output_accessor])[i_0];
+							const Vec4f scale_1 = (output_data_b[node_b.scale_output_accessor])[i_1];
 							scale_b = Maths::lerp(scale_0, scale_1, frac);
 						}
 					}
@@ -12490,36 +12499,42 @@ void OpenGLEngine::toggleShowTexDebug(int index)
 		if(index == 0)
 		{
 			// AO
+			conPrint("Showing AO");
 			large_debug_overlay_ob->material.albedo_texture = this->ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
 		}
 		else if(index == 1)
 		{
 			// blurred AO
+			conPrint("Showing blurred AO");
 			large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
 		}
 		else if(index == 2)
 		{
 			// indirect illum
+			conPrint("Showing indirect illum");
 			large_debug_overlay_ob->material.albedo_texture = this->ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 		else if(index == 3)
 		{
 			// blurred indirect illum
+			conPrint("Showing blurred indirect illum");
 			large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 		else if(index == 4)
 		{
 			// specular refl
+			conPrint("Showing specular");
 			large_debug_overlay_ob->material.albedo_texture = this->ssao_specular_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 		else if(index == 5)
 		{
 			// specular refl roughness * trace dist
+			conPrint("showing refl roughness * trace dist");
 			large_debug_overlay_ob->material.albedo_texture = this->ssao_specular_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
 
