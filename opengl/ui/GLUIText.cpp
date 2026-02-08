@@ -214,7 +214,7 @@ void GLUIText::updateGLTransform()
 	const float x_scale = 2.f / opengl_engine->getMainViewPortWidth();
 	const float y_scale = 2.f / opengl_engine->getMainViewPortHeight();
 
-	this->rect = Rect2f(botleft + rect_os.getMin() * x_scale, botleft + rect_os.getMax() * x_scale);
+	this->rect = Rect2f(botleft /*+ rect_os.getMin() * x_scale*/, botleft + rect_os.getMax() * x_scale);
 
 	if(overlay_ob.nonNull())
 		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * opengl_engine->getViewPortAspectRatio(), z) * Matrix4f::scaleMatrix(x_scale, y_scale, 1);

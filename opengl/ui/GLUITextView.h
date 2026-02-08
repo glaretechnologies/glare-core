@@ -94,7 +94,7 @@ private:
 
 	void updateOverlayObTransforms();
 	void recomputeRect();
-	Rect2f computeBackgroundRect() const;
+	Rect2f computeBackgroundRect() const; // Doesn't cover descenders
 
 	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;

@@ -38,7 +38,7 @@ public:
 		float background_alpha;
 		float z;
 
-		float cell_padding_px;
+		float cell_padding_px; // Default is 10 px.
 
 		bool background_consumes_events; // Should the background behind the grid consume click events etc.?
 	};
