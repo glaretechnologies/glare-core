@@ -61,7 +61,7 @@ public:
 
 	void setPos(const Vec2f& botleft); // Sets baseline position of text on first line.  Text descenders will be below this position.  Background quad can extend past this.
 
-	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
+	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override; // NOTE: discards dims
 
 	virtual void setZ(float new_z) override;
 

@@ -160,7 +160,8 @@ void GLUIGridContainer::updateGLTransform()
 			GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
 			if(widget)
 			{
-				widget->setPosAndDims(/*botleft=*/this->rect.getMin() + Vec2f(px, py) + Vec2f(cell_padding), /*dims=*/Vec2f(column_width, row_height) - Vec2f(cell_padding * 2));
+				const float y_space = myMax(0.f, row_height - cell_padding * 2 - widget->getRect().getWidths().y); // Compute space around widget to vertically center
+				widget->setPosAndDims(/*botleft=*/this->rect.getMin() + Vec2f(px, py + y_space*0.5f) + Vec2f(cell_padding), /*dims=*/Vec2f(column_width, row_height) - Vec2f(cell_padding * 2));
 
 				widget->setClipRegion(this->rect);
 
@@ -207,6 +208,12 @@ void GLUIGridContainer::setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widg
 	cell_widgets.elem(cell_x, cell_y) = widget;
 
 	widget->setZ(this->getZ() - 0.001f); // Position in front of the container.
+}
+
+
+void GLUIGridContainer::clear()
+{
+	cell_widgets.resize(0, 0);
 }
 
 

@@ -68,6 +68,8 @@ public:
 
 	void setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widget);
 
+	void clear(); // Remove all widgets from grid, resize cell_widgets to zero.
+
 	float getCellPaddding() const; // in UI coords
 
 	Rect2f getClippedContentRect() const; // Get the rectangle around any non-null widgets in the cells, intersected with the container rectangle (in case of overflow).

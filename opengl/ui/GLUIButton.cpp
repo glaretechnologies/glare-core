@@ -40,6 +40,7 @@ GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 	opengl_engine = opengl_engine_;
 	tooltip = args_.tooltip;
 	args = args_;
+	immutable_dims = false;
 
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -133,8 +134,22 @@ void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 }
 
 
-void GLUIButton::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
+void GLUIButton::setDims(const Vec2f& new_dims)
 {
+	const Vec2f botleft = rect.getMin();
+	rect = Rect2f(botleft, botleft + new_dims);
+
+	const float y_scale = opengl_engine->getViewPortAspectRatio();
+
+	const float z = -0.9f;
+	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(new_dims.x, new_dims.y * y_scale, 1);
+}
+
+
+void GLUIButton::setPosAndDims(const Vec2f& botleft, const Vec2f& new_dims)
+{
+	const Vec2f dims = immutable_dims ? rect.getWidths() : new_dims;
+
 	rect = Rect2f(botleft, botleft + dims);
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();

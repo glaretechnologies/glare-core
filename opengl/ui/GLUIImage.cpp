@@ -31,6 +31,7 @@ GLUIImage::GLUIImage(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const
 	m_z = z_;
 	colour = default_colour;
 	mouseover_colour = default_mouseover_colour;
+	immutable_dims = false;
 
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -142,8 +143,10 @@ void GLUIImage::setTransform(const Vec2f& botleft, const Vec2f& dims, float rota
 }
 
 
-void GLUIImage::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
+void GLUIImage::setPosAndDims(const Vec2f& botleft, const Vec2f& new_dims)
 {
+	const Vec2f dims = immutable_dims ? rect.getWidths() : new_dims;
+
 	pos = botleft;
 	rect = Rect2f(botleft, botleft + dims);
 
@@ -157,6 +160,16 @@ void GLUIImage::setClipRegion(const Rect2f& clip_rect)
 {
 	if(overlay_ob)
 		overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
+}
+
+
+void GLUIImage::updateGLTransform()
+{
+	const float y_scale = opengl_engine->getViewPortAspectRatio();
+
+	const Vec2f dims = rect.getWidths();
+	if(overlay_ob)
+		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos.x, pos.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 }
 
 

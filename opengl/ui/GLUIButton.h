@@ -53,6 +53,7 @@ public:
 	virtual void handleMouseRelease(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 
+	void setDims(const Vec2f& dims);
 	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
 
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
@@ -67,6 +68,7 @@ public:
 	bool toggleable;
 	bool toggled;
 	bool pressed;
+	bool immutable_dims; // If true, don't change dimensions in setPosAndDims (which is called by GridContainer layout)
 
 private:
 	GLARE_DISABLE_COPY(GLUIButton);

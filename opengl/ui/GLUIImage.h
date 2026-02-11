@@ -44,6 +44,8 @@ public:
 
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
 
+	virtual void updateGLTransform() override;
+
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
@@ -53,6 +55,9 @@ public:
 	OverlayObjectRef overlay_ob;
 
 	GLUICallbackHandler* handler;
+
+	bool immutable_dims; // If true, don't change dimensions in setPosAndDims (which is called by GridContainer layout)
+	Vec2f dims_px;
 private:
 	GLARE_DISABLE_COPY(GLUIImage);
 	
