@@ -1897,7 +1897,44 @@ size_t AnimationData::getTotalMemUsage() const
 #include <utils/TestUtils.h>
 #include <utils/FileInStream.h>
 #include <utils/PlatformUtils.h>
+#include <utils/BufferViewInStream.h>
+#include <utils/BufferOutStream.h>
 #include "../graphics/BatchedMesh.h"
+
+
+#if 0
+// Command line:
+// C:\fuzz_corpus\subanim c:/code/glare-core/testfiles\animations
+
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	Clock::init();
+	return 0;
+}
+
+
+//static int iter = 0;
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		BufferViewInStream stream(ArrayRef<uint8>(data, size));
+
+		// Skip magic number
+		stream.advanceReadIndex(4);
+
+		Reference<AnimationData> anim = new AnimationData();
+		anim->readFromStream(stream);
+
+		BufferOutStream outbuf;
+		anim->writeToStream(outbuf);
+	}
+	catch(glare::Exception& )
+	{
+	}
+	return 0;  // Non-zero return values are reserved for future use.
+}
+#endif
 
 
 static inline float dequantiseSNorm(int x)
