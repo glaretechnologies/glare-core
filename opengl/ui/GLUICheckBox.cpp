@@ -8,20 +8,15 @@ Copyright Glare Technologies Limited 2026 -
 
 #include "GLUI.h"
 #include <graphics/SRGBUtils.h>
-#include "../OpenGLMeshRenderData.h"
-#include "../utils/FileUtils.h"
-#include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
-#include "../utils/StringUtils.h"
 
 
 GLUICheckBox::CreateArgs::CreateArgs()
 {
 	tick_colour = Colour3f(1.f);
-	box_colour = Colour3f(0.7);
-	mouseover_box_colour = toLinearSRGB(Colour3f(0.9f));
-	
-	pressed_colour = toLinearSRGB(Colour3f(0.7f, 0.8f, 1.f));
+	box_colour           = toLinearSRGB(Colour3f(0.3f));
+	mouseover_box_colour = toLinearSRGB(Colour3f(0.4f));
+	pressed_colour       = toLinearSRGB(Colour3f(0.5f));
 
 	checked = false;
 }
@@ -95,13 +90,37 @@ void GLUICheckBox::handleMousePress(MouseEvent& event)
 		}
 	}
 
-	updateButtonColour(coords);
+	updateColour(coords);
 }
 
 
 void GLUICheckBox::handleMouseDoubleClick(MouseEvent& event)
 {
-	handleMousePress(event);
+	// Similar to handleMousePress() above except don't set pressed to true.
+
+	if(!box_overlay_ob->draw) // If not visible:
+		return;
+
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
+	if(rect.inOpenRectangle(coords))
+	{
+		checked = !checked;
+
+		pressed = false;
+
+		tick_overlay_ob->draw = checked;
+
+		if(handler)
+		{
+			GLUICallbackEvent callback_event;
+			callback_event.widget = this;
+			handler->eventOccurred(callback_event);
+			if(callback_event.accepted)
+				event.accepted = true;
+		}
+	}
+
+	updateColour(coords);
 }
 
 
@@ -113,7 +132,7 @@ void GLUICheckBox::handleMouseRelease(MouseEvent& event)
 
 		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 
-		updateButtonColour(coords);
+		updateColour(coords);
 	}
 }
 
@@ -138,7 +157,7 @@ void GLUICheckBox::doHandleMouseMoved(MouseEvent& mouse_event)
 		}
 	}
 
-	updateButtonColour(coords);
+	updateColour(coords);
 }
 
 
@@ -172,13 +191,13 @@ void GLUICheckBox::setChecked(bool checked_)
 {
 	checked = checked_;
 
-	updateButtonColour(glui->getLastMouseUICoords());
+	tick_overlay_ob->draw = isVisible() && checked;
 }
 
 
 void GLUICheckBox::setVisible(bool visible)
 {
-	tick_overlay_ob->draw = visible;
+	tick_overlay_ob->draw = visible && checked;
 	box_overlay_ob ->draw = visible;
 }
 
@@ -189,17 +208,26 @@ bool GLUICheckBox::isVisible()
 }
 
 
-void GLUICheckBox::updateButtonColour(const Vec2f mouse_ui_coords)
+void GLUICheckBox::updateColour(const Vec2f mouse_ui_coords)
 {
-	if(box_overlay_ob)
+	// TODO: work out pressed stuff, was having issues with pressed being stuck on after triple clicks etc.
+	
+	//if(pressed)
+	//{
+	//	box_overlay_ob->material.albedo_linear_rgb = args.pressed_colour;
+	//	conPrint("Setting col to pressed");
+	//}
+	//else
 	{
 		if(rect.inOpenRectangle(mouse_ui_coords)) // If mouse over widget:
 		{
 			box_overlay_ob->material.albedo_linear_rgb = args.mouseover_box_colour;
+			//conPrint("Setting col to mouseover");
 		}
 		else // else if mouse not over widget:
 		{
 			box_overlay_ob->material.albedo_linear_rgb = args.box_colour;
+			//conPrint("Setting col to standard");
 		}
 	}
 }

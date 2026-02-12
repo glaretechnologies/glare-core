@@ -69,7 +69,7 @@ public:
 private:
 	GLARE_DISABLE_COPY(GLUICheckBox);
 
-	void updateButtonColour(const Vec2f mouse_ui_coords);
+	void updateColour(const Vec2f mouse_ui_coords);
 	void updateTransforms();
 
 	GLUI* glui;
