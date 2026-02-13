@@ -535,6 +535,16 @@ void AnimationData::readFromStream(RandomAccessInStream& stream)
 }
 
 
+static float getMatrixMaxScaling(const Matrix4f& m)
+{
+	return myMax(
+		m.getColumn(0).length(),
+		m.getColumn(1).length(),
+		m.getColumn(2).length()
+	);
+}
+
+
 // Mixamo animations exported from Blender have some scales of 100 and 0.01 due to use of cm units.  Remove this.
 void AnimationData::removeInverseBindMatrixScaling()
 {
@@ -542,46 +552,59 @@ void AnimationData::removeInverseBindMatrixScaling()
 	{
 		AnimationDatum& anim = *this->animations[i];
 
+		// Look through the bind matrices and see if they have the scaling
+		float max_scaling = 0.f;
 		for(size_t node_i=0; node_i < anim.raw_per_anim_node_data.size(); ++node_i) // For each new node index:
 		{
-			if(node_i == 67) // Armature node
+			const float node_max_scaling = getMatrixMaxScaling(this->nodes[node_i].inverse_bind_matrix);
+			max_scaling = myMax(max_scaling, node_max_scaling);
+		}
+
+		if(epsEqual(max_scaling, 100.f, 0.1f))
+		{
+			// Remove the scaling
+			for(size_t node_i=0; node_i < anim.raw_per_anim_node_data.size(); ++node_i) // For each new node index:
 			{
-				// conPrint("scale: " + this->nodes[node_i].scale.toStringMaxNDecimalPlaces(4));
-				this->nodes[node_i].scale = Vec4f(1,1,1,0); // Set root armature node scale = 1
-			}
-
-			this->nodes[node_i].trans *= 0.01;
-
-			// Adjust inverse_bind_matrices that have a 100 scaling.
-			if(node_i < 65) // Could also check determinant or max scaling or something
-				this->nodes[node_i].inverse_bind_matrix = Matrix4f::uniformScaleMatrix(0.01f) * this->nodes[node_i].inverse_bind_matrix;
-
-
-			js::Vector<js::Vector<Vec4f, 16> >& use_output_data = (!anim.m_output_data.empty()) ? anim.m_output_data : output_data;
-
-			PerAnimationNodeData& anim_node_data = anim.raw_per_anim_node_data[node_i];
-			//if(anim_node_data.scale_output_accessor != -1)
-			//{
-			//	js::Vector<Vec4f, 16>& scale_output_data = use_output_data[anim_node_data.scale_output_accessor];
-			//	for(size_t z=0; z<scale_output_data.size(); ++z)
-			//	{
-			//		Vec4f& v = scale_output_data[z];
-			//		//conPrint("scale_output_data: " + scale_output_data[z].toStringMaxNDecimalPlaces(4));
-			//		//conPrint(doubleToStringNSigFigs(v[0], 4));
-			//	}
-			//}
-
-			if(anim_node_data.translation_output_accessor != -1)
-			{
-				js::Vector<Vec4f, 16>& trans_output_data = use_output_data[anim_node_data.translation_output_accessor];
-				for(size_t z=0; z<trans_output_data.size(); ++z)
+				if(this->nodes[node_i].name == "Armature")
 				{
-					//conPrint("trans_output_data: " + trans_output_data[z].toStringMaxNDecimalPlaces(4));
+					assert(node_i == 67);
+					// conPrint("scale: " + this->nodes[node_i].scale.toStringMaxNDecimalPlaces(4));
+					this->nodes[node_i].scale = Vec4f(1,1,1,0); // Set root armature node scale = 1
+				}
 
-					Vec4f& v = trans_output_data[z];
+				this->nodes[node_i].trans *= 0.01f;
 
-					const float factor = 0.01f;
-					v = mul(v, Vec4f(factor, factor, factor, 1.0f));
+				// Adjust inverse_bind_matrices that have a 100 scaling.
+				if(epsEqual(getMatrixMaxScaling(this->nodes[node_i].inverse_bind_matrix), 100.f, 0.1f))
+					this->nodes[node_i].inverse_bind_matrix = Matrix4f::uniformScaleMatrix(0.01f) * this->nodes[node_i].inverse_bind_matrix;
+
+
+				js::Vector<js::Vector<Vec4f, 16> >& use_output_data = (!anim.m_output_data.empty()) ? anim.m_output_data : output_data;
+
+				PerAnimationNodeData& anim_node_data = anim.raw_per_anim_node_data[node_i];
+				//if(anim_node_data.scale_output_accessor != -1)
+				//{
+				//	js::Vector<Vec4f, 16>& scale_output_data = use_output_data[anim_node_data.scale_output_accessor];
+				//	for(size_t z=0; z<scale_output_data.size(); ++z)
+				//	{
+				//		Vec4f& v = scale_output_data[z];
+				//		//conPrint("scale_output_data: " + scale_output_data[z].toStringMaxNDecimalPlaces(4));
+				//		//conPrint(doubleToStringNSigFigs(v[0], 4));
+				//	}
+				//}
+
+				if(anim_node_data.translation_output_accessor != -1)
+				{
+					js::Vector<Vec4f, 16>& trans_output_data = use_output_data[anim_node_data.translation_output_accessor];
+					for(size_t z=0; z<trans_output_data.size(); ++z)
+					{
+						//conPrint("trans_output_data: " + trans_output_data[z].toStringMaxNDecimalPlaces(4));
+
+						Vec4f& v = trans_output_data[z];
+
+						const float factor = 0.01f;
+						v = mul(v, Vec4f(factor, factor, factor, 1.0f));
+					}
 				}
 			}
 		}
