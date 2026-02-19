@@ -567,7 +567,7 @@ void AnimationData::removeInverseBindMatrixScaling()
 			{
 				if(this->nodes[node_i].name == "Armature")
 				{
-					assert(node_i == 67);
+					//assert(node_i == 67);
 					// conPrint("scale: " + this->nodes[node_i].scale.toStringMaxNDecimalPlaces(4));
 					this->nodes[node_i].scale = Vec4f(1,1,1,0); // Set root armature node scale = 1
 				}
