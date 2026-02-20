@@ -15,6 +15,9 @@ This header is called GlareProcess instead of Process otherwise
 #include <string>
 #include <vector>
 #include <stdio.h>
+#if !defined(_WIN32)
+#include <sys/types.h>
+#endif
 
 
 namespace glare
@@ -30,8 +33,6 @@ can be written to.
 
 Does not currently terminate the process in the Process destructor -
 so you may get 'zombie'/orphaned processes.
-
-Not fully implemented on Mac and Linux.
 =====================================================================*/
 class Process
 {
@@ -76,8 +77,12 @@ private:
 	HandleWrapper child_stdout_read_handle, child_stderr_read_handle, child_stdin_write_handle;
 	HandleWrapper process_handle, thread_handle;
 #else
-	FILE* fp;
-	int exit_code;
+	pid_t child_pid;
+	int stdout_read_fd;
+	int stderr_read_fd;
+	int stdin_write_fd;
+	int cached_exit_code;
+	bool child_exited;
 #endif
 };
 
