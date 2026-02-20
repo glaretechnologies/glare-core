@@ -9,9 +9,13 @@ in vec2 pos; // [0, 1] x [0, 1]
 out vec4 colour_out;
 
 
-vec4 resolveTextureSample(ivec2 px_coords)
+vec4 resolveTextureSample(ivec2 px_coords, ivec2 tex_res)
 {
-	return texelFetch(albedo_texture, px_coords, /*mip level=*/0);
+	// Use zero for out of bounds, otherwise bright spots become brighter when on the edge of the screen.
+	if(any(greaterThanEqual(px_coords, tex_res)))
+		return vec4(0.0); // Out of bounds
+	else
+		return texelFetch(albedo_texture, px_coords, /*mip level=*/0);
 }
 
 
@@ -51,14 +55,13 @@ void main()
 {
 	// Get res of source texture
 	ivec2 src_res = textureSize(albedo_texture, /*mip level*/0);
-	ivec2 max_src_coords = src_res - ivec2(1,1);
 
 	ivec2 px_coords = ivec2(int(pos.x * float(dest_xres) * 2.0 - 0.5), int(pos.y * float(dest_yres) * 2.0 - 0.5));
 
-	vec4 texcol_0 =	resolveTextureSample(min(px_coords + ivec2(0, 0), max_src_coords));
-	vec4 texcol_1 =	resolveTextureSample(min(px_coords + ivec2(1, 0), max_src_coords));
-	vec4 texcol_2 =	resolveTextureSample(min(px_coords + ivec2(1, 1), max_src_coords));
-	vec4 texcol_3 =	resolveTextureSample(min(px_coords + ivec2(0, 1), max_src_coords));
+	vec4 texcol_0 =	resolveTextureSample(px_coords + ivec2(0, 0), src_res);
+	vec4 texcol_1 =	resolveTextureSample(px_coords + ivec2(1, 0), src_res);
+	vec4 texcol_2 =	resolveTextureSample(px_coords + ivec2(1, 1), src_res);
+	vec4 texcol_3 =	resolveTextureSample(px_coords + ivec2(0, 1), src_res);
 
 	vec4 col = (texcol_0 + texcol_1 + texcol_2 + texcol_3) * (1.0 / 4.0);
 
