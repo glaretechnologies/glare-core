@@ -14,6 +14,12 @@ Copyright Glare Technologies Limited 2021 -
 #include "ConPrint.h"
 #if !defined(_WIN32)
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <poll.h>
+#include <fcntl.h>
+#include <errno.h>
 #endif
 
 
@@ -33,6 +39,13 @@ static void setNoInherit(HandleWrapper& handle)
 {
 	if(!SetHandleInformation(handle.handle, HANDLE_FLAG_INHERIT, 0))
 		throw glare::Exception("SetHandleInformation failed: " + PlatformUtils::getLastErrorString());
+}
+#else
+static void setCloseOnExec(int fd)
+{
+	const int flags = fcntl(fd, F_GETFD);
+	if(flags != -1)
+		fcntl(fd, F_SETFD, flags | FD_CLOEXEC); // best-effort; non-fatal if it fails
 }
 #endif
 
@@ -136,11 +149,79 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 	this->process_handle.handle = procInfo.hProcess;
 	this->thread_handle.handle = procInfo.hThread;
 #else
-	this->exit_code = 0;
-	
-	this->fp = popen((program_path + " " + combined_args_string).c_str(), "r");
-	if(fp == NULL)
-		throw glare::Exception("popen failed: " + PlatformUtils::getLastErrorString());
+	// POSIX implementation using pipe/fork/execvp
+	this->child_pid = -1;
+	this->stdout_read_fd = -1;
+	this->stderr_read_fd = -1;
+	this->stdin_write_fd = -1;
+	this->cached_exit_code = 0;
+	this->child_exited = false;
+
+	int stdout_pipe[2], stderr_pipe[2], stdin_pipe[2];
+	if(pipe(stdout_pipe) == -1)
+		throw glare::Exception("pipe() failed for stdout: " + PlatformUtils::getLastErrorString());
+	if(pipe(stderr_pipe) == -1)
+	{
+		close(stdout_pipe[0]); close(stdout_pipe[1]);
+		throw glare::Exception("pipe() failed for stderr: " + PlatformUtils::getLastErrorString());
+	}
+	if(pipe(stdin_pipe) == -1)
+	{
+		close(stdout_pipe[0]); close(stdout_pipe[1]);
+		close(stderr_pipe[0]); close(stderr_pipe[1]);
+		throw glare::Exception("pipe() failed for stdin: " + PlatformUtils::getLastErrorString());
+	}
+
+	const pid_t pid = fork();
+	if(pid == -1)
+	{
+		close(stdout_pipe[0]); close(stdout_pipe[1]);
+		close(stderr_pipe[0]); close(stderr_pipe[1]);
+		close(stdin_pipe[0]);  close(stdin_pipe[1]);
+		throw glare::Exception("fork() failed: " + PlatformUtils::getLastErrorString());
+	}
+
+	if(pid == 0)
+	{
+		// Child process: wire up stdio then exec
+		dup2(stdin_pipe[0],  STDIN_FILENO);
+		dup2(stdout_pipe[1], STDOUT_FILENO);
+		dup2(stderr_pipe[1], STDERR_FILENO);
+
+		// Close all pipe fds (they've been dup'd onto the stdio fds)
+		close(stdin_pipe[0]);  close(stdin_pipe[1]);
+		close(stdout_pipe[0]); close(stdout_pipe[1]);
+		close(stderr_pipe[0]); close(stderr_pipe[1]);
+
+		// Build argv: argv[0] = program_path, then each element of command_line_args
+		std::vector<char*> argv;
+		argv.reserve(command_line_args.size() + 2);
+		argv.push_back(const_cast<char*>(program_path.c_str()));
+		for(size_t i = 0; i < command_line_args.size(); ++i)
+			argv.push_back(const_cast<char*>(command_line_args[i].c_str()));
+		argv.push_back(NULL);
+
+		execvp(program_path.c_str(), argv.data());
+		// execvp only returns on error
+		_exit(127);
+	}
+	else
+	{
+		// Parent process: close the child's ends of the pipes
+		close(stdin_pipe[0]);
+		close(stdout_pipe[1]);
+		close(stderr_pipe[1]);
+
+		this->child_pid      = pid;
+		this->stdout_read_fd = stdout_pipe[0];
+		this->stderr_read_fd = stderr_pipe[0];
+		this->stdin_write_fd = stdin_pipe[1];
+
+		// Set FD_CLOEXEC so fds don't leak into any further exec'd processes from the parent
+		setCloseOnExec(this->stdout_read_fd);
+		setCloseOnExec(this->stderr_read_fd);
+		setCloseOnExec(this->stdin_write_fd);
+	}
 #endif
 }
 
@@ -148,8 +229,10 @@ Process::Process(const std::string& program_path, const std::vector<std::string>
 Process::~Process()
 {
 #if !defined(_WIN32)
-	if(fp)
-		pclose(fp);
+	if(stdout_read_fd != -1) { close(stdout_read_fd); stdout_read_fd = -1; }
+	if(stderr_read_fd != -1) { close(stderr_read_fd); stderr_read_fd = -1; }
+	if(stdin_write_fd != -1) { close(stdin_write_fd); stdin_write_fd = -1; }
+	// Note: we intentionally do not wait for the child here (as documented in the header).
 #endif
 }
 
@@ -161,7 +244,10 @@ void Process::terminateProcess()
 	if(!res)
 		throw glare::Exception("TerminateProcess Failed: " + PlatformUtils::getLastErrorString());
 #else
-	throw glare::Exception("Not implemented.");
+	if(child_pid == -1 || child_exited)
+		return;
+	if(kill(child_pid, SIGTERM) == -1)
+		throw glare::Exception("kill(SIGTERM) failed: " + PlatformUtils::getLastErrorString());
 #endif
 }
 
@@ -176,7 +262,14 @@ bool Process::isStdOutReadable()
 	else
 		return false; // In the case where the process has been terminated, don't throw an exception, just return false.
 #else
-	throw glare::Exception("Not implemented.");
+	if(stdout_read_fd == -1)
+		return false;
+	struct pollfd pfd;
+	pfd.fd = stdout_read_fd;
+	pfd.events = POLLIN;
+	pfd.revents = 0;
+	const int res = poll(&pfd, 1, /*timeout_ms=*/0); // non-blocking
+	return res > 0 && (pfd.revents & POLLIN) != 0;
 #endif
 }
 
@@ -192,17 +285,21 @@ const std::string Process::readStdOut()
 
 	return std::string(buf, dwRead);
 #else
-	if(fp)
-	{
-		char buf[2048];
-		const ssize_t bytes_read = fread(buf, sizeof(buf), 1, fp);
-		if(bytes_read == 0) // If EOF:
-			return "";
-		else
-			return std::string(buf, bytes_read);
-	}
-	else
+	if(stdout_read_fd == -1)
 		return "";
+	char buf[2048];
+	ssize_t bytes_read;
+	do {
+		bytes_read = read(stdout_read_fd, buf, sizeof(buf));
+	} while(bytes_read == -1 && errno == EINTR);
+
+	if(bytes_read <= 0)
+	{
+		close(stdout_read_fd);
+		stdout_read_fd = -1;
+		return "";
+	}
+	return std::string(buf, (size_t)bytes_read);
 #endif
 }
 
@@ -218,8 +315,21 @@ const std::string Process::readStdErr()
 
 	return std::string(buf, dwRead);
 #else
-	// We can't read from stderr with popen(), so just return "".
-	return "";
+	if(stderr_read_fd == -1)
+		return "";
+	char buf[2048];
+	ssize_t bytes_read;
+	do {
+		bytes_read = read(stderr_read_fd, buf, sizeof(buf));
+	} while(bytes_read == -1 && errno == EINTR);
+
+	if(bytes_read <= 0)
+	{
+		close(stderr_read_fd);
+		stderr_read_fd = -1;
+		return "";
+	}
+	return std::string(buf, (size_t)bytes_read);
 #endif
 }
 
@@ -244,7 +354,28 @@ void Process::writeToProcessStdIn(const ArrayRef<unsigned char>& data)
 		}
 	}
 #else
-	throw glare::Exception("Not implemented.");
+	if(stdin_write_fd == -1)
+		return;
+	size_t bytes_written_total = 0;
+	while(bytes_written_total < data.size())
+	{
+		const ssize_t res = write(stdin_write_fd, data.data() + bytes_written_total, data.size() - bytes_written_total);
+		if(res == -1)
+		{
+			if(errno == EINTR)
+				continue;
+			if(errno == EPIPE)
+			{
+				// Child closed its stdin; close our end gracefully
+				close(stdin_write_fd);
+				stdin_write_fd = -1;
+				return;
+			}
+			throw glare::Exception("write() to process stdin failed: " + PlatformUtils::getLastErrorString());
+		}
+		if(res > 0)
+			bytes_written_total += (size_t)res;
+	}
 #endif
 }
 
@@ -257,7 +388,24 @@ bool Process::isProcessAlive()
 		throw glare::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
 	return exit_code == STILL_ACTIVE;
 #else
-	throw glare::Exception("Not implemented.");
+	if(child_exited || child_pid == -1)
+		return false;
+	int status;
+	const pid_t res = waitpid(child_pid, &status, WNOHANG);
+	if(res == 0)
+		return true; // Still running
+	if(res == child_pid)
+	{
+		if(WIFEXITED(status))
+			cached_exit_code = WEXITSTATUS(status);
+		else if(WIFSIGNALED(status))
+			cached_exit_code = 128 + WTERMSIG(status);
+		else
+			cached_exit_code = -1;
+		child_exited = true;
+		return false;
+	}
+	throw glare::Exception("waitpid() failed: " + PlatformUtils::getLastErrorString());
 #endif
 }
 
@@ -270,15 +418,25 @@ int Process::getExitCode()
 		throw glare::Exception("GetExitCodeProcess failed: " + PlatformUtils::getLastErrorString());
 	return exit_code;
 #else
-	if(fp)
-	{
-		const int status = pclose(fp);
-		if(status == -1)
-			throw glare::Exception("pclose failed: " + PlatformUtils::getLastErrorString());
-		this->exit_code = status; // NOTE: this is the exit value of the command interpreter, not our actual process.
-		fp = NULL;
-	}
-	return this->exit_code;
+	if(child_exited)
+		return cached_exit_code;
+	if(child_pid == -1)
+		return cached_exit_code;
+	int status;
+	pid_t res;
+	do {
+		res = waitpid(child_pid, &status, 0);
+	} while(res == -1 && errno == EINTR);
+	if(res == -1)
+		throw glare::Exception("waitpid() failed: " + PlatformUtils::getLastErrorString());
+	if(WIFEXITED(status))
+		cached_exit_code = WEXITSTATUS(status);
+	else if(WIFSIGNALED(status))
+		cached_exit_code = 128 + WTERMSIG(status);
+	else
+		cached_exit_code = -1;
+	child_exited = true;
+	return cached_exit_code;
 #endif
 }
 
@@ -367,20 +525,111 @@ void glare::Process::test()
 	{
 	}
 #else
+	// Test basic stdout reading and exit code
 	try
 	{
 		std::vector<std::string> command_line_args;
 		command_line_args.push_back("-l");
 		Process p("ls", command_line_args);
+
+		testAssert(p.isProcessAlive());
+
+		std::string stdout_data;
 		while(1)
 		{
 			const std::string output = p.readStdOut();
-			conPrint(output);
+			if(output.empty())
+				break;
+			stdout_data += output;
+		}
+		conPrint("ls -l output: " + stdout_data);
+		testAssert(!stdout_data.empty());
+
+		testAssert(p.getExitCode() == 0);
+		testAssert(p.getExitCode() == 0); // Check cached exit code
+		testAssert(!p.isProcessAlive());
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test stderr capture: 'ls /nonexistent_path_xyz' writes an error to stderr
+	try
+	{
+		std::vector<std::string> command_line_args;
+		command_line_args.push_back("/nonexistent_path_xyz_glare");
+		Process p("ls", command_line_args);
+
+		std::string stdout_data, stderr_data;
+		p.readAllRemainingStdOutAndStdErr(stdout_data, stderr_data);
+		conPrint("ls stderr output: " + stderr_data);
+		testAssert(!stderr_data.empty());
+
+		testAssert(p.getExitCode() != 0); // ls should fail with nonexistent path
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test isStdOutReadable()
+	try
+	{
+		std::vector<std::string> args;
+		args.push_back("-c");
+		args.push_back("echo hello");
+		Process p("sh", args);
+
+		// Wait briefly for data to arrive, then check isStdOutReadable()
+		PlatformUtils::Sleep(100);
+		testAssert(p.isStdOutReadable());
+
+		// Drain stdout
+		while(1)
+		{
+			const std::string output = p.readStdOut();
 			if(output.empty())
 				break;
 		}
-		conPrint("Exit code: " + toString(p.getExitCode()));
-		testAssert(p.getExitCode() == 0);
+		p.getExitCode();
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test terminateProcess()
+	try
+	{
+		std::vector<std::string> args;
+		args.push_back("-c");
+		args.push_back("sleep 60");
+		Process p("sh", args);
+
+		testAssert(p.isProcessAlive());
+		p.terminateProcess();
+		// Give it time to die
+		PlatformUtils::Sleep(200);
+		testAssert(!p.isProcessAlive());
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test writeToProcessStdIn()
+	try
+	{
+		std::vector<std::string> args;
+		Process p("cat", args);
+
+		const std::string input = "hello stdin\n";
+		p.writeToProcessStdIn(ArrayRef<unsigned char>((const unsigned char*)input.data(), input.size()));
+		// Close stdin by destroying Process (or we can close it manually) -- just read back what cat echoes
+		// We close stdin by terminating; in this test just verify no exception was thrown
+		p.terminateProcess();
+		PlatformUtils::Sleep(100);
 	}
 	catch(glare::Exception& e)
 	{
