@@ -2717,53 +2717,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 
 	if(settings.render_to_offscreen_renderbuffers)
 	{
-		//------------------------------------------- Build downsize prog -------------------------------------------
-		{
-			const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 0\n";
-			downsize_prog = new OpenGLProgram(
-				"downsize",
-				new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines  , GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
-				getAndIncrNextProgramIndex(),
-				/*wait for build to complete=*/true
-			);
-			addProgram(downsize_prog);
-		}
-			
-		//------------------------------------------- Build downsize_from_main_buf_prog -------------------------------------------
-		{
-			const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 1\n";
-			downsize_from_main_buf_prog = new OpenGLProgram(
-				"downsize_from_main_buf",
-				new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
-				new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
-				getAndIncrNextProgramIndex(),
-				/*wait for build to complete=*/true
-			);
-			addProgram(downsize_from_main_buf_prog);
-
-			//if(use_order_indep_transparency)
-			//{
-			//	downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
-			//	assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
-			//	assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
-			//
-			//	downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "total_transmittance_texture");
-			//	assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX);
-			//	assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
-			//}
-		}
-
-		//------------------------------------------- Build gaussian_blur_prog -------------------------------------------
-		gaussian_blur_prog = new OpenGLProgram(
-			"gaussian_blur",
-			new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
-			getAndIncrNextProgramIndex(),
-			/*wait for build to complete=*/true
-		);
-		addProgram(gaussian_blur_prog);
-		gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
+		buildDownsizeAndBlurPrograms(use_shader_dir);
 		
 		//------------------------------------------- Build final_imaging_prog -------------------------------------------
 		final_imaging_prog = buildFinalImagingProg(use_shader_dir);
@@ -2989,6 +2943,62 @@ OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir
 	bindUniformBlockToProgram(new_env_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 
 	return new_env_prog;
+}
+
+
+void OpenGLEngine::buildDownsizeAndBlurPrograms(const std::string& use_shader_dir)
+{
+	//------------------------------------------- Build downsize prog -------------------------------------------
+	{
+		const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 0\n";
+		downsize_prog = new OpenGLProgram(
+			"downsize",
+			new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines  , GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
+		);
+		addProgram(downsize_prog);
+		downsize_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "dest_xres");
+		downsize_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "dest_yres");
+	}
+			
+	//------------------------------------------- Build downsize_from_main_buf_prog -------------------------------------------
+	{
+		const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 1\n";
+		downsize_from_main_buf_prog = new OpenGLProgram(
+			"downsize_from_main_buf",
+			new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
+		);
+		addProgram(downsize_from_main_buf_prog);
+		downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "dest_xres");
+		downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "dest_yres");
+
+		//if(use_order_indep_transparency)
+		//{
+		//	downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "transparent_accum_texture");
+		//	assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX);
+		//	assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
+		//
+		//	downsize_from_main_buf_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Sampler2D, "total_transmittance_texture");
+		//	assert(downsize_from_main_buf_prog->user_uniform_info.back().index == DOWNSIZE_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX);
+		//	assert(downsize_from_main_buf_prog->user_uniform_info.back().loc >= 0);
+		//}
+	}
+
+	//------------------------------------------- Build gaussian_blur_prog -------------------------------------------
+	gaussian_blur_prog = new OpenGLProgram(
+		"gaussian_blur",
+		new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	addProgram(gaussian_blur_prog);
+	gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
 }
 
 
@@ -6803,7 +6813,16 @@ void OpenGLEngine::draw()
 		{
 			conPrint("Error while reloading env prog: " + e.what());
 		}
-		
+
+		try
+		{
+			buildDownsizeAndBlurPrograms(use_shader_dir);
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading downsize and blur progs: " + e.what());
+		}
+
 		// Try and reload draw-aurora shader
 		try
 		{
@@ -7565,8 +7584,11 @@ void OpenGLEngine::draw()
 		const int use_main_viewport_w = myMax(16, main_viewport_w);
 		const int use_main_viewport_h = myMax(16, main_viewport_h);
 
+		const int expected_downsize_0_w = Maths::roundedUpDivide(use_main_viewport_w, 2);
+		const int expected_downsize_0_h = Maths::roundedUpDivide(use_main_viewport_h, 2);
+
 		if(downsize_target_textures.empty() ||
-			((int)downsize_framebuffers[0]->xRes() != (use_main_viewport_w/2) || (int)downsize_framebuffers[0]->yRes() != (use_main_viewport_h/2))
+			((int)downsize_framebuffers[0]->xRes() != expected_downsize_0_w || (int)downsize_framebuffers[0]->yRes() != expected_downsize_0_h)
 			)
 		{
 			conPrint("(Re)Allocing downsize_framebuffers etc..");
@@ -7607,8 +7629,17 @@ void OpenGLEngine::draw()
 
 			for(int i=0; i<NUM_BLUR_DOWNSIZES; ++i)
 			{
-				w = myMax(1, w / 2);
-				h = myMax(1, h / 2);
+				w = Maths::roundedUpDivide(w, 2);
+				h = Maths::roundedUpDivide(h, 2);
+				assert(w >= 1 && h >= 1);
+
+				if(i == 0)
+				{
+					assert(w == expected_downsize_0_w);
+					assert(h == expected_downsize_0_h);
+				}
+
+				// conPrint("Allocing downsize_target_textures with dims " + toString(w) + " x " + toString(h));
 
 				// Clamp texture reads otherwise edge outlines will wrap around to other side of frame.
 				downsize_target_textures[i] = new OpenGLTexture(w, h, this, ArrayRef<uint8>(), col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp);
@@ -7630,6 +7661,37 @@ void OpenGLEngine::draw()
 				blur_target_textures[i] = new OpenGLTexture(w, h, this, initial_data_ref, col_buffer_format, OpenGLTexture::Filtering_Bilinear, OpenGLTexture::Wrapping_Clamp);
 				blur_framebuffers[i] = new FrameBuffer();
 				blur_framebuffers[i]->attachTexture(*blur_target_textures[i], GL_COLOR_ATTACHMENT0);
+			}
+
+			// TEMP: Show downsize texture debug output
+			if(false)
+			{
+				// Remove old preview obs, if any
+				for(size_t i=0; i<texture_debug_preview_overlay_obs.size(); ++i)
+					removeOverlayObject(texture_debug_preview_overlay_obs[i]);
+				texture_debug_preview_overlay_obs.clear();
+
+				int x=0;
+				int y=0;
+				for(size_t i=0; i<downsize_target_textures.size(); ++i)
+				{
+					OverlayObjectRef texture_debug_preview_overlay_ob =  new OverlayObject();
+					texture_debug_preview_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(-1.f + x*0.5f, 0.5f - y*0.5f, 0) * Matrix4f::uniformScaleMatrix(0.5f);
+					texture_debug_preview_overlay_ob->mesh_data = this->unit_quad_meshdata;
+					texture_debug_preview_overlay_ob->material.albedo_linear_rgb = Colour3f(1.f);
+					texture_debug_preview_overlay_ob->material.albedo_texture = this->downsize_target_textures[i];
+
+					texture_debug_preview_overlay_obs.push_back(texture_debug_preview_overlay_ob);
+
+					addOverlayObject(texture_debug_preview_overlay_ob);
+
+					x++;
+					if(x >= 4)
+					{
+						y++;
+						x = 0;
+					}
+				}
 			}
 		}
 
@@ -7942,6 +8004,9 @@ void OpenGLEngine::doBloomPostProcess(OpenGLTexture* colour_tex_input)
 
 			OpenGLProgram* use_downsize_prog = (i == 0) ? downsize_from_main_buf_prog.ptr() : downsize_prog.ptr();
 			use_downsize_prog->useProgram();
+
+			glUniform1i(use_downsize_prog->user_uniform_info[0].loc, /*val=*/(int)downsize_framebuffers[i]->xRes()); // Set dest_xres
+			glUniform1i(use_downsize_prog->user_uniform_info[1].loc, /*val=*/(int)downsize_framebuffers[i]->yRes()); // Set dest_yres
 
 			OpenGLTexture* src_texture = (i == 0) ? colour_tex_input : downsize_target_textures[i - 1].ptr();
 			bindTextureUnitToSampler(*src_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/use_downsize_prog->albedo_texture_loc);

@@ -1250,6 +1250,7 @@ private:
 	void doPostBuildForDepthDrawProgram(OpenGLProgramRef prog);
 	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
 	OpenGLProgramRef buildEnvProgram(const std::string& use_shader_dir);
+	void buildDownsizeAndBlurPrograms(const std::string& use_shader_dir);
 	OpenGLProgramRef buildAuroraProgram(const std::string& use_shader_dir);
 	OpenGLProgramRef buildComputeSSAOProg(const std::string& use_shader_dir);
 	OpenGLProgramRef buildBlurSSAOProg(const std::string& use_shader_dir);
