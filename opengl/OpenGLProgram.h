@@ -188,7 +188,7 @@ public:
 
 	bool isBuilt() const { return built_successfully; }
 
-
+	std::string getProgramBinary();
 
 	void useProgram() const;
 
