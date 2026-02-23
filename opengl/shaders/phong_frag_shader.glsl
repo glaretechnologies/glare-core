@@ -242,11 +242,11 @@ vec3 computeFresnelReflectance(float h_cos_theta, vec3 refl_diffuse_col, float f
 
 void main()
 {
-	vec3 use_normal_ws;
+	vec3 unit_normal_ws; // Will be normalised below before being used.
 	vec2 use_texture_coords = texture_coords;
 	if((MAT_UNIFORM.flags & HAVE_SHADING_NORMALS_FLAG) != 0)
 	{
-		use_normal_ws = normal_ws;
+		unit_normal_ws = normal_ws;
 	}
 	else
 	{
@@ -284,7 +284,7 @@ void main()
 		dp_dx = dFdx(pos_ws);
 		dp_dy = dFdy(pos_ws);
 		N_g = cross(dp_dx, dp_dy);
-		use_normal_ws = N_g;
+		unit_normal_ws = N_g;
 	}
 
 
@@ -292,7 +292,7 @@ void main()
 	vec3 cam_to_pos_ws = pos_ws - mat_common_campos_ws.xyz;
 
 
-	// Note that this code updates use_texture_coords and use_normal_ws.
+	// Note that this code updates use_texture_coords and unit_normal_ws.
 #if DECAL
 	#if NUM_DEPTH_TEXTURES > 0
 	vec3 decal_shadow_tex_coords[NUM_DEPTH_TEXTURES];
@@ -332,7 +332,7 @@ void main()
 				discard;
 		}
 
-		use_normal_ws = src_normal_ws;
+		unit_normal_ws = src_normal_ws;
 		pos_cs.z = -depth; // Update pos_cs (used for shadow mapping)
 
 		#if NUM_DEPTH_TEXTURES > 0
@@ -404,12 +404,12 @@ void main()
 		vec3 norm_map_v = texture(NORMAL_MAP, st).xyz;
 		norm_map_v = norm_map_v * 2.0 - vec3(1.0);
 #if VERT_TANGENTS
-		vec3 bitangent_ws = cross(use_normal_ws, tangent_ws.xyz) * tangent_ws.w; // From GLTF spec
+		vec3 bitangent_ws = cross(unit_normal_ws, tangent_ws.xyz) * tangent_ws.w; // From GLTF spec
 
-		use_normal_ws = normalize(
+		unit_normal_ws = normalize(
 			tangent_ws.xyz   * norm_map_v.x + 
 			bitangent_ws  * norm_map_v.y + 
-			use_normal_ws * norm_map_v.z
+			unit_normal_ws * norm_map_v.z
 		);
 #else
 		vec3 dp_dx = dFdx(pos_ws);
@@ -431,23 +431,25 @@ void main()
 		vec3 dp_ds = dp_dx * dxy_dst[0].x + dp_dy * dxy_dst[0].y;
 		vec3 dp_dt = dp_dx * dxy_dst[1].x + dp_dy * dxy_dst[1].y;
 
-		use_normal_ws = normalize(use_normal_ws); // removeComponentInDir requires a unit direction.
-		dp_ds = normalize(removeComponentInDir(dp_ds, use_normal_ws));
-		dp_dt = normalize(removeComponentInDir(dp_dt, use_normal_ws));
+		unit_normal_ws = normalize(unit_normal_ws); // removeComponentInDir requires a unit direction.
+		dp_ds = normalize(removeComponentInDir(dp_ds, unit_normal_ws));
+		dp_dt = normalize(removeComponentInDir(dp_dt, unit_normal_ws));
 
-		use_normal_ws = normalize(
+		unit_normal_ws = normalize(
 			 dp_ds * norm_map_v.x +
 			-dp_dt * norm_map_v.y +
-			use_normal_ws * norm_map_v.z
+			unit_normal_ws * norm_map_v.z
 		);
 
-		// Sanitise use_normal_ws, we may end up with NaNs from the code above.
-		if(isnan(use_normal_ws.x))
-			use_normal_ws = vec3(0,0,1);
+		// Sanitise unit_normal_ws, we may end up with NaNs from the code above.
+		if(isnan(unit_normal_ws.x))
+			unit_normal_ws = vec3(0,0,1);
 #endif
 	}
+	else
+		unit_normal_ws = normalize(unit_normal_ws);
 
-	// float snow_frac = smoothstep(0.56, 0.6, normalize(use_normal_ws).z);
+	// float snow_frac = smoothstep(0.56, 0.6, normalize(unit_normal_ws).z);
 	// if(pos_ws.z < water_level_z - 3.0)
 	// 	snow_frac = 0.0;
 
@@ -455,11 +457,6 @@ void main()
 	// snow_frac = 0;
 #endif
 
-	
-
-
-
-	vec3 unit_normal_ws = normalize(use_normal_ws);
 
 	if((MAT_UNIFORM.flags & SIMPLE_DOUBLE_SIDED_FLAG) != 0) // If simple double-sided:
 	{
