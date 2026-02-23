@@ -572,7 +572,7 @@ void main()
 	float rock_weight = 0.0; // Disable any rock for now.
 	//float rock_weight_env = smoothstep(0.2, 0.6, mask.x + fbmMix(detail_map_2_uvs * 0.2) * 0.2);
 	//float rock_height = rock_heightmap_val * rock_weight_env;
-	//float rock_weight = (rock_height > 0.1/*|| normal_ws.z <  0.5*/) ? 1.f : 0.f;
+	//float rock_weight = (rock_height > 0.1/*|| unit_normal_ws.z <  0.5*/) ? 1.f : 0.f;
 
 	//float veg_frac = mask.z > texture(fbm_tex, detail_map_2_uvs).x ? 1.0 : 0.0;
 	// Vegetation as a fraction of (vegetation + sediment)
@@ -943,16 +943,16 @@ void main()
 #if MATERIALISE_EFFECT
 	// box mapping
 	vec2 materialise_coords;
-	if(abs(normal_ws.x) > abs(normal_ws.y))
+	if(abs(unit_normal_ws.x) > abs(unit_normal_ws.y))
 	{
-		if(abs(normal_ws.x) > abs(normal_ws.z)) // |x| > |z| && |x| > |y|
+		if(abs(unit_normal_ws.x) > abs(unit_normal_ws.z)) // |x| > |z| && |x| > |y|
 			materialise_coords = pos_ws.yz;
 		else // |z| >= |x| > |y|:
 			materialise_coords = pos_ws.xy;
 	}
 	else // else |y| >= |x|:
 	{
-		if(abs(normal_ws.y) > abs(normal_ws.z))
+		if(abs(unit_normal_ws.y) > abs(unit_normal_ws.z))
 			materialise_coords = pos_ws.xz;
 		else // |z| >= |y| >= |x|
 			materialise_coords = pos_ws.xy;
@@ -1025,9 +1025,6 @@ void main()
 	float campos_z = pos_ws.z - cam_to_pos_ws.z;
 	if(/*(campos_z < -3.8) && */pos_ws.z < water_level_z)
 	{
-		vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
-		vec3 scattering = vec3(0.4, 0.4, 0.1);
-
 		vec3 src_col = col.xyz; // texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
 
 		//vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
@@ -1039,14 +1036,10 @@ void main()
 		vec3 sun_up = cross(sundir_ws.xyz, sun_right);
 		vec2 hitpos_sunbasis = vec2(dot(pos_ws, sun_right), dot(pos_ws, sun_up));
 
-		float sun_lambert_factor = max(0.0, dot(normal_ws, sundir_ws.xyz));
+		float sun_lambert_factor = max(0.0, dot(unit_normal_ws, sundir_ws.xyz));
 
 		// Distance from water surface to ground, along the sun direction.  Used for computing the caustic effect envelope.
 		float water_to_ground_sun_d = max(0.0, (water_level_z - pos_ws.z) / sundir_ws.z); // TEMP HACK Assuming water surface height
-
-		float cam_to_pos_dist = length(cam_to_pos_ws);
-
-		float total_path_dist = water_to_ground_sun_d + cam_to_pos_dist;
 
 		float caustic_depth_factor = 0.03 + 0.9 * (smoothstep(0.1, 2.0, water_to_ground_sun_d) - 0.8 *smoothstep(2.0, 8.0, water_to_ground_sun_d)); // Caustics should not be visible just under the surface.
 		float caustic_frac = fract(time * 24.0); // Get fraction through frame, assuming 24 fps.
@@ -1066,6 +1059,11 @@ void main()
 		}
 		else // Else if camera is underwater:
 		{
+			vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
+			vec3 scattering = vec3(0.4, 0.4, 0.1);
+
+			float cam_to_pos_dist = length(cam_to_pos_ws);
+
 			// NOTE: this calculation is also in colourForUnderwaterPoint() in water_frag_shader.glsl and should be kept in sync.
 			vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * vec3(0.004, 0.015, 0.03) * 3.0;
 			vec3 exp_optical_depth = exp(extinction * -cam_to_pos_dist);
