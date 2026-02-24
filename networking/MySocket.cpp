@@ -285,18 +285,11 @@ void MySocket::connect(const IPAddress& ipaddress,
 	//-----------------------------------------------------------------
 	if(::connect(sockethandle, (sockaddr*)&server_address, sizeof(server_address)) != 0)
 	{
-#if defined(_WIN32)
-		if(WSAGetLastError() != WSAEWOULDBLOCK)
-#else
-		if(errno != EINPROGRESS)
-#endif
-		{
-			const std::string error_str = Networking::getError(); // Get error before we call anything else, which may overwrite it.
-			if(hostname.empty())
-				throw MySocketExcep("Could not connect to " + IPAddress::formatIPAddressAndPort(ipaddress, port) + ": " + error_str, MySocketExcep::ExcepType_ConnectionFailed);
-			else
-				throw MySocketExcep("Could not connect to '" + hostname + "' (" + IPAddress::formatIPAddressAndPort(ipaddress, port) + "): " + error_str, MySocketExcep::ExcepType_ConnectionFailed);
-		}
+		const std::string error_str = Networking::getError(); // Get error before we call anything else, which may overwrite it.
+		if(hostname.empty())
+			throw MySocketExcep("Could not connect to " + IPAddress::formatIPAddressAndPort(ipaddress, port) + ": " + error_str, MySocketExcep::ExcepType_ConnectionFailed);
+		else
+			throw MySocketExcep("Could not connect to '" + hostname + "' (" + IPAddress::formatIPAddressAndPort(ipaddress, port) + "): " + error_str, MySocketExcep::ExcepType_ConnectionFailed);
 	}
 
 	otherend_port = port;
@@ -897,6 +890,35 @@ void MySocket::setAddressReuseEnabled(bool enabled_)
 	) != 0)
 		throw MySocketExcep("setsockopt failed to set SO_REUSEADDR, error: " + Networking::getError());
 }
+
+
+void MySocket::setTimeout(double timeout_s)
+{
+#if defined(_WIN32)
+	const DWORD timeout_ms = (DWORD)(timeout_s * 1.0e3);
+
+	// Set receive timeout
+	if(::setsockopt(sockethandle, /*level=*/SOL_SOCKET, /*optname=*/SO_RCVTIMEO, /*optval=*/(const char*)&timeout_ms, /*optlen=*/sizeof(timeout_ms)) != 0)
+		throw MySocketExcep("setsockopt failed to set SO_RCVTIMEO, error: " + Networking::getError());
+
+	// Set send timout
+	if(::setsockopt(sockethandle, /*level=*/SOL_SOCKET, /*optname=*/SO_SNDTIMEO, /*optval=*/(const char*)&timeout_ms, /*optlen=*/sizeof(timeout_ms)) != 0)
+		throw MySocketExcep("setsockopt failed to set SO_SNDTIMEO, error: " + Networking::getError());
+#else
+	struct timeval tv;
+	tv.tv_sec  = (long)timeout_s;
+	tv.tv_usec = (long)(Maths::fract(timeout_s) * 1.0e6);
+
+	// Set receive timeout
+	if(::setsockopt(sockethandle, /*level=*/SOL_SOCKET, /*optname=*/SO_RCVTIMEO, /*optval=*/&tv, /*optlen=*/sizeof(tv)) != 0)
+		throw MySocketExcep("setsockopt failed to set SO_RCVTIMEO, error: " + Networking::getError());
+
+	// Set send timout
+	if(::setsockopt(sockethandle, /*level=*/SOL_SOCKET, /*optname=*/SO_SNDTIMEO, /*optval=*/&tv, /*optlen=*/sizeof(tv)) != 0)
+		throw MySocketExcep("setsockopt failed to set SO_SNDTIMEO, error: " + Networking::getError());
+#endif
+}
+
 
 
 void MySocket::initFDSetWithSocket(fd_set& sockset, SOCKETHANDLE_TYPE& sockhandle)

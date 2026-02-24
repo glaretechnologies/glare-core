@@ -60,6 +60,8 @@ public:
 
 	virtual void setAddressReuseEnabled(bool enabled) override;
 
+	virtual void setTimeout(double timeout_s) override;
+
 	virtual IPAddress getOtherEndIPAddress() const override { return underlying_socket->getOtherEndIPAddress(); }
 	virtual int getOtherEndPort() const override { return underlying_socket->getOtherEndPort(); }
 

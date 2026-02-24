@@ -65,6 +65,7 @@ void HTTPClient::connect(const std::string& protocol, const std::string& hostnam
 			plain_socket->connect(hostname, (port == -1) ? 443 : port);
 			if(enable_TCP_nodelay) 
 				plain_socket->setNoDelayEnabled(true);
+			plain_socket->setTimeout(/*timeout (seconds)=*/60.0);
 
 			TLSConfig client_tls_config;
 
@@ -76,6 +77,8 @@ void HTTPClient::connect(const std::string& protocol, const std::string& hostnam
 		{
 			// Assume http (non-TLS)
 			this->socket = new MySocket(hostname, (port == -1) ? 80 : port);
+
+			this->socket->setTimeout(/*timeout (seconds)=*/60.0);
 		}
 	}
 

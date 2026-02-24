@@ -146,6 +146,8 @@ public:
 	// Enables or disables SO_REUSEADDR - allows a socket to bind to an address/port that is in the wait state.
 	virtual void setAddressReuseEnabled(bool enabled);
 
+	virtual void setTimeout(double timeout_s);
+
 	bool readable(double timeout_s); // Block until socket becomes readable, or the timeout is reached.
 	bool readable(EventFD& event_fd); // Block until either the socket is readable or the event_fd is signalled (becomes readable).
 	// Returns true if the socket was readable or an error occurred with the socket, false if the event_fd was signalled.

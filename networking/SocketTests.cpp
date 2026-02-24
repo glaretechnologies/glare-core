@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/SocketBufferOutStream.h"
+#include "../utils/Timer.h"
 #include <cstring>
 
 
@@ -447,7 +448,7 @@ public:
 };
 
 
-// Lanuches TestServerSocketReadWriteThread to handle client connections.
+// Launches TestServerSocketReadWriteThread to handle client connections.
 class TestListenerThread2 : public MyThread
 {
 public:
@@ -479,6 +480,113 @@ public:
 
 //==============================================================================================================
 
+class TestTimeoutClientThread : public MyThread
+{
+public:
+	TestTimeoutClientThread(const std::string& hostname_, int port_, bool test_read_) : hostname(hostname_), port(port_), test_read(test_read_)
+	{
+		try
+		{
+			socket = new MySocket(hostname, port); 
+			socket->setTimeout(5.0); // Make it timeout after 5 seconds
+		}
+		catch(MySocketExcep& e)
+		{
+			failTest(e.what());
+		}
+	}
+
+	virtual void run()
+	{
+		try
+		{
+			if(test_read)
+			{
+				conPrint("TestTimeoutClientThread: calling readUInt32()...");
+				socket->readUInt32(); // This should block, until a timeout exception is thrown.
+			}
+			else
+			{
+				conPrint("TestTimeoutClientThread: calling writeData()...");
+				std::vector<uint8> data(60'000'000); // Send enough data that internal buffers are filled.
+				socket->writeData(data.data(), data.size()); // This should block, until a timeout exception is thrown.
+			}
+
+			failTest("Shouldn't get here."); // Shouldn't get here as there should be an exception thrown from the readUInt32 call above. 
+		}
+		catch(MySocketExcep& e)
+		{
+			conPrint("expected TestTimeoutClientThread MySocketExcep: " + e.what());
+		}
+	}
+
+	std::string hostname;
+	int port;
+	bool test_read;
+	MySocketRef socket;
+};
+
+
+class TestTimeoutServerThread : public MyThread
+{
+public:
+	TestTimeoutServerThread(MySocketRef socket_) : socket(socket_) {}
+
+	virtual void run()
+	{
+		conPrint("TestTimeoutServerThread::run()");
+		try
+		{
+			Timer timer;
+			while(timer.elapsed() < 10.0)
+			{
+				conPrint("TestTimeoutServerThread: doing nothing... (elapsed: " + timer.elapsedStringNPlaces(2) + ")");
+				PlatformUtils::Sleep(1000);
+			}
+		}
+		catch(MySocketExcep& e)
+		{
+			conPrint("TestTimeoutServerThread MySocketExcep: " + e.what());
+		}
+	}
+
+	MySocketRef socket;
+};
+
+
+// Launches TestTimeoutServerThread to handle client connections.
+class TestTimeoutListenerThread : public MyThread
+{
+public:
+	TestTimeoutListenerThread(int port_) : port(port_)
+	{
+		listener_sock = new MySocket();
+	}
+
+	virtual void run()
+	{
+		conPrint("TestTimeoutListenerThread::run() (port: " + toString(port) + ")");
+		try
+		{
+			listener_sock->bindAndListen(port);
+			MySocketRef server_socket = listener_sock->acceptConnection();
+			Reference<TestTimeoutServerThread> server_thread = new TestTimeoutServerThread(server_socket);
+			server_thread->launch();
+			server_thread->join(); // Wait for server thread
+		}
+		catch(MySocketExcep& e)
+		{
+			conPrint("TestTimeoutListenerThread MySocketExcep: " + e.what());
+		}
+	}
+	MySocketRef listener_sock;
+	int port;
+};
+
+
+//==============================================================================================================
+
+
 
 void SocketTests::test()
 {
@@ -488,7 +596,26 @@ void SocketTests::test()
 
 	const int port = 5000;
 
+	//==================== Test timeout of a blocking read call. ========================
+	for(int i=0; i<2; ++i) // Test reading then writing in the client
+	{
+		Reference<TestTimeoutListenerThread> listener_thread = new TestTimeoutListenerThread(port);
+		listener_thread->launch();
+ 
+		// Wait for a while until the listener thread has called bindAndListen()
+		PlatformUtils::Sleep(500);
 
+		// Launch client thread, should block on socket read call
+		Reference<TestTimeoutClientThread> client_thread = new TestTimeoutClientThread("localhost", port, /*test read=*/i == 0);
+		client_thread->launch();
+
+		// We need to wait a little while, until the read call in the TestReadClientThread has been started.
+		PlatformUtils::Sleep(500);
+
+
+		listener_thread->join();
+		client_thread->join();
+	}
 
 	//==================== Test interruption of a blocking read call. ========================
 	{

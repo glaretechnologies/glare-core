@@ -114,6 +114,8 @@ public:
 
 	virtual void setAddressReuseEnabled(bool enabled);
 
+	virtual void setTimeout(double s);
+
 	virtual IPAddress getOtherEndIPAddress() const { return plain_socket->getOtherEndIPAddress(); }
 	virtual int getOtherEndPort() const { return plain_socket->getOtherEndPort(); }
 

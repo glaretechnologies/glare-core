@@ -37,6 +37,7 @@ public:
 	virtual void setNoDelayEnabled(bool /*enabled*/) {} // NoDelay option is off by default.
 	virtual void enableTCPKeepAlive(float /*period*/) {}
 	virtual void setAddressReuseEnabled(bool /*enabled*/) {}
+	virtual void setTimeout(double /*timeout_s*/) {}
 
 	virtual IPAddress getOtherEndIPAddress() const{ return IPAddress(); }
 	virtual int getOtherEndPort() const { return 0; }

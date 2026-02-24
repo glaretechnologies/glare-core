@@ -81,6 +81,12 @@ void RecordingSocket::setAddressReuseEnabled(bool enabled)
 }
 
 
+void RecordingSocket::setTimeout(double timeout_s)
+{
+	underlying_socket->setTimeout(timeout_s);
+}
+
+
 void RecordingSocket::readTo(void* buffer, size_t readlen)
 {
 	readTo(buffer, readlen, NULL);
