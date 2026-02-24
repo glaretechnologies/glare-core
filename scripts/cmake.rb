@@ -126,26 +126,6 @@ class CMakeBuild
 		else
 			buildMakefile(targets, clean)
 		end
-	
-		#make_args = ""
-		#
-		#if clean == true
-		#	make_args += " --clean-first"
-		#end
-		#
-		#if @cmake_version >= Gem::Version.new('3.12') # --parallel supported?
-		#	make_args += " -j #{getNumLogicalCores()} --parallel #{getNumLogicalCores()}"
-		#elsif OS.unix?
-		#	make_args += " -- -j #{getNumLogicalCores()}" # pass -j arg to make directly
-		#end
-		#
-		#make_args += " -- /m"
-		#
-		#Dir.chdir(@build_dir) do
-		#	exec_command("cmake --build . -v --target #{target} --config #{config_name} #{make_args}")
-		#end
-		#
-		#FileUtils.touch("#{@install_dir}/glare-build.success")
 	end
 	
 
@@ -223,7 +203,15 @@ class CMakeBuild
 				make_targets = targets.join(" ")
 			end
 			
-			exec_command("make -j #{getNumLogicalCores()} #{make_targets}")
+			jobs = getNumLogicalCores()
+			
+			if @cmake_version >= Gem::Version.new('3.12')
+				# Use CMake's cross-generator parallel support where available
+				cmake_target_arg = targets.map { |t| "--target #{t}" }.join(" ")
+				exec_command("cmake --build . #{cmake_target_arg} --parallel #{jobs}".strip)
+			else
+				exec_command("make -j #{jobs} #{make_targets}")
+			end
 		end
 	end
 	
