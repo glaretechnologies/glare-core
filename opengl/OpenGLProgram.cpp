@@ -190,7 +190,7 @@ std::string OpenGLProgram::getProgramBinary()
 	GLsizei length = 0;
 	GLenum binary_format = 0;
 	std::string binary(binary_length, '\0');
-	glGetProgramBinary(program, /*bufsize=*/binary.size(), /*length=*/&length, &binary_format, /*binary=*/binary.data());
+	glGetProgramBinary(program, /*bufsize=*/(GLsizei)binary.size(), /*length=*/&length, &binary_format, /*binary=*/binary.data());
 
 	binary.resize(length);
 	return binary;
