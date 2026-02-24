@@ -100,7 +100,8 @@ class CMakeBuild
 		end
 
 		Dir.chdir(@build_dir) do
-			print_and_exec_command("cmake \"#{@source_dir}\" -DCMAKE_INSTALL_PREFIX:STRING=\"#{@install_dir}\" -DCMAKE_POLICY_VERSION_MINIMUM=3.5#{unix_args}#{osx_args}#{win_args} #{cmake_args}")
+			print_and_exec_command("cmake \"#{@source_dir}\" -DCMAKE_INSTALL_PREFIX:STRING=\"#{@install_dir}\"#{unix_args}#{osx_args}#{win_args} #{cmake_args}")
+		end
 	end
 	
 	
@@ -387,4 +388,3 @@ class CMakeBuild
 		2022 => ["Visual Studio 17", "v143", 'C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Current\Bin\MSBuild.exe']
 	}
 end
-
