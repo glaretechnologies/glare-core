@@ -340,16 +340,42 @@ end
 
 
 def getNumLogicalCores()
-	if OS.mac?
-		$num_threads = `sysctl -n hw.logicalcpu`.strip
-	elsif OS.linux?
-		$num_threads = `grep -c ^processor /proc/cpuinfo`.strip
-	elsif OS.windows?
-		$num_threads = `echo %NUMBER_OF_PROCESSORS%`.strip
-	else
-		STDERR.puts "Unknown OS, can't get number of logical cpu cores."
-		exit 1
+	require 'etc'
+
+	# Try Ruby API first
+	n = nil
+	begin
+		n = Etc.nprocessors
+	rescue StandardError
+		n = nil
 	end
+
+	# Fallbacks per platform
+	if n.nil? || n.to_i <= 0
+		if OS.mac?
+			n = `sysctl -n hw.logicalcpu 2>/dev/null`.to_i
+		elsif OS.linux?
+			# prefer nproc if available
+			n = `nproc 2>/dev/null`.to_i
+			if n == 0
+				n = `grep -c ^processor /proc/cpuinfo 2>/dev/null`.to_i
+			end
+		elsif OS.windows?
+			# Prefer environment variable on Windows
+			if ENV['NUMBER_OF_PROCESSORS'] && ENV['NUMBER_OF_PROCESSORS'].to_i > 0
+				n = ENV['NUMBER_OF_PROCESSORS'].to_i
+			else
+				# Fallback to shell expansion if necessary
+				n = `echo %NUMBER_OF_PROCESSORS%`.strip.to_i
+			end
+		else
+			STDERR.puts "Unknown OS, can't get number of logical cpu cores."
+			exit 1
+		end
+	end
+
+	n = 1 if n.nil? || n.to_i < 1
+	return n.to_i
 end
 
 
