@@ -38,6 +38,7 @@ struct ChunkInfo
 	float base_scale;
 	float imposter_width_over_height;
 	float terrain_scale_factor;
+	float terrain_height_scale;
 	float water_level_z;
 	uint vert_data_offset_B;
 };
@@ -267,7 +268,7 @@ void main()
 	float section_nx = nx - float(chunk_info.section_x); // Should be in [0, 1)
 	float section_ny = ny - float(chunk_info.section_y); // Should be in [0, 1)
 
-	float heightmap_terrain_z = sampleHeightmapHighQual(section_nx, section_ny);
+	float heightmap_terrain_z = sampleHeightmapHighQual(section_nx, section_ny) * chunk_info.terrain_height_scale;
 
 	vec4 mask_val = texture(terrain_mask_tex, vec2(section_nx + 0.5/1024, section_ny + 0.5/1024));
 
