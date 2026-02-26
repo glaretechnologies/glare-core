@@ -23,7 +23,7 @@ GLUICheckBox
 ------------
 
 =====================================================================*/
-class GLUICheckBox : public GLUIWidget
+class GLUICheckBox final : public GLUIWidget
 {
 public:
 	struct CreateArgs
@@ -41,7 +41,7 @@ public:
 		bool checked; // Initially checked?  False by default.
 	};
 
-	GLUICheckBox(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tick_texture_path, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args);
+	GLUICheckBox(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tick_texture_path, const CreateArgs& args);
 	~GLUICheckBox();
 
 	virtual void handleMousePress(MouseEvent& event) override;
@@ -49,7 +49,9 @@ public:
 	virtual void handleMouseRelease(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 
-	void setDims(const Vec2f& dims);
+	virtual void updateGLTransform() override;
+
+	virtual void setPos(const Vec2f& botleft) override;
 	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
 
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
@@ -64,13 +66,11 @@ public:
 
 	bool checked;
 	bool pressed;
-	bool immutable_dims; // If true, don't change dimensions in setPosAndDims (which is called by GridContainer layout)
-
 private:
 	GLARE_DISABLE_COPY(GLUICheckBox);
 
 	void updateColour(const Vec2f mouse_ui_coords);
-	void updateTransforms();
+	void updateOverlayTransforms();
 
 	GLUI* glui;
 	Reference<OpenGLEngine> opengl_engine;

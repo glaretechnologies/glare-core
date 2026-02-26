@@ -19,19 +19,17 @@ static const Colour3f default_colour(1.f);
 static const Colour3f default_mouseover_colour = toLinearSRGB(Colour3f(0.9f));
 
 
-GLUIImage::GLUIImage(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft_, const Vec2f& dims,
-	const std::string& tooltip_, float z_)
+GLUIImage::GLUIImage(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const std::string& tooltip_, float z_)
 :	handler(NULL)
 {
 	glui = &glui_;
 	opengl_engine = opengl_engine_;
 	tooltip = tooltip_;
 
-	pos = botleft_;
+	rotation = 0;
 	m_z = z_;
 	colour = default_colour;
 	mouseover_colour = default_mouseover_colour;
-	immutable_dims = false;
 
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -44,13 +42,11 @@ GLUIImage::GLUIImage(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const
 	}
 	overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
 
+	Vec2f botleft(0.f);
+	Vec2f dims(0.1f);
+	rect = Rect2f(botleft, botleft + dims);
 
-	rect = Rect2f(pos, pos + dims);
-
-
-	const float y_scale = opengl_engine->getViewPortAspectRatio();
-
-	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos.x, pos.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+	updateOverlayTransform();
 
 	opengl_engine->addOverlayObject(overlay_ob);
 }
@@ -120,39 +116,52 @@ void GLUIImage::doHandleMouseWheelEvent(MouseWheelEvent& wheel_event)
 }
 
 
-void GLUIImage::setDims(const Vec2f& dims)
+void GLUIImage::updateOverlayTransform()
 {
-	rect = Rect2f(pos, pos + dims);
+	const Vec2f botleft = getRect().getMin();
+	const Vec2f dims = getDims();
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
-	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos.x, pos.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+	if(overlay_ob)
+		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * 
+			Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1) * Matrix4f::translationMatrix(0.5f, 0.5f, 0) * Matrix4f::rotationAroundZAxis(rotation) * 
+			Matrix4f::translationMatrix(-0.5f, -0.5f, 0); // Transform so that rotation rotates around centre of object.
 }
 
 
-void GLUIImage::setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z_)
+void GLUIImage::setDims(const Vec2f& dims)
 {
-	pos = botleft;
+	const Vec2f botleft = getRect().getMin();
+	rect = Rect2f(botleft, botleft + dims);
+
+	updateOverlayTransform();
+}
+
+
+void GLUIImage::setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation_, float z_)
+{
+	rotation = rotation_;
 	m_z = z_;
 	rect = Rect2f(botleft, botleft + dims); // NOTE: rectangle-based mouse-over detection will be wrong for non-zero rotation.
 
-	const float y_scale = opengl_engine->getViewPortAspectRatio();
+	updateOverlayTransform();
+}
 
-	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * 
-		Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1) * Matrix4f::translationMatrix(0.5f, 0.5f, 0) * Matrix4f::rotationAroundZAxis(rotation) * 
-		Matrix4f::translationMatrix(-0.5f, -0.5f, 0); // Transform so that rotation rotates around centre of object.
+
+void GLUIImage::setPos(const Vec2f& botleft)
+{
+	const Vec2f dims = getDims();
+	this->rect = Rect2f(botleft, botleft + dims);
+
+	updateOverlayTransform();
 }
 
 
 void GLUIImage::setPosAndDims(const Vec2f& botleft, const Vec2f& new_dims)
 {
-	const Vec2f dims = immutable_dims ? rect.getWidths() : new_dims;
+	rect = Rect2f(botleft, botleft + new_dims);
 
-	pos = botleft;
-	rect = Rect2f(botleft, botleft + dims);
-
-	const float y_scale = opengl_engine->getViewPortAspectRatio();
-
-	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+	updateOverlayTransform();
 }
 
 
@@ -165,11 +174,19 @@ void GLUIImage::setClipRegion(const Rect2f& clip_rect)
 
 void GLUIImage::updateGLTransform()
 {
-	const float y_scale = opengl_engine->getViewPortAspectRatio();
+	Vec2f dims = this->getDims();
 
-	const Vec2f dims = rect.getWidths();
-	if(overlay_ob)
-		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos.x, pos.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+	if(this->sizing_type_x == SizingType_FixedSizePx)
+		dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
+
+	if(this->sizing_type_y == SizingType_FixedSizePx)
+		dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
+
+	const Vec2f botleft = getRect().getMin();
+	rect = Rect2f(botleft, botleft + dims);
+
+
+	updateOverlayTransform();
 }
 
 

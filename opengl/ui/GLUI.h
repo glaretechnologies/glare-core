@@ -78,6 +78,7 @@ public:
 	float getYScale();
 
 	float getUIWidthForDevIndepPixelWidth(float pixel_w);
+	Vec2f getUIWidthForDevIndepPixelWidths(Vec2f pixel_w);
 	float getDevIndepPixelWidthForUIWidth(float ui_width);
 
 	OpenGLTextureRef makeToolTipTexture(const std::string& text);

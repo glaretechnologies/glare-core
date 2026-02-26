@@ -27,7 +27,7 @@ GLUIGridContainer
 -----------------
 A grid of widgets.
 =====================================================================*/
-class GLUIGridContainer : public GLUIWidget
+class GLUIGridContainer final : public GLUIWidget
 {
 public:
 	struct CreateArgs
@@ -38,9 +38,10 @@ public:
 		float background_alpha;
 		float z;
 
-		float cell_padding_px; // Default is 10 px.
+		float cell_x_padding_px; // Default is 10 px.
+		float cell_y_padding_px; // Default is 10 px.
 
-		bool background_consumes_events; // Should the background behind the grid consume click events etc.?
+		bool background_consumes_events; // Should the background behind the grid consume click events etc.?  Defaults to false.
 	};
 
 	GLUIGridContainer(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
@@ -61,21 +62,32 @@ public:
 	// Called when e.g. the viewport changes size
 	virtual void updateGLTransform() override;
 
+	virtual void recomputeLayout() override; // For grid containers - call recursively on contained widgets and then place each contained widget at final location.
+
 	virtual bool acceptsTextInput() override { return false; }
 
+	virtual void setPos(const Vec2f& botleft) override;
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
 	void setClipRegion(const Rect2f& rect) override;
+
+	virtual void setZ(float new_z) override;
 
 	void setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widget);
 
 	void clear(); // Remove all widgets from grid, resize cell_widgets to zero.
 
-	float getCellPaddding() const; // in UI coords
+	void removeAllContainedWidgetsFromGLUIAndClear() override;
+
+	//float getCellPaddding() const; // in UI coords
 
 	Rect2f getClippedContentRect() const; // Get the rectangle around any non-null widgets in the cells, intersected with the container rectangle (in case of overflow).
 
+	// Set the minimium x pixel value (from left of grid) for the given column
+	void setColumnMinXPx(int column_i, float col_min_x_px);
 private:
 	GLARE_DISABLE_COPY(GLUIGridContainer);
+
+	void updateBackgroundOverlayTransform();
 	
 	GLUI* gl_ui;
 	Reference<OpenGLEngine> opengl_engine;
@@ -86,6 +98,8 @@ public:
 	Array2D<GLUIWidgetRef> cell_widgets; // (0, 0) is the bottom left cell.
 private:
 	OverlayObjectRef background_overlay_ob;
+
+	std::vector<float> col_min_x_px_vals;
 };
 
 

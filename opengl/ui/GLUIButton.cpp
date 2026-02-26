@@ -17,6 +17,10 @@ Copyright Glare Technologies Limited 2021 -
 
 GLUIButton::CreateArgs::CreateArgs()
 {
+	sizing_type_x = GLUIWidget::SizingType::SizingType_FixedSizeUICoords;
+	sizing_type_y = GLUIWidget::SizingType::SizingType_FixedSizeUICoords;
+	fixed_size = Vec2f(0.05, 0.05);
+
 	toggled_colour = toLinearSRGB(Colour3f(0.7f, 0.8f, 1.f));
 	untoggled_colour = Colour3f(1.f);
 
@@ -30,7 +34,7 @@ GLUIButton::CreateArgs::CreateArgs()
 }
 
 
-GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args_)
+GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const CreateArgs& args_)
 :	handler(NULL),
 	toggleable(false),
 	toggled(false),
@@ -40,7 +44,10 @@ GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 	opengl_engine = opengl_engine_;
 	tooltip = args_.tooltip;
 	args = args_;
-	immutable_dims = false;
+
+	sizing_type_x = args.sizing_type_x;
+	sizing_type_y = args.sizing_type_y;
+	fixed_size    = args.fixed_size;
 
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -51,6 +58,9 @@ GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 	overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
 
 
+	const Vec2f botleft(0.f);
+	const Vec2f dims(glui->getUIWidthForDevIndepPixelWidths(fixed_size));
+
 	rect = Rect2f(botleft, botleft + dims);
 
 
@@ -60,6 +70,9 @@ GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 
 	opengl_engine->addOverlayObject(overlay_ob);
+
+
+	updateOverlayTransform();
 }
 
 
@@ -134,28 +147,46 @@ void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 }
 
 
+void GLUIButton::updateGLTransform()
+{
+	Vec2f dims = this->getDims();
+
+	if(this->sizing_type_x == SizingType_FixedSizePx)
+		dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
+
+	if(this->sizing_type_y == SizingType_FixedSizePx)
+		dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
+
+	const Vec2f botleft = getRect().getMin();
+	rect = Rect2f(botleft, botleft + dims);
+
+	updateOverlayTransform();
+}
+
+
+void GLUIButton::setPos(const Vec2f& botleft)
+{
+	const Vec2f dims = this->getDims();
+	rect = Rect2f(botleft, botleft + dims);
+
+	updateOverlayTransform();
+}
+
+
 void GLUIButton::setDims(const Vec2f& new_dims)
 {
 	const Vec2f botleft = rect.getMin();
 	rect = Rect2f(botleft, botleft + new_dims);
 
-	const float y_scale = opengl_engine->getViewPortAspectRatio();
-
-	const float z = -0.9f;
-	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(new_dims.x, new_dims.y * y_scale, 1);
+	updateOverlayTransform();
 }
 
 
 void GLUIButton::setPosAndDims(const Vec2f& botleft, const Vec2f& new_dims)
 {
-	const Vec2f dims = immutable_dims ? rect.getWidths() : new_dims;
+	rect = Rect2f(botleft, botleft + new_dims);
 
-	rect = Rect2f(botleft, botleft + dims);
-
-	const float y_scale = opengl_engine->getViewPortAspectRatio();
-
-	const float z = -0.9f;
-	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+	updateOverlayTransform();
 }
 
 
@@ -183,6 +214,17 @@ void GLUIButton::setVisible(bool visible)
 bool GLUIButton::isVisible()
 {
 	return overlay_ob->draw;
+}
+
+
+void GLUIButton::updateOverlayTransform()
+{
+	const Vec2f botleft = this->getRect().getMin();
+	const Vec2f dims    = this->getRect().getWidths();
+
+	const float y_scale = opengl_engine->getViewPortAspectRatio();
+	const float z = m_z; // -0.9f;
+	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 }
 
 
