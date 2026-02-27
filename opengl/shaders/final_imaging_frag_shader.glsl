@@ -301,19 +301,23 @@ void main()
 
 	if(bloom_strength > 0.0)
 	{
+		// Approximate aperture diffraction through a circular aperture with a sum of Gaussians.  See https://www.desmos.com/calculator/kahlw2rqvt
+
 		vec4 blur_col_0 = texture(blur_tex_0, pos);
 		vec4 blur_col_1 = texture(blur_tex_1, pos);
 		vec4 blur_col_2 = texture(blur_tex_2, pos);
 		vec4 blur_col_3 = texture(blur_tex_3, pos);
 		vec4 blur_col_4 = texture(blur_tex_4, pos);
+		vec4 blur_col_5 = texture(blur_tex_5, pos);
 
 		vec4 blur_col =
-			blur_col_0 * (1.0 / 8.0) +
-			blur_col_1 * (1.0 / 8.0) +
-			blur_col_2 * (1.0 / 8.0) +
-			blur_col_3 * (1.0 / 8.0) +
-			blur_col_4 * (1.0 / 8.0) +
-			sampleTexHighQual(blur_tex_5, pos.x, pos.y)  * (2.0 / 8.0);
+			blur_col_0 * (1.0/16.0) +
+			blur_col_1 * (1.0/16.0) +
+			blur_col_2 * (1.0/16.0) +
+			blur_col_3 * (1.0/16.0) +
+			blur_col_4 * (1.0/16.0) +
+			blur_col_5 * (1.0/16.0);
+			//sampleTexHighQual(blur_tex_5, pos.x, pos.y)  * (1.0/64.0);
 
 		col.xyz += (blur_col * bloom_strength).xyz; // Leave alpha as-is.
 	}
