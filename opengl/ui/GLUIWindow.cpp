@@ -219,6 +219,9 @@ void GLUIWindow::setZ(float new_z)
 
 void GLUIWindow::removeAllContainedWidgetsFromGLUIAndClear()
 {
+	if(body_widget)
+		body_widget->removeAllContainedWidgetsFromGLUIAndClear();
+
 	checkRemoveAndDeleteWidget(gl_ui, body_widget);
 }
 
