@@ -472,6 +472,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_copy_prepass_buffers_GPU_time(0),
 	last_decal_copy_buffers_GPU_time(0),
 	last_draw_overlay_obs_GPU_time(0),
+	last_bloom_GPU_time(0),
+	last_final_imaging_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	last_num_decal_batches_drawn(0),
 	next_program_index(0),
@@ -1647,7 +1649,7 @@ static const int FINAL_IMAGING_BLUR_TEX_UNIFORM_START = 3;
 static const int OIT_COMPOSITE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX = 0;
 static const int OIT_COMPOSITE_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX = 1;
 
-static const int NUM_BLUR_DOWNSIZES = 8;
+static const int NUM_BLUR_DOWNSIZES = 6;
 
 static const int PHONG_UBO_BINDING_POINT_INDEX = 0;
 static const int SHARED_VERT_UBO_BINDING_POINT_INDEX = 1;
@@ -2507,6 +2509,8 @@ void OpenGLEngine::checkCreateProfilingQueries()
 		this->copy_prepass_buffers_gpu_timer = new Query();
 		this->decal_copy_buffers_timer = new Query();
 		this->draw_overlays_gpu_timer = new Query();
+		this->bloom_gpu_timer = new Query();
+		this->final_imaging_gpu_timer = new Query();
 
 #if EMSCRIPTEN
 		// Chrome/web doesn't support timestamp queries: https://codereview.chromium.org/1800383002
@@ -7821,6 +7825,12 @@ void OpenGLEngine::draw()
 
 		if(draw_overlays_gpu_timer->waitingForResult() && draw_overlays_gpu_timer->checkResultAvailable())
 			last_draw_overlay_obs_GPU_time = draw_overlays_gpu_timer->getTimeElapsed();
+
+		if(bloom_gpu_timer->waitingForResult() && bloom_gpu_timer->checkResultAvailable())
+			last_bloom_GPU_time = bloom_gpu_timer->getTimeElapsed();
+
+		if(final_imaging_gpu_timer->waitingForResult() && final_imaging_gpu_timer->checkResultAvailable())
+			last_final_imaging_GPU_time = final_imaging_gpu_timer->getTimeElapsed();
 	}
 
 	if(current_scene->collect_stats)
@@ -7970,22 +7980,38 @@ void OpenGLEngine::doDOFBlur(OpenGLTexture* colour_tex_input)
 // Output: blur_framebuffers
 void OpenGLEngine::doBloomPostProcess(OpenGLTexture* colour_tex_input)
 {
-	// // Code to Compute gaussian blur weights:
-	// float sum = 0;
-	// for(int x=-2; x<=2; ++x)
-	// 	sum += Maths::eval1DGaussian(x, /*standard dev=*/1.0);
-	   
-	// for(int x=-2; x<=2; ++x)
-	// {
-	// 	const float weight = Maths::eval1DGaussian(x, /*standard dev=*/1.0);
-	// 	const float normed_weight = weight / sum;
-	// 	conPrintStr(" " + toString(normed_weight));
-	// }
+	// Code to Compute gaussian blur weights:
+#if 0
+	float sum = 0;
+	const int r = 8;
+	const float stddev = 2.5;
+	for(int x=-r; x<=r; ++x)
+		sum += Maths::eval1DGaussian(x, /*standard dev=*/stddev);
+	
+	conPrint("--------------");
+	for(int x=-r; x<=r; ++x)
+	{
+		const float offset = (float)x;
+		conPrintStr(doubleLiteralString(offset) + ", ");
+	}
+	conPrint("");
+
+	for(int x=-r; x<=r; ++x)
+	{
+		const float weight = Maths::eval1DGaussian(x, /*standard dev=*/stddev);
+		const float normed_weight = weight / sum;
+		conPrintStr(doubleLiteralString(normed_weight) + ", ");
+	}
+	conPrint("");
+#endif
 
 	if(current_scene->bloom_strength > 0)
 	{
 		DebugGroup debug_group2("bloom");
 		TracyGpuZone("bloom");
+
+		if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && bloom_gpu_timer->isIdle())
+			bloom_gpu_timer->beginTimerQuery();
 
 		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 		glDisable(GL_DEPTH_TEST); // Don't depth test
@@ -8054,6 +8080,10 @@ void OpenGLEngine::doBloomPostProcess(OpenGLTexture* colour_tex_input)
 		glEnable(GL_DEPTH_TEST);
 	
 		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
+
+
+		if(query_profiling_enabled && bloom_gpu_timer->isRunning())
+			bloom_gpu_timer->endTimerQuery();
 	}
 }
 
@@ -8064,6 +8094,8 @@ void OpenGLEngine::doFinalImaging(OpenGLTexture* colour_tex_input)
 {
 	DebugGroup debug_group3("imaging");
 	TracyGpuZone("imaging");
+	if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && final_imaging_gpu_timer->isIdle())
+		final_imaging_gpu_timer->beginTimerQuery();
 
 	//----------------------------- Setup -----------------------------
 	// Bind requested target frame buffer as output buffer
@@ -8129,6 +8161,9 @@ void OpenGLEngine::doFinalImaging(OpenGLTexture* colour_tex_input)
 	// main_render_framebuffer     ->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
 	// main_render_copy_framebuffer->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
 	// glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0); // Restore framebuffer binding
+
+	if(query_profiling_enabled && final_imaging_gpu_timer->isRunning())
+		final_imaging_gpu_timer->endTimerQuery();
 }
 
 
@@ -12860,6 +12895,8 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "blur SSAO         : " + doubleToStringNSigFigs(last_blur_ssao_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "decal copy buffers: " + doubleToStringNSigFigs(last_decal_copy_buffers_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "bloom             : " + doubleToStringNSigFigs(last_bloom_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "final imaging     : " + doubleToStringNSigFigs(last_final_imaging_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "overlay obs       : " + doubleToStringNSigFigs(last_draw_overlay_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "total             : " + doubleToStringNSigFigs(last_total_draw_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "\n";

@@ -616,12 +616,9 @@ void main()
 			//-------------- sun ---------------------
 			float d = dot(sundir_ws.xyz, reflected_dir_ws);
 
-			float sunscale = mix(2.0e-2f, 2.0e-3f, sundir_ws.z); // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
+			float sunscale = 0.15;
 			const float sun_solid_angle = 0.00006780608; // See SkyModel2Generator::makeSkyEnvMap();
 			vec3 suncol = sun_spec_rad_times_solid_angle.xyz * (1.0 / sun_solid_angle) * sunscale;
-			//vec4 suncol = vec4(9.38083E+12 * sunscale, 4.99901E+12 * sunscale, 1.25408E+12 * sunscale, 1); // From Indigo SkyModel2Generator.cpp::makeSkyEnvMap().
-			//float d = dot(sundir_cs.xyz, normalize(pos_cs));
-			//col = mix(col, suncol, smoothstep(0.9999, 0.9999892083461507, d));
 			spec_refl_light = mix(spec_refl_light, suncol, smoothstep(0.99997, 0.9999892083461507, d));
 
 

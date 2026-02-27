@@ -20,6 +20,69 @@ out vec4 colour_out;
 
 
 
+// https://www.shadertoy.com/view/MdcfDj
+// LICENSE: http://unlicense.org/
+#define M1 1597334677U     //1719413*929
+#define M2 3812015801U     //140473*2467*11
+float hash( uvec2 q )
+{
+	q *= uvec2(M1, M2); 
+
+	uint n = (q.x ^ q.y) * M1;
+
+	return float(n) * (1.0/float(0xffffffffU));
+}
+
+
+#define HASH_VALUE_THRESHOLD 0.97
+
+float innerEvalSlightlyJittered(vec2 p, uint seed)
+{
+    ivec2 cell_coords = ivec2(floor(p));
+    float h = hash(uvec2(ivec2(10000000) + cell_coords) + uvec2(seed));
+    
+    float v = 0.0;
+    if(h >= HASH_VALUE_THRESHOLD)
+    {
+         vec2 star_centre = vec2(cell_coords) + vec2(0.25) + 
+             vec2(
+                 hash(uvec2(cell_coords) + uvec2(0, 134324)),
+                 hash(uvec2(cell_coords) + uvec2(73454, 234324))
+             ) * 0.5;
+         float d = length(p - star_centre);
+         v = pow(max(0.0, 1.0 - d*2.0), 4.0);
+    }
+    return v;
+}
+
+
+float evalStarfield(vec2 p, uint seed)
+{   
+    vec2 dcoords_dx = dFdx(p);
+    vec2 dcoords_dy = dFdy(p);
+
+    float rxf = clamp(length(dcoords_dx) * 3.0, 1.0, 8.0);
+    float ryf = clamp(length(dcoords_dy) * 3.0, 1.0, 8.0);
+
+    int rx = int(ceil(rxf));
+    int ry = int(ceil(ryf));
+
+    float v = 0.0;
+    for(int x=0; x<rx; ++x)
+    for(int y=0; y<ry; ++y)
+    {
+        vec2 coords = p +
+            (dcoords_dx * float(x)) / float(rx) + 
+            (dcoords_dy * float(y)) / float(ry);
+            
+        v += innerEvalSlightlyJittered(coords, seed);
+    }
+    v /= float(rx*ry);
+
+    return v;
+}
+
+
 void main()
 {
 	// Col = spectral radiance * 1.0e-9
@@ -33,11 +96,13 @@ void main()
 #if RENDER_SUN_AND_SKY
 	// Render sun
 	
-	float sunscale = mix(2.0e-2f, 2.0e-3f, sundir_ws.z); // A hack to avoid having too extreme bloom from the sun, also to compensate for larger sun size due to the smoothstep below.
+	// NOTE: actual cos(sun_angle) is 0.999989208346.
+	// Using the smoothstep for the sun results in a larger visible sun, so a scale of about 0.4 compensates for that (eyeballed).
+	// Reduce the scale even more because the sun glare is kind of annoying.
+	float sunscale = 0.15;
 	const float sun_solid_angle = 0.00006780608; // See SkyModel2Generator::makeSkyEnvMap();
 	vec4 suncol = sun_spec_rad_times_solid_angle * (1.0 / sun_solid_angle) * sunscale;
 	float d = dot(sundir_cs.xyz, normalize(pos_cs));
-	//col = mix(col, suncol, smoothstep(0.9999, 0.9999892083461507, d));
 	col = mix(col, suncol, smoothstep(0.99997, 0.9999892083461507, d));
 
 
@@ -97,6 +162,10 @@ void main()
 			}
 		}
 	}
+
+	// Draw starfield
+	//float star = evalStarfield(dir_ws.yz * 200.0, 1) * max(0.f, texture(fbm_tex, dir_ws.yz * 20.0).x);
+	//col += vec4(star * 0.4);
 #endif
 
 
