@@ -267,7 +267,16 @@ void GLUIGridContainer::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
 
 void GLUIGridContainer::setClipRegion(const Rect2f& clip_rect)
 {
-	// TODO
+	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
+	for(size_t x=0; x<cell_widgets.getWidth(); ++x)	
+	{
+		GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
+		if(widget)
+			widget->setClipRegion(clip_rect);
+	}
+
+	if(background_overlay_ob)
+		background_overlay_ob->clip_region = gl_ui->OpenGLRectCoordsForUICoords(clip_rect);
 }
 
 

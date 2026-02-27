@@ -180,6 +180,8 @@ void GLUIWindow::recomputeLayout()
 {
 	if(body_widget)
 		body_widget->recomputeLayout();
+
+	updateWidgetTransforms();
 }
 
 
@@ -225,9 +227,9 @@ void GLUIWindow::eventOccurred(GLUICallbackEvent& ev)
 {
 	if(handler && (ev.widget == close_button.ptr()))
 	{
-		GLUICallbackEvent ev;
-		ev.widget = this;
-		handler->closeWindowEventOccurred(ev);
+		GLUICallbackEvent close_ev;
+		close_ev.widget = this;
+		handler->closeWindowEventOccurred(close_ev);
 	}
 }
 
@@ -237,16 +239,22 @@ void GLUIWindow::updateWidgetTransforms()
 	const float title_bar_h = gl_ui->getUIWidthForDevIndepPixelWidth(28);
 
 	const float padding = gl_ui->getUIWidthForDevIndepPixelWidth(args.padding_px);
-	const Vec2f body_botleft = this->getRect().getMin() + Vec2f(padding);
-	const Vec2f body_dims = Vec2f(getDims().x - padding*2, getDims().y - title_bar_h - padding);
+
 
 	if(body_widget)
-		body_widget->setPosAndDims(body_botleft, body_dims);
+	{
+		const Vec2f body_botleft = Vec2f(this->getRect().getMin().x + padding, this->getRect().getMax().y - title_bar_h - body_widget->getDims().y);
+		body_widget->setPos(body_botleft);
+
+		const Vec2f clip_botleft = this->getRect().getMin() + Vec2f(padding);
+		const Vec2f clip_topright = max(clip_botleft, this->getRect().getMax() - Vec2f(padding, title_bar_h));
+		body_widget->setClipRegion(Rect2f(clip_botleft, clip_topright));
+	}
 
 	if(title_text)
 	{
 		const float title_x = this->getRect().getMin().x + getDims().x/2.f - title_text->getDims().x/2.f;
-		const float title_y = body_botleft.y + body_dims.y + gl_ui->getUIWidthForDevIndepPixelWidth(8);
+		const float title_y = this->getRect().getMax().y - title_bar_h + gl_ui->getUIWidthForDevIndepPixelWidth(8);
 
 		title_text->setPos(Vec2f(title_x, title_y));
 	}
