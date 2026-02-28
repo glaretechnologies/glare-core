@@ -97,8 +97,12 @@ class CMakeBuild
 
 		if OS.windows?
 			win_args = " -G \"#{getVSGenerator()}\" -T \"#{getVSToolset()}\""
+			# Always force the use of the Release CRT for all Windows CMake builds (avoids debug CRT linker errors)
+			unless cmake_args.include?("CMAKE_MSVC_RUNTIME_LIBRARY")
+				cmake_args += " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL"
+			end
 		end
-
+		
 		Dir.chdir(@build_dir) do
 			print_and_exec_command("cmake \"#{@source_dir}\" -DCMAKE_INSTALL_PREFIX:STRING=\"#{@install_dir}\" -DCMAKE_POLICY_VERSION_MINIMUM=3.5#{unix_args}#{osx_args}#{win_args} #{cmake_args}")
 		end
@@ -376,4 +380,5 @@ class CMakeBuild
 		2022 => ["Visual Studio 17", "v143", 'C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Current\Bin\MSBuild.exe']
 	}
 end
+
 
