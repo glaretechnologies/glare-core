@@ -1114,6 +1114,15 @@ int AnimationData::getNodeIndexWithNameSuffix(const std::string& name_suffix)
 }
 
 
+static unsigned int greatestAbsComponent(const Vec4f& v)
+{
+	if(std::fabs(v[0]) > std::fabs(v[1]))
+		return std::fabs(v[0]) > std::fabs(v[2]) ? 0 : 2;
+	else // else 1 >= 0
+		return std::fabs(v[1]) > std::fabs(v[2]) ? 1 : 2;
+}
+
+
 // Load animation data from a GLB file from the stream.
 // Take the animation data, retarget it (adjust bone lengths etc.) and store in the current object.
 void AnimationData::loadAndRetargetAnim(const AnimationData& other)
@@ -1121,6 +1130,63 @@ void AnimationData::loadAndRetargetAnim(const AnimationData& other)
 	ZoneScoped; // Tracy profiler
 
 	const bool VERBOSE = false;
+
+
+	// Work out if the figure is currently in an A-pose, instead of the T-pose it's supposed to be in.
+	// If it is, we will manually transform to T pose below.
+	// We can work this out by the relative heights of the shoulder and elbow.
+	// Note that this is for Ready Player Me avatars, which have a particular node naming scheme we can use.
+	//
+	// First work out which axis is up in the model space. (use hips-to-head vector)
+	const Vec4f head_pos = this->getNodePositionModelSpace("Head", /*retarget adjustment=*/false);
+	if(head_pos != Vec4f(0,0,0,1)) // If we found the "Head" node:
+	{
+		const Vec4f hips_pos = this->getNodePositionModelSpace("Hips", /*retarget adjustment=*/false);
+		const Vec4f hips_head = head_pos - hips_pos;
+		const int c = greatestAbsComponent(hips_head);
+		Vec4f up_ms(0.f);
+		up_ms[c] = Maths::sign(hips_head[c]);
+
+		const Vec4f elbow_pos = this->getNodePositionModelSpace("RightForeArm", /*retarget adjustment=*/false);
+		const float elbow_up = dot(elbow_pos, up_ms);
+
+		const Vec4f shoulder_pos = this->getNodePositionModelSpace("RightArm", /*retarget adjustment=*/false);
+		const float shoulder_up = dot(shoulder_pos, up_ms);
+
+		// If the shoulder is significantly higher than the elbow, this figure is probably in an A-pose.
+		if(shoulder_up > elbow_up + 0.2f)
+		{
+			// This figure is probably in an A-pose, so change A-pose to T-pose.
+			// To get these quaternions, open up a Ready Player Me (RPM) model in blender, Go to Animation tab, go to pose mode, then look at bone
+			// details in the armature.
+			for(size_t i=0; i<nodes.size(); ++i)
+			{
+				AnimationNodeData& old_node = nodes[i];
+				if(old_node.name == "LeftShoulder")
+					old_node.rot = old_node.rot * Quatf(-0.098683, -0.000554, 0.008488, 0.995083);
+				else if(old_node.name == "LeftArm")
+					old_node.rot = old_node.rot * Quatf(-0.407336, -0.014443, 0.046998, 0.911954);
+				else if(old_node.name == "LeftForeArm")
+					old_node.rot = old_node.rot * Quatf(0.054907, 0, -0.219231, 0.974127);
+				else if(old_node.name == "LeftHand")
+					old_node.rot = old_node.rot * Quatf(-0.033638, 0.065736, -0.033287, 0.996714);
+				else if(old_node.name == "LeftUpLeg")
+					old_node.rot = old_node.rot * Quatf(0.011419, 0.000023, -0.031525, 0.999438);
+				else if(old_node.name == "RightShoulder")
+					old_node.rot = old_node.rot * Quatf(-0.098677, 0.000554, -0.008487, 0.995083);
+				else if(old_node.name == "RightArm")
+					old_node.rot = old_node.rot * Quatf(-0.407333, 0.014444, -0.046999, 0.911955);
+				else if(old_node.name == "RightForeArm")
+					old_node.rot = old_node.rot * Quatf(0.054904, 0, 0.219231, 0.974127);
+				else if(old_node.name == "RightHand")
+					old_node.rot = old_node.rot * Quatf(-0.033641, -0.065742, 0.033288, 0.996714);
+				else if(old_node.name == "RightUpLeg")
+					old_node.rot = old_node.rot * Quatf(0.011416, -0.000016, 0.03153, 0.999438);
+			}
+		}
+	}
+
+
 
 	const char* VRM_to_RPM_name_data[] = {
 		// From vroidhub_avatarsample_A.vrm or testguy.vrm
