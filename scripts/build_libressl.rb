@@ -21,17 +21,17 @@
 # These are for Windows, but should be similar (and easier) on Mac and Linux.
 #
 # Define GLARE_CORE_LIBS environment variable, to something like "C:\programming"
-# 
+#
 # 	cd $env:GLARE_CORE_LIBS
 # 	mkdir LibreSSL
-# 
+#
 # Download https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-3.5.2.tar.gz, extract in LibreSSL dir, so that
 # the directory $env:GLARE_CORE_LIBS/LibreSSL/libressl-3.5.2 exists and has ChangeLog etc. in it.
-# 
-# 
+#
+#
 # 	cd $env:GLARE_CORE_LIBS/LibreSSL
-# 	
-# Building on Windows: patch the source code by replacing some LibreSSL files: (NOTE: you will need to substitute in the directory of your checked out glare-core source code here) 
+#
+# Building on Windows: patch the source code by replacing some LibreSSL files: (NOTE: you will need to substitute in the directory of your checked out glare-core source code here)
 # 	cp n:/glare-core/trunk/libressl_patches/3.5.2/posix_win.c  libressl-3.5.2/crypto/compat/posix_win.c
 # 	cp n:/glare-core/trunk/libressl_patches/3.5.2/tls_config.c libressl-3.5.2/tls/tls_config.c
 #
@@ -39,18 +39,18 @@
 # 	mkdir libressl-3.5.2-x64-vs2022-build
 # 	cd libressl-3.5.2-x64-vs2022-build
 # 	cmake ../libressl-3.5.2 -DCMAKE_INSTALL_PREFIX:STRING="../libressl-3.5.2-x64-vs2022-install"
-# 	
+#
 # Open .\LibreSSL.sln in Visual Studio
 # Changed to Release config
 # build with F7
 # build INSTALL project (which is not built by default)
 # close Visual Studio
-# 
+#
 # cd ..
 # mkdir libressl-3.5.2-x64-vs2022-build-debug
 # cd libressl-3.5.2-x64-vs2022-build-debug
 # cmake ../libressl-3.5.2 -DCMAKE_INSTALL_PREFIX:STRING="../libressl-3.5.2-x64-vs2022-install-debug"
-# 
+#
 # Open .\LibreSSL.sln in Visual Studio
 # Leave in Debug config
 # build with F7
@@ -115,7 +115,7 @@ arg_parser.options.each do |opt|
 				STDERR.puts "Unknown config #{opt[1]}."
 				exit(1)
 			end
-		
+
 			$configurations = []
 			$configurations << :debug if config == "both" || config == "debug"
 			$configurations << :release if config == "both" || config == "release"
@@ -134,12 +134,13 @@ end
 
 def getLibreSSLSource()
 	puts "Downloading LibreSSL release #{$libressl_version}..."
-	
+
 	downloadFileHTTPSIfNotOnDisk($libressl_source_file, "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/#{$libressl_source_file}")
-	
+
 	extractArchiveIfNotExtraced($libressl_source_file, $libressl_source_name, true)
-	
-	patchSource() if OS.windows?
+
+	# PATCH: always patch source (on all platforms) to avoid modern CMake compatibility errors.
+	patchSource()
 end
 
 
@@ -147,59 +148,68 @@ end
 # Patch source to fix an issue with closing the socket while it's doing a blocking call.
 # See https://github.com/libressl-portable/portable/issues/266
 # Basically we want to avoid calling read() on a socket.  Instead just return the WSA error code.
+#
+# PATCH: Also patch cmake_minimum_required to >= 3.5 to avoid:
+# "Compatibility with CMake < 3.5 has been removed from CMake."
 def patchSource()
 	puts "Patching source.."
 	src_dir = $libressl_source_name
-	
+
 	if File.exist?("#{src_dir}/glare-patch.success")
 		puts "Already patched, skipping."
 		return
 	end
 
-	if $libressl_version == "3.3.5" || $libressl_version == "3.5.2"
-		FileUtils.cp($glare_core_dir + "/libressl_patches/" + $libressl_version + "/posix_win.c",  src_dir + "/crypto/compat/posix_win.c")
-		FileUtils.cp($glare_core_dir + "/libressl_patches/" + $libressl_version + "/tls_config.c", src_dir + "/tls/tls_config.c")
-	else
-		puts "Don't have patches for this version of libressl! (#{$libressl_version})"
-		exit 1
+	# ------------------- PATCH for CMake compatibility removal (< 3.5) -------------------
+	begin
+		cmake_lists = "#{src_dir}/CMakeLists.txt"
+		if File.exist?(cmake_lists)
+			contents = File.read(cmake_lists)
+
+			# Replace any cmake_minimum_required(VERSION x.y[.z]) with VERSION 3.5
+			new_contents = contents.gsub(
+				/cmake_minimum_required\s*\(\s*VERSION\s+[0-9]+(?:\.[0-9]+){0,2}\s*\)/,
+				"cmake_minimum_required(VERSION 3.5)"
+			)
+
+			if new_contents != contents
+				File.write(cmake_lists, new_contents)
+				puts "Patched cmake_minimum_required in #{cmake_lists} to VERSION 3.5"
+			end
+		else
+			puts "Warning: #{cmake_lists} not found, skipping cmake_minimum_required patch."
+		end
+	rescue => e
+		STDERR.puts "Error patching #{cmake_lists}: #{e}"
+		raise
 	end
-	#puts "src_dir: #{src_dir}"
+	# ------------------------------------------------------------------------------------
 
-	#path = src_dir + "/crypto/compat/posix_win.c"
-	#puts "Patching '#{path}'..."
+	if OS.windows?
+		if $libressl_version == "3.3.5" || $libressl_version == "3.5.2"
+			FileUtils.cp($glare_core_dir + "/libressl_patches/" + $libressl_version + "/posix_win.c",  src_dir + "/crypto/compat/posix_win.c")
+			FileUtils.cp($glare_core_dir + "/libressl_patches/" + $libressl_version + "/tls_config.c", src_dir + "/tls/tls_config.c")
+		else
+			puts "Don't have patches for this version of libressl! (#{$libressl_version})"
+			exit 1
+		end
+	end
 
-	#contents = File.open(path).read()
-
-	#puts "contents: #{contents}"
-
-	#new_content = contents.gsub("(err == WSAENOTSOCK || err == WSAEBADF", "/*GLARE NEWCODE*/0 && (err == WSAENOTSOCK || err == WSAEBADF")
-
-	#if new_content == contents
-	#	puts "Patching failed, failed to find code to be replaced."
-	#	exit(1)
-	#end
-	
-	#FileUtils.cp($cyberspace_trunk_dir + "/libressl_patches/posix_win.c", src_dir + "/crypto/compat/posix_win.c")
-	#FileUtils.cp($cyberspace_trunk_dir + "/libressl_patches/tls_config.c", src_dir + "/tls/tls_config.c")
-
-	#File.open(path, 'w') { |file| file.write(new_content) }
-	
 	FileUtils.touch("#{src_dir}/glare-patch.success")
 
-	#puts "new_content: #{new_content}"
 	puts "Done patching source."
 end
 
 
 def getOutputDirName(configuration, dir_type, vs_version = -1)
 	config_suffix = CMakeBuild.config_opts[configuration][1] # Will add a suffix like "-debug" for some configurations
-	
+
 	if OS.windows?
 		if vs_version == -1
 			STDERR.puts "VS version not set."
 			exit 1
 		end
-		
+
 		return "libressl-#{$libressl_version}-x64-vs#{vs_version}-#{dir_type}#{config_suffix}"
 	else
 		return "libressl-#{$libressl_version}-#{dir_type}#{config_suffix}"
@@ -220,12 +230,12 @@ end
 def buildLibreSSL(configurations, vs_version)
 	configurations.each do |configuration|
 		cmake_build = CMakeBuild.new
-		
+
 		cmake_build.init("LibreSSL",
 			"#{$libs_libressl_dir}/#{$libressl_source_name}",
 			"#{$libs_libressl_dir}/#{getBuildDir(configuration, vs_version)}",
 			"#{$libs_libressl_dir}/#{getInstallDir(configuration, vs_version)}")
-		
+
 		cmake_build.configure(configuration, vs_version, "", false, OS.arm64?)
 		cmake_build.build()
 		cmake_build.install($build_epoch)
@@ -261,7 +271,7 @@ if !$forcerebuild
 		install_dir = getInstallDir(configuration, $vs_version)
 		all_output_exists = false if !CMakeBuild.checkInstall(install_dir, $build_epoch)
 	end
-	
+
 	if all_output_exists
 		puts "LibreSSL: Builds are already in place, use --forcerebuild to rebuild."
 		$do_build = false

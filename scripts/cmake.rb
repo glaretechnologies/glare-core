@@ -97,10 +97,14 @@ class CMakeBuild
 
 		if OS.windows?
 			win_args = " -G \"#{getVSGenerator()}\" -T \"#{getVSToolset()}\""
+			# Always force the use of the Release CRT for all Windows CMake builds (avoids debug CRT linker errors)
+			unless cmake_args.include?("CMAKE_MSVC_RUNTIME_LIBRARY")
+				cmake_args += " -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL"
+			end
 		end
-
+		
 		Dir.chdir(@build_dir) do
-			print_and_exec_command("cmake \"#{@source_dir}\" -DCMAKE_INSTALL_PREFIX:STRING=\"#{@install_dir}\"#{unix_args}#{osx_args}#{win_args} #{cmake_args}")
+			print_and_exec_command("cmake \"#{@source_dir}\" -DCMAKE_INSTALL_PREFIX:STRING=\"#{@install_dir}\" -DCMAKE_POLICY_VERSION_MINIMUM=3.5#{unix_args}#{osx_args}#{win_args} #{cmake_args}")
 		end
 	end
 	
@@ -126,26 +130,6 @@ class CMakeBuild
 		else
 			buildMakefile(targets, clean)
 		end
-	
-		#make_args = ""
-		#
-		#if clean == true
-		#	make_args += " --clean-first"
-		#end
-		#
-		#if @cmake_version >= Gem::Version.new('3.12') # --parallel supported?
-		#	make_args += " -j #{getNumLogicalCores()} --parallel #{getNumLogicalCores()}"
-		#elsif OS.unix?
-		#	make_args += " -- -j #{getNumLogicalCores()}" # pass -j arg to make directly
-		#end
-		#
-		#make_args += " -- /m"
-		#
-		#Dir.chdir(@build_dir) do
-		#	exec_command("cmake --build . -v --target #{target} --config #{config_name} #{make_args}")
-		#end
-		#
-		#FileUtils.touch("#{@install_dir}/glare-build.success")
 	end
 	
 
@@ -223,7 +207,15 @@ class CMakeBuild
 				make_targets = targets.join(" ")
 			end
 			
-			exec_command("make -j #{getNumLogicalCores()} #{make_targets}")
+			jobs = getNumLogicalCores()
+			
+			if @cmake_version >= Gem::Version.new('3.12')
+				# Use CMake's cross-generator parallel support where available
+				cmake_target_arg = targets.map { |t| "--target #{t}" }.join(" ")
+				exec_command("cmake --build . #{cmake_target_arg} --parallel #{jobs}".strip)
+			else
+				exec_command("make -j #{jobs} #{make_targets}")
+			end
 		end
 	end
 	
@@ -388,3 +380,5 @@ class CMakeBuild
 		2022 => ["Visual Studio 17", "v143", 'C:\Program Files\Microsoft Visual Studio\2022\Community\Msbuild\Current\Bin\MSBuild.exe']
 	}
 end
+
+
