@@ -15,6 +15,10 @@ Copyright Glare Technologies Limited 2025 -
 
 GLUISlider::CreateArgs::CreateArgs()
 {
+	sizing_type_x = GLUIWidget::SizingType::SizingType_FixedSizePx;
+	sizing_type_y = GLUIWidget::SizingType::SizingType_FixedSizePx;
+	fixed_size = Vec2f(100, 21);
+
 	knob_colour = toLinearSRGB(Colour3f(0.3f, 0.5f, 0.8f));
 	grabbed_knob_colour = toLinearSRGB(Colour3f(0.85f));
 	mouseover_knob_colour = toLinearSRGB(Colour3f(0.7f));
@@ -28,7 +32,7 @@ GLUISlider::CreateArgs::CreateArgs()
 }
 
 
-GLUISlider::GLUISlider(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args_)
+GLUISlider::GLUISlider(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const CreateArgs& args_)
 :	handler(nullptr)
 {
 	glui = &glui_;
@@ -36,8 +40,9 @@ GLUISlider::GLUISlider(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 	tooltip = args_.tooltip;
 	args = args_;
 
-	m_botleft = botleft;
-	m_dims = dims;
+	sizing_type_x = args.sizing_type_x;
+	sizing_type_y = args.sizing_type_y;
+	fixed_size = args.fixed_size;
 
 	cur_value = args_.initial_value;
 
@@ -57,7 +62,13 @@ GLUISlider::GLUISlider(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 	knob_ob->ob_to_world_matrix = Matrix4f::identity();
 	opengl_engine->addOverlayObject(knob_ob);
 
-	setPosAndDims(botleft, dims);
+	Vec2f dims;
+	dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
+	dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
+
+	rect = Rect2f(Vec2f(0.f), dims);
+
+	updateOverlayTransforms();
 }
 
 
@@ -147,7 +158,7 @@ void GLUISlider::handleClickOnTrack(const Vec2f coords)
 	}
 
 	// Update knob transform
-	setPosAndDims(m_botleft, m_dims);
+	updateOverlayTransforms();
 }
 
 
@@ -179,7 +190,7 @@ void GLUISlider::doHandleMouseMoved(MouseEvent& mouse_event)
 		}
 
 		// Update knob transform
-		setPosAndDims(m_botleft, m_dims);
+		updateOverlayTransforms();
 
 		mouse_event.accepted = true;
 	}
@@ -208,7 +219,7 @@ void GLUISlider::doHandleMouseWheelEvent(MouseWheelEvent& event)
 		}
 
 		// Update knob transform
-		setPosAndDims(m_botleft, m_dims);
+		updateOverlayTransforms();
 
 		event.accepted = true;
 	}
@@ -229,7 +240,7 @@ void GLUISlider::setValue(double new_val) // Set value but don't emit a value ch
 	}
 
 	// Update knob transform
-	setPosAndDims(m_botleft, m_dims);
+	updateOverlayTransforms();
 }
 
 
@@ -238,26 +249,56 @@ void GLUISlider::setValueNoEvent(double new_val)
 	cur_value = myClamp(new_val, args.min_value, args.max_value);
 
 	// Update knob transform
-	setPosAndDims(m_botleft, m_dims);
+	updateOverlayTransforms();
 }
 
 
-void GLUISlider::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
+void GLUISlider::updateOverlayTransforms()
 {
-	m_botleft = botleft;
-	m_dims = dims;
-	rect = Rect2f(botleft, botleft + dims);
-
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
-	const float track_z = 0.f;
+	const float track_z = m_z;
 	const float track_h = glui->getUIWidthForDevIndepPixelWidth(6);
-	const float track_vert_margin = (dims.y - track_h) / 2;
-	track_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, (botleft.y + track_vert_margin) * y_scale, track_z) * Matrix4f::scaleMatrix(dims.x, track_h * y_scale, 1);
+	const float track_vert_margin = (getDims().y - track_h) / 2;
+	track_ob->ob_to_world_matrix = Matrix4f::translationMatrix(getRect().getMin().x, (getRect().getMin().y + track_vert_margin) * y_scale, track_z) * Matrix4f::scaleMatrix(getDims().x, track_h * y_scale, 1);
 
 	const Rect2f knob_rect = computeKnobRect();
-	const float knob_z = -0.01f;
+	const float knob_z = m_z - 0.01f;
 	knob_ob->ob_to_world_matrix = Matrix4f::translationMatrix(knob_rect.getMin().x, knob_rect.getMin().y * y_scale, knob_z) * Matrix4f::scaleMatrix(knob_rect.getWidths().x, knob_rect.getWidths().y * y_scale, 1);
+}
+
+
+void GLUISlider::updateGLTransform()
+{
+	Vec2f dims = this->getDims();
+
+	if(this->sizing_type_x == SizingType_FixedSizePx)
+		dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
+
+	if(this->sizing_type_y == SizingType_FixedSizePx)
+		dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
+
+	const Vec2f botleft = getRect().getMin();
+	rect = Rect2f(botleft, botleft + dims);
+
+	updateOverlayTransforms();
+}
+
+
+void GLUISlider::setPos(const Vec2f& botleft)
+{
+	const Vec2f dims = getDims();
+	this->rect = Rect2f(botleft, botleft + dims);
+
+	updateOverlayTransforms();
+}
+
+
+void GLUISlider::setPosAndDims(const Vec2f& botleft, const Vec2f& new_dims)
+{
+	rect = Rect2f(botleft, botleft + new_dims);
+
+	updateOverlayTransforms();
 }
 
 
@@ -265,6 +306,12 @@ void GLUISlider::setClipRegion(const Rect2f& clip_rect)
 {
 	track_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
 	knob_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
+}
+
+
+void GLUISlider::setZ(float new_z)
+{
+	this->m_z = new_z;
 }
 
 

@@ -154,7 +154,7 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 			text_create_args.colour = args.text_colour;
 			text_create_args.font_size_px = args.font_size_px;
 			text_create_args.alpha = args.text_alpha;
-			text_create_args.z = args.z;
+			text_create_args.z = m_z;
 			GLUITextRef glui_text = new GLUIText(glui_, opengl_engine, toString(line_string), botleft, text_create_args);
 			glui_text->setVisible(visible);
 
@@ -184,7 +184,7 @@ void GLUITextView::updateOverlayObTransforms()
 		const Rect2f background_rect = computeBackgroundRect();
 
 		const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
-		const float z = args.z + 0.001f;
+		const float z = this->m_z + 0.001f;
 
 		const bool use_rounded_corners = args.background_corner_radius_px > 0;
 
@@ -226,7 +226,7 @@ void GLUITextView::updateOverlayObTransforms()
 			try
 			{
 				const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
-				const float z = args.z - 0.001f;
+				const float z = this->m_z - 0.001f;
 				selection_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(selection_lower_left_pos.x, (selection_lower_left_pos.y - h * extra_half_h_factor) * y_scale, z) * Matrix4f::scaleMatrix(w, h * y_scale, 1);
 
 				selection_overlay_ob->draw = true;
@@ -251,6 +251,9 @@ void GLUITextView::recomputeRect()
 		rect = glui_texts[0]->getRect();
 		for(size_t i=1; i<glui_texts.size(); ++i)
 			rect.enlargeToHoldRect(glui_texts[i]->getRect());
+
+		// Make the text view fixed size.
+		this->setFixedDimsPx(Vec2f(glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().x), glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().y)), *glui);
 	}
 }
 
@@ -379,7 +382,6 @@ void GLUITextView::setZ(float new_z)
 	for(size_t i=0; i<glui_texts.size(); ++i)
 		glui_texts[i]->setZ(new_z);
 
-	args.z = new_z;
 	this->m_z = new_z;
 }
 

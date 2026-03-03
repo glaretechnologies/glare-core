@@ -472,6 +472,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_copy_prepass_buffers_GPU_time(0),
 	last_decal_copy_buffers_GPU_time(0),
 	last_draw_overlay_obs_GPU_time(0),
+	last_bloom_GPU_time(0),
+	last_final_imaging_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	last_num_decal_batches_drawn(0),
 	next_program_index(0),
@@ -1647,7 +1649,7 @@ static const int FINAL_IMAGING_BLUR_TEX_UNIFORM_START = 3;
 static const int OIT_COMPOSITE_TRANSPARENT_ACCUM_TEX_UNIFORM_INDEX = 0;
 static const int OIT_COMPOSITE_TOTAL_TRANSMITTANCE_TEX_UNIFORM_INDEX = 1;
 
-static const int NUM_BLUR_DOWNSIZES = 8;
+static const int NUM_BLUR_DOWNSIZES = 6;
 
 static const int PHONG_UBO_BINDING_POINT_INDEX = 0;
 static const int SHARED_VERT_UBO_BINDING_POINT_INDEX = 1;
@@ -2507,6 +2509,8 @@ void OpenGLEngine::checkCreateProfilingQueries()
 		this->copy_prepass_buffers_gpu_timer = new Query();
 		this->decal_copy_buffers_timer = new Query();
 		this->draw_overlays_gpu_timer = new Query();
+		this->bloom_gpu_timer = new Query();
+		this->final_imaging_gpu_timer = new Query();
 
 #if EMSCRIPTEN
 		// Chrome/web doesn't support timestamp queries: https://codereview.chromium.org/1800383002
@@ -6649,6 +6653,48 @@ inline static void setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1)
 }
 
 
+// Blit the entire contents of src_framebuffer to dest_framebuffer.
+// num_buffers_to_copy can be 1 or 2.
+// copy_buf0_colour: copy the colour buffer of buffer 0.
+// copy_buf0_depth: copy the depth buffer of buffer 0.
+static void blitFrameBuffer(FrameBuffer& src_framebuffer, FrameBuffer& dest_framebuffer, int num_buffers_to_copy, bool copy_buf0_colour, bool copy_buf0_depth)
+{	
+	assert(src_framebuffer.xRes() == dest_framebuffer.xRes() && src_framebuffer.yRes() == dest_framebuffer.yRes());
+	assert(num_buffers_to_copy == 1 || num_buffers_to_copy == 2);
+	assert(copy_buf0_colour || copy_buf0_depth);
+
+	src_framebuffer .bindForReading();
+	dest_framebuffer.bindForDrawing();
+
+	//---------------------- Copy buffer 0  ----------------------
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+	glBlitFramebuffer(
+		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)src_framebuffer.xRes(), /*srcY1=*/(int)src_framebuffer.yRes(), 
+		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)src_framebuffer.xRes(), /*dstY1=*/(int)src_framebuffer.yRes(), 
+		(copy_buf0_colour ? GL_COLOR_BUFFER_BIT : 0) | (copy_buf0_depth ? GL_DEPTH_BUFFER_BIT : 0),
+		GL_NEAREST
+	);
+
+	//---------------------- Copy buffer 1 (usually normals) ----------------------
+	if(num_buffers_to_copy >= 2)
+	{
+		glReadBuffer(GL_COLOR_ATTACHMENT1);
+		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
+	
+		glBlitFramebuffer(
+			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)src_framebuffer.xRes(), /*srcY1=*/(int)src_framebuffer.yRes(), 
+			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)src_framebuffer.xRes(), /*dstY1=*/(int)src_framebuffer.yRes(), 
+			GL_COLOR_BUFFER_BIT,
+			GL_NEAREST
+		);
+	}
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+}
+
+
 void OpenGLEngine::draw()
 {
 	ZoneScopedC(0x33FF33); // Tracy profiler.  Set green colour for zone.
@@ -7698,19 +7744,9 @@ void OpenGLEngine::draw()
 
 		const bool do_DOF_blur = current_scene->dof_blur_strength > 0;
 
-		//=============== Copy from renderbuffer to our framebuffer copy with textures bound, so we can access main buffer as a colour texture ============
-		main_render_framebuffer->bindForReading();
-		main_render_copy_framebuffer->bindForDrawing();
-
-		// Copy colour and depth renderbuffer to depth texture
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-			GL_COLOR_BUFFER_BIT | (do_DOF_blur ? GL_DEPTH_BUFFER_BIT : 0), // We need the depth buffer only when doing DOF blur.
-			GL_NEAREST
-		);
+		// Copy from renderbuffer to our framebuffer copy with textures bound (main_render_copy_framebuffer), so we can access the main buffer as a colour texture.
+		blitFrameBuffer(/*src_framebuffer=*/*main_render_framebuffer, /*dest_framebuffer=*/*main_render_copy_framebuffer, 
+			/*num_buffers_to_copy=*/1, /*copy_buf0_colour=*/true, /*copy_buf0_depth=*/do_DOF_blur); // We need the depth buffer only when doing DOF blur.
 
 		/*
 		This is the case where we do both order-independent transparency (OIT) and DOF blur:
@@ -7821,6 +7857,12 @@ void OpenGLEngine::draw()
 
 		if(draw_overlays_gpu_timer->waitingForResult() && draw_overlays_gpu_timer->checkResultAvailable())
 			last_draw_overlay_obs_GPU_time = draw_overlays_gpu_timer->getTimeElapsed();
+
+		if(bloom_gpu_timer->waitingForResult() && bloom_gpu_timer->checkResultAvailable())
+			last_bloom_GPU_time = bloom_gpu_timer->getTimeElapsed();
+
+		if(final_imaging_gpu_timer->waitingForResult() && final_imaging_gpu_timer->checkResultAvailable())
+			last_final_imaging_GPU_time = final_imaging_gpu_timer->getTimeElapsed();
 	}
 
 	if(current_scene->collect_stats)
@@ -7970,22 +8012,38 @@ void OpenGLEngine::doDOFBlur(OpenGLTexture* colour_tex_input)
 // Output: blur_framebuffers
 void OpenGLEngine::doBloomPostProcess(OpenGLTexture* colour_tex_input)
 {
-	// // Code to Compute gaussian blur weights:
-	// float sum = 0;
-	// for(int x=-2; x<=2; ++x)
-	// 	sum += Maths::eval1DGaussian(x, /*standard dev=*/1.0);
-	   
-	// for(int x=-2; x<=2; ++x)
-	// {
-	// 	const float weight = Maths::eval1DGaussian(x, /*standard dev=*/1.0);
-	// 	const float normed_weight = weight / sum;
-	// 	conPrintStr(" " + toString(normed_weight));
-	// }
+	// Code to Compute gaussian blur weights:
+#if 0
+	float sum = 0;
+	const int r = 8;
+	const float stddev = 2.5;
+	for(int x=-r; x<=r; ++x)
+		sum += Maths::eval1DGaussian(x, /*standard dev=*/stddev);
+	
+	conPrint("--------------");
+	for(int x=-r; x<=r; ++x)
+	{
+		const float offset = (float)x;
+		conPrintStr(doubleLiteralString(offset) + ", ");
+	}
+	conPrint("");
+
+	for(int x=-r; x<=r; ++x)
+	{
+		const float weight = Maths::eval1DGaussian(x, /*standard dev=*/stddev);
+		const float normed_weight = weight / sum;
+		conPrintStr(doubleLiteralString(normed_weight) + ", ");
+	}
+	conPrint("");
+#endif
 
 	if(current_scene->bloom_strength > 0)
 	{
 		DebugGroup debug_group2("bloom");
 		TracyGpuZone("bloom");
+
+		if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && bloom_gpu_timer->isIdle())
+			bloom_gpu_timer->beginTimerQuery();
 
 		glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
 		glDisable(GL_DEPTH_TEST); // Don't depth test
@@ -8054,6 +8112,10 @@ void OpenGLEngine::doBloomPostProcess(OpenGLTexture* colour_tex_input)
 		glEnable(GL_DEPTH_TEST);
 	
 		glViewport(0, 0, viewport_w, viewport_h); // Restore viewport
+
+
+		if(query_profiling_enabled && bloom_gpu_timer->isRunning())
+			bloom_gpu_timer->endTimerQuery();
 	}
 }
 
@@ -8064,6 +8126,8 @@ void OpenGLEngine::doFinalImaging(OpenGLTexture* colour_tex_input)
 {
 	DebugGroup debug_group3("imaging");
 	TracyGpuZone("imaging");
+	if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && final_imaging_gpu_timer->isIdle())
+		final_imaging_gpu_timer->beginTimerQuery();
 
 	//----------------------------- Setup -----------------------------
 	// Bind requested target frame buffer as output buffer
@@ -8129,6 +8193,9 @@ void OpenGLEngine::doFinalImaging(OpenGLTexture* colour_tex_input)
 	// main_render_framebuffer     ->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
 	// main_render_copy_framebuffer->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT);
 	// glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0); // Restore framebuffer binding
+
+	if(query_profiling_enabled && final_imaging_gpu_timer->isRunning())
+		final_imaging_gpu_timer->endTimerQuery();
 }
 
 
@@ -8960,39 +9027,10 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 			if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && decal_copy_buffers_timer->isIdle())
 				decal_copy_buffers_timer->beginTimerQuery();
 
-			main_render_framebuffer->bindForReading();
-
-			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT) == this->main_depth_renderbuffer->buffer_name);
-			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
-		
-			main_render_copy_framebuffer->bindForDrawing();
-
-			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_DEPTH_ATTACHMENT) == this->main_depth_copy_texture->texture_handle);
-			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
-
-			//---------------------- Copy depth renderbuffer to depth texture ----------------------
-			glReadBuffer(GL_COLOR_ATTACHMENT0);
-			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-			glBlitFramebuffer(
-				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-				GL_DEPTH_BUFFER_BIT,
-				GL_NEAREST
-			);
-
-			//---------------------- Copy normal buffer.  Do this just to resolve the MSAA samples. ----------------------
-			glReadBuffer(GL_COLOR_ATTACHMENT1);
-			setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
-	
-			glBlitFramebuffer(
-				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-				GL_COLOR_BUFFER_BIT,
-				GL_NEAREST
-			);
-
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+			blitFrameBuffer(/*src_framebuffer=*/*main_render_framebuffer, /*dest_framebuffer=*/*main_render_copy_framebuffer, 
+				/*num_buffers_to_copy=*/2, // Copy both colour/depth and normals buffer
+				/*copy_buf0_colour=*/false, // Just need depth, not colour
+				/*copy_buf0_depth=*/true);
 
 			// Stop timer
 			if(query_profiling_enabled && decal_copy_buffers_timer->isRunning())
@@ -9100,61 +9138,24 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 	{
 		if(current_scene->render_to_main_render_framebuffer)
 		{
-			// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
-			// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
-			//
-			// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
-			// "the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer.
-			// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers.
-			// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
-			//
-			// 
-			main_render_framebuffer->bindForReading();
-
 			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
 			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
 			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT)  == this->main_depth_renderbuffer->buffer_name);
-
-			main_render_copy_framebuffer->bindForDrawing();
 
 			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT0) == this->main_colour_copy_texture->texture_handle);
 			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == this->main_normal_copy_texture->texture_handle);
 			assert(main_render_copy_framebuffer->getAttachedTextureName(GL_DEPTH_ATTACHMENT)  == this->main_depth_copy_texture->texture_handle);
 
-			//--------------- Copy colour buffer (attachment 0) and depth buffer. ---------------
-			glReadBuffer(GL_COLOR_ATTACHMENT0);
-			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-			glBlitFramebuffer(
-				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-				GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
-				GL_NEAREST
-			);
-
-			//--------------- Copy normal buffer.  Do this just to resolve the MSAA samples. ---------------
-			glReadBuffer(GL_COLOR_ATTACHMENT1);
-			setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
-	
-			glBlitFramebuffer(
-				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-				GL_COLOR_BUFFER_BIT,
-				GL_NEAREST
-			);
-
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+			// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
+			blitFrameBuffer(/*src_framebuffer=*/*main_render_framebuffer, /*dest_framebuffer=*/*main_render_copy_framebuffer, 
+				/*num_buffers_to_copy=*/2, // Copy both colour/depth and normals buffer
+				/*copy_buf0_colour=*/true, /*copy_buf0_depth=*/true);
 
 			// Restore main render buffer binding for drawing
 			main_render_framebuffer->bindForDrawing();
 			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == this->main_colour_renderbuffer->buffer_name);
 			assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == this->main_normal_renderbuffer->buffer_name);
 		
-			//glDrawBuffer(GL_COLOR_ATTACHMENT0); // Only write to colour buffer for water shader (don't write to normal buffer).
-		
-			// Bind normal texture as the second colour target
-			//main_render_framebuffer->bindTextureAsTarget(*main_normal_texture, GL_COLOR_ATTACHMENT1);
-
 			// Draw to all colour buffers: colour and normal buffer.
 			setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
 		}
@@ -9656,34 +9657,12 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 	if(use_order_indep_transparency && current_scene->render_to_main_render_framebuffer)
 	{
 		//----------------------- Copy total_transmittance render buffer to total_transmittance_copy_texture -----------------------
-		main_render_framebuffer->bindForReading(); // Set copy source framebuffer
-		main_render_copy_framebuffer->bindForDrawing(); // Set copy destination framebuffer
-		main_render_copy_framebuffer->attachTexture(*total_transmittance_copy_texture,  GL_COLOR_ATTACHMENT0);
-		main_render_copy_framebuffer->attachTexture(*transparent_accum_copy_texture, GL_COLOR_ATTACHMENT1);
+		main_render_copy_framebuffer->attachTexture(*total_transmittance_copy_texture, GL_COLOR_ATTACHMENT0);
+		main_render_copy_framebuffer->attachTexture(*transparent_accum_copy_texture,   GL_COLOR_ATTACHMENT1);
 
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-	
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-			GL_COLOR_BUFFER_BIT,
-			GL_NEAREST
-		);
-
-		//----------------------- Copy transparent_accum render buffer to transparent_accum_copy_texture -----------------------		
-		glReadBuffer(GL_COLOR_ATTACHMENT1);
-		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
-
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-			GL_COLOR_BUFFER_BIT,
-			GL_NEAREST
-		);
-
-
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Restore to no framebuffers bound for reading.
+		blitFrameBuffer(/*src_framebuffer=*/*main_render_framebuffer, /*dest_framebuffer=*/*main_render_copy_framebuffer, 
+				/*num_buffers_to_copy=*/2, // Copy total_transmittance and transparent_accum buffer
+				/*copy_buf0_colour=*/true, /*copy_buf0_depth=*/false);
 
 		// main_render_framebuffer->discardContents(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Discard total_transmittance and transparent_accum now it has been copied out of
 
@@ -9696,6 +9675,7 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 }
 
 
+// Draws to prepass_framebuffer
 void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	if(current_scene->render_to_main_render_framebuffer)
@@ -9886,38 +9866,6 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 
 		if(query_profiling_enabled && depth_pre_pass_gpu_timer->isRunning())
 			depth_pre_pass_gpu_timer->endTimerQuery();
-
-
-		// Copy depth buffer from main render framebuffer to render copy framebuffer.
-		// This will copy main_depth_texture to main_depth_copy_texture.
-		//if(current_scene->render_to_main_render_framebuffer)
-		//{
-		//	// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
-		//	// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
-		//	//
-		//	// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
-		//	// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
-		//	// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
-		//	// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
-		//	//
-		//	// 
-		//	main_render_framebuffer->bindForReading();
-
-		//	main_render_copy_framebuffer->bindForDrawing();
-
-		//	//--------------- Copy depth buffer. ---------------
-		//	//glReadBuffer(GL_COLOR_ATTACHMENT0);
-		//	//setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-		//	glReadBuffer(GL_COLOR_ATTACHMENT0); // Shouldn't be used.
-		//	glDrawBuffers(0, nullptr);
-
-		//	glBlitFramebuffer(
-		//		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-		//		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-		//		GL_DEPTH_BUFFER_BIT,
-		//		GL_NEAREST
-		//	);
-		//}
 
 		// Restore viewport
 		glViewport(0, 0, viewport_w, viewport_h);
@@ -10125,34 +10073,10 @@ void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f&
 
 
 	// Copy depth buffer from main render framebuffer to render copy framebuffer.
-	// This will copy main_depth_texture to main_depth_copy_texture.
 	if(current_scene->render_to_main_render_framebuffer)
 	{
-		// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
-		// This will copy main_colour_texture to main_colour_copy_texture, and main_depth_texture to main_depth_copy_texture.
-		//
-		// From https://www.khronos.org/opengl/wiki/Framebuffer#Blitting:
-		// " the only colors read will come from the read color buffer in the read FBO, specified by glReadBuffer. 
-		// The colors written will only go to the draw color buffers in the write FBO, specified by glDrawBuffers. 
-		// If multiple draw buffers are specified, then multiple color buffers are updated with the same data."
-		//
-		// 
-		main_render_framebuffer->bindForReading();
-
-		main_render_copy_framebuffer->bindForDrawing();
-
-		//--------------- Copy depth buffer. ---------------
-		//glReadBuffer(GL_COLOR_ATTACHMENT0);
-		//setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-		glReadBuffer(GL_COLOR_ATTACHMENT0); // Shouldn't be used.
-		glDrawBuffers(0, nullptr);
-
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)main_render_framebuffer->xRes(), /*srcY1=*/(int)main_render_framebuffer->yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)main_render_framebuffer->xRes(), /*dstY1=*/(int)main_render_framebuffer->yRes(), 
-			GL_DEPTH_BUFFER_BIT,
-			GL_NEAREST
-		);
+		blitFrameBuffer(/*src_framebuffer=*/*main_render_framebuffer, /*dest_framebuffer=*/*main_render_copy_framebuffer, 
+				/*num_buffers_to_copy=*/1, /*copy_buf0_colour=*/false, /*copy_buf0_depth=*/true);
 	}
 }
 
@@ -10175,32 +10099,9 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 			if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && copy_prepass_buffers_gpu_timer->isIdle())
 				copy_prepass_buffers_gpu_timer->beginTimerQuery();
 
-			prepass_framebuffer->bindForReading();
-			prepass_copy_framebuffer->bindForDrawing();
-
-			// Copy colour and depth buffer
-			glReadBuffer(GL_COLOR_ATTACHMENT0);
-			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-			glBlitFramebuffer(
-				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)prepass_framebuffer->xRes(), /*srcY1=*/(int)prepass_framebuffer->yRes(), 
-				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)prepass_framebuffer->xRes(), /*dstY1=*/(int)prepass_framebuffer->yRes(), 
-				GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
-				GL_NEAREST
-			);
-
-			// Copy normal buffer.
-			glReadBuffer(GL_COLOR_ATTACHMENT1);
-			setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
-	
-			glBlitFramebuffer(
-				/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)prepass_framebuffer->xRes(), /*srcY1=*/(int)prepass_framebuffer->yRes(), 
-				/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)prepass_framebuffer->xRes(), /*dstY1=*/(int)prepass_framebuffer->yRes(), 
-				GL_COLOR_BUFFER_BIT,
-				GL_NEAREST
-			);
-
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
+			blitFrameBuffer(/*src_framebuffer=*/*prepass_framebuffer, /*dest_framebuffer=*/*prepass_copy_framebuffer, 
+				/*num_buffers_to_copy=*/2, // Copy both colour/depth and normal buffer
+				/*copy_buf0_colour=*/true, /*copy_buf0_depth=*/true);
 
 			if(query_profiling_enabled && copy_prepass_buffers_gpu_timer->isRunning())
 				copy_prepass_buffers_gpu_timer->endTimerQuery();
@@ -12314,19 +12215,8 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits>> OpenGLEngine::drawToBuffer
 
 	this->draw(); // Render the scene
 
-
-	//=============== Copy from render_framebuffer to render_copy_framebuffer ============
-	render_framebuffer->bindForReading();
-	render_copy_framebuffer->bindForDrawing();
-
-	glReadBuffer(GL_COLOR_ATTACHMENT0);
-	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-	glBlitFramebuffer(
-		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)render_framebuffer->xRes(), /*srcY1=*/(int)render_framebuffer->yRes(), 
-		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)render_framebuffer->xRes(), /*dstY1=*/(int)render_framebuffer->yRes(), 
-		GL_COLOR_BUFFER_BIT, // We need the depth buffer only when doing DOF blur.
-		GL_NEAREST
-	);
+	blitFrameBuffer(/*src_framebuffer=*/*render_framebuffer, /*dest_framebuffer=*/*render_copy_framebuffer, 
+				/*num_buffers_to_copy=*/1, /*copy_buf0_colour=*/true, /*copy_buf0_depth=*/false);
 
 	// Capture render_copy_framebuffer as an ImageMapUInt8
 	render_copy_framebuffer->bindForReading();
@@ -12860,6 +12750,8 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "blur SSAO         : " + doubleToStringNSigFigs(last_blur_ssao_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "decal copy buffers: " + doubleToStringNSigFigs(last_decal_copy_buffers_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "bloom             : " + doubleToStringNSigFigs(last_bloom_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "final imaging     : " + doubleToStringNSigFigs(last_final_imaging_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "overlay obs       : " + doubleToStringNSigFigs(last_draw_overlay_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "total             : " + doubleToStringNSigFigs(last_total_draw_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "\n";

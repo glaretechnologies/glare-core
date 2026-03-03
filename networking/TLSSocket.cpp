@@ -235,6 +235,12 @@ void TLSSocket::setAddressReuseEnabled(bool enabled)
 }
 
 
+void TLSSocket::setTimeout(double s)
+{
+	plain_socket->setTimeout(s);
+}
+
+
 void TLSSocket::readTo(void* buffer, size_t readlen)
 {
 	readTo(buffer, readlen, NULL);

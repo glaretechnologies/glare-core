@@ -42,11 +42,11 @@ public:
 
 	void attachRenderBuffer(RenderBuffer& render_buffer, GLenum attachment_point);
 
-	// NOTE: Framebuffer must be bound before calling this.
 	GLuint getAttachedRenderBufferName(GLenum attachment_point);
 
-	// NOTE: Framebuffer must be bound before calling this.
 	GLuint getAttachedTextureName(GLenum attachment_point);
+
+	static GLuint getCurrentlyBoundDrawFrameBuffer();
 	
 	GLenum checkCompletenessStatus();
 	bool isComplete();

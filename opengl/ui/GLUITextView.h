@@ -25,7 +25,7 @@ GLUITextView
 ------------
 A widget that displays some text
 =====================================================================*/
-class GLUITextView : public GLUIWidget
+class GLUITextView final : public GLUIWidget
 {
 public:
 	struct CreateArgs
@@ -59,7 +59,7 @@ public:
 	void setBackgroundColour(const Colour3f& col);
 	void setBackgroundAlpha(float alpha);
 
-	void setPos(const Vec2f& botleft); // Sets baseline position of text on first line.  Text descenders will be below this position.  Background quad can extend past this.
+	virtual void setPos(const Vec2f& botleft) override; // Sets baseline position of text on first line.  Text descenders will be below this position.  Background quad can extend past this.
 
 	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override; // NOTE: discards dims
 

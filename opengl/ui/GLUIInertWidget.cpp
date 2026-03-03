@@ -110,12 +110,21 @@ void GLUIInertWidget::updateGLTransform()
 }
 
 
+void GLUIInertWidget::setPos(const Vec2f& botleft)
+{
+	const Vec2f dims = getDims();
+	this->rect = Rect2f(botleft, botleft + dims);
+
+	const float y_scale = opengl_engine->getViewPortAspectRatio();
+	background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+}
+
+
 void GLUIInertWidget::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
 {
 	rect = Rect2f(botleft, botleft + dims);
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
-
 	background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 }
 

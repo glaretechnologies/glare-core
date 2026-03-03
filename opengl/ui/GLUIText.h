@@ -28,7 +28,7 @@ GLUIText
 --------
 
 =====================================================================*/
-class GLUIText : public RefCounted
+class GLUIText final : public RefCounted
 {
 public:
 	struct CreateArgs

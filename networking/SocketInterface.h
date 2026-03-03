@@ -52,6 +52,9 @@ public:
 	// Enables SO_REUSEADDR - allows a socket to bind to an address/port that is in the wait state.
 	virtual void setAddressReuseEnabled(bool enabled) = 0;
 
+	// Sets a timeout for sending and receiving (SO_SNDTIMEO and SO_RCVTIMEO).  If no data is sent or received for this period, an exception is thrown.
+	virtual void setTimeout(double timeout_s) = 0;
+
 	virtual bool readable(double timeout_s) = 0;
 	virtual bool readable(EventFD& event_fd) = 0; // Block until either the socket is readable or the event_fd is signalled (becomes readable).
 	// Returns true if the socket was readable, false if the event_fd was signalled.

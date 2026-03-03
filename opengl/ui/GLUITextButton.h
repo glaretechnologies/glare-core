@@ -21,7 +21,7 @@ GLUITextButton
 --------------
 
 =====================================================================*/
-class GLUITextButton : public GLUIWidget
+class GLUITextButton final : public GLUIWidget
 {
 public:
 	struct CreateArgs
@@ -52,7 +52,9 @@ public:
 
 	void rebuild();
 
-	void setPos(const Vec2f& botleft);
+	virtual void setPos(const Vec2f& botleft) override;
+
+	void setZ(float new_z) override;
 
 	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
 	virtual void setClipRegion(const Rect2f& clip_rect) override;

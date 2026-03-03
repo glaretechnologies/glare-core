@@ -941,7 +941,7 @@ public:
 	const std::string& getPreprocessorDefinesWithCommonFragStructs() const { return preprocessor_defines_with_common_frag_structs; } // for compiling shader programs
 	const std::string& getVersionDirective() const { return version_directive; } // for compiling shader programs
 
-	const std::string& getDataDir() const { return data_dir; }
+	const std::string& getDataDir() const { return data_dir; } // data_dir should contain 'gl_data' and 'shaders' dirs.
 
 	void waitForAllBuildingProgramsToBuild();
 
@@ -1592,6 +1592,8 @@ private:
 	Reference<Query> copy_prepass_buffers_gpu_timer;
 	Reference<Query> decal_copy_buffers_timer;
 	Reference<Query> draw_overlays_gpu_timer;
+	Reference<Query> bloom_gpu_timer;
+	Reference<Query> final_imaging_gpu_timer;
 	Reference<BufferedTimeElapsedQuery> buffered_total_timer;
 	
 	uint32 last_num_prog_changes;
@@ -1620,6 +1622,8 @@ private:
 	double last_copy_prepass_buffers_GPU_time;
 	double last_decal_copy_buffers_GPU_time;
 	double last_draw_overlay_obs_GPU_time;
+	double last_bloom_GPU_time;
+	double last_final_imaging_GPU_time;
 
 	uint32 last_num_animated_obs_processed;
 

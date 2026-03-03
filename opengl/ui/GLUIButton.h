@@ -23,12 +23,16 @@ GLUIButton
 ----------
 
 =====================================================================*/
-class GLUIButton : public GLUIWidget
+class GLUIButton final : public GLUIWidget
 {
 public:
 	struct CreateArgs
 	{
 		CreateArgs();
+
+		GLUIWidget::SizingType sizing_type_x;
+		GLUIWidget::SizingType sizing_type_y;
+		Vec2f fixed_size; // x component used if sizing_type_x == SizingType_FixedSizePx, likewise for y component.
 
 		std::string tooltip;
 
@@ -46,12 +50,16 @@ public:
 		Colour3f pressed_colour;
 	};
 
-	GLUIButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args);
+	GLUIButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const CreateArgs& args);
 	~GLUIButton();
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
+
+	virtual void updateGLTransform() override;
+
+	virtual void setPos(const Vec2f& botleft) override;
 
 	void setDims(const Vec2f& dims);
 	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
@@ -68,11 +76,10 @@ public:
 	bool toggleable;
 	bool toggled;
 	bool pressed;
-	bool immutable_dims; // If true, don't change dimensions in setPosAndDims (which is called by GridContainer layout)
 
 private:
 	GLARE_DISABLE_COPY(GLUIButton);
-
+	void updateOverlayTransform();
 	void updateButtonColour(const Vec2f mouse_ui_coords);
 
 	GLUI* glui;

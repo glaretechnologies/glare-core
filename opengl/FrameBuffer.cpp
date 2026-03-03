@@ -137,27 +137,49 @@ void FrameBuffer::attachRenderBuffer(RenderBuffer& render_buffer, GLenum attachm
 
 GLuint FrameBuffer::getAttachedRenderBufferName(GLenum attachment_point)
 {
+	const GLuint prev_binding = getCurrentlyBoundDrawFrameBuffer();
+	bindForDrawing(); // Bind this frame buffer
+
 	// Check a renderbuffer is bound, as opposed to a texture.
 	GLint ob_type = 0;
-	glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &ob_type);
+	glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &ob_type);
 	assert(ob_type == GL_RENDERBUFFER);
 
 	GLint name = 0;
-	glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &name);
+	glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &name);
+
+	// Restore previous binding
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prev_binding);
+
 	return (GLuint)name;
 }
 
 
 GLuint FrameBuffer::getAttachedTextureName(GLenum attachment_point)
 {
+	const GLuint prev_binding = getCurrentlyBoundDrawFrameBuffer();
+	bindForDrawing(); // Bind this frame buffer
+
 	// Check a texture is bound, as opposed to a renderbuffer.
 	GLint ob_type = 0;
-	glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &ob_type);
+	glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &ob_type);
 	assert(ob_type == GL_TEXTURE);
 
 	GLint name = 0;
-	glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &name);
+	glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, attachment_point, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &name);
+
+	// Restore previous binding
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prev_binding);
+
 	return (GLuint)name;
+}
+
+
+GLuint FrameBuffer::getCurrentlyBoundDrawFrameBuffer()
+{
+	GLuint name = 0;
+	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, (GLint*)&name);
+	return name;
 }
 
 

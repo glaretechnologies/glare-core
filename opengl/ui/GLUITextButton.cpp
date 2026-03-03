@@ -49,11 +49,13 @@ GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engi
 	text_args.padding_px = 8;
 	text_args.text_selectable = false;
 	text_args.font_size_px = args.font_size_px;
-	text_args.z = args.z;
+	text_args.z = args_.z;
 	text_view = new GLUITextView(glui_, opengl_engine_, button_text, botleft, text_args);
 	glui->addWidget(text_view);
 
 	this->rect = text_view->getBackgroundRect();
+
+	this->setFixedDimsPx(Vec2f(glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().x), glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().y)), glui_);
 }
 
 
@@ -139,7 +141,7 @@ void GLUITextButton::rebuild()
 	text_args.padding_px = 8;
 	text_args.text_selectable = false;
 	text_args.font_size_px = args.font_size_px;
-	text_args.z = args.z;
+	text_args.z = m_z;
 	text_view = new GLUITextView(*glui, opengl_engine, button_text, m_botleft, text_args);
 	text_view->setVisible(old_visible);
 	glui->addWidget(text_view);
@@ -154,6 +156,14 @@ void GLUITextButton::setPos(const Vec2f& botleft)
 	text_view->setPos(botleft + Vec2f(text_view->getPaddingWidth()));
 
 	rect = text_view->getBackgroundRect();
+}
+
+
+void GLUITextButton::setZ(float new_z)
+{
+	this->m_z = new_z;
+
+	text_view->setZ(new_z);
 }
 
 

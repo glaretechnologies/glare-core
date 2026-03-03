@@ -124,6 +124,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIGridContainer.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIGridContainer.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICheckBox.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICheckBox.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWindow.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWindow.h
 )
 
 

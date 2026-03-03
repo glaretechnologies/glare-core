@@ -70,6 +70,12 @@ void WebSocket::setAddressReuseEnabled(bool enabled)
 }
 
 
+void WebSocket::setTimeout(double timeout_s)
+{
+	underlying_socket->setTimeout(timeout_s);
+}
+
+
 void WebSocket::readTo(void* buffer, size_t readlen)
 {
 	readTo(buffer, readlen, NULL);

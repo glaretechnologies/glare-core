@@ -48,6 +48,8 @@ public:
 
 	virtual void eventOccurred(GLUICallbackEvent& /*event*/) = 0;
 
+	virtual void closeWindowEventOccurred(GLUICallbackEvent& /*event*/) {}
+
 	virtual void mouseWheelEventOccurred(GLUICallbackMouseWheelEvent& /*event*/) {}
 
 	virtual void sliderValueChangedEventOccurred(GLUISliderValueChangedEvent& /*event*/) {}

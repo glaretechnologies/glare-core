@@ -1,12 +1,14 @@
 /*=====================================================================
-GLUIGridContainer.h
--------------------
+GLUIWindow.h
+------------
 Copyright Glare Technologies Limited 2026 -
 =====================================================================*/
 #pragma once
 
 
 #include "GLUIWidget.h"
+#include "GLUITextView.h"
+#include "GLUIButton.h"
 #include "../OpenGLEngine.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
@@ -23,29 +25,49 @@ class TextInputEvent;
 
 
 /*=====================================================================
-GLUIGridContainer
------------------
-A grid of widgets.
+GLUIWindow
+----------
+
+-----------------------------------------
+|         TitleTextWidget             X |
+| ------------------------------------- |
+| |                                   | | 
+| |                                   | |
+| |                                   | |
+| |       body_widget                 | |
+| |                                   | |
+| |                                   | |
+| |                                   | |
+| |                                   | |
+| |___________________________________| |
+|_______________________________________|
+
+A widget with a title and close button.
+Has a single contained body widget, as well as a background overlay object (flat colour rectangle).
 =====================================================================*/
-class GLUIGridContainer final : public GLUIWidget
+class GLUIWindow final : public GLUIWidget, public GLUICallbackHandler
 {
 public:
 	struct CreateArgs
 	{
 		CreateArgs();
+
+		std::string title;
 		
+		Colour3f title_text_colour; // Linear
 		Colour3f background_colour; // Linear
 		float background_alpha;
 		float z;
 
-		float cell_x_padding_px; // Default is 10 px.
-		float cell_y_padding_px; // Default is 10 px.
+		float padding_px; // left, right, bottom padding/margin around body_widget, in pixels.
 
-		bool background_consumes_events; // Should the background behind the grid consume click events etc.?  Defaults to false.
+		bool background_consumes_events; // Should the background around the body widget consume click events etc.?  Defaults to false.
 	};
 
-	GLUIGridContainer(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
-	virtual ~GLUIGridContainer();
+	GLUIWindow(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
+	virtual ~GLUIWindow();
+
+	void setBodyWidget(const GLUIWidgetRef body_widget);
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
@@ -72,21 +94,16 @@ public:
 
 	virtual void setZ(float new_z) override;
 
-	void setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widget);
-
-	void clear(); // Remove all widgets from grid, resize cell_widgets to zero.
-
 	void removeAllContainedWidgetsFromGLUIAndClear() override;
 
-	//float getCellPaddding() const; // in UI coords
+	virtual void eventOccurred(GLUICallbackEvent& /*event*/) override; // From GLUICallbackHandler
 
-	Rect2f getClippedContentRect() const; // Get the rectangle around any non-null widgets in the cells, intersected with the container rectangle (in case of overflow).
+	GLUICallbackHandler* handler; // For close event
 
-	// Set the minimium x pixel value (from left of grid) for the given column
-	void setColumnMinXPx(int column_i, float col_min_x_px);
 private:
-	GLARE_DISABLE_COPY(GLUIGridContainer);
+	GLARE_DISABLE_COPY(GLUIWindow);
 
+	void updateWidgetTransforms();
 	void updateBackgroundOverlayTransform();
 	
 	GLUI* gl_ui;
@@ -94,13 +111,12 @@ private:
 
 	CreateArgs args;
 
-public:
-	Array2D<GLUIWidgetRef> cell_widgets; // (0, 0) is the bottom left cell.
-private:
+	GLUITextViewRef title_text;
+	GLUIButtonRef close_button;
+	GLUIWidgetRef body_widget;
+	
 	OverlayObjectRef background_overlay_ob;
-
-	std::vector<float> col_min_x_px_vals;
 };
 
 
-typedef Reference<GLUIGridContainer> GLUIGridContainerRef;
+typedef Reference<GLUIWindow> GLUIWindowRef;

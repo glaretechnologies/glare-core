@@ -242,11 +242,11 @@ vec3 computeFresnelReflectance(float h_cos_theta, vec3 refl_diffuse_col, float f
 
 void main()
 {
-	vec3 use_normal_ws;
+	vec3 unit_normal_ws; // Will be normalised below before being used.
 	vec2 use_texture_coords = texture_coords;
 	if((MAT_UNIFORM.flags & HAVE_SHADING_NORMALS_FLAG) != 0)
 	{
-		use_normal_ws = normal_ws;
+		unit_normal_ws = normal_ws;
 	}
 	else
 	{
@@ -284,7 +284,7 @@ void main()
 		dp_dx = dFdx(pos_ws);
 		dp_dy = dFdy(pos_ws);
 		N_g = cross(dp_dx, dp_dy);
-		use_normal_ws = N_g;
+		unit_normal_ws = N_g;
 	}
 
 
@@ -292,7 +292,7 @@ void main()
 	vec3 cam_to_pos_ws = pos_ws - mat_common_campos_ws.xyz;
 
 
-	// Note that this code updates use_texture_coords and use_normal_ws.
+	// Note that this code updates use_texture_coords and unit_normal_ws.
 #if DECAL
 	#if NUM_DEPTH_TEXTURES > 0
 	vec3 decal_shadow_tex_coords[NUM_DEPTH_TEXTURES];
@@ -332,7 +332,7 @@ void main()
 				discard;
 		}
 
-		use_normal_ws = src_normal_ws;
+		unit_normal_ws = src_normal_ws;
 		pos_cs.z = -depth; // Update pos_cs (used for shadow mapping)
 
 		#if NUM_DEPTH_TEXTURES > 0
@@ -404,12 +404,12 @@ void main()
 		vec3 norm_map_v = texture(NORMAL_MAP, st).xyz;
 		norm_map_v = norm_map_v * 2.0 - vec3(1.0);
 #if VERT_TANGENTS
-		vec3 bitangent_ws = cross(use_normal_ws, tangent_ws.xyz) * tangent_ws.w; // From GLTF spec
+		vec3 bitangent_ws = cross(unit_normal_ws, tangent_ws.xyz) * tangent_ws.w; // From GLTF spec
 
-		use_normal_ws = normalize(
+		unit_normal_ws = normalize(
 			tangent_ws.xyz   * norm_map_v.x + 
 			bitangent_ws  * norm_map_v.y + 
-			use_normal_ws * norm_map_v.z
+			unit_normal_ws * norm_map_v.z
 		);
 #else
 		vec3 dp_dx = dFdx(pos_ws);
@@ -431,23 +431,25 @@ void main()
 		vec3 dp_ds = dp_dx * dxy_dst[0].x + dp_dy * dxy_dst[0].y;
 		vec3 dp_dt = dp_dx * dxy_dst[1].x + dp_dy * dxy_dst[1].y;
 
-		use_normal_ws = normalize(use_normal_ws); // removeComponentInDir requires a unit direction.
-		dp_ds = normalize(removeComponentInDir(dp_ds, use_normal_ws));
-		dp_dt = normalize(removeComponentInDir(dp_dt, use_normal_ws));
+		unit_normal_ws = normalize(unit_normal_ws); // removeComponentInDir requires a unit direction.
+		dp_ds = normalize(removeComponentInDir(dp_ds, unit_normal_ws));
+		dp_dt = normalize(removeComponentInDir(dp_dt, unit_normal_ws));
 
-		use_normal_ws = normalize(
+		unit_normal_ws = normalize(
 			 dp_ds * norm_map_v.x +
 			-dp_dt * norm_map_v.y +
-			use_normal_ws * norm_map_v.z
+			unit_normal_ws * norm_map_v.z
 		);
 
-		// Sanitise use_normal_ws, we may end up with NaNs from the code above.
-		if(isnan(use_normal_ws.x))
-			use_normal_ws = vec3(0,0,1);
+		// Sanitise unit_normal_ws, we may end up with NaNs from the code above.
+		if(isnan(unit_normal_ws.x))
+			unit_normal_ws = vec3(0,0,1);
 #endif
 	}
+	else
+		unit_normal_ws = normalize(unit_normal_ws);
 
-	// float snow_frac = smoothstep(0.56, 0.6, normalize(use_normal_ws).z);
+	// float snow_frac = smoothstep(0.56, 0.6, normalize(unit_normal_ws).z);
 	// if(pos_ws.z < water_level_z - 3.0)
 	// 	snow_frac = 0.0;
 
@@ -455,11 +457,6 @@ void main()
 	// snow_frac = 0;
 #endif
 
-	
-
-
-
-	vec3 unit_normal_ws = normalize(use_normal_ws);
 
 	if((MAT_UNIFORM.flags & SIMPLE_DOUBLE_SIDED_FLAG) != 0) // If simple double-sided:
 	{
@@ -572,7 +569,7 @@ void main()
 	float rock_weight = 0.0; // Disable any rock for now.
 	//float rock_weight_env = smoothstep(0.2, 0.6, mask.x + fbmMix(detail_map_2_uvs * 0.2) * 0.2);
 	//float rock_height = rock_heightmap_val * rock_weight_env;
-	//float rock_weight = (rock_height > 0.1/*|| normal_ws.z <  0.5*/) ? 1.f : 0.f;
+	//float rock_weight = (rock_height > 0.1/*|| unit_normal_ws.z <  0.5*/) ? 1.f : 0.f;
 
 	//float veg_frac = mask.z > texture(fbm_tex, detail_map_2_uvs).x ? 1.0 : 0.0;
 	// Vegetation as a fraction of (vegetation + sediment)
@@ -943,16 +940,16 @@ void main()
 #if MATERIALISE_EFFECT
 	// box mapping
 	vec2 materialise_coords;
-	if(abs(normal_ws.x) > abs(normal_ws.y))
+	if(abs(unit_normal_ws.x) > abs(unit_normal_ws.y))
 	{
-		if(abs(normal_ws.x) > abs(normal_ws.z)) // |x| > |z| && |x| > |y|
+		if(abs(unit_normal_ws.x) > abs(unit_normal_ws.z)) // |x| > |z| && |x| > |y|
 			materialise_coords = pos_ws.yz;
 		else // |z| >= |x| > |y|:
 			materialise_coords = pos_ws.xy;
 	}
 	else // else |y| >= |x|:
 	{
-		if(abs(normal_ws.y) > abs(normal_ws.z))
+		if(abs(unit_normal_ws.y) > abs(unit_normal_ws.z))
 			materialise_coords = pos_ws.xz;
 		else // |z| >= |y| >= |x|
 			materialise_coords = pos_ws.xy;
@@ -1025,9 +1022,6 @@ void main()
 	float campos_z = pos_ws.z - cam_to_pos_ws.z;
 	if(/*(campos_z < -3.8) && */pos_ws.z < water_level_z)
 	{
-		vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
-		vec3 scattering = vec3(0.4, 0.4, 0.1);
-
 		vec3 src_col = col.xyz; // texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
 
 		//vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
@@ -1039,14 +1033,10 @@ void main()
 		vec3 sun_up = cross(sundir_ws.xyz, sun_right);
 		vec2 hitpos_sunbasis = vec2(dot(pos_ws, sun_right), dot(pos_ws, sun_up));
 
-		float sun_lambert_factor = max(0.0, dot(normal_ws, sundir_ws.xyz));
+		float sun_lambert_factor = max(0.0, dot(unit_normal_ws, sundir_ws.xyz));
 
 		// Distance from water surface to ground, along the sun direction.  Used for computing the caustic effect envelope.
 		float water_to_ground_sun_d = max(0.0, (water_level_z - pos_ws.z) / sundir_ws.z); // TEMP HACK Assuming water surface height
-
-		float cam_to_pos_dist = length(cam_to_pos_ws);
-
-		float total_path_dist = water_to_ground_sun_d + cam_to_pos_dist;
 
 		float caustic_depth_factor = 0.03 + 0.9 * (smoothstep(0.1, 2.0, water_to_ground_sun_d) - 0.8 *smoothstep(2.0, 8.0, water_to_ground_sun_d)); // Caustics should not be visible just under the surface.
 		float caustic_frac = fract(time * 24.0); // Get fraction through frame, assuming 24 fps.
@@ -1066,6 +1056,11 @@ void main()
 		}
 		else // Else if camera is underwater:
 		{
+			vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
+			vec3 scattering = vec3(0.4, 0.4, 0.1);
+
+			float cam_to_pos_dist = length(cam_to_pos_ws);
+
 			// NOTE: this calculation is also in colourForUnderwaterPoint() in water_frag_shader.glsl and should be kept in sync.
 			vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * vec3(0.004, 0.015, 0.03) * 3.0;
 			vec3 exp_optical_depth = exp(extinction * -cam_to_pos_dist);

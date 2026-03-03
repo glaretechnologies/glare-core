@@ -22,7 +22,7 @@ GLUICheckBox::CreateArgs::CreateArgs()
 }
 
 
-GLUICheckBox::GLUICheckBox(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tick_texture_path, const Vec2f& botleft, const Vec2f& dims, const CreateArgs& args_)
+GLUICheckBox::GLUICheckBox(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tick_texture_path, const CreateArgs& args_)
 :	handler(NULL),
 	checked(args_.checked),
 	pressed(false)
@@ -31,8 +31,10 @@ GLUICheckBox::GLUICheckBox(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 	opengl_engine = opengl_engine_;
 	tooltip = args_.tooltip;
 	args = args_;
-	immutable_dims = false;
 
+	sizing_type_x = SizingType_FixedSizePx;
+	sizing_type_y = SizingType_FixedSizePx; 
+	fixed_size = Vec2f(22.f);
 	
 	tick_overlay_ob = new OverlayObject();
 	tick_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -52,10 +54,12 @@ GLUICheckBox::GLUICheckBox(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 
 	opengl_engine->addOverlayObject(box_overlay_ob);
 
+	const Vec2f botleft(0.f);
+	const Vec2f dims(glui->getUIWidthForDevIndepPixelWidths(fixed_size));
 
 	rect = Rect2f(botleft, botleft + dims);
 
-	updateTransforms();
+	updateOverlayTransforms();
 }
 
 
@@ -161,22 +165,37 @@ void GLUICheckBox::doHandleMouseMoved(MouseEvent& mouse_event)
 }
 
 
-void GLUICheckBox::setDims(const Vec2f& new_dims)
+void GLUICheckBox::updateGLTransform()
 {
-	const Vec2f botleft = rect.getMin();
-	rect = Rect2f(botleft, botleft + new_dims);
+	Vec2f dims = this->getDims();
 
-	updateTransforms();
+	if(this->sizing_type_x == SizingType_FixedSizePx)
+		dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
+
+	if(this->sizing_type_y == SizingType_FixedSizePx)
+		dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
+
+	const Vec2f botleft = getRect().getMin();
+	rect = Rect2f(botleft, botleft + dims);
+
+	updateOverlayTransforms();
+}
+
+
+void GLUICheckBox::setPos(const Vec2f& botleft)
+{
+	const Vec2f dims = getDims();
+	this->rect = Rect2f(botleft, botleft + dims);
+
+	updateOverlayTransforms();
 }
 
 
 void GLUICheckBox::setPosAndDims(const Vec2f& botleft, const Vec2f& new_dims)
 {
-	const Vec2f dims = immutable_dims ? rect.getWidths() : new_dims;
+	rect = Rect2f(botleft, botleft + new_dims);
 
-	rect = Rect2f(botleft, botleft + dims);
-
-	updateTransforms();
+	updateOverlayTransforms();
 }
 
 
@@ -233,7 +252,7 @@ void GLUICheckBox::updateColour(const Vec2f mouse_ui_coords)
 }
 
 
-void GLUICheckBox::updateTransforms()
+void GLUICheckBox::updateOverlayTransforms()
 {
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 

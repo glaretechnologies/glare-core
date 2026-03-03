@@ -358,6 +358,12 @@ float GLUI::getUIWidthForDevIndepPixelWidth(float pixel_w)
 }
 
 
+Vec2f GLUI::getUIWidthForDevIndepPixelWidths(Vec2f pixel_w)
+{
+	return Vec2f(getUIWidthForDevIndepPixelWidth(pixel_w.x), getUIWidthForDevIndepPixelWidth(pixel_w.y));
+}
+
+
 // ui_width = 2 * device_pixel_ratio * pixel_w / (float)opengl_engine->getViewPortWidth();
 // pixel_w = ui_width * opengl_engine->getViewPortWidth() / (2 * device_pixel_ratio)
 
