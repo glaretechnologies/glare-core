@@ -352,6 +352,11 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	env_ob->ob_to_world_normal_matrix = Matrix4f::identity();
 	env_ob->materials.resize(1);
 	env_ob->mesh_data = engine.getSphereMeshData();
+
+	fog_settings.layer_0_A = 0;
+	fog_settings.layer_0_B = 1;
+	fog_settings.layer_1_A = 0;
+	fog_settings.layer_1_B = 1;
 }
 
 
@@ -474,6 +479,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_draw_overlay_obs_GPU_time(0),
 	last_bloom_GPU_time(0),
 	last_final_imaging_GPU_time(0),
+	last_fog_post_process_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	last_num_decal_batches_drawn(0),
 	next_program_index(0),
@@ -1334,9 +1340,10 @@ void OpenGLEngine::loadMapsForSunDir()
 
 	const Vec3f sky_av_spec_rad_0(sky_av_spec_rad_data[z_0 * 3 + 0], sky_av_spec_rad_data[z_0 * 3 + 1], sky_av_spec_rad_data[z_0 * 3 + 2]);
 	const Vec3f sky_av_spec_rad_1(sky_av_spec_rad_data[z_1 * 3 + 0], sky_av_spec_rad_data[z_1 * 3 + 1], sky_av_spec_rad_data[z_1 * 3 + 2]);
-	const Vec3f sky_av_spec_rad = sky_av_spec_rad_0 * w0 + sky_av_spec_rad_1 * w1;
+	const Vec3f sky_av_spec_rad_ = sky_av_spec_rad_0 * w0 + sky_av_spec_rad_1 * w1;
 
-	this->sun_and_sky_av_spec_rad = sky_av_spec_rad.toVec4fVector() + this->sun_spec_rad_times_solid_angle / Maths::get4Pi<float>();
+	this->sky_av_spec_rad = sky_av_spec_rad_.toVec4fVector();
+	this->sun_and_sky_av_spec_rad = this->sky_av_spec_rad + this->sun_spec_rad_times_solid_angle / Maths::get4Pi<float>();
 
 
 	const std::string sky_gl_data_dir = data_dir + "/gl_data/sky";
@@ -1408,16 +1415,19 @@ void OpenGLEngine::loadMapsForSunDir()
 
 void OpenGLEngine::setSunDir(const Vec4f& d)
 {
-	this->sun_dir = d;
+	if(d != this->sun_dir)
+	{
+		this->sun_dir = d;
 
-	if(myMax(std::fabs(d[0]), std::fabs(d[1])) < 1.0e-5f)
-		this->sun_phi = 0;
-	else
-		this->sun_phi = std::atan2(d[1], d[0]);
+		if(myMax(std::fabs(d[0]), std::fabs(d[1])) < 1.0e-5f)
+			this->sun_phi = 0;
+		else
+			this->sun_phi = std::atan2(d[1], d[0]);
 
-	this->loaded_maps_for_sun_dir = false; // reload maps
+		this->loaded_maps_for_sun_dir = false; // reload maps
 
-	setEnvMapTransform(Matrix3f::rotationAroundZAxis(sun_phi));
+		setEnvMapTransform(Matrix3f::rotationAroundZAxis(sun_phi));
+	}
 }
 
 
@@ -1659,6 +1669,7 @@ static const int MATERIAL_COMMON_UBO_BINDING_POINT_INDEX = 4;
 static const int LIGHT_DATA_UBO_BINDING_POINT_INDEX = 5; // Just used on Mac
 static const int JOINT_MATRICES_UBO_BINDING_POINT_INDEX = 6;
 static const int OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX = 7;
+static const int FOG_SETTINGS_UBO_BINDING_POINT_INDEX = 8;
 
 static const int LIGHT_DATA_SSBO_BINDING_POINT_INDEX = 0;
 static const int PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX = 1;
@@ -2211,6 +2222,8 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		ob_joint_and_mat_indices_uniform_buf_ob = new UniformBufOb();
 		ob_joint_and_mat_indices_uniform_buf_ob->allocate(sizeof(ObJointAndMatIndicesStruct));
 
+		fog_settings_uniform_buf_ob = new UniformBufOb();
+		fog_settings_uniform_buf_ob->allocate(sizeof(FogGPUSettings));
 
 
 #if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
@@ -2226,6 +2239,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/MATERIAL_COMMON_UBO_BINDING_POINT_INDEX, this->material_common_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/JOINT_MATRICES_UBO_BINDING_POINT_INDEX, this->joint_matrices_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX, this->ob_joint_and_mat_indices_uniform_buf_ob->handle);
+		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/FOG_SETTINGS_UBO_BINDING_POINT_INDEX, this->fog_settings_uniform_buf_ob->handle);
 		
 		if(light_buffer.nonNull())
 		{
@@ -2511,6 +2525,7 @@ void OpenGLEngine::checkCreateProfilingQueries()
 		this->draw_overlays_gpu_timer = new Query();
 		this->bloom_gpu_timer = new Query();
 		this->final_imaging_gpu_timer = new Query();
+		this->fog_post_process_gpu_timer = new Query();
 
 #if EMSCRIPTEN
 		// Chrome/web doesn't support timestamp queries: https://codereview.chromium.org/1800383002
@@ -2770,6 +2785,8 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 
 			bindUniformBlockToProgram(dof_blur_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 		}
+
+		buildFogPostProcessProg(use_shader_dir);
 	}
 
 	//------------------------------------------- Build scatter prog for updating data on GPU -------------------------------------------
@@ -3003,6 +3020,27 @@ void OpenGLEngine::buildDownsizeAndBlurPrograms(const std::string& use_shader_di
 	);
 	addProgram(gaussian_blur_prog);
 	gaussian_blur_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "x_blur");
+}
+
+
+void OpenGLEngine::buildFogPostProcessProg(const std::string& use_shader_dir)
+{
+	fog_post_prog = new OpenGLProgram(
+		"fog_post",
+		new OpenGLShader(use_shader_dir + "/dof_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/fog_frag_shader.glsl",      version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	addProgram(fog_post_prog);
+
+	getUniformLocations(fog_post_prog);
+	setStandardTextureUnitUniformsForProgram(*fog_post_prog);
+
+	fog_post_depth_tex_loc = fog_post_prog->getUniformLocation("depth_tex");   assert(fog_post_depth_tex_loc >= 0);
+
+	bindUniformBlockToProgram(fog_post_prog, "MaterialCommonUniforms", MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+	bindUniformBlockToProgram(fog_post_prog, "FogSettings",	           FOG_SETTINGS_UBO_BINDING_POINT_INDEX);
 }
 
 
@@ -6869,6 +6907,15 @@ void OpenGLEngine::draw()
 			conPrint("Error while reloading downsize and blur progs: " + e.what());
 		}
 
+		try
+		{
+			buildFogPostProcessProg(use_shader_dir);
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading fog prog: " + e.what());
+		}
+
 		// Try and reload draw-aurora shader
 		try
 		{
@@ -7141,6 +7188,7 @@ void OpenGLEngine::draw()
 	common_uniforms.sundir_cs = this->sun_dir_cam_space;
 	common_uniforms.sundir_ws = this->sun_dir;
 	common_uniforms.sun_spec_rad_times_solid_angle = this->sun_spec_rad_times_solid_angle * 1.0e-9f;
+	common_uniforms.sky_av_spec_rad         = this->sky_av_spec_rad        * 1.0e-9f;
 	common_uniforms.sun_and_sky_av_spec_rad = this->sun_and_sky_av_spec_rad * 1.0e-9f;
 	common_uniforms.air_scattering_coeffs = this->air_scattering_coeffs;
 	common_uniforms.mat_common_campos_ws = campos_ws;
@@ -7338,6 +7386,17 @@ void OpenGLEngine::draw()
 			);
 			post_dof_framebuffer = new FrameBuffer();
 			post_dof_framebuffer->attachTexture(*post_dof_colour_texture, GL_COLOR_ATTACHMENT0);
+
+			fog_colour_texture = new OpenGLTexture(xres, yres, this,
+				ArrayRef<uint8>(), // data
+				col_buffer_format,
+				OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Clamp,
+				false, // has_mipmaps
+				/*MSAA_samples=*/1
+			);
+			fog_framebuffer = new FrameBuffer();
+			fog_framebuffer->attachTexture(*fog_colour_texture, GL_COLOR_ATTACHMENT0);
 
 
 			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
@@ -7549,7 +7608,7 @@ void OpenGLEngine::draw()
 
 		// Set shadow_texture_matrix in MaterialCommonUniforms
 		for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
-			common_uniforms.shadow_texture_matrix[i] = tex_matrices[i];
+			common_uniforms.frag_shadow_texture_matrix[i] = tex_matrices[i];
 		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
 
@@ -7743,10 +7802,11 @@ void OpenGLEngine::draw()
 
 
 		const bool do_DOF_blur = current_scene->dof_blur_strength > 0;
+		const bool do_fog      = (current_scene->fog_settings.layer_0_A > 0) || (current_scene->fog_settings.layer_1_A > 0);
 
 		// Copy from renderbuffer to our framebuffer copy with textures bound (main_render_copy_framebuffer), so we can access the main buffer as a colour texture.
-		blitFrameBuffer(/*src_framebuffer=*/*main_render_framebuffer, /*dest_framebuffer=*/*main_render_copy_framebuffer, 
-			/*num_buffers_to_copy=*/1, /*copy_buf0_colour=*/true, /*copy_buf0_depth=*/do_DOF_blur); // We need the depth buffer only when doing DOF blur.
+		blitFrameBuffer(/*src_framebuffer=*/*main_render_framebuffer, /*dest_framebuffer=*/*main_render_copy_framebuffer,
+			/*num_buffers_to_copy=*/1, /*copy_buf0_colour=*/true, /*copy_buf0_depth=*/do_DOF_blur || do_fog); // We need the depth buffer when doing DOF blur or fog.
 
 		/*
 		This is the case where we do both order-independent transparency (OIT) and DOF blur:
@@ -7784,6 +7844,14 @@ void OpenGLEngine::draw()
 			doOITCompositing();
 
 			current_colour_tex_input = pre_dof_colour_texture.ptr(); // doOITCompositing writes to pre_dof_colour_texture
+		}
+
+		//================= Do fog post-process =================
+		if(do_fog)
+		{
+			doFogPostProcess(current_colour_tex_input, view_matrix, proj_matrix);
+
+			current_colour_tex_input = fog_colour_texture.ptr(); // doFogPostProcess() writes to fog_colour_texture
 		}
 
 		//================= Do DOF blur =================
@@ -7863,6 +7931,9 @@ void OpenGLEngine::draw()
 
 		if(final_imaging_gpu_timer->waitingForResult() && final_imaging_gpu_timer->checkResultAvailable())
 			last_final_imaging_GPU_time = final_imaging_gpu_timer->getTimeElapsed();
+
+		if(fog_post_process_gpu_timer->waitingForResult() && fog_post_process_gpu_timer->checkResultAvailable())
+			last_fog_post_process_GPU_time = fog_post_process_gpu_timer->getTimeElapsed();
 	}
 
 	if(current_scene->collect_stats)
@@ -7973,7 +8044,7 @@ void OpenGLEngine::doOITCompositing()
 
 
 // Input: colour_tex_input
-// Output: post_dof_colour_texture (post_dof_colour_texture)
+// Output: post_dof_framebuffer (post_dof_colour_texture)
 void OpenGLEngine::doDOFBlur(OpenGLTexture* colour_tex_input)
 {
 	DebugGroup debug_group("doDOFBlur()");
@@ -8005,6 +8076,58 @@ void OpenGLEngine::doDOFBlur(OpenGLTexture* colour_tex_input)
 	// Unbind textures from texture units.  Otherwise we get errors in Chrome: "GL_INVALID_OPERATION: Feedback loop formed between Framebuffer and active Texture."
 	unbindTextureFromTextureUnit(*colour_tex_input,        /*texture_unit_index=*/0);
 	unbindTextureFromTextureUnit(*main_depth_copy_texture, /*texture_unit_index=*/1);
+}
+
+
+// Input: colour_tex_input
+// Output: fog_colour_texture
+void OpenGLEngine::doFogPostProcess(OpenGLTexture* colour_tex_input, const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	DebugGroup debug_group("doFogPostProcess()");
+	TracyGpuZone("doFogPostProcess");
+
+	if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && fog_post_process_gpu_timer->isIdle())
+		fog_post_process_gpu_timer->beginTimerQuery();
+
+	//----------------------------- Setup -----------------------------
+	// Update fog_settings uniform buffer.
+	FogGPUSettings fog_settings;
+	fog_settings.layer_0_A = current_scene->fog_settings.layer_0_A;
+	fog_settings.layer_0_B = current_scene->fog_settings.layer_0_B;
+	fog_settings.layer_1_A = current_scene->fog_settings.layer_1_A;
+	fog_settings.layer_1_B = current_scene->fog_settings.layer_1_B;
+	this->fog_settings_uniform_buf_ob->updateData(/*dest offset=*/0, &fog_settings, sizeof(FogGPUSettings));
+
+
+	glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+	glDisable(GL_DEPTH_TEST); // Don't depth test.
+
+	fog_framebuffer->bindForDrawing();
+	fog_post_prog->useProgram();
+	bindMeshData(*unit_quad_meshdata);
+
+	// Rebind some textures to texture units in case some other pass overwrote them.
+	bindStandardShadowMappingDepthTextures();
+	bindTextureToTextureUnit(*this->blue_noise_tex,    /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
+
+	bindTextureUnitToSampler(*colour_tex_input,        /*texture_unit_index=*/MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX, fog_post_prog->albedo_texture_loc);
+	bindTextureUnitToSampler(*main_depth_copy_texture, /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX,  fog_post_depth_tex_loc);
+
+	//----------------------------- Draw the quad -----------------------------
+	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), unit_quad_meshdata->vbo_handle.base_vertex);
+
+	//----------------------------- Cleanup -----------------------------
+	OpenGLProgram::useNoPrograms();
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
+
+	// Unbind textures from texture units to avoid feedback-loop errors.
+	unbindTextureFromTextureUnit(*colour_tex_input,        /*texture_unit_index=*/MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX);
+	unbindTextureFromTextureUnit(*main_depth_copy_texture, /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+
+	if(query_profiling_enabled && fog_post_process_gpu_timer->isRunning())
+		fog_post_process_gpu_timer->endTimerQuery();
 }
 
 
@@ -10589,13 +10712,15 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 
 				bindTextureUnitToSampler(*opengl_mat.albedo_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location);
 			}
+			else
+				bindTextureUnitToSampler(*this->dummy_black_tex, /*texture_unit_index=*/0, /*sampler_uniform_location=*/overlay_diffuse_tex_location); // Mac complains if no texture is bound, so bind dummy tex.
 				
 			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)mesh_data.getBatch0IndicesTotalBufferOffset(), mesh_data.vbo_handle.base_vertex);
-
-			if(opengl_mat.albedo_texture)
-				unbindTextureFromTextureUnit(*opengl_mat.albedo_texture, /*texture_unit_index=*/0);
 		}
 	}
+
+	unbindTextureFromTextureUnit(GL_TEXTURE_2D, /*texture_unit_index=*/0);
+
 
 	flushDrawCommandsAndUnbindPrograms();
 
@@ -12751,6 +12876,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "decal copy buffers: " + doubleToStringNSigFigs(last_decal_copy_buffers_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "bloom             : " + doubleToStringNSigFigs(last_bloom_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "fog post-process  : " + doubleToStringNSigFigs(last_fog_post_process_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "final imaging     : " + doubleToStringNSigFigs(last_final_imaging_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "overlay obs       : " + doubleToStringNSigFigs(last_draw_overlay_obs_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "total             : " + doubleToStringNSigFigs(last_total_draw_GPU_time * 1.0e3, 4) + " ms\n";

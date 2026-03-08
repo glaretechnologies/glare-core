@@ -8,6 +8,7 @@ layout (std140) uniform MaterialCommonUniforms
 	vec4 sundir_cs; // Dir to sun.
 	vec4 sundir_ws; // Dir to sun.
 	vec4 sun_spec_rad_times_solid_angle;
+	vec4 sky_av_spec_rad;
 	vec4 sun_and_sky_av_spec_rad;
 	vec4 air_scattering_coeffs;
 	vec4 mat_common_campos_ws;
@@ -115,7 +116,7 @@ struct MaterialData
 };
 
 
-// Should match LightData struct in OpenGLEngine.h
+// Should match LightGPUData struct in OpenGLEngine.h
 struct LightData
 {
 	vec4 pos;

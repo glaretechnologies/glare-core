@@ -536,6 +536,16 @@ struct GLLight : public ThreadSafeRefCounted
 typedef Reference<GLLight> GLLightRef;
 
 
+// Should match FogSettings in fog_frag_shader.glsl
+struct FogGPUSettings
+{
+	float layer_0_A;
+	float layer_0_B;
+	float layer_1_A;
+	float layer_1_B;
+};
+
+
 // The OpenGLEngine contains one or more OpenGLScenes.
 // An OpenGLScene is a set of objects, plus a camera transform, and associated information.
 // The current scene being rendered by the OpenGLEngine can be set with OpenGLEngine::setCurrentScene().
@@ -589,6 +599,8 @@ public:
 
 	float dof_blur_strength; // Default = 0.
 	float dof_blur_focus_distance; // Default = 1.
+
+	FogGPUSettings fog_settings;
 
 	float exposure_factor; // Default = 1
 
@@ -789,6 +801,7 @@ struct MaterialCommonUniforms
 	Vec4f sundir_cs;
 	Vec4f sundir_ws;
 	Vec4f sun_spec_rad_times_solid_angle; // spectral rad * 1.0e-9 * solid angle
+	Vec4f sky_av_spec_rad;         // spectral rad * 1.0e-9
 	Vec4f sun_and_sky_av_spec_rad; // spectral rad * 1.0e-9
 	Vec4f air_scattering_coeffs;
 	Vec4f mat_common_campos_ws;
@@ -806,7 +819,7 @@ struct MaterialCommonUniforms
 	float padding_a1;
 	float padding_a2;
 
-	Matrix4f shadow_texture_matrix[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
+	Matrix4f frag_shadow_texture_matrix[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
 };
 
 
@@ -1251,6 +1264,7 @@ private:
 	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
 	OpenGLProgramRef buildEnvProgram(const std::string& use_shader_dir);
 	void buildDownsizeAndBlurPrograms(const std::string& use_shader_dir);
+	void buildFogPostProcessProg(const std::string& use_shader_dir);
 	OpenGLProgramRef buildAuroraProgram(const std::string& use_shader_dir);
 	OpenGLProgramRef buildComputeSSAOProg(const std::string& use_shader_dir);
 	OpenGLProgramRef buildBlurSSAOProg(const std::string& use_shader_dir);
@@ -1289,6 +1303,7 @@ private:
 	void renderToShadowMapDepthBuffer();
 	void doOITCompositing();
 	void doDOFBlur(OpenGLTexture* colour_tex_input);
+	void doFogPostProcess(OpenGLTexture* colour_tex_input, const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void doBloomPostProcess(OpenGLTexture* colour_tex_input);
 	void doFinalImaging(OpenGLTexture* colour_tex_input);
 	void drawUIOverlayObjects(const Matrix4f& reverse_z_matrix);
@@ -1318,6 +1333,7 @@ private:
 	Vec4f sun_dir; // Dir to sun.
 	Vec4f sun_dir_cam_space;
 	Vec4f sun_spec_rad_times_solid_angle;
+	Vec4f sky_av_spec_rad;
 	Vec4f sun_and_sky_av_spec_rad;
 	Vec4f air_scattering_coeffs;
 	float sun_phi;
@@ -1421,6 +1437,12 @@ private:
 	int dof_blur_depth_tex_location;
 	int dof_blur_strength_location;
 	int dof_blur_focus_distance_location;
+
+	Reference<OpenGLProgram> fog_post_prog;
+	int fog_post_depth_tex_loc = -1;
+
+	Reference<FrameBuffer>   fog_framebuffer;
+	OpenGLTextureRef         fog_colour_texture;
 
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
@@ -1594,6 +1616,7 @@ private:
 	Reference<Query> draw_overlays_gpu_timer;
 	Reference<Query> bloom_gpu_timer;
 	Reference<Query> final_imaging_gpu_timer;
+	Reference<Query> fog_post_process_gpu_timer;
 	Reference<BufferedTimeElapsedQuery> buffered_total_timer;
 	
 	uint32 last_num_prog_changes;
@@ -1624,6 +1647,7 @@ private:
 	double last_draw_overlay_obs_GPU_time;
 	double last_bloom_GPU_time;
 	double last_final_imaging_GPU_time;
+	double last_fog_post_process_GPU_time;
 
 	uint32 last_num_animated_obs_processed;
 
@@ -1660,6 +1684,7 @@ private:
 	UniformBufObRef per_object_vert_uniform_buf_ob;
 	UniformBufObRef joint_matrices_buf_ob;
 	UniformBufObRef ob_joint_and_mat_indices_uniform_buf_ob;
+	UniformBufObRef fog_settings_uniform_buf_ob;
 
 	// Some temporary vectors:
 	js::Vector<Matrix4f, 16> temp_matrices;
