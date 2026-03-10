@@ -431,7 +431,7 @@ void main()
 	{
 		final_trace_dist_ss = max_len;
 
-		vec3 reflected_dir_ws = (transpose(frag_view_matrix) * vec4(reflected_dir, 0.0)).xyz; // NOTE: transpose could be very slow
+		vec3 reflected_dir_ws = (vec4(reflected_dir, 0.0) * frag_view_matrix).xyz; // Right multiply by matrix which is equivalent to left multiplying by transpose matrix.
 
 		// Look up env map for reflected dir
 		int map_lower = int(final_roughness * 6.9999);
