@@ -228,7 +228,7 @@ void main()
 {
 	vec2 use_texture_coords = vec2(0, 0);
 
-	vec3 frag_to_cam = normalize(-pos_cs);
+	//vec3 frag_to_cam = normalize(-pos_cs);
 
 	//vec3 sunrefl_h = normalize(frag_to_cam + sundir_cs.xyz);
 	//float sunrefl_h_cos_theta = abs(dot(sunrefl_h, unit_normal_cs));
