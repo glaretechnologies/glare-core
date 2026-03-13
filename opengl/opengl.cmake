@@ -168,6 +168,7 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/vert_utils.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/frag_utils.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/draw_aurora_tex_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/draw_aurora_tex_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/fog_frag_shader.glsl
 )
 
 
