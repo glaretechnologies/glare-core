@@ -104,6 +104,7 @@ struct ProgramKey
 		ProgramName_overlay,
 		ProgramName_OIT_composite,
 		ProgramName_dof_blur,
+		ProgramName_fog_post,
 		ProgramName_env,
 		ProgramName_draw_aurora_tex,
 		ProgramName_compute_ssao,

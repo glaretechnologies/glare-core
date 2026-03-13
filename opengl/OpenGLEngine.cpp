@@ -3025,10 +3025,11 @@ void OpenGLEngine::buildDownsizeAndBlurPrograms(const std::string& use_shader_di
 
 void OpenGLEngine::buildFogPostProcessProg(const std::string& use_shader_dir)
 {
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_fog_post, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
 	fog_post_prog = new OpenGLProgram(
 		"fog_post",
-		new OpenGLShader(use_shader_dir + "/dof_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/fog_frag_shader.glsl",      version_directive, preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		new OpenGLShader(use_shader_dir + "/dof_blur_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(use_shader_dir + "/fog_frag_shader.glsl",      version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
