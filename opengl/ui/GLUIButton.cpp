@@ -83,6 +83,16 @@ GLUIButton::~GLUIButton()
 }
 
 
+void GLUIButton::setTexture(const std::string& tex_path)
+{
+	TextureParams tex_params;
+	tex_params.allow_compression = false;
+
+	if(overlay_ob)
+		overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, tex_params);
+}
+
+
 void GLUIButton::handleMousePress(MouseEvent& event)
 {
 	if(!overlay_ob->draw) // If not visible:

@@ -132,7 +132,7 @@ private:
 
 	Vec2f last_mouse_ui_coords;
 
-	std::vector<GLUIWidget*> temp_widgets;
+	std::vector<GLUIWidgetRef> temp_widgets;
 };
 
 

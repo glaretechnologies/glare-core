@@ -29,7 +29,7 @@ public:
 	inline void setAllElems(const Field& newval);
 
 	void resize(size_t newdim1, size_t newdim2); // Resize, copying any existing data to new data array.
-	void resizeNoCopy(size_t newdim1, size_t newdim2); // Resize without copying exising data.
+	void resizeNoCopy(size_t newdim1, size_t newdim2); // Resize without copying existing data.
 
 	inline size_t getWidth()  const { return dim1; }
 	inline size_t getHeight() const { return dim2; }

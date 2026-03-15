@@ -125,7 +125,7 @@ float GLUI::OpenGLYScaleForUIYScale(float y_scale)
 // Sorts objects into ascending z order
 struct GLUIWidgetZComparator
 {
-	inline bool operator() (const GLUIWidget* a, const GLUIWidget* b) const
+	inline bool operator() (const GLUIWidgetRef& a, const GLUIWidgetRef b) const
 	{
 		return a->m_z < b->m_z;
 	}
@@ -133,7 +133,7 @@ struct GLUIWidgetZComparator
 
 
 // Get list of widgets whose rectangle contains ui_coords, sorted into ascending widget z order (e.g. near to far)
-static void getSortedWidgetsAtEventPos(const std::set<GLUIWidgetRef>& widgets, const Vec2f ui_coords, std::vector<GLUIWidget*>& temp_widgets_out)
+static void getSortedWidgetsAtEventPos(const std::set<GLUIWidgetRef>& widgets, const Vec2f ui_coords, std::vector<GLUIWidgetRef>& temp_widgets_out)
 {
 	temp_widgets_out.clear();
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
@@ -164,6 +164,7 @@ void GLUI::handleMousePress(MouseEvent& event)
 			return;
 		}
 	}
+	temp_widgets.clear();
 
 	// No widget accepted the click event.  Remove keyboard focus from any widgets that had it.
 	setKeyboardFocusWidget(NULL);
@@ -193,6 +194,7 @@ void GLUI::handleMouseDoubleClick(MouseEvent& event)
 		if(event.accepted)
 			return;
 	}
+	temp_widgets.clear();
 }
 
 
@@ -207,6 +209,7 @@ bool GLUI::handleMouseWheelEvent(MouseWheelEvent& event)
 		if(event.accepted)
 			return true;
 	}
+	temp_widgets.clear();
 
 	return false;
 }

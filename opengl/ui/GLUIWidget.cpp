@@ -13,7 +13,8 @@ GLUIWidget::GLUIWidget()
 :	m_z(0.f),
 	sizing_type_x(SizingType_Expanding),
 	sizing_type_y(SizingType_Expanding),
-	fixed_size(100, 100)
+	fixed_size(100, 100),
+	m_parent(nullptr)
 {
 }
 

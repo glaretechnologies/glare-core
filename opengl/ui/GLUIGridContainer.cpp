@@ -44,6 +44,10 @@ GLUIGridContainer::GLUIGridContainer(GLUI& glui, Reference<OpenGLEngine>& opengl
 
 GLUIGridContainer::~GLUIGridContainer()
 {
+	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
+	for(size_t x=0; x<cell_widgets.getWidth(); ++x)	
+		checkRemoveAndDeleteWidget(gl_ui, cell_widgets.elem(x, y));
+
 	if(background_overlay_ob)
 		opengl_engine->removeOverlayObject(background_overlay_ob);
 }
@@ -156,6 +160,7 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 	}
 
 	std::vector<float> row_heights(cell_widgets.getHeight());
+	float total_height = 0;
 
 	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
 	{
@@ -170,15 +175,17 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 			}
 		}
 		row_heights[y] = h;
+		total_height += h;
 	}
 		
-	// Now iterate over all cells and set positions
-	float py = 0;
+	// Now iterate over all cells and set positions (from top row to bottom row)
+	float py = total_height;
 	float total_w = 0;
 	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
 	{
 		const float row_height = row_heights[y];
-		
+		const float row_bot_y = py - row_height;
+
 		float px = 0;
 		for(size_t x=0; x<cell_widgets.getWidth(); ++x)	
 		{
@@ -190,10 +197,11 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 			if(widget)
 			{
 				const float y_space = myMax(0.f, row_height - cell_y_padding * 2 - widget->getDims().y); // Compute space around widget to vertically center
+				const Vec2f widget_bot_left = this->rect.getMin() + Vec2f(px, row_bot_y + y_space*0.5f) + Vec2f(cell_x_padding, cell_y_padding);
 				if(widget->sizing_type_x == SizingType_Expanding) // NOTE: bit of a hack, just checking x sizing type and not y.
-					widget->setPosAndDims(/*botleft=*/this->rect.getMin() + Vec2f(px, py + y_space*0.5f) + Vec2f(cell_x_padding, cell_y_padding), /*dims=*/Vec2f(column_width, row_height) - Vec2f(cell_x_padding * 2, cell_y_padding) * 2);
+					widget->setPosAndDims(/*botleft=*/widget_bot_left, /*dims=*/Vec2f(column_width, row_height) - Vec2f(cell_x_padding * 2, cell_y_padding) * 2);
 				else
-					widget->setPos(/*botleft=*/this->rect.getMin() + Vec2f(px, py + y_space*0.5f) + Vec2f(cell_x_padding, cell_y_padding));
+					widget->setPos(/*botleft=*/widget_bot_left);
 
 				widget->setClipRegion(this->rect);
 			}
@@ -203,17 +211,15 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 
 		total_w = px;
 
-		py += row_height;
+		py -= row_height;
 	}
-
-	const float total_h = py;
 
 	// Update dimensions
 	Vec2 dims = this->getDims();
 	if(sizing_type_x == GLUIWidget::SizingType_Expanding)
 		dims.x = total_w;
 	if(sizing_type_y == GLUIWidget::SizingType_Expanding)
-		dims.y = total_h;
+		dims.y = total_height;
 
 	const Vec2f botleft = this->getRect().getMin();
 	this->rect = Rect2f(botleft, botleft + dims);
@@ -309,30 +315,43 @@ void GLUIGridContainer::setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widg
 
 	gl_ui->addWidget(widget); // Add widget to GL UI if not already added.
 
+	if(cell_widgets.elem(cell_x, cell_y))
+		cell_widgets.elem(cell_x, cell_y)->setParent(nullptr);
+
 	cell_widgets.elem(cell_x, cell_y) = widget;
+
+	widget->setParent(this);
 
 	widget->setZ(this->getZ() - 0.01f); // Position in front of the container.
 }
 
 
-void GLUIGridContainer::clear()
+void GLUIGridContainer::addWidgetOnNewRow(GLUIWidgetRef widget)
 {
-	cell_widgets.resize(0, 0);
+	setCellWidget(0, (int)cell_widgets.getHeight(), widget);
 }
 
 
-void GLUIGridContainer::removeAllContainedWidgetsFromGLUIAndClear()
+void GLUIGridContainer::clear()
 {
 	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
 	for(size_t x=0; x<cell_widgets.getWidth(); ++x)	
 	{
-		if(cell_widgets.elem(x, y))
-			cell_widgets.elem(x, y)->removeAllContainedWidgetsFromGLUIAndClear();
-
-		checkRemoveAndDeleteWidget(gl_ui, cell_widgets.elem(x, y));
+		GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
+		if(widget)
+			widget->setParent(nullptr);
 	}
 
 	cell_widgets.resize(0, 0);
+}
+
+
+void GLUIGridContainer::containedWidgetChangedSize()
+{
+	if(m_parent)
+		m_parent->containedWidgetChangedSize();
+	else
+		recomputeLayout();
 }
 
 

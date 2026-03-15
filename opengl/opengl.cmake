@@ -126,6 +126,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICheckBox.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICheckBox.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWindow.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWindow.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICollapsableGroupBox.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICollapsableGroupBox.h
 )
 
 

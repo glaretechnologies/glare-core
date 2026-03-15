@@ -1,6 +1,6 @@
 /*=====================================================================
-GLUIWindow.h
-------------
+GLUICollapsableGroupBox.h
+-------------------------
 Copyright Glare Technologies Limited 2026 -
 =====================================================================*/
 #pragma once
@@ -25,11 +25,15 @@ class TextInputEvent;
 
 
 /*=====================================================================
-GLUIWindow
-----------
+GLUICollapsableGroupBox
+-----------------------
+A widget with a title and collapse/expand button.
+Has a single contained body widget, as well as a background overlay object (flat colour rectangle).
+
+Expanded:
 
 -----------------------------------------
-|         TitleTextWidget             X |
+| v       TitleTextWidget               |
 | ------------------------------------- |
 | |                                   | | 
 | |                                   | |
@@ -42,10 +46,14 @@ GLUIWindow
 | |___________________________________| |
 |_______________________________________|
 
-A widget with a title and close button.
-Has a single contained body widget, as well as a background overlay object (flat colour rectangle).
+Collapsed:
+
+-----------------------------------------
+| >       TitleTextWidget               |
+-----------------------------------------
+
 =====================================================================*/
-class GLUIWindow final : public GLUIWidget, public GLUICallbackHandler
+class GLUICollapsableGroupBox final : public GLUIWidget, public GLUICallbackHandler
 {
 public:
 	struct CreateArgs
@@ -64,8 +72,8 @@ public:
 		bool background_consumes_events; // Should the background around the body widget consume click events etc.?  Defaults to false.
 	};
 
-	GLUIWindow(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
-	virtual ~GLUIWindow();
+	GLUICollapsableGroupBox(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
+	virtual ~GLUICollapsableGroupBox();
 
 	void setBodyWidget(const GLUIWidgetRef body_widget);
 
@@ -96,13 +104,12 @@ public:
 
 	virtual void containedWidgetChangedSize() override; // For containers - a widget in the container has changed size (e.g. group box collapsed or expanded), so a relayout is probably needed.
 
-
 	virtual void eventOccurred(GLUICallbackEvent& /*event*/) override; // From GLUICallbackHandler
 
 	GLUICallbackHandler* handler; // For close event
 
 private:
-	GLARE_DISABLE_COPY(GLUIWindow);
+	GLARE_DISABLE_COPY(GLUICollapsableGroupBox);
 
 	void updateWidgetTransforms();
 	void updateBackgroundOverlayTransform();
@@ -113,11 +120,13 @@ private:
 	CreateArgs args;
 
 	GLUITextViewRef title_text;
-	GLUIButtonRef close_button;
+	GLUIButtonRef collapse_expand_button;
 	GLUIWidgetRef body_widget;
 	
 	OverlayObjectRef background_overlay_ob;
+
+	bool expanded;
 };
 
 
-typedef Reference<GLUIWindow> GLUIWindowRef;
+typedef Reference<GLUICollapsableGroupBox> GLUICollapsableGroupBoxRef;

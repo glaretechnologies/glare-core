@@ -60,13 +60,13 @@ public:
 	// Called when e.g. the viewport changes size
 	virtual void updateGLTransform();
 
-	virtual void recomputeLayout() {} // For grid containers - call recursively on contained widgets and then place each contained widget at final location.
+	virtual void recomputeLayout() {} // For containers - call recursively on contained widgets and then place each contained widget at final location.
 
 	virtual void think(GLUI& /*glui*/) {}
 
 	virtual bool acceptsTextInput() { return false; }
 
-	virtual void removeAllContainedWidgetsFromGLUIAndClear() {}
+	virtual void containedWidgetChangedSize() {} // For containers - a widget in the container has changed size (e.g. group box collapsed or expanded), so a relayout is probably needed.
 
 	inline Rect2f getRect() const { return rect; }
 	inline Vec2f getDims() const { return rect.getWidths(); }
@@ -78,6 +78,9 @@ public:
 	void setFixedHeightPx(float y_px, GLUI& gl_ui);
 	void setFixedDimsPx(const Vec2f& dims_px, GLUI& gl_ui);
 	void setFixedDimsUICoords(const Vec2f& dims_px) { sizing_type_x = SizingType_FixedSizeUICoords; sizing_type_y = SizingType_FixedSizeUICoords; fixed_size = dims_px; }
+
+	void setParent(GLUIWidget* parent_) { m_parent = parent_; }
+	GLUIWidget* getParent() const { return m_parent; }
 
 	std::string client_data;
 
@@ -102,6 +105,9 @@ public:
 	std::string debug_name;
 private:
 	GLARE_DISABLE_COPY(GLUIWidget);
+
+protected:
+	GLUIWidget* m_parent; // so containers can be re-laid out when a widget size changes, via containedWidgetChangedSize() calls to parents.
 };
 
 

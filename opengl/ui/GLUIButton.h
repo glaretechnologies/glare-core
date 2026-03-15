@@ -53,6 +53,8 @@ public:
 	GLUIButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const CreateArgs& args);
 	~GLUIButton();
 
+	void setTexture(const std::string& tex_path);
+
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
