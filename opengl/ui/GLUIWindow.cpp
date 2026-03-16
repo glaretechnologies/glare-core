@@ -90,6 +90,8 @@ void GLUIWindow::setBodyWidget(const GLUIWidgetRef body_widget_)
 	body_widget->setParent(this);
 	body_widget->setZ(m_z - 0.01f);
 
+	gl_ui->addWidget(body_widget); // Add body_widget to GL UI if not already added.
+
 	updateWidgetTransforms();
 }
 
