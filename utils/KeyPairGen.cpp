@@ -114,7 +114,7 @@ X509* createSelfSignedCert(EVP_PKEY *pkey, int days,
 }
 
 
-void KeyPairGen::generateRSAKeyPairAndX509Cert(const std::string& priv_key_path, const std::string& public_key_path, const std::string& cert_file_path)
+void generateRSAKeyPairAndX509Cert(const std::string& priv_key_path, const std::string& public_key_path, const std::string& cert_file_path)
 {
 	//------------------- Create RSA keypair -------------------
 	const int KEY_BITS = 2048;
