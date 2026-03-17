@@ -44,7 +44,7 @@ public:
 
 	size_t readSomeBytesChecked(MutableArrayRef<uint8> buf, size_t buf_index, size_t max_num_bytes);
 
-	virtual void setNoDelayEnabled(bool enabled) = 0; // NoDelay option is off by default.
+	virtual void setNoDelayEnabled(bool enabled) = 0; // NoDelay option is on by default.
 
 	// Enable TCP Keep-alive, and set the period between keep-alive messages to 'period' seconds.
 	virtual void enableTCPKeepAlive(float period) = 0;

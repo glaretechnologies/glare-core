@@ -42,9 +42,10 @@ public:
 	virtual void startGracefulShutdown() override;
 
 
-	virtual void setNoDelayEnabled(bool enabled) override {} // NoDelay option is off by default.
+	virtual void setNoDelayEnabled(bool enabled) override {} // NoDelay option is on by default.
 	virtual void enableTCPKeepAlive(float period) override {}
 	virtual void setAddressReuseEnabled(bool enabled) override {}
+	virtual void setTimeout(double timeout_s) override {}
 
 	virtual IPAddress getOtherEndIPAddress() const override { return IPAddress(); }
 	virtual int getOtherEndPort() const override { return 0; }
