@@ -1163,25 +1163,25 @@ void AnimationData::loadAndRetargetAnim(const AnimationData& other)
 			{
 				AnimationNodeData& old_node = nodes[i];
 				if(old_node.name == "LeftShoulder")
-					old_node.rot = old_node.rot * Quatf(-0.098683, -0.000554, 0.008488, 0.995083);
+					old_node.rot = old_node.rot * Quatf(-0.098683f, -0.000554f, 0.008488f, 0.995083f);
 				else if(old_node.name == "LeftArm")
-					old_node.rot = old_node.rot * Quatf(-0.407336, -0.014443, 0.046998, 0.911954);
+					old_node.rot = old_node.rot * Quatf(-0.407336f, -0.014443f, 0.046998f, 0.911954f);
 				else if(old_node.name == "LeftForeArm")
-					old_node.rot = old_node.rot * Quatf(0.054907, 0, -0.219231, 0.974127);
+					old_node.rot = old_node.rot * Quatf(0.054907f, 0, -0.219231f, 0.974127f);
 				else if(old_node.name == "LeftHand")
-					old_node.rot = old_node.rot * Quatf(-0.033638, 0.065736, -0.033287, 0.996714);
+					old_node.rot = old_node.rot * Quatf(-0.033638f, 0.065736f, -0.033287f, 0.996714f);
 				else if(old_node.name == "LeftUpLeg")
-					old_node.rot = old_node.rot * Quatf(0.011419, 0.000023, -0.031525, 0.999438);
+					old_node.rot = old_node.rot * Quatf(0.011419f, 0.000023f, -0.031525f, 0.999438f);
 				else if(old_node.name == "RightShoulder")
-					old_node.rot = old_node.rot * Quatf(-0.098677, 0.000554, -0.008487, 0.995083);
+					old_node.rot = old_node.rot * Quatf(-0.098677f, 0.000554f, -0.008487f, 0.995083f);
 				else if(old_node.name == "RightArm")
-					old_node.rot = old_node.rot * Quatf(-0.407333, 0.014444, -0.046999, 0.911955);
+					old_node.rot = old_node.rot * Quatf(-0.407333f, 0.014444f, -0.046999f, 0.911955f);
 				else if(old_node.name == "RightForeArm")
-					old_node.rot = old_node.rot * Quatf(0.054904, 0, 0.219231, 0.974127);
+					old_node.rot = old_node.rot * Quatf(0.054904f, 0, 0.219231f, 0.974127f);
 				else if(old_node.name == "RightHand")
-					old_node.rot = old_node.rot * Quatf(-0.033641, -0.065742, 0.033288, 0.996714);
+					old_node.rot = old_node.rot * Quatf(-0.033641f, -0.065742f, 0.033288f, 0.996714f);
 				else if(old_node.name == "RightUpLeg")
-					old_node.rot = old_node.rot * Quatf(0.011416, -0.000016, 0.03153, 0.999438);
+					old_node.rot = old_node.rot * Quatf(0.011416f, -0.000016f, 0.03153f, 0.999438f);
 			}
 		}
 	}

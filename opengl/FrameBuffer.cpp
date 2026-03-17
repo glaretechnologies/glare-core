@@ -196,7 +196,7 @@ bool FrameBuffer::isComplete()
 }
 
 
-void FrameBuffer::discardContents(ArrayRef<GLenum> attachments)
+void FrameBuffer::discardContents([[maybe_unused]] ArrayRef<GLenum> attachments)
 {
 #if EMSCRIPTEN
 	bindForDrawing(); // Bind this frame buffer

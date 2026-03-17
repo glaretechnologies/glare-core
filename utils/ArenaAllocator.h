@@ -147,7 +147,7 @@ void* ArenaAllocator::alloc(size_t size, size_t alignment)
 }
 
 
-void ArenaAllocator::free(void* ptr)
+void ArenaAllocator::free([[maybe_unused]] void* ptr)
 {
 #if CHECK_ALLOCATOR_USAGE
 	doCheckUsageOnFree(ptr);
