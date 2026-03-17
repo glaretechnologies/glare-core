@@ -7727,7 +7727,7 @@ void OpenGLEngine::draw()
 
 #if EMSCRIPTEN
 			// Suppress 'drawElementsInstanced: Tex image TEXTURE_2D level 0 is incurring lazy initialization.' WebGL warning by passing some initial texture data.
-			js::Vector<uint8, 16> temp_data((w / 2) * (h / 2) * /*num components=*/4 * /*sizeof half float=*/2);
+			js::Vector<uint8, 16> temp_data(Maths::roundedUpDivide(w, 2) * Maths::roundedUpDivide(h, 2) * /*num components=*/4 * /*sizeof half float=*/2);
 			ArrayRef<uint8> initial_data_ref(temp_data);
 #else
 			ArrayRef<uint8> initial_data_ref(NULL, 0);
