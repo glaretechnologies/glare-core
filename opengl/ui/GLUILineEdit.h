@@ -45,7 +45,7 @@ public:
 		float z;
 	};
 
-	GLUILineEdit(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const Vec2f& botleft, const CreateArgs& args);
+	GLUILineEdit(GLUI& glui, const Vec2f& botleft, const CreateArgs& args);
 	~GLUILineEdit(); // Removed overlay objects from opengl engine.
 
 	virtual void think(GLUI& glui) override;
@@ -95,8 +95,6 @@ private:
 	void updateTextTransform();
 	void deleteSelectedTextAndClearSelection();
 
-	GLUI* glui;
-	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef background_overlay_ob;
 	Vec2i last_viewport_dims;
 

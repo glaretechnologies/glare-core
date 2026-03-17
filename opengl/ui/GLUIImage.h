@@ -27,7 +27,7 @@ GLUIImage
 class GLUIImage final : public GLUIWidget
 {
 public:
-	GLUIImage(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const std::string& tooltip, float z = -0.9f);
+	GLUIImage(GLUI& glui, const std::string& tex_path, const std::string& tooltip, float z = -0.9f);
 	~GLUIImage();
 
 	void setColour(Colour3f colour_);
@@ -57,9 +57,6 @@ private:
 	void updateOverlayTransform();
 	GLARE_DISABLE_COPY(GLUIImage);
 	
-	GLUI* glui;
-	Reference<OpenGLEngine> opengl_engine;
-
 	Colour3f colour;
 	Colour3f mouseover_colour;
 	//Vec2f pos; // Position of bottom left of image

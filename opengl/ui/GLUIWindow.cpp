@@ -19,11 +19,11 @@ GLUIWindow::CreateArgs::CreateArgs()
 {}
 
 
-GLUIWindow::GLUIWindow(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const CreateArgs& args_)
+GLUIWindow::GLUIWindow(GLUI& glui_, const CreateArgs& args_)
 :	handler(nullptr)
 {
-	gl_ui = &glui;
-	opengl_engine = opengl_engine_;
+	glui = &glui_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	args = args_;
 	m_z = args_.z;
 
@@ -45,9 +45,9 @@ GLUIWindow::GLUIWindow(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, cons
 		text_view_args.text_colour = args.title_text_colour;
 		text_view_args.z = m_z - 0.01f;
 
-		title_text = new GLUITextView(*gl_ui, opengl_engine, args.title, Vec2f(0), text_view_args);
+		title_text = new GLUITextView(*glui, args.title, Vec2f(0), text_view_args);
 
-		gl_ui->addWidget(title_text);
+		glui->addWidget(title_text);
 	}
 
 	//--------------- Create close button ---------------
@@ -57,10 +57,10 @@ GLUIWindow::GLUIWindow(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, cons
 		button_args.sizing_type_y = GLUIWidget::SizingType_FixedSizePx;
 		button_args.fixed_size = Vec2f(22.f); 
 		button_args.tooltip = "Close window";
-		close_button = new GLUIButton(*gl_ui, opengl_engine, opengl_engine_->getDataDir() + "/gl_data/ui/white_x.png", button_args);
+		close_button = new GLUIButton(*glui, opengl_engine->getDataDir() + "/gl_data/ui/white_x.png", button_args);
 		close_button->setZ(m_z - 0.01f);
 		close_button->handler = this;
-		gl_ui->addWidget(close_button);
+		glui->addWidget(close_button);
 	}
 
 
@@ -74,12 +74,11 @@ GLUIWindow::GLUIWindow(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, cons
 
 GLUIWindow::~GLUIWindow()
 {
-	checkRemoveAndDeleteWidget(gl_ui, body_widget);
-	checkRemoveAndDeleteWidget(gl_ui, title_text);
-	checkRemoveAndDeleteWidget(gl_ui, close_button);
+	checkRemoveAndDeleteWidget(glui, body_widget);
+	checkRemoveAndDeleteWidget(glui, title_text);
+	checkRemoveAndDeleteWidget(glui, close_button);
 
-	if(background_overlay_ob)
-		opengl_engine->removeOverlayObject(background_overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, background_overlay_ob);
 }
 
 
@@ -90,7 +89,7 @@ void GLUIWindow::setBodyWidget(const GLUIWidgetRef body_widget_)
 	body_widget->setParent(this);
 	body_widget->setZ(m_z - 0.01f);
 
-	gl_ui->addWidget(body_widget); // Add body_widget to GL UI if not already added.
+	glui->addWidget(body_widget); // Add body_widget to GL UI if not already added.
 
 	updateWidgetTransforms();
 }
@@ -101,7 +100,7 @@ void GLUIWindow::handleMousePress(MouseEvent& event)
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -117,7 +116,7 @@ void GLUIWindow::handleMouseDoubleClick(MouseEvent& event)
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -128,7 +127,7 @@ void GLUIWindow::doHandleMouseMoved(MouseEvent& event)
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -139,7 +138,7 @@ void GLUIWindow::doHandleMouseWheelEvent(MouseWheelEvent& event)
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -237,9 +236,9 @@ void GLUIWindow::eventOccurred(GLUICallbackEvent& ev)
 
 void GLUIWindow::updateWidgetTransforms()
 {
-	const float title_bar_h = gl_ui->getUIWidthForDevIndepPixelWidth(28);
+	const float title_bar_h = glui->getUIWidthForDevIndepPixelWidth(28);
 
-	const float padding = gl_ui->getUIWidthForDevIndepPixelWidth(args.padding_px);
+	const float padding = glui->getUIWidthForDevIndepPixelWidth(args.padding_px);
 
 
 	if(body_widget)
@@ -255,14 +254,14 @@ void GLUIWindow::updateWidgetTransforms()
 	if(title_text)
 	{
 		const float title_x = this->getRect().getMin().x + getDims().x/2.f - title_text->getDims().x/2.f;
-		const float title_y = this->getRect().getMax().y - title_bar_h + gl_ui->getUIWidthForDevIndepPixelWidth(8);
+		const float title_y = this->getRect().getMax().y - title_bar_h + glui->getUIWidthForDevIndepPixelWidth(8);
 
 		title_text->setPos(Vec2f(title_x, title_y));
 	}
 
 	if(close_button)
 	{
-		close_button->setPos(getRect().getMax() - close_button->getDims() - Vec2f(gl_ui->getUIWidthForDevIndepPixelWidth(2)));
+		close_button->setPos(getRect().getMax() - close_button->getDims() - Vec2f(glui->getUIWidthForDevIndepPixelWidth(2)));
 	}
 
 	updateBackgroundOverlayTransform();

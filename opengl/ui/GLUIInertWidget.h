@@ -39,7 +39,7 @@ public:
 		float z;
 	};
 
-	GLUIInertWidget(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
+	GLUIInertWidget(GLUI& glui, const CreateArgs& args);
 	virtual ~GLUIInertWidget();
 
 	virtual void handleMousePress(MouseEvent& event) override;
@@ -66,9 +66,6 @@ public:
 private:
 	GLARE_DISABLE_COPY(GLUIInertWidget);
 	
-	GLUI* gl_ui;
-	Reference<OpenGLEngine> opengl_engine;
-
 	CreateArgs args;
 
 	OverlayObjectRef background_overlay_ob;

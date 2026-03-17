@@ -43,7 +43,7 @@ public:
 		Colour3f track_colour;
 	};
 
-	GLUISlider(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
+	GLUISlider(GLUI& glui, const CreateArgs& args);
 	~GLUISlider();
 
 	virtual void handleMousePress(MouseEvent& event) override;
@@ -77,9 +77,6 @@ private:
 	Rect2f computeKnobRect();
 	void handleClickOnTrack(const Vec2f mouse_ui_coords);
 
-	GLUI* glui;
-	Reference<OpenGLEngine> opengl_engine;
-	
 	OverlayObjectRef track_ob;
 	OverlayObjectRef knob_ob;
 

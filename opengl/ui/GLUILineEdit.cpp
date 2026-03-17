@@ -17,13 +17,13 @@ Copyright Glare Technologies Limited 2024 -
 #include "../../utils/UTF8Utils.h"
 
 
-GLUILineEdit::GLUILineEdit(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const Vec2f& botleft_, const CreateArgs& args_)
+GLUILineEdit::GLUILineEdit(GLUI& glui_, const Vec2f& botleft_, const CreateArgs& args_)
 {
 	glui = &glui_;
 
 	args = args_;
 	this->m_z = args_.z;
-	opengl_engine = opengl_engine_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	tooltip = args.tooltip;
 
 	botleft = botleft_;
@@ -71,14 +71,15 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 
 GLUILineEdit::~GLUILineEdit()
 {
-	if(background_overlay_ob.nonNull())
-		opengl_engine->removeOverlayObject(background_overlay_ob);
-	
-	if(cursor_overlay_ob.nonNull())
-		opengl_engine->removeOverlayObject(cursor_overlay_ob);
-	
-	if(selection_overlay_ob.nonNull())
-		opengl_engine->removeOverlayObject(selection_overlay_ob);
+	if(!glui && glui_text) // If this widget was leaked (and glui_text exists):
+	{
+		glui_text->setGLUI(nullptr);
+		glui_text->setOpenGLEngine(nullptr);
+	}
+
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, background_overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, cursor_overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, selection_overlay_ob);
 }
 
 
@@ -235,7 +236,7 @@ void GLUILineEdit::recreateTextWidget()
 	text_create_args.font_size_px = args.font_size_px;
 	text_create_args.alpha = args.text_alpha;
 	text_create_args.z = m_z;
-	glui_text = new GLUIText(*glui, opengl_engine, text, /*botleft=*/Vec2f(0.f), text_create_args);
+	glui_text = new GLUIText(*glui, text, /*botleft=*/Vec2f(0.f), text_create_args);
 
 	// Set clip region so text doesn't draw outside of line edit.
 	glui_text->setClipRegion(Rect2f(botleft, botleft + Vec2f(args.width, glui->getUIWidthForDevIndepPixelWidth(this->height_px))));

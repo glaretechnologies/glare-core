@@ -82,6 +82,9 @@ public:
 	void setParent(GLUIWidget* parent_) { m_parent = parent_; }
 	GLUIWidget* getParent() const { return m_parent; }
 
+	void setGLUI(GLUI* new_glui) { glui = new_glui; } // Set on unremoved widgets when gl_ui is about to be destroyed, so that glui is not a dangling pointer to gl_ui.
+	void setOpenGLEngine(OpenGLEngine* new_opengl_engine) { opengl_engine = new_opengl_engine; } // Set on unremoved widgets when gl_ui is about to be destroyed, so we don't have a dangling pointer to opengl_engine.
+
 	std::string client_data;
 
 	std::string tooltip;
@@ -108,6 +111,9 @@ private:
 
 protected:
 	GLUIWidget* m_parent; // so containers can be re-laid out when a widget size changes, via containedWidgetChangedSize() calls to parents.
+
+	GLUI* glui;
+	OpenGLEngine* opengl_engine;
 };
 
 

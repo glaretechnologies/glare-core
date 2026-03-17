@@ -62,6 +62,12 @@ void GLUI::destroy()
 	{
 		conPrint("WARNING: " + toString(widgets.size()) + " widgets still in GLUI upon destruction.");
 	//	assert(0);
+		for(auto it = widgets.begin(); it != widgets.end(); ++it)
+		{
+			GLUIWidget* widget = it->ptr();
+			widget->setGLUI(nullptr); // Set on unremoved widgets when gl_ui is about to be destroyed, so that glui is not a dangling pointer to gl_ui.
+		}
+
 		widgets.clear();
 	}
 

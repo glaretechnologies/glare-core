@@ -43,7 +43,7 @@ public:
 		float z;
 	};
 
-	GLUITextButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& button_text, const Vec2f& botleft, const CreateArgs& args);
+	GLUITextButton(GLUI& glui, const std::string& button_text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUITextButton();
 
 	virtual void handleMousePress(MouseEvent& event) override;
@@ -68,9 +68,6 @@ public:
 	GLUICallbackHandler* handler;
 private:
 	GLARE_DISABLE_COPY(GLUITextButton);
-
-	GLUI* glui;
-	Reference<OpenGLEngine> opengl_engine;
 
 	GLUITextViewRef text_view;
 

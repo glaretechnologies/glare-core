@@ -31,12 +31,12 @@ GLUITextButton::CreateArgs::CreateArgs()
 }
 
 
-GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& button_text_, const Vec2f& botleft, const CreateArgs& args_)
+GLUITextButton::GLUITextButton(GLUI& glui_, const std::string& button_text_, const Vec2f& botleft, const CreateArgs& args_)
 :	handler(NULL),
 	toggled(false)
 {
 	glui = &glui_;
-	opengl_engine = opengl_engine_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	tooltip = args_.tooltip;
 	args = args_;
 	m_z = args_.z;
@@ -50,7 +50,7 @@ GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engi
 	text_args.text_selectable = false;
 	text_args.font_size_px = args.font_size_px;
 	text_args.z = args_.z;
-	text_view = new GLUITextView(glui_, opengl_engine_, button_text, botleft, text_args);
+	text_view = new GLUITextView(glui_, button_text, botleft, text_args);
 	glui->addWidget(text_view);
 
 	this->rect = text_view->getBackgroundRect();
@@ -61,7 +61,7 @@ GLUITextButton::GLUITextButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engi
 
 GLUITextButton::~GLUITextButton()
 {
-	glui->removeWidget(text_view);
+	checkRemoveAndDeleteWidget(glui, text_view);
 }
 
 
@@ -142,7 +142,7 @@ void GLUITextButton::rebuild()
 	text_args.text_selectable = false;
 	text_args.font_size_px = args.font_size_px;
 	text_args.z = m_z;
-	text_view = new GLUITextView(*glui, opengl_engine, button_text, m_botleft, text_args);
+	text_view = new GLUITextView(*glui, button_text, m_botleft, text_args);
 	text_view->setVisible(old_visible);
 	glui->addWidget(text_view);
 

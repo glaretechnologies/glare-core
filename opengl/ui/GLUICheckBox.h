@@ -41,7 +41,7 @@ public:
 		bool checked; // Initially checked?  False by default.
 	};
 
-	GLUICheckBox(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tick_texture_path, const CreateArgs& args);
+	GLUICheckBox(GLUI& glui, const std::string& tick_texture_path, const CreateArgs& args);
 	~GLUICheckBox();
 
 	virtual void handleMousePress(MouseEvent& event) override;
@@ -72,8 +72,6 @@ private:
 	void updateColour(const Vec2f mouse_ui_coords);
 	void updateOverlayTransforms();
 
-	GLUI* glui;
-	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef tick_overlay_ob;
 	OverlayObjectRef box_overlay_ob;
 

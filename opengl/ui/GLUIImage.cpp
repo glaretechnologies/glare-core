@@ -19,11 +19,11 @@ static const Colour3f default_colour(1.f);
 static const Colour3f default_mouseover_colour = toLinearSRGB(Colour3f(0.9f));
 
 
-GLUIImage::GLUIImage(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const std::string& tooltip_, float z_)
+GLUIImage::GLUIImage(GLUI& glui_, const std::string& tex_path, const std::string& tooltip_, float z_)
 :	handler(NULL)
 {
 	glui = &glui_;
-	opengl_engine = opengl_engine_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	tooltip = tooltip_;
 
 	rotation = 0;
@@ -54,8 +54,7 @@ GLUIImage::GLUIImage(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const
 
 GLUIImage::~GLUIImage()
 {
-	if(overlay_ob.nonNull())
-		opengl_engine->removeOverlayObject(overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, overlay_ob);
 }
 
 

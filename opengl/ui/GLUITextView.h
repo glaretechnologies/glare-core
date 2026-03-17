@@ -48,7 +48,7 @@ public:
 		float z;
 	};
 
-	GLUITextView(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
+	GLUITextView(GLUI& glui, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUITextView();
 	
 
@@ -96,8 +96,6 @@ private:
 	void recomputeRect();
 	Rect2f computeBackgroundRect() const; // Doesn't cover descenders
 
-	GLUI* glui;
-	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef background_overlay_ob;
 	std::vector<GLUITextRef> glui_texts; // Lines of text.  glui_texts[0] is the top line.
 

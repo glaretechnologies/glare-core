@@ -34,14 +34,14 @@ GLUIButton::CreateArgs::CreateArgs()
 }
 
 
-GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tex_path, const CreateArgs& args_)
+GLUIButton::GLUIButton(GLUI& glui_, const std::string& tex_path, const CreateArgs& args_)
 :	handler(NULL),
 	toggleable(false),
 	toggled(false),
 	pressed(false)
 {
 	glui = &glui_;
-	opengl_engine = opengl_engine_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	tooltip = args_.tooltip;
 	args = args_;
 
@@ -78,8 +78,7 @@ GLUIButton::GLUIButton(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 
 GLUIButton::~GLUIButton()
 {
-	if(overlay_ob.nonNull())
-		opengl_engine->removeOverlayObject(overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, overlay_ob);
 }
 
 

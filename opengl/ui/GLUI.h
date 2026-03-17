@@ -157,11 +157,25 @@ public:
 // Removes a widget from the GLUI if the widget reference is non-null.
 // Sets widget reference to null also.
 template <class WidgetTypeRef>
-inline void checkRemoveAndDeleteWidget(GLUIRef gl_ui, WidgetTypeRef& widget)
+inline void checkRemoveAndDeleteWidget(GLUIRef& gl_ui, WidgetTypeRef& widget)
 {
 	if(widget)
 	{
-		gl_ui->removeWidget(widget);
+		if(gl_ui)
+			gl_ui->removeWidget(widget);
+		widget = nullptr;
+	}
+}
+
+// Removes a widget from the GLUI if the widget reference is non-null.
+// Sets widget reference to null also.
+template <class WidgetTypeRef>
+inline void checkRemoveAndDeleteWidget(GLUI* gl_ui, WidgetTypeRef& widget)
+{
+	if(widget)
+	{
+		if(gl_ui)
+			gl_ui->removeWidget(widget);
 		widget = nullptr;
 	}
 }

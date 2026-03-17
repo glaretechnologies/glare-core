@@ -19,11 +19,11 @@ GLUICollapsableGroupBox::CreateArgs::CreateArgs()
 {}
 
 
-GLUICollapsableGroupBox::GLUICollapsableGroupBox(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const CreateArgs& args_)
+GLUICollapsableGroupBox::GLUICollapsableGroupBox(GLUI& glui_, const CreateArgs& args_)
 :	handler(nullptr)
 {
-	gl_ui = &glui;
-	opengl_engine = opengl_engine_;
+	glui = &glui_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	args = args_;
 	m_z = args_.z;
 	expanded = true;
@@ -46,9 +46,9 @@ GLUICollapsableGroupBox::GLUICollapsableGroupBox(GLUI& glui, Reference<OpenGLEng
 		text_view_args.text_colour = args.title_text_colour;
 		text_view_args.z = m_z - 0.01f;
 
-		title_text = new GLUITextView(*gl_ui, opengl_engine, args.title, Vec2f(0), text_view_args);
+		title_text = new GLUITextView(*glui, args.title, Vec2f(0), text_view_args);
 
-		gl_ui->addWidget(title_text);
+		glui->addWidget(title_text);
 	}
 
 	//--------------- Create collapse and expand buttons ---------------
@@ -58,10 +58,10 @@ GLUICollapsableGroupBox::GLUICollapsableGroupBox(GLUI& glui, Reference<OpenGLEng
 		button_args.sizing_type_y = GLUIWidget::SizingType_FixedSizePx;
 		button_args.fixed_size = Vec2f(22.f); 
 		button_args.tooltip = "Collapse";
-		collapse_expand_button = new GLUIButton(*gl_ui, opengl_engine, opengl_engine_->getDataDir() + "/gl_data/ui/expanded.png", button_args);
+		collapse_expand_button = new GLUIButton(*glui, opengl_engine->getDataDir() + "/gl_data/ui/expanded.png", button_args);
 		collapse_expand_button->setZ(m_z - 0.01f);
 		collapse_expand_button->handler = this;
-		gl_ui->addWidget(collapse_expand_button);
+		glui->addWidget(collapse_expand_button);
 	}
 
 
@@ -75,12 +75,11 @@ GLUICollapsableGroupBox::GLUICollapsableGroupBox(GLUI& glui, Reference<OpenGLEng
 
 GLUICollapsableGroupBox::~GLUICollapsableGroupBox()
 {
-	checkRemoveAndDeleteWidget(gl_ui, body_widget);
-	checkRemoveAndDeleteWidget(gl_ui, title_text);
-	checkRemoveAndDeleteWidget(gl_ui, collapse_expand_button);
+	checkRemoveAndDeleteWidget(glui, body_widget);
+	checkRemoveAndDeleteWidget(glui, title_text);
+	checkRemoveAndDeleteWidget(glui, collapse_expand_button);
 
-	if(background_overlay_ob)
-		opengl_engine->removeOverlayObject(background_overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, background_overlay_ob);
 }
 
 
@@ -91,7 +90,7 @@ void GLUICollapsableGroupBox::setBodyWidget(const GLUIWidgetRef body_widget_)
 	body_widget->setParent(this);
 	body_widget->setZ(m_z - 0.01f);
 
-	gl_ui->addWidget(body_widget); // Add body_widget to GL UI if not already added.
+	glui->addWidget(body_widget); // Add body_widget to GL UI if not already added.
 
 	updateWidgetTransforms();
 }
@@ -102,7 +101,7 @@ void GLUICollapsableGroupBox::handleMousePress(MouseEvent& event)
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -118,7 +117,7 @@ void GLUICollapsableGroupBox::handleMouseDoubleClick(MouseEvent& event)
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -129,7 +128,7 @@ void GLUICollapsableGroupBox::doHandleMouseMoved(MouseEvent& event)
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -140,7 +139,7 @@ void GLUICollapsableGroupBox::doHandleMouseWheelEvent(MouseWheelEvent& event)
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -187,8 +186,8 @@ void GLUICollapsableGroupBox::recomputeLayout()
 
 	const Vec2f body_dims = body_widget ? body_widget->getDims() : Vec2f(0.f);
 
-	const float title_bar_h = gl_ui->getUIWidthForDevIndepPixelWidth(28);
-	const float padding = gl_ui->getUIWidthForDevIndepPixelWidth(args.padding_px);
+	const float title_bar_h = glui->getUIWidthForDevIndepPixelWidth(28);
+	const float padding = glui->getUIWidthForDevIndepPixelWidth(args.padding_px);
 
 	const float width  = expanded ? (body_dims.x + padding * 2.f) : myMax(collapse_expand_button->getDims().x + title_text->getDims().x, getDims().x);
 	const float height = expanded ? (title_bar_h + body_dims.y) : title_bar_h;
@@ -272,9 +271,9 @@ void GLUICollapsableGroupBox::eventOccurred(GLUICallbackEvent& ev)
 
 void GLUICollapsableGroupBox::updateWidgetTransforms()
 {
-	const float title_bar_h = gl_ui->getUIWidthForDevIndepPixelWidth(28);
+	const float title_bar_h = glui->getUIWidthForDevIndepPixelWidth(28);
 
-	const float padding = gl_ui->getUIWidthForDevIndepPixelWidth(args.padding_px);
+	const float padding = glui->getUIWidthForDevIndepPixelWidth(args.padding_px);
 
 
 	if(body_widget)
@@ -290,15 +289,15 @@ void GLUICollapsableGroupBox::updateWidgetTransforms()
 	if(title_text)
 	{
 		const float title_x = this->getRect().getMin().x + getDims().x/2.f - title_text->getDims().x/2.f;
-		const float title_y = this->getRect().getMax().y - title_bar_h + gl_ui->getUIWidthForDevIndepPixelWidth(8);
+		const float title_y = this->getRect().getMax().y - title_bar_h + glui->getUIWidthForDevIndepPixelWidth(8);
 
 		title_text->setPos(Vec2f(title_x, title_y));
 	}
 
 	if(collapse_expand_button)
 	{
-		const float button_x = this->getRect().getMin().x + gl_ui->getUIWidthForDevIndepPixelWidth(2);
-		const float button_y = this->getRect().getMax().y - title_bar_h + gl_ui->getUIWidthForDevIndepPixelWidth(2);
+		const float button_x = this->getRect().getMin().x + glui->getUIWidthForDevIndepPixelWidth(2);
+		const float button_y = this->getRect().getMax().y - title_bar_h + glui->getUIWidthForDevIndepPixelWidth(2);
 
 		collapse_expand_button->setPos(Vec2f(button_x, button_y));
 	}

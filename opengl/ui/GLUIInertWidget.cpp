@@ -16,10 +16,10 @@ GLUIInertWidget::CreateArgs::CreateArgs()
 {}
 
 
-GLUIInertWidget::GLUIInertWidget(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const CreateArgs& args_)
+GLUIInertWidget::GLUIInertWidget(GLUI& glui_, const CreateArgs& args_)
 {
-	gl_ui = &glui;
-	opengl_engine = opengl_engine_;
+	glui = &glui_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	args = args_;
 	m_z = args_.z;
 
@@ -34,8 +34,7 @@ GLUIInertWidget::GLUIInertWidget(GLUI& glui, Reference<OpenGLEngine>& opengl_eng
 
 GLUIInertWidget::~GLUIInertWidget()
 {
-	if(background_overlay_ob)
-		opengl_engine->removeOverlayObject(background_overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, background_overlay_ob);
 }
 
 
@@ -44,7 +43,7 @@ void GLUIInertWidget::handleMousePress(MouseEvent& event)
 	if(!background_overlay_ob->draw)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -60,7 +59,7 @@ void GLUIInertWidget::handleMouseDoubleClick(MouseEvent& event)
 	if(!background_overlay_ob->draw)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -71,7 +70,7 @@ void GLUIInertWidget::doHandleMouseMoved(MouseEvent& event)
 	if(!background_overlay_ob->draw)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -82,7 +81,7 @@ void GLUIInertWidget::doHandleMouseWheelEvent(MouseWheelEvent& event)
 	if(!background_overlay_ob->draw)
 		return;
 
-	const Vec2f coords = gl_ui->UICoordsForOpenGLCoords(event.gl_coords);
+	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inClosedRectangle(coords))
 		event.accepted = true;
 }
@@ -131,5 +130,5 @@ void GLUIInertWidget::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
 
 void GLUIInertWidget::setClipRegion(const Rect2f& clip_rect)
 {
-	background_overlay_ob->clip_region = gl_ui->OpenGLRectCoordsForUICoords(clip_rect);
+	background_overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
 }

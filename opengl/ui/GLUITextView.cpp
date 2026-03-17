@@ -19,13 +19,13 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/RuntimeCheck.h"
 
 
-GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args_)
+GLUITextView::GLUITextView(GLUI& glui_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args_)
 {
 	this->clip_rect = Rect2f(Vec2f(-1.0e10f), Vec2f(1.0e10f));
 
 	glui = &glui_;
 	args = args_;
-	opengl_engine = opengl_engine_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	tooltip = args.tooltip;
 	m_z = args_.z;
 	last_rounded_background_dims = Vec2f(-1.f);
@@ -61,11 +61,15 @@ GLUITextView::GLUITextView(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 
 GLUITextView::~GLUITextView()
 {
-	if(background_overlay_ob.nonNull())
-		opengl_engine->removeOverlayObject(background_overlay_ob);
+	if(!glui) // If this widget was leaked:
+		for(size_t i=0; i<glui_texts.size(); ++i)
+		{
+			glui_texts[i]->setGLUI(nullptr);
+			glui_texts[i]->setOpenGLEngine(nullptr);
+		}
 
-	if(selection_overlay_ob.nonNull())
-		opengl_engine->removeOverlayObject(selection_overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, background_overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, selection_overlay_ob);
 }
 
 
@@ -155,7 +159,7 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 			text_create_args.font_size_px = args.font_size_px;
 			text_create_args.alpha = args.text_alpha;
 			text_create_args.z = m_z;
-			GLUITextRef glui_text = new GLUIText(glui_, opengl_engine, toString(line_string), botleft, text_create_args);
+			GLUITextRef glui_text = new GLUIText(glui_, toString(line_string), botleft, text_create_args);
 			glui_text->setVisible(visible);
 
 			// Compute position of current text line

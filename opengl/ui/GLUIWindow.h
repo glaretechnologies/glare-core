@@ -64,7 +64,7 @@ public:
 		bool background_consumes_events; // Should the background around the body widget consume click events etc.?  Defaults to false.
 	};
 
-	GLUIWindow(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
+	GLUIWindow(GLUI& glui, const CreateArgs& args);
 	virtual ~GLUIWindow();
 
 	void setBodyWidget(const GLUIWidgetRef body_widget);
@@ -107,9 +107,6 @@ private:
 	void updateWidgetTransforms();
 	void updateBackgroundOverlayTransform();
 	
-	GLUI* gl_ui;
-	Reference<OpenGLEngine> opengl_engine;
-
 	CreateArgs args;
 
 	GLUITextViewRef title_text;

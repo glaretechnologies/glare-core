@@ -1813,3 +1813,14 @@ inline void checkRemoveObAndSetRefToNull(OpenGLEngine& engine, Reference<GLObjec
 		gl_ob = nullptr;
 	}
 }
+
+
+inline void checkRemoveOverlayObAndSetRefToNull(OpenGLEngine* engine, Reference<OverlayObject>& gl_ob)
+{
+	if(gl_ob)
+	{
+		if(engine)
+			engine->removeOverlayObject(gl_ob);
+		gl_ob = nullptr;
+	}
+}

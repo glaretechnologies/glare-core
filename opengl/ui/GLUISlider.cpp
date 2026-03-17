@@ -32,11 +32,11 @@ GLUISlider::CreateArgs::CreateArgs()
 }
 
 
-GLUISlider::GLUISlider(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const CreateArgs& args_)
+GLUISlider::GLUISlider(GLUI& glui_, const CreateArgs& args_)
 :	handler(nullptr)
 {
 	glui = &glui_;
-	opengl_engine = opengl_engine_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	tooltip = args_.tooltip;
 	args = args_;
 
@@ -74,8 +74,8 @@ GLUISlider::GLUISlider(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, con
 
 GLUISlider::~GLUISlider()
 {
-	if(track_ob) opengl_engine->removeOverlayObject(track_ob);
-	if(knob_ob)  opengl_engine->removeOverlayObject(knob_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, track_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, knob_ob);
 }
 
 

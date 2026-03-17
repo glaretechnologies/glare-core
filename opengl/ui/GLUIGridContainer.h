@@ -45,7 +45,7 @@ public:
 		bool background_consumes_events; // Should the background behind the grid consume click events etc.?  Defaults to false.
 	};
 
-	GLUIGridContainer(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const CreateArgs& args);
+	GLUIGridContainer(GLUI& glui, const CreateArgs& args);
 	virtual ~GLUIGridContainer();
 
 	virtual void handleMousePress(MouseEvent& event) override;
@@ -92,9 +92,6 @@ private:
 
 	void updateBackgroundOverlayTransform();
 	
-	GLUI* gl_ui;
-	Reference<OpenGLEngine> opengl_engine;
-
 	CreateArgs args;
 public:
 	Array2D<GLUIWidgetRef> cell_widgets;

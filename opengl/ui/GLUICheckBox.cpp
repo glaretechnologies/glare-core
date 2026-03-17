@@ -22,13 +22,13 @@ GLUICheckBox::CreateArgs::CreateArgs()
 }
 
 
-GLUICheckBox::GLUICheckBox(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_, const std::string& tick_texture_path, const CreateArgs& args_)
+GLUICheckBox::GLUICheckBox(GLUI& glui_, const std::string& tick_texture_path, const CreateArgs& args_)
 :	handler(NULL),
 	checked(args_.checked),
 	pressed(false)
 {
 	glui = &glui_;
-	opengl_engine = opengl_engine_;
+	opengl_engine = glui_.opengl_engine.ptr();
 	tooltip = args_.tooltip;
 	args = args_;
 
@@ -65,8 +65,8 @@ GLUICheckBox::GLUICheckBox(GLUI& glui_, Reference<OpenGLEngine>& opengl_engine_,
 
 GLUICheckBox::~GLUICheckBox()
 {
-	opengl_engine->removeOverlayObject(tick_overlay_ob);
-	opengl_engine->removeOverlayObject(box_overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, tick_overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, box_overlay_ob);
 }
 
 

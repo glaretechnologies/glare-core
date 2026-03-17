@@ -42,7 +42,7 @@ public:
 	};
 
 	// botleft is in GL UI coords (see GLUI.h)
-	GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
+	GLUIText(GLUI& glui, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUIText(); // Removes overlay_ob from opengl engine.
 
 
@@ -52,7 +52,7 @@ public:
 		float hori_advance;
 	};
 
-	static Reference<OpenGLMeshRenderData> makeMeshDataForText(Reference<OpenGLEngine>& opengl_engine, FontCharTexCache* font_char_text_cache, 
+	static Reference<OpenGLMeshRenderData> makeMeshDataForText(OpenGLEngine* opengl_engine, FontCharTexCache* font_char_text_cache, 
 		TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float vert_pos_scale, bool render_SDF, 
 		glare::StackAllocator& stack_allocator,
 		Rect2f& rect_os_out, OpenGLTextureRef& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out);
@@ -87,11 +87,14 @@ public:
 
 	void setVisible(bool visible);
 
+	void setGLUI(GLUI* new_glui) { gl_ui = new_glui; } // Set on unremoved widgets when gl_ui is about to be destroyed, so that glui is not a dangling pointer to gl_ui.
+	void setOpenGLEngine(OpenGLEngine* new_opengl_engine) { opengl_engine = new_opengl_engine; } // Set on unremoved widgets when gl_ui is about to be destroyed, so we don't have a dangling pointer to opengl_engine.
+
 private:
 	GLARE_DISABLE_COPY(GLUIText);
 
 	GLUI* gl_ui;
-	Reference<OpenGLEngine> opengl_engine;
+	OpenGLEngine* opengl_engine;
 	OverlayObjectRef overlay_ob;
 
 	std::string text;

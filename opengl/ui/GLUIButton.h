@@ -50,7 +50,7 @@ public:
 		Colour3f pressed_colour;
 	};
 
-	GLUIButton(GLUI& glui, Reference<OpenGLEngine>& opengl_engine, const std::string& tex_path, const CreateArgs& args);
+	GLUIButton(GLUI& glui, const std::string& tex_path, const CreateArgs& args);
 	~GLUIButton();
 
 	void setTexture(const std::string& tex_path);
@@ -84,8 +84,6 @@ private:
 	void updateOverlayTransform();
 	void updateButtonColour(const Vec2f mouse_ui_coords);
 
-	GLUI* glui;
-	Reference<OpenGLEngine> opengl_engine;
 	OverlayObjectRef overlay_ob;
 
 	CreateArgs args;

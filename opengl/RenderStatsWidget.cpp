@@ -29,7 +29,7 @@ RenderStatsWidget::RenderStatsWidget(Reference<OpenGLEngine>& opengl_engine_, GL
 		args.background_colour = Colour3f(0.1f);
 		args.background_alpha = 0.9f;
 		args.z = 0.1f;
-		background_widget = new GLUIInertWidget(*gl_ui, opengl_engine_, args);
+		background_widget = new GLUIInertWidget(*gl_ui, args);
 	}
 
 	horizontal_rules.resize(20);
@@ -46,7 +46,7 @@ RenderStatsWidget::RenderStatsWidget(Reference<OpenGLEngine>& opengl_engine_, GL
 		GLUITextView::CreateArgs args;
 		args.background_colour = Colour3f(0.0f);
 		args.background_alpha = 0.2f;
-		plot_label = new GLUITextView(*gl_ui, opengl_engine, widget_index == 0 ? "CPU" : "GPU", Vec2f(0,0), args);
+		plot_label = new GLUITextView(*gl_ui, widget_index == 0 ? "CPU" : "GPU", Vec2f(0,0), args);
 		gl_ui->addWidget(plot_label);
 	}
 	
@@ -55,7 +55,7 @@ RenderStatsWidget::RenderStatsWidget(Reference<OpenGLEngine>& opengl_engine_, GL
 		GLUITextView::CreateArgs args;
 		args.background_colour = Colour3f(0.0f);
 		args.background_alpha = 0.2f;
-		stats_label = new GLUITextView(*gl_ui, opengl_engine, "", Vec2f(0,0), args);
+		stats_label = new GLUITextView(*gl_ui, "", Vec2f(0,0), args);
 		gl_ui->addWidget(stats_label);
 	}
 

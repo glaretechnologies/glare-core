@@ -36,7 +36,7 @@ static inline void setVec3f(MutableArrayRef<float> array, size_t index, const Ve
 	array[index + 2] = v.z;
 }
 
-Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(Reference<OpenGLEngine>& opengl_engine, FontCharTexCache* font_char_text_cache, 
+Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(OpenGLEngine* opengl_engine, FontCharTexCache* font_char_text_cache, 
 	TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float vert_pos_scale, bool render_SDF, 
 	glare::StackAllocator& stack_allocator,
 	Rect2f& rect_os_out, OpenGLTextureRef& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out)
@@ -135,13 +135,13 @@ Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(Reference<OpenGLEn
 }
 
 
-GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args)
+GLUIText::GLUIText(GLUI& glui_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args)
 {
-	gl_ui = &glui;
-	opengl_engine = opengl_engine_;
+	gl_ui = &glui_;
+	opengl_engine = glui_.opengl_engine.ptr();
 
 	text_colour = args.colour;
-	font_size_px = (int)((float)args.font_size_px * glui.getDevicePixelRatio() * glui.getUIScale());
+	font_size_px = (int)((float)args.font_size_px * glui_.getDevicePixelRatio() * glui_.getUIScale());
 	botleft = botleft_;
 	text = text_;
 	z = args.z;
@@ -151,8 +151,8 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 		rect_os = Rect2f(Vec2f(0.f), Vec2f(0.f));
 		OpenGLTextureRef atlas_texture;
 
-		Reference<OpenGLMeshRenderData> mesh_data = makeMeshDataForText(opengl_engine_, glui.font_char_text_cache.ptr(), glui.getFonts(), glui.getEmojiFonts(), text, font_size_px, /*vert_pos_scale=*/1.f, 
-			/*render_SDF=*/false, *glui.stack_allocator,
+		Reference<OpenGLMeshRenderData> mesh_data = makeMeshDataForText(opengl_engine, glui_.font_char_text_cache.ptr(), glui_.getFonts(), glui_.getEmojiFonts(), text, font_size_px, /*vert_pos_scale=*/1.f, 
+			/*render_SDF=*/false, *glui_.stack_allocator,
 			/*rect os out=*/rect_os, /*atlas texture out=*/atlas_texture, /*char_positions_font_coords_out=*/char_positions_fc);
 
 		const float x_scale = 2.f / opengl_engine->getMainViewPortWidth();
@@ -182,8 +182,7 @@ GLUIText::GLUIText(GLUI& glui, Reference<OpenGLEngine>& opengl_engine_, const st
 
 GLUIText::~GLUIText()
 {
-	if(overlay_ob.nonNull())
-		opengl_engine->removeOverlayObject(overlay_ob);
+	checkRemoveOverlayObAndSetRefToNull(opengl_engine, overlay_ob);
 }
 
 
