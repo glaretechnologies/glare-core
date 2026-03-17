@@ -175,7 +175,7 @@ void main()
 		last_sample_d = cur_d;
 		last_sigma_t = sigma_t;
 
-		if((d_z > 0) && (sigma_t < 1.0e-3))
+		if((d_z > 0.0) && (sigma_t < 1.0e-3))
 			break;
 	}
 

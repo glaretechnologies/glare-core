@@ -80,17 +80,17 @@ vec3 hsv2rgb(vec3 c)
 // See MitchellNetravali.h
 float mitchellNetravaliEval(float x)
 {
-	const float B = 0.5f;
-	const float C = 0.25f;
+	const float B = 0.5;
+	const float C = 0.25;
 
-	const float region_0_a = (float(12)  - B*9  - C*6) * (1.f/6);
-	const float region_0_b = (float(-18) + B*12 + C*6) * (1.f/6);
-	const float region_0_d = (float(6)   - B*2       ) * (1.f/6);
+	const float region_0_a = (float(12)  - B*9.0  - C*6.0) * (1.0/6.0);
+	const float region_0_b = (float(-18) + B*12.0 + C*6.0) * (1.0/6.0);
+	const float region_0_d = (float(6)   - B*2.0         ) * (1.0/6.0);
 
-	const float region_1_a = (-B - C*6)                * (1.f/6);
-	const float region_1_b = (B*6 + C*30)              * (1.f/6);
-	const float region_1_c = (B*-12 - C*48)            * (1.f/6);
-	const float region_1_d = (B*8 + C*24)              * (1.f/6);
+	const float region_1_a = (-B - C*6.0)                * (1.0/6.0);
+	const float region_1_b = (B*6.0 + C*30.0)            * (1.0/6.0);
+	const float region_1_c = (B*-12.0 - C*48.0)          * (1.0/6.0);
+	const float region_1_d = (B*8.0 + C*24.0)            * (1.0/6.0);
 
 	float x2 = x*x;
 	float x3 = x2*x;
