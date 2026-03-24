@@ -58,7 +58,7 @@ public:
 	const std::string HTTPDateTimeFormattedStringUTC() const; // e.g. 
 
 
-
+	bool operator == (const TimeStamp& other) const { return time == other.time; }
 	bool operator <= (const TimeStamp& other) const { return time <= other.time; }
 	bool operator >= (const TimeStamp& other) const { return time >= other.time; }
 
