@@ -169,6 +169,7 @@ void GLUI::handleMousePress(MouseEvent& event)
 			if(temp_widgets[i] != key_focus_widget.ptr())
 				setKeyboardFocusWidget(NULL); // A widget that wasn't the one with keyboard focus accepted the click.  Remove keyboard focus from any widgets that had it.
 
+			temp_widgets.clear();
 			return;
 		}
 	}
@@ -200,7 +201,7 @@ void GLUI::handleMouseDoubleClick(MouseEvent& event)
 	{
 		temp_widgets[i]->handleMouseDoubleClick(event);
 		if(event.accepted)
-			return;
+			break;
 	}
 	temp_widgets.clear();
 }
@@ -215,7 +216,10 @@ bool GLUI::handleMouseWheelEvent(MouseWheelEvent& event)
 	{
 		temp_widgets[i]->handleMouseWheelEvent(event);
 		if(event.accepted)
+		{
+			temp_widgets.clear();
 			return true;
+		}
 	}
 	temp_widgets.clear();
 
