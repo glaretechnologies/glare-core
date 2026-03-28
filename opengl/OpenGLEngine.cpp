@@ -6692,48 +6692,6 @@ inline static void setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1)
 }
 
 
-// Blit the entire contents of src_framebuffer to dest_framebuffer.
-// num_buffers_to_copy can be 1 or 2.
-// copy_buf0_colour: copy the colour buffer of buffer 0.
-// copy_buf0_depth: copy the depth buffer of buffer 0.
-static void blitFrameBuffer(FrameBuffer& src_framebuffer, FrameBuffer& dest_framebuffer, int num_buffers_to_copy, bool copy_buf0_colour, bool copy_buf0_depth)
-{	
-	assert(src_framebuffer.xRes() == dest_framebuffer.xRes() && src_framebuffer.yRes() == dest_framebuffer.yRes());
-	assert(num_buffers_to_copy == 1 || num_buffers_to_copy == 2);
-	assert(copy_buf0_colour || copy_buf0_depth);
-
-	src_framebuffer .bindForReading();
-	dest_framebuffer.bindForDrawing();
-
-	//---------------------- Copy buffer 0  ----------------------
-	glReadBuffer(GL_COLOR_ATTACHMENT0);
-	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-	glBlitFramebuffer(
-		/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)src_framebuffer.xRes(), /*srcY1=*/(int)src_framebuffer.yRes(), 
-		/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)src_framebuffer.xRes(), /*dstY1=*/(int)src_framebuffer.yRes(), 
-		(copy_buf0_colour ? GL_COLOR_BUFFER_BIT : 0) | (copy_buf0_depth ? GL_DEPTH_BUFFER_BIT : 0),
-		GL_NEAREST
-	);
-
-	//---------------------- Copy buffer 1 (usually normals) ----------------------
-	if(num_buffers_to_copy >= 2)
-	{
-		glReadBuffer(GL_COLOR_ATTACHMENT1);
-		setTwoDrawBuffers(GL_NONE, GL_COLOR_ATTACHMENT1); // In OpenGL ES, GL_COLOR_ATTACHMENT1 must be specified as buffer 1 (can't be buffer 0), so use glDrawBuffers with GL_NONE as buffer 0.
-	
-		glBlitFramebuffer(
-			/*srcX0=*/0, /*srcY0=*/0, /*srcX1=*/(int)src_framebuffer.xRes(), /*srcY1=*/(int)src_framebuffer.yRes(), 
-			/*dstX0=*/0, /*dstY0=*/0, /*dstX1=*/(int)src_framebuffer.xRes(), /*dstY1=*/(int)src_framebuffer.yRes(), 
-			GL_COLOR_BUFFER_BIT,
-			GL_NEAREST
-		);
-	}
-
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // Unbind any framebuffer from readback operations.
-}
-
-
 void OpenGLEngine::draw()
 {
 	ZoneScopedC(0x33FF33); // Tracy profiler.  Set green colour for zone.
