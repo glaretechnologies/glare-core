@@ -254,7 +254,7 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 
 			dist_ss += step_incr;
 			last_step_incr = step_incr;
-			const float step_incr_factor = exp(log(2.0) / float(N_s));
+			const float step_incr_factor = exp(log(2.0f) / float(N_s));
 			step_incr *= step_incr_factor;
 		}
 

@@ -155,8 +155,8 @@ GLUIText::GLUIText(GLUI& glui_, const std::string& text_, const Vec2f& botleft_,
 			/*render_SDF=*/false, *glui_.stack_allocator,
 			/*rect os out=*/rect_os, /*atlas texture out=*/atlas_texture, /*char_positions_font_coords_out=*/char_positions_fc);
 
-		const float x_scale = 2.f / opengl_engine->getMainViewPortWidth();
-		const float y_scale = 2.f / opengl_engine->getMainViewPortHeight();
+		const float x_scale = 2.f / opengl_engine->getViewPortWidth();
+		const float y_scale = 2.f / opengl_engine->getViewPortHeight();
 
 	
 		overlay_ob = new OverlayObject();
@@ -210,8 +210,8 @@ void GLUIText::setPos(const Vec2f& botleft_)
 
 void GLUIText::updateGLTransform()
 {
-	const float x_scale = 2.f / opengl_engine->getMainViewPortWidth();
-	const float y_scale = 2.f / opengl_engine->getMainViewPortHeight();
+	const float x_scale = 2.f / opengl_engine->getViewPortWidth();
+	const float y_scale = 2.f / opengl_engine->getViewPortHeight();
 
 	this->rect = Rect2f(botleft /*+ rect_os.getMin() * x_scale*/, botleft + rect_os.getMax() * x_scale);
 
@@ -229,7 +229,7 @@ Vec2f GLUIText::getCharPos(GLUI& glui, int char_index) const
 
 Vec2f GLUIText::getRelativeCharPos(GLUI& /*glui*/, int char_index) const
 {
-	const float x_scale = 2.f / opengl_engine->getMainViewPortWidth();
+	const float x_scale = 2.f / opengl_engine->getViewPortWidth();
 
 	if(char_index >= 0 && char_index < (int)char_positions_fc.size())
 	{
@@ -249,7 +249,7 @@ Vec2f GLUIText::getRelativeCharPos(GLUI& /*glui*/, int char_index) const
 
 int GLUIText::cursorPosForUICoords(GLUI& /*glui*/, const Vec2f& coords)
 {
-	const float x_scale = 2.f / opengl_engine->getMainViewPortWidth();
+	const float x_scale = 2.f / opengl_engine->getViewPortWidth();
 
 	int best_cursor_pos = 0;
 	float closest_dist = 1000000;

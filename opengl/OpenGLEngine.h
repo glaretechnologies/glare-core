@@ -572,12 +572,15 @@ public:
 
 	GLMemUsage getTotalMemUsage() const;
 
+	void createSSAOTextures(OpenGLEngine* engine, bool normal_texture_is_uint);
+	void buildOutlineTextures(OpenGLEngine* engine);
+
 	Colour3f background_colour;
 
 	bool use_z_up; // Should the +z axis be up (for cameras, sun lighting etc..).  True by default.  If false, y is up.
 	// NOTE: Use only with CameraType_Identity currently, clip planes won't be computed properly otherwise.
 
-	bool shadow_mapping; // True by default
+	bool enable_shadow_mapping; // True by default
 	bool draw_water; // True by default
 	bool draw_aurora; // False by default
 
@@ -641,7 +644,90 @@ public:
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	glare::LinearIterSet<Reference<OverlayObject>, OverlayObjectHash> overlay_objects; // UI overlays
 	std::set<Reference<GLObject>> materialise_objects; // Objects currently playing materialise effect
-	
+
+
+	std::vector<Reference<FrameBuffer> > downsize_framebuffers;
+	std::vector<Reference<OpenGLTexture> > downsize_target_textures;
+
+	std::vector<Reference<FrameBuffer> > blur_framebuffers_x; // Blurred in x direction
+	std::vector<Reference<OpenGLTexture> > blur_target_textures_x;
+
+	std::vector<Reference<FrameBuffer> > blur_framebuffers; // Blurred in both directions:
+	std::vector<Reference<OpenGLTexture> > blur_target_textures;
+
+	Reference<FrameBuffer> main_render_framebuffer;
+	Reference<FrameBuffer> main_render_copy_framebuffer;
+
+	Reference<RenderBuffer> main_colour_renderbuffer;
+	Reference<RenderBuffer> main_normal_renderbuffer;
+	Reference<RenderBuffer> main_depth_renderbuffer;
+	Reference<RenderBuffer> transparent_accum_renderbuffer;
+	Reference<RenderBuffer> total_transmittance_renderbuffer;
+
+	OpenGLTextureRef main_colour_copy_texture;
+	OpenGLTextureRef main_depth_copy_texture;
+	OpenGLTextureRef main_normal_copy_texture;
+	OpenGLTextureRef transparent_accum_copy_texture;
+	OpenGLTextureRef total_transmittance_copy_texture;
+
+
+	Reference<FrameBuffer> pre_dof_framebuffer;
+	OpenGLTextureRef pre_dof_colour_texture;
+
+	Reference<FrameBuffer> post_dof_framebuffer;
+	OpenGLTextureRef post_dof_colour_texture;
+
+
+	// Prepass will render to prepass_framebuffer, prepass_colour_renderbuffer, prepass_depth_renderbuffer.
+	// Then blit to prepass_copy_framebuffer, prepass_colour_copy_texture, prepass_colour_depth_texture
+	// Then SSAO is computed, reading from prepass_copy_framebuffer and writing to compute_ssao_output_framebuffer.
+	Reference<FrameBuffer> prepass_framebuffer;
+	Reference<RenderBuffer> prepass_colour_renderbuffer;
+	Reference<RenderBuffer> prepass_normal_renderbuffer;
+	Reference<RenderBuffer> prepass_depth_renderbuffer;
+
+	Reference<FrameBuffer> prepass_copy_framebuffer;
+	OpenGLTextureRef prepass_colour_copy_texture;
+	OpenGLTextureRef prepass_normal_copy_texture;
+	OpenGLTextureRef prepass_depth_copy_texture;
+
+	Reference<FrameBuffer> compute_ssao_framebuffer;
+	OpenGLTextureRef ssao_texture;
+	OpenGLTextureRef ssao_specular_texture;
+
+	OpenGLTextureRef blurred_ssao_texture;
+	OpenGLTextureRef blurred_ssao_texture_x;
+	OpenGLTextureRef blurred_ssao_specular_texture;
+	Reference<FrameBuffer> blurred_ssao_framebuffer; // Blurred in both directions:
+	Reference<FrameBuffer> blurred_ssao_framebuffer_x; // blurred in x direction
+	Reference<FrameBuffer> blurred_ssao_specular_framebuffer; // Blurred in both directions:
+
+	Reference<FrameBuffer> fog_framebuffer;
+	OpenGLTextureRef fog_colour_texture;
+
+
+	Reference<FrameBuffer> outline_solid_framebuffer;
+	Reference<FrameBuffer> outline_edge_framebuffer;
+	Reference<OpenGLTexture> outline_solid_tex;
+	Reference<OpenGLTexture> outline_edge_tex;
+
+
+	Reference<ShadowMapping> shadow_mapping;
+	uint64 shadow_mapping_frame_num;
+
+
+	Vec4f sun_dir; // Dir to sun.
+	Vec4f sun_dir_cam_space;
+	Vec4f sun_spec_rad_times_solid_angle;
+	Vec4f sky_av_spec_rad;
+	Vec4f sun_and_sky_av_spec_rad;
+	Vec4f air_scattering_coeffs;
+	float sun_phi;
+
+	bool loaded_maps_for_sun_dir;
+
+	int viewport_w, viewport_h;
+
 	GLObjectRef env_ob;
 
 	std::set<Reference<GLLight>> lights;
@@ -1112,16 +1198,12 @@ public:
 
 
 	//--------------------------------------- Viewport ----------------------------------------
-	// This will be the resolution at which the main render framebuffer is allocated, for which res bloom textures are allocated etc..
-	void setMainViewportDims(int main_viewport_w_, int main_viewport_h_);
-	int getMainViewPortWidth()  const { return main_viewport_w; } // Return viewport width, in pixels.
-	int getMainViewPortHeight() const { return main_viewport_h; }
-
+	// Applies to current scene
 	void setViewportDims(int viewport_w_, int viewport_h_);
 	void setViewportDims(const Vec2i& viewport_dims) { setViewportDims(viewport_dims.x, viewport_dims.y); }
-	Vec2i getViewportDims() const { return Vec2i(viewport_w, viewport_h); }
-	int getViewPortWidth()  const { return viewport_w; } // Return viewport width, in pixels.
-	int getViewPortHeight() const { return viewport_h; }
+	Vec2i getViewportDims() const { return Vec2i(current_scene->viewport_w, current_scene->viewport_h); }
+	int getViewPortWidth()  const { return current_scene->viewport_w; } // Return viewport width, in pixels.
+	int getViewPortHeight() const { return current_scene->viewport_h; }
 	float getViewPortAspectRatio() const { return (float)getViewPortWidth() / (float)(getViewPortHeight()); } // Viewport width / viewport height.
 	//----------------------------------------------------------------------------------------
 
@@ -1233,8 +1315,6 @@ private:
 	void setSharedUniformsForProg(const OpenGLProgram& shader_prog, const Matrix4f& view_mat, const Matrix4f& proj_mat);
 	void drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_mat, const OpenGLProgram& shader_prog, const OpenGLMeshRenderData& mesh_data, const OpenGLBatch& batch, uint32 batch_index);
 	void drawBatchWithDenormalisedData(const GLObject& ob, const GLObjectBatchDrawInfo& batch, uint32 batch_index);
-	void buildOutlineTextures();
-	void createSSAOTextures();
 public:
 	void addDebugSphere(const Vec4f& centre, float radius, const Colour4f& col);
 	void addDebugAABB(const js::AABBox& aabb, const Colour4f& col);
@@ -1330,16 +1410,6 @@ private:
 	bool init_succeeded;
 	std::string initialisation_error_msg;
 	
-	Vec4f sun_dir; // Dir to sun.
-	Vec4f sun_dir_cam_space;
-	Vec4f sun_spec_rad_times_solid_angle;
-	Vec4f sky_av_spec_rad;
-	Vec4f sun_and_sky_av_spec_rad;
-	Vec4f air_scattering_coeffs;
-	float sun_phi;
-
-	bool loaded_maps_for_sun_dir;
-
 	Reference<OpenGLMeshRenderData> line_meshdata;
 	Reference<OpenGLMeshRenderData> sphere_meshdata;
 	Reference<OpenGLMeshRenderData> arrow_meshdata;
@@ -1349,10 +1419,6 @@ private:
 	Reference<OpenGLMeshRenderData> sprite_quad_meshdata;
 
 
-	int main_viewport_w, main_viewport_h;
-
-	int viewport_w, viewport_h;
-	
 	js::Vector<const OverlayObject*, 16> temp_obs;
 
 
@@ -1441,8 +1507,6 @@ private:
 	Reference<OpenGLProgram> fog_post_prog;
 	int fog_post_depth_tex_loc = -1;
 
-	Reference<FrameBuffer>   fog_framebuffer;
-	OpenGLTextureRef         fog_colour_texture;
 
 	//size_t vert_mem_used; // B
 	//size_t index_mem_used; // B
@@ -1453,9 +1517,6 @@ public:
 private:
 	ReloadShadersCallback* reload_shaders_callback;
 
-	Reference<ShadowMapping> shadow_mapping;
-public:
-	//Reference<TerrainSystem> terrain_system;
 private:
 	OverlayObjectRef clear_buf_overlay_ob;
 	std::vector<OverlayObjectRef> texture_debug_preview_overlay_obs;
@@ -1464,70 +1525,9 @@ private:
 
 	ManagerWithCache<OpenGLTextureKey, Reference<OpenGLTexture>, OpenGLTextureKeyHasher> opengl_textures;
 private:
-	size_t outline_tex_w, outline_tex_h;
-	Reference<FrameBuffer> outline_solid_framebuffer;
-	Reference<FrameBuffer> outline_edge_framebuffer;
-	Reference<OpenGLTexture> outline_solid_tex;
-	Reference<OpenGLTexture> outline_edge_tex;
 	OpenGLMaterial outline_solid_mat; // Material for drawing selected objects with a flat, unshaded colour.
 	Reference<OpenGLMeshRenderData> outline_quad_meshdata;
 	OpenGLMaterial outline_edge_mat; // Material for drawing the actual edge overlay.
-
-	std::vector<Reference<FrameBuffer> > downsize_framebuffers;
-	std::vector<Reference<OpenGLTexture> > downsize_target_textures;
-
-	std::vector<Reference<FrameBuffer> > blur_framebuffers_x; // Blurred in x direction
-	std::vector<Reference<OpenGLTexture> > blur_target_textures_x;
-
-	std::vector<Reference<FrameBuffer> > blur_framebuffers; // Blurred in both directions:
-	std::vector<Reference<OpenGLTexture> > blur_target_textures;
-
-	Reference<FrameBuffer> main_render_framebuffer;
-	Reference<FrameBuffer> main_render_copy_framebuffer;
-
-	Reference<RenderBuffer> main_colour_renderbuffer;
-	Reference<RenderBuffer> main_normal_renderbuffer;
-	Reference<RenderBuffer> main_depth_renderbuffer;
-	Reference<RenderBuffer> transparent_accum_renderbuffer;
-	Reference<RenderBuffer> total_transmittance_renderbuffer;
-
-	OpenGLTextureRef main_colour_copy_texture;
-	OpenGLTextureRef main_depth_copy_texture;
-	OpenGLTextureRef main_normal_copy_texture;
-	OpenGLTextureRef transparent_accum_copy_texture;
-	OpenGLTextureRef total_transmittance_copy_texture;
-
-
-	Reference<FrameBuffer> pre_dof_framebuffer;
-	OpenGLTextureRef pre_dof_colour_texture;
-
-	Reference<FrameBuffer> post_dof_framebuffer;
-	OpenGLTextureRef post_dof_colour_texture;
-
-
-	// Prepass will render to prepass_framebuffer, prepass_colour_renderbuffer, prepass_depth_renderbuffer.
-	// Then blit to prepass_copy_framebuffer, prepass_colour_copy_texture, prepass_colour_depth_texture
-	// Then SSAO is computed, reading from prepass_copy_framebuffer and writing to compute_ssao_output_framebuffer.
-	Reference<FrameBuffer> prepass_framebuffer;
-	Reference<RenderBuffer> prepass_colour_renderbuffer;
-	Reference<RenderBuffer> prepass_normal_renderbuffer;
-	Reference<RenderBuffer> prepass_depth_renderbuffer;
-
-	Reference<FrameBuffer> prepass_copy_framebuffer;
-	OpenGLTextureRef prepass_colour_copy_texture;
-	OpenGLTextureRef prepass_normal_copy_texture;
-	OpenGLTextureRef prepass_depth_copy_texture;
-
-	Reference<FrameBuffer> compute_ssao_framebuffer;
-	OpenGLTextureRef ssao_texture;
-	OpenGLTextureRef ssao_specular_texture;
-
-	OpenGLTextureRef blurred_ssao_texture;
-	OpenGLTextureRef blurred_ssao_texture_x;
-	OpenGLTextureRef blurred_ssao_specular_texture;
-	Reference<FrameBuffer> blurred_ssao_framebuffer; // Blurred in both directions:
-	Reference<FrameBuffer> blurred_ssao_framebuffer_x; // blurred in x direction
-	Reference<FrameBuffer> blurred_ssao_specular_framebuffer; // Blurred in both directions:
 
 
 	std::unordered_set<GLObject*> selected_objects;
@@ -1580,8 +1580,6 @@ public:
 	bool EXT_disjoint_timer_query_webgl2_support;
 
 	OpenGLEngineSettings settings;
-
-	uint64 shadow_mapping_frame_num;
 
 	bool add_debug_obs;
 private:

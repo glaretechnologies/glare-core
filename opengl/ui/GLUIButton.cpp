@@ -19,7 +19,7 @@ GLUIButton::CreateArgs::CreateArgs()
 {
 	sizing_type_x = GLUIWidget::SizingType::SizingType_FixedSizeUICoords;
 	sizing_type_y = GLUIWidget::SizingType::SizingType_FixedSizeUICoords;
-	fixed_size = Vec2f(0.05, 0.05);
+	fixed_size = Vec2f(0.05f, 0.05f);
 
 	toggled_colour = toLinearSRGB(Colour3f(0.7f, 0.8f, 1.f));
 	untoggled_colour = Colour3f(1.f);
@@ -59,7 +59,17 @@ GLUIButton::GLUIButton(GLUI& glui_, const std::string& tex_path, const CreateArg
 
 
 	const Vec2f botleft(0.f);
-	const Vec2f dims(glui->getUIWidthForDevIndepPixelWidths(fixed_size));
+	Vec2f dims(0.1f);
+	if(this->sizing_type_x == SizingType_FixedSizePx)
+		dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
+	else if(this->sizing_type_x == SizingType_FixedSizeUICoords)
+		dims.x = this->fixed_size.x;
+
+	if(this->sizing_type_y == SizingType_FixedSizePx)
+		dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
+	else if(this->sizing_type_y == SizingType_FixedSizeUICoords)
+		dims.y = this->fixed_size.y;
+
 
 	rect = Rect2f(botleft, botleft + dims);
 
@@ -162,9 +172,13 @@ void GLUIButton::updateGLTransform()
 
 	if(this->sizing_type_x == SizingType_FixedSizePx)
 		dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
+	else if(this->sizing_type_x == SizingType_FixedSizeUICoords)
+		dims.x = this->fixed_size.x;
 
 	if(this->sizing_type_y == SizingType_FixedSizePx)
 		dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
+	else if(this->sizing_type_y == SizingType_FixedSizeUICoords)
+		dims.y = this->fixed_size.y;
 
 	const Vec2f botleft = getRect().getMin();
 	rect = Rect2f(botleft, botleft + dims);

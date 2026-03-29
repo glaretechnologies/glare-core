@@ -89,7 +89,7 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 		size_t last_line_start_byte_i = 0;
 		std::vector<std::pair<size_t, size_t>> line_begin_end_bytes;
 		{
-			const float x_scale = 2.f / opengl_engine->getMainViewPortWidth(); // see GLUIText::updateGLTransform
+			const float x_scale = 2.f / opengl_engine->getViewPortWidth(); // see GLUIText::updateGLTransform
 
 			const size_t num_codepoints = UTF8Utils::numCodePointsInString(text);
 

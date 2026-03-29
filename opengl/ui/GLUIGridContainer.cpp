@@ -141,10 +141,11 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 	const float cell_y_padding = glui->getUIWidthForDevIndepPixelWidth(args.cell_y_padding_px);
 
 	std::vector<float> column_widths(cell_widgets.getWidth());
+	float total_width = 0;
 
 	for(size_t x=0; x<cell_widgets.getWidth(); ++x)
 	{
-		float w = 0;
+		float max_padded_w = 0; // Maximum padded width over all widgets on column x.
 		for(size_t y=0; y<cell_widgets.getHeight(); ++y)
 		{
 			GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
@@ -152,10 +153,11 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 			{
 				widget->recomputeLayout();
 				const float padded_w = widget->getDims().x + cell_x_padding * 2;
-				w = myMax(w, padded_w);
+				max_padded_w = myMax(max_padded_w, padded_w);
 			}
 		}
-		column_widths[x] = w;
+		column_widths[x] = max_padded_w;
+		total_width += max_padded_w;
 	}
 
 	std::vector<float> row_heights(cell_widgets.getHeight());
@@ -163,29 +165,28 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 
 	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
 	{
-		float h = 0;
+		float max_padded_h = 0; // Maximum padded height over all widgets on row y
 		for(size_t x=0; x<cell_widgets.getWidth(); ++x)
 		{
 			GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
 			if(widget)
 			{
 				const float padded_h = widget->getDims().y + cell_y_padding * 2;
-				h = myMax(h, padded_h);
+				max_padded_h = myMax(max_padded_h, padded_h);
 			}
 		}
-		row_heights[y] = h;
-		total_height += h;
+		row_heights[y] = max_padded_h;
+		total_height += max_padded_h;
 	}
 		
 	// Now iterate over all cells and set positions (from top row to bottom row)
-	float py = total_height;
-	float total_w = 0;
+	float py = total_height; // y coordinates relative to this->rect.getMin() of top of row.
 	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
 	{
 		const float row_height = row_heights[y];
 		const float row_bot_y = py - row_height;
 
-		float px = 0;
+		float px = 0; // x coordinates relative to this->rect.getMin() of left of column.
 		for(size_t x=0; x<cell_widgets.getWidth(); ++x)	
 		{
 			if((x < (int)col_min_x_px_vals.size()) && col_min_x_px_vals[x] > 0) // If we have a min x pixel val for this column:
@@ -195,20 +196,30 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 			GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
 			if(widget)
 			{
-				const float y_space = myMax(0.f, row_height - cell_y_padding * 2 - widget->getDims().y); // Compute space around widget to vertically center
-				const Vec2f widget_bot_left = this->rect.getMin() + Vec2f(px, row_bot_y + y_space*0.5f) + Vec2f(cell_x_padding, cell_y_padding);
+				Vec2f widget_bot_left;
+				if(true) // If vert align to top:
+				{
+					widget_bot_left = this->rect.getMin() + Vec2f(px + cell_x_padding, py - cell_y_padding - widget->getDims().y);
+				}
+				else
+				{
+					const float y_space = myMax(0.f, row_height - cell_y_padding * 2 - widget->getDims().y); // Compute space around widget to vertically center
+					widget_bot_left = this->rect.getMin() + Vec2f(px, row_bot_y + y_space*0.5f) + Vec2f(cell_x_padding, cell_y_padding);
+				}
+
 				if(widget->sizing_type_x == SizingType_Expanding) // NOTE: bit of a hack, just checking x sizing type and not y.
-					widget->setPosAndDims(/*botleft=*/widget_bot_left, /*dims=*/Vec2f(column_width, row_height) - Vec2f(cell_x_padding * 2, cell_y_padding) * 2);
+				{
+					float dims_x = myMax(0.f, column_width - cell_x_padding * 2);
+					float dims_y = myMax(0.f, this->rect.getMin().y + py - cell_y_padding - widget_bot_left.y);
+
+					widget->setPosAndDims(/*botleft=*/widget_bot_left, /*dims=*/Vec2f(dims_x, dims_y));//max(Vec2f(column_width, row_height) - Vec2f(cell_x_padding * 2, cell_y_padding * 2), Vec2f(0.f)));
+				}
 				else
 					widget->setPos(/*botleft=*/widget_bot_left);
-
-				widget->setClipRegion(this->rect);
 			}
 
 			px += column_width;
 		}
-
-		total_w = px;
 
 		py -= row_height;
 	}
@@ -216,12 +227,23 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 	// Update dimensions
 	Vec2 dims = this->getDims();
 	if(sizing_type_x == GLUIWidget::SizingType_Expanding)
-		dims.x = total_w;
+		dims.x = total_width;
 	if(sizing_type_y == GLUIWidget::SizingType_Expanding)
 		dims.y = total_height;
 
 	const Vec2f botleft = this->getRect().getMin();
 	this->rect = Rect2f(botleft, botleft + dims);
+
+
+	// Set clip region on child widgets
+	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
+	for(size_t x=0; x<cell_widgets.getWidth();  ++x)
+	{
+		GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
+		if(widget)
+			widget->setClipRegion(this->rect);
+	}
+
 
 	updateBackgroundOverlayTransform();
 }
