@@ -28,6 +28,8 @@ public:
 	inline Rect2(){}
 	inline Rect2(const Vec2<Real>& min, const Vec2<Real>& max);
 
+	inline static Rect2 fromMinAndSpan(const Vec2<Real>& min, const Vec2<Real>& span) { return Rect2(min, min + span); }
+
 	inline const Vec2<Real>& getMin() const { return min; }
 	inline const Vec2<Real>& getMax() const { return max; }
 

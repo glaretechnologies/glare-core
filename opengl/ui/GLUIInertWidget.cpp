@@ -13,7 +13,11 @@ GLUIInertWidget::CreateArgs::CreateArgs()
 :	background_colour(Colour3f(0.7f)),
 	background_alpha(1.f),
 	z(0.f)
-{}
+{
+	sizing_type_x = GLUIWidget::SizingType::SizingType_FixedSizeUICoords;
+	sizing_type_y = GLUIWidget::SizingType::SizingType_FixedSizeUICoords;
+	fixed_size = Vec2f(0.05f, 0.05f);
+}
 
 
 GLUIInertWidget::GLUIInertWidget(GLUI& glui_, const CreateArgs& args_)
@@ -22,6 +26,14 @@ GLUIInertWidget::GLUIInertWidget(GLUI& glui_, const CreateArgs& args_)
 	opengl_engine = glui_.opengl_engine.ptr();
 	args = args_;
 	m_z = args_.z;
+
+	sizing_type_x = args.sizing_type_x;
+	sizing_type_y = args.sizing_type_y;
+	fixed_size    = args.fixed_size;
+
+	const Vec2f botleft(0.f);
+	const Vec2f dims = computeDims(/*old dims=*/Vec2f(0.1f), *glui);
+	rect = Rect2f(botleft, botleft + dims);
 
 	background_overlay_ob = new OverlayObject();
 	background_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -106,6 +118,12 @@ void GLUIInertWidget::setVisible(bool visible)
 
 void GLUIInertWidget::updateGLTransform()
 {
+	const Vec2f botleft = getRect().getMin();
+	const Vec2f dims = computeDims(getRect().getWidths(), *glui);
+	rect = Rect2f(botleft, botleft + dims);
+
+	const float y_scale = opengl_engine->getViewPortAspectRatio();
+	background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 }
 
 

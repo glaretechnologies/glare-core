@@ -54,6 +54,7 @@ public:
 	~GLUIButton();
 
 	void setTexture(const std::string& tex_path);
+	void setTexture(const OpenGLTextureRef& tex);
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;

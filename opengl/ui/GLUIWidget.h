@@ -79,6 +79,9 @@ public:
 	void setFixedDimsPx(const Vec2f& dims_px, GLUI& gl_ui);
 	void setFixedDimsUICoords(const Vec2f& dims_px) { sizing_type_x = SizingType_FixedSizeUICoords; sizing_type_y = SizingType_FixedSizeUICoords; fixed_size = dims_px; }
 
+	// Returns old_dims or recomputes new dims if sizing type is SizingType_FixedSizeUICoords or SizingType_FixedSizePx
+	Vec2f computeDims(const Vec2f& old_dims, GLUI& gl_ui) const;
+
 	void setParent(GLUIWidget* parent_) { m_parent = parent_; }
 	GLUIWidget* getParent() const { return m_parent; }
 

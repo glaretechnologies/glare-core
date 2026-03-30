@@ -33,6 +33,10 @@ public:
 	struct CreateArgs
 	{
 		CreateArgs();
+
+		GLUIWidget::SizingType sizing_type_x;
+		GLUIWidget::SizingType sizing_type_y;
+		Vec2f fixed_size; // x component used if sizing_type_x == SizingType_FixedSizePx, likewise for y component.
 		
 		Colour3f background_colour; // Linear
 		float background_alpha;

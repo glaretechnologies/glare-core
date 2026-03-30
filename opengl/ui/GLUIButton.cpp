@@ -54,23 +54,13 @@ GLUIButton::GLUIButton(GLUI& glui_, const std::string& tex_path, const CreateArg
 	overlay_ob->material.albedo_linear_rgb = args.button_colour;
 	TextureParams tex_params;
 	tex_params.allow_compression = false;
-	overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, tex_params);
+	if(!tex_path.empty())
+		overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, tex_params);
 	overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
 
 
 	const Vec2f botleft(0.f);
-	Vec2f dims(0.1f);
-	if(this->sizing_type_x == SizingType_FixedSizePx)
-		dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
-	else if(this->sizing_type_x == SizingType_FixedSizeUICoords)
-		dims.x = this->fixed_size.x;
-
-	if(this->sizing_type_y == SizingType_FixedSizePx)
-		dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
-	else if(this->sizing_type_y == SizingType_FixedSizeUICoords)
-		dims.y = this->fixed_size.y;
-
-
+	const Vec2f dims = computeDims(/*old dims=*/Vec2f(0.1f), *glui);
 	rect = Rect2f(botleft, botleft + dims);
 
 
@@ -99,6 +89,13 @@ void GLUIButton::setTexture(const std::string& tex_path)
 
 	if(overlay_ob)
 		overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, tex_params);
+}
+
+
+void GLUIButton::setTexture(const OpenGLTextureRef& tex)
+{
+	if(overlay_ob)
+		overlay_ob->material.albedo_texture = tex;
 }
 
 
@@ -168,19 +165,8 @@ void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 
 void GLUIButton::updateGLTransform()
 {
-	Vec2f dims = this->getDims();
-
-	if(this->sizing_type_x == SizingType_FixedSizePx)
-		dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
-	else if(this->sizing_type_x == SizingType_FixedSizeUICoords)
-		dims.x = this->fixed_size.x;
-
-	if(this->sizing_type_y == SizingType_FixedSizePx)
-		dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
-	else if(this->sizing_type_y == SizingType_FixedSizeUICoords)
-		dims.y = this->fixed_size.y;
-
 	const Vec2f botleft = getRect().getMin();
+	const Vec2f dims = computeDims(getRect().getWidths(), *glui);
 	rect = Rect2f(botleft, botleft + dims);
 
 	updateOverlayTransform();

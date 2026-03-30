@@ -44,6 +44,7 @@ GLUIWindow::GLUIWindow(GLUI& glui_, const CreateArgs& args_)
 		text_view_args.background_alpha = 0;
 		text_view_args.text_colour = args.title_text_colour;
 		text_view_args.z = m_z - 0.01f;
+		text_view_args.font_size_px = 20;
 
 		title_text = new GLUITextView(*glui, args.title, Vec2f(0), text_view_args);
 
@@ -176,10 +177,24 @@ void GLUIWindow::updateGLTransform()
 }
 
 
+static const float title_bar_h_px = 44;
+
 void GLUIWindow::recomputeLayout()
 {
 	if(body_widget)
 		body_widget->recomputeLayout();
+
+	// Set window dimensions based on body dimensions
+	const float title_bar_h = glui->getUIWidthForDevIndepPixelWidth(title_bar_h_px);
+	const float padding     = glui->getUIWidthForDevIndepPixelWidth(args.padding_px);
+
+	const float w =               body_widget->getDims().x + padding * 2;
+	const float h = title_bar_h + body_widget->getDims().y + padding * 2;
+
+	const Vec2f dims(w, h);
+
+	const Vec2f botleft = getRect().getMin();
+	this->rect = Rect2f(botleft, botleft + dims);
 
 	updateWidgetTransforms();
 }
@@ -236,10 +251,8 @@ void GLUIWindow::eventOccurred(GLUICallbackEvent& ev)
 
 void GLUIWindow::updateWidgetTransforms()
 {
-	const float title_bar_h = glui->getUIWidthForDevIndepPixelWidth(28);
-
-	const float padding = glui->getUIWidthForDevIndepPixelWidth(args.padding_px);
-
+	const float title_bar_h = glui->getUIWidthForDevIndepPixelWidth(title_bar_h_px);
+	const float padding     = glui->getUIWidthForDevIndepPixelWidth(args.padding_px);
 
 	if(body_widget)
 	{

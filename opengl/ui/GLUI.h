@@ -99,6 +99,7 @@ public:
 	void setUIScale(float ui_scale_) { ui_scale = ui_scale_; }
 	float getUIScale() const { return ui_scale; }
 
+	// Drawable pixels per 'device-independent' pixels
 	void setCurrentDevicePixelRatio(float new_device_pixel_ratio);
 	float getDevicePixelRatio() const { return device_pixel_ratio; }
 

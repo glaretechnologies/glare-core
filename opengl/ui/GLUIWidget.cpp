@@ -81,3 +81,22 @@ void GLUIWidget::setFixedDimsPx(const Vec2f& dims_px, GLUI& gl_ui)
 
 	this->rect = Rect2f(this->rect.getMin(), this->rect.getMin() + gl_ui.getUIWidthForDevIndepPixelWidths(fixed_size));
 }
+
+
+Vec2f GLUIWidget::computeDims(const Vec2f& old_dims, GLUI& gl_ui) const
+{
+	Vec2f dims = old_dims;
+
+	if(this->sizing_type_x == SizingType_FixedSizePx)
+		dims.x = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.x);
+	else if(this->sizing_type_x == SizingType_FixedSizeUICoords)
+		dims.x = this->fixed_size.x;
+
+	if(this->sizing_type_y == SizingType_FixedSizePx)
+		dims.y = glui->getUIWidthForDevIndepPixelWidth(this->fixed_size.y);
+	else if(this->sizing_type_y == SizingType_FixedSizeUICoords)
+		dims.y = this->fixed_size.y;
+
+	return dims;
+}
+
