@@ -26,7 +26,8 @@ namespace glare { class StackAllocator; }
 /*=====================================================================
 GLUIText
 --------
-
+Displays some text in the opengl engine.
+Just draws text, not any background behind it.
 =====================================================================*/
 class GLUIText final : public RefCounted
 {
@@ -64,7 +65,7 @@ public:
 	void setPos(const Vec2f& botleft);
 	Vec2f getPos() const { return botleft; }
 
-	void setZ(float new_z) { z = new_z; }
+	void setZ(float new_z);
 
 	// Call when e.g. viewport has changed
 	void updateGLTransform();

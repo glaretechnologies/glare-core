@@ -11,7 +11,7 @@ Copyright Glare Technologies Limited 2026 -
 
 GLUIWindow::CreateArgs::CreateArgs()
 :	title_text_colour(Colour3f(0.9f)),
-	background_colour(Colour3f(0.7f)),
+	background_colour(Colour3f(0.2f)),
 	background_alpha(1.f),
 	z(0.f),
 	padding_px(10),
@@ -92,7 +92,7 @@ void GLUIWindow::setBodyWidget(const GLUIWidgetRef body_widget_)
 
 	glui->addWidget(body_widget); // Add body_widget to GL UI if not already added.
 
-	updateWidgetTransforms();
+	recomputeLayout();
 }
 
 
@@ -173,7 +173,7 @@ void GLUIWindow::updateGLTransform()
 	if(body_widget)
 		body_widget->updateGLTransform();
 
-	updateWidgetTransforms();
+	recomputeLayout();
 }
 
 

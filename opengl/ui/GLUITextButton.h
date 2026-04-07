@@ -28,6 +28,10 @@ public:
 	{
 		CreateArgs();
 
+		GLUIWidget::SizingType sizing_type_x;
+		GLUIWidget::SizingType sizing_type_y;
+		Vec2f fixed_size; // x component used if sizing_type_x == SizingType_FixedSizePx, likewise for y component.
+
 		std::string tooltip;
 		int font_size_px; // default = 14 pixels.
 
@@ -52,7 +56,11 @@ public:
 
 	void rebuild();
 
+	virtual Vec2f getMinDims() const override; // Return the natural or minimum dimensions of the widget.
+
 	virtual void setPos(const Vec2f& botleft) override;
+
+	virtual void setAvailableRegionDims(const Vec2f& available_dims) override;
 
 	void setZ(float new_z) override;
 
@@ -66,6 +74,7 @@ public:
 	virtual bool isVisible() override;
 
 	GLUICallbackHandler* handler;
+	std::function<void(GLUICallbackEvent&)> handler_func;
 private:
 	GLARE_DISABLE_COPY(GLUITextButton);
 

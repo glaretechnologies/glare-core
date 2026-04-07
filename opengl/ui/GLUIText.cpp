@@ -208,6 +208,14 @@ void GLUIText::setPos(const Vec2f& botleft_)
 }
 
 
+void GLUIText::setZ(float new_z)
+{
+	z = new_z;
+
+	updateGLTransform();
+}
+
+
 void GLUIText::updateGLTransform()
 {
 	const float x_scale = 2.f / opengl_engine->getViewPortWidth();
@@ -215,7 +223,7 @@ void GLUIText::updateGLTransform()
 
 	this->rect = Rect2f(botleft /*+ rect_os.getMin() * x_scale*/, botleft + rect_os.getMax() * x_scale);
 
-	if(overlay_ob.nonNull())
+	if(overlay_ob)
 		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * opengl_engine->getViewPortAspectRatio(), z) * Matrix4f::scaleMatrix(x_scale, y_scale, 1);
 }
 

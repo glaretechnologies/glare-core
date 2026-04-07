@@ -352,6 +352,11 @@ void GLUI::viewportResized(int /*w*/, int /*h*/)
 }
 
 
+void GLUI::removeAllWidgets()
+{
+	widgets.clear();
+}
+
 float GLUI::getViewportMinMaxY()
 {
 	const float y_scale = opengl_engine->getViewPortAspectRatio();

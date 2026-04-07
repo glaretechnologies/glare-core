@@ -128,6 +128,10 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWindow.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIWindow.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICollapsableGroupBox.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUICollapsableGroupBox.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUISpinBox.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUISpinBox.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIDropDownList.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIDropDownList.h
 )
 
 

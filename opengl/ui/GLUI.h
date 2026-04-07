@@ -73,6 +73,7 @@ public:
 	void addWidget(const GLUIWidgetRef& widget) { widgets.insert(widget); }
 	void removeWidget(const GLUIWidgetRef& widget) { widgets.erase(widget); }
 
+	void removeAllWidgets();
 
 	float getViewportMinMaxY();
 	float getYScale();

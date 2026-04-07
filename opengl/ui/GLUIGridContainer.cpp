@@ -164,10 +164,11 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 			GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
 			if(widget)
 			{
-				widget->recomputeLayout();
+				const Vec2f widget_min_dims = widget->getMinDims();
+				//widget->recomputeLayout();
 				const float left_x_padding  = ((x == 0)                           ? exterior_cell_x_padding : interior_cell_x_padding);
 				const float right_x_padding = ((x == cell_widgets.getWidth() - 1) ? exterior_cell_x_padding : interior_cell_x_padding);
-				const float padded_w = widget->getDims().x + left_x_padding + right_x_padding;
+				const float padded_w = widget_min_dims.x + left_x_padding + right_x_padding;
 				max_padded_w = myMax(max_padded_w, padded_w);
 			}
 		}
@@ -186,9 +187,10 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 			GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
 			if(widget)
 			{
+				const Vec2f widget_min_dims = widget->getMinDims();
 				const float top_y_padding   = ((y == 0)                            ? exterior_cell_y_padding : interior_cell_y_padding);
 				const float bot_y_padding   = ((y == cell_widgets.getHeight() - 1) ? exterior_cell_y_padding : interior_cell_y_padding);
-				const float padded_h = widget->getDims().y + top_y_padding + bot_y_padding;
+				const float padded_h = widget_min_dims.y + top_y_padding + bot_y_padding;
 				max_padded_h = myMax(max_padded_h, padded_h);
 			}
 		}
@@ -216,7 +218,7 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 				const float left_x_padding  = ((x == 0)                            ? exterior_cell_x_padding : interior_cell_x_padding);
 				const float right_x_padding = ((x == cell_widgets.getWidth() - 1)  ? exterior_cell_x_padding : interior_cell_x_padding);
 				const float top_y_padding   = ((y == 0)                            ? exterior_cell_y_padding : interior_cell_y_padding);
-				//const float bot_y_padding   = ((y == cell_widgets.getHeight() - 1) ? exterior_cell_y_padding : interior_cell_y_padding);
+				const float bot_y_padding   = ((y == cell_widgets.getHeight() - 1) ? exterior_cell_y_padding : interior_cell_y_padding);
 				Vec2f widget_bot_left;
 				if(true) // If vert align to top:
 				{
@@ -228,15 +230,25 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 				//	widget_bot_left = this->rect.getMin() + Vec2f(px, row_bot_y + y_space*0.5f) + Vec2f(cell_x_padding, cell_y_padding);
 				}
 
-				if(widget->sizing_type_x == SizingType_Expanding) // NOTE: bit of a hack, just checking x sizing type and not y.
-				{
-					float dims_x = myMax(0.f, column_width - left_x_padding - right_x_padding);
-					float dims_y = myMax(0.f, this->rect.getMin().y + py - top_y_padding - widget_bot_left.y);
+				widget->setPos(/*botleft=*/widget_bot_left);
+				widget->setAvailableRegionDims(Vec2f(
+					column_width - left_x_padding - right_x_padding,
+					row_height   - top_y_padding  - bot_y_padding
+				));
+				
+				// move widget again based on possible resized widget
+				widget_bot_left = this->rect.getMin() + Vec2f(px + left_x_padding, py - top_y_padding - widget->getDims().y);
+				widget->setPos(/*botleft=*/widget_bot_left);
 
-					widget->setPosAndDims(/*botleft=*/widget_bot_left, /*dims=*/Vec2f(dims_x, dims_y));//max(Vec2f(column_width, row_height) - Vec2f(cell_x_padding * 2, cell_y_padding * 2), Vec2f(0.f)));
-				}
-				else
-					widget->setPos(/*botleft=*/widget_bot_left);
+				//if(widget->sizing_type_x == SizingType_Expanding) // NOTE: bit of a hack, just checking x sizing type and not y.
+				//{
+				//	float dims_x = myMax(0.f, column_width - left_x_padding - right_x_padding);
+				//	float dims_y = myMax(0.f, this->rect.getMin().y + py - top_y_padding - widget_bot_left.y);
+				//
+				//	widget->setPosAndDims(/*botleft=*/widget_bot_left, /*dims=*/Vec2f(dims_x, dims_y));//max(Vec2f(column_width, row_height) - Vec2f(cell_x_padding * 2, cell_y_padding * 2), Vec2f(0.f)));
+				//}
+				//else
+				//	widget->setPos(/*botleft=*/widget_bot_left);
 			}
 
 			px += column_width;
@@ -257,16 +269,70 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 
 
 	// Set clip region on child widgets
-	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
-	for(size_t x=0; x<cell_widgets.getWidth();  ++x)
-	{
-		GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
-		if(widget)
-			widget->setClipRegion(this->rect);
-	}
+//TEMP	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
+//TEMP	for(size_t x=0; x<cell_widgets.getWidth();  ++x)
+//TEMP	{
+//TEMP		GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
+//TEMP		if(widget)
+//TEMP			widget->setClipRegion(this->rect);
+//TEMP	}
 
 
 	updateBackgroundOverlayTransform();
+}
+
+
+Vec2f GLUIGridContainer::getMinDims() const
+{
+	// TODO: deduplicate this code 
+	const float interior_cell_x_padding = glui->getUIWidthForDevIndepPixelWidth(args.interior_cell_x_padding_px);
+	const float interior_cell_y_padding = glui->getUIWidthForDevIndepPixelWidth(args.interior_cell_y_padding_px);
+	const float exterior_cell_x_padding = glui->getUIWidthForDevIndepPixelWidth(args.exterior_cell_x_padding_px);
+	const float exterior_cell_y_padding = glui->getUIWidthForDevIndepPixelWidth(args.exterior_cell_y_padding_px);
+
+	float total_width = 0;
+
+	for(size_t x=0; x<cell_widgets.getWidth(); ++x)
+	{
+		float max_padded_w = 0; // Maximum padded width over all widgets on column x.
+		for(size_t y=0; y<cell_widgets.getHeight(); ++y)
+		{
+			GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
+			if(widget)
+			{
+				const Vec2f widget_min_dims = widget->getMinDims();
+				const float left_x_padding  = ((x == 0)                           ? exterior_cell_x_padding : interior_cell_x_padding);
+				const float right_x_padding = ((x == cell_widgets.getWidth() - 1) ? exterior_cell_x_padding : interior_cell_x_padding);
+				const float padded_w = widget_min_dims.x + left_x_padding + right_x_padding;
+				max_padded_w = myMax(max_padded_w, padded_w);
+			}
+		}
+		total_width += max_padded_w;
+	}
+
+	std::vector<float> row_heights(cell_widgets.getHeight());
+	float total_height = 0;
+
+	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
+	{
+		float max_padded_h = 0; // Maximum padded height over all widgets on row y
+		for(size_t x=0; x<cell_widgets.getWidth(); ++x)
+		{
+			GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
+			if(widget)
+			{
+				const Vec2f widget_min_dims = widget->getMinDims();
+				const float top_y_padding   = ((y == 0)                            ? exterior_cell_y_padding : interior_cell_y_padding);
+				const float bot_y_padding   = ((y == cell_widgets.getHeight() - 1) ? exterior_cell_y_padding : interior_cell_y_padding);
+				const float padded_h = widget_min_dims.y + top_y_padding + bot_y_padding;
+				max_padded_h = myMax(max_padded_h, padded_h);
+			}
+		}
+		row_heights[y] = max_padded_h;
+		total_height += max_padded_h;
+	}
+
+	return Vec2f(total_width, total_height);
 }
 
 
@@ -315,16 +381,16 @@ void GLUIGridContainer::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
 
 void GLUIGridContainer::setClipRegion(const Rect2f& clip_rect)
 {
-	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
-	for(size_t x=0; x<cell_widgets.getWidth(); ++x)	
-	{
-		GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
-		if(widget)
-			widget->setClipRegion(clip_rect);
-	}
-
-	if(background_overlay_ob)
-		background_overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
+//TEMP	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
+//TEMP	for(size_t x=0; x<cell_widgets.getWidth(); ++x)	
+//TEMP	{
+//TEMP		GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
+//TEMP		if(widget)
+//TEMP			widget->setClipRegion(clip_rect);
+//TEMP	}
+//TEMP
+//TEMP	if(background_overlay_ob)
+//TEMP		background_overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
 }
 
 
@@ -365,6 +431,8 @@ void GLUIGridContainer::setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widg
 	widget->setParent(this);
 
 	widget->setZ(this->getZ() - 0.01f); // Position in front of the container.
+
+	recomputeLayout();
 }
 
 

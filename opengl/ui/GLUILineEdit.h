@@ -1,23 +1,14 @@
 /*=====================================================================
 GLUILineEdit.h
--------------
+--------------
 Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
 
 #include "GLUIWidget.h"
-#include "GLUICallbackHandler.h"
 #include "GLUIText.h"
-#include "../OpenGLEngine.h"
-#include "../../utils/RefCounted.h"
-#include "../../utils/Reference.h"
-#include "../../maths/Rect2.h"
 #include "../../graphics/colour3.h"
-#include <string>
-
-
-class GLUI;
 
 
 /*=====================================================================
@@ -31,6 +22,11 @@ public:
 	struct CreateArgs
 	{
 		CreateArgs();
+
+		GLUIWidget::SizingType sizing_type_x;
+		GLUIWidget::SizingType sizing_type_y;
+		Vec2f fixed_size; // x component used if sizing_type_x == SizingType_FixedSizePx, likewise for y component.
+
 		std::string tooltip;
 		Colour3f background_colour; // Linear
 		Colour3f mouseover_background_colour;
@@ -40,8 +36,6 @@ public:
 		int padding_px; // default = 10
 		int font_size_px; // default = 14
 		float rounded_corner_radius_px;
-
-		float width; // In GL UI coords
 		float z;
 	};
 
@@ -50,22 +44,24 @@ public:
 
 	virtual void think(GLUI& glui) override;
 
-	void setText(GLUI& glui, const std::string& new_text);
+	void setText(const std::string& new_text);
 	const std::string& getText() const;
-
-	void setWidth(float width);
 
 	void clear();
 
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
-	//const Vec2f getDims() const;
+	virtual Vec2f getMinDims() const override; // Return the natural or minimum dimensions of the widget.
 
 	virtual void setPos(const Vec2f& botleft) override;
 
+	virtual void setAvailableRegionDims(const Vec2f& available_dims) override; // Expanding widgets can resize to fill any of the available space.
+
 	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
+
+	virtual void setZ(float new_z) override;
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;

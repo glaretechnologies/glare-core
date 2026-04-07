@@ -151,7 +151,7 @@ void RenderStatsWidget::updateWidgetPositions()
 
 		if(frame_num % 100 == 0) // label_update_timer.elapsed() > 1.0)
 		{
-			stats_label->setText(*gl_ui, "av time: " + doubleToStringNDecimalPlaces(average_frame_time * 1.0e3, 2) + " ms");
+			stats_label->setText("av time: " + doubleToStringNDecimalPlaces(average_frame_time * 1.0e3, 2) + " ms");
 			//label_update_timer.reset();
 		}
 		stats_label->setPos(Vec2f(graph_left_x + graph_h/2 - stats_label->getRect().getWidths().x/2, min_max_y - margin - graph_h - gl_ui->getUIWidthForDevIndepPixelWidth(20)));

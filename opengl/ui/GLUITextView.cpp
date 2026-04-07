@@ -30,9 +30,12 @@ GLUITextView::GLUITextView(GLUI& glui_, const std::string& text_, const Vec2f& b
 	m_z = args_.z;
 	last_rounded_background_dims = Vec2f(-1.f);
 
+	sizing_type_x = args.sizing_type_x;
+	sizing_type_y = args.sizing_type_y;
+	fixed_size = args.fixed_size;
+
 	selection_start = selection_end = -1;
 	selection_start_text_index = selection_end_text_index = 0;
-	botleft = botleft_;
 	visible = true;
 
 	if(args.background_alpha != 0)
@@ -53,7 +56,9 @@ GLUITextView::GLUITextView(GLUI& glui_, const std::string& text_, const Vec2f& b
 
 	opengl_engine->addOverlayObject(selection_overlay_ob);
 
-	setText(glui_, text_);
+	this->rect = Rect2f(botleft_, botleft_ + Vec2f(0.1f));
+
+	setText(text_); // Sets rect
 
 	updateOverlayObTransforms();
 }
@@ -74,7 +79,7 @@ GLUITextView::~GLUITextView()
 
 
 // Also updates rect
-void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
+void GLUITextView::setText(const std::string& new_text)
 {
 	if(new_text != text)
 	{
@@ -147,6 +152,8 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 		}
 
 		// Create the line text objects
+		const float padding = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
+
 		float cur_line_y_offset = 0;
 		for(size_t i=0; i<line_begin_end_bytes.size(); ++i)
 		{
@@ -159,11 +166,11 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 			text_create_args.font_size_px = args.font_size_px;
 			text_create_args.alpha = args.text_alpha;
 			text_create_args.z = m_z;
-			GLUITextRef glui_text = new GLUIText(glui_, toString(line_string), botleft, text_create_args);
+			GLUITextRef glui_text = new GLUIText(*glui, toString(line_string), /*botleft=*/getRect().getMin(), text_create_args);
 			glui_text->setVisible(visible);
 
 			// Compute position of current text line
-			Vec2f textpos = botleft - Vec2f(0, cur_line_y_offset);
+			Vec2f textpos = getRect().getMin() + Vec2f(padding, padding - cur_line_y_offset);
 			if(i == 0)
 				textpos.x += args.line_0_x_offset;
 
@@ -173,7 +180,7 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 			cur_line_y_offset += glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f); // TEMP HACK line spacing
 		}
 
-		recomputeRect();
+		this->rect = recomputeRect();
 		updateOverlayObTransforms();
 	}
 }
@@ -181,11 +188,9 @@ void GLUITextView::setText(GLUI& glui_, const std::string& new_text)
 
 void GLUITextView::updateOverlayObTransforms()
 {
-	recomputeRect();
-
 	if(background_overlay_ob)
 	{
-		const Rect2f background_rect = computeBackgroundRect();
+		const Rect2f background_rect = this->getRect();
 
 		const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
 		const float z = this->m_z + 0.001f;
@@ -245,41 +250,55 @@ void GLUITextView::updateOverlayObTransforms()
 	}
 }
 
-
-void GLUITextView::recomputeRect()
+Rect2f GLUITextView::recomputeRect() const
 {
-	if(glui_texts.empty())
-		rect = Rect2f(Vec2f(0.f), Vec2f(0.f));
-	else
-	{
-		rect = glui_texts[0]->getRect();
-		for(size_t i=1; i<glui_texts.size(); ++i)
-			rect.enlargeToHoldRect(glui_texts[i]->getRect());
+	// fixed_size will be max(fixed_size, computeTextDimsWithPadding())
 
-		// Make the text view fixed size.
-		this->setFixedDimsPx(Vec2f(glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().x), glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().y)), *glui);
+	Vec2f text_dims = computeTextDimsWithPadding();
+	Vec2f dims(0.f);
+	if(sizing_type_x == SizingType_FixedSizePx)
+	{
+		dims.x = myMax(glui->getUIWidthForDevIndepPixelWidth(fixed_size.x), text_dims.x);
 	}
+	else if(sizing_type_x == SizingType_FixedSizeUICoords)
+	{
+		dims.x = myMax(fixed_size.x, text_dims.x);
+	}
+	else if(sizing_type_x == SizingType_Expanding)
+	{
+		dims.x = text_dims.x;
+	}
+
+	if(sizing_type_y == SizingType_FixedSizePx)
+	{
+		dims.y = myMax(glui->getUIWidthForDevIndepPixelWidth(fixed_size.y), text_dims.y);
+	}
+	else if(sizing_type_y == SizingType_FixedSizeUICoords)
+	{
+		dims.y = myMax(fixed_size.y, text_dims.y);
+	}
+	else if(sizing_type_y == SizingType_Expanding)
+	{
+		dims.y = text_dims.y;
+	}
+
+	return Rect2f::fromMinAndSpan(getRect().getMin(), dims);
 }
 
 
-Rect2f GLUITextView::computeBackgroundRect() const
+Vec2f GLUITextView::computeTextDimsWithPadding() const
 {
-	if(glui_texts.empty())
-		return Rect2f(Vec2f(0.f), Vec2f(0.f));
+	Vec2f text_dims(0.f);
+	if(!glui_texts.empty())
+	{
+		Rect2f temp_rect = glui_texts[0]->getRect();
+		for(size_t i=1; i<glui_texts.size(); ++i)
+			temp_rect.enlargeToHoldRect(glui_texts[i]->getRect());
+		text_dims = temp_rect.getWidths();
+	}
 
-	// Get bottom line of text baseline position
-	const Vec2f text_lower_left_pos = glui_texts.back()->getPos(); // Not counting descenders
-
-	const Vec2f text_upper_right = rect.getMax();
-	const Vec2f text_widths = text_upper_right - text_lower_left_pos;
-
-	const float margin_x = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
-	const float margin_y = margin_x;
-	const float background_w = text_widths.x + margin_x*2;
-	const float background_h = text_widths.y + margin_y*2;
-
-	const Vec2f lower_left_pos = text_lower_left_pos - Vec2f(margin_x, margin_y);
-	return Rect2f(lower_left_pos, lower_left_pos + Vec2f(background_w, background_h));
+	const float padding = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
+	return text_dims + Vec2f(padding * 2);
 }
 
 
@@ -313,12 +332,18 @@ void GLUITextView::setBackgroundAlpha(float alpha)
 }
 
 
+Vec2f GLUITextView::getMinDims() const
+{
+	return computeTextDimsWithPadding();
+}
+
+
 void GLUITextView::updateGLTransform()
 {
 	for(size_t i=0; i<glui_texts.size(); ++i)
 		glui_texts[i]->updateGLTransform();
 
-	recomputeRect();
+	this->rect = recomputeRect();
 
 	updateOverlayObTransforms();
 }
@@ -354,15 +379,15 @@ float GLUITextView::getOffsetToTopLine() const
 
 void GLUITextView::setPos(const Vec2f& new_botleft)
 {
-	botleft = new_botleft;
+	const float padding = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
 
 	const float total_line_y_offset = getOffsetToTopLine();
 
-	float cur_line_y_offset = 0;
+	float cur_line_y_offset = 0; // (Positive) offset down from top line
 	for(size_t i=0; i<glui_texts.size(); ++i)
 	{
 		// Compute position of current text line
-		Vec2f textpos = botleft + Vec2f(0, total_line_y_offset - cur_line_y_offset);
+		Vec2f textpos = new_botleft + Vec2f(padding, padding + total_line_y_offset - cur_line_y_offset);
 		if(i == 0)
 			textpos.x += args.line_0_x_offset;
 
@@ -370,14 +395,29 @@ void GLUITextView::setPos(const Vec2f& new_botleft)
 		cur_line_y_offset += glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f); // TEMP HACK line spacing
 	}
 
-	recomputeRect();
+	this->rect = Rect2f::fromMinAndSpan(new_botleft, this->getDims());
 	updateOverlayObTransforms();
 }
 
 
-void GLUITextView::setPosAndDims(const Vec2f& new_botleft, const Vec2f& dims)
+void GLUITextView::setPosAndDims(const Vec2f& new_botleft, const Vec2f& /*dims*/)
 {
 	setPos(new_botleft);
+}
+
+
+void GLUITextView::setAvailableRegionDims(const Vec2f& available_dims)
+{
+	Vec2f dims = this->getDims();
+
+	if(sizing_type_x == SizingType_Expanding)
+		dims.x = myMax(dims.x, available_dims.x);
+	if(sizing_type_y == SizingType_Expanding)
+		dims.y = myMax(dims.y, available_dims.y);
+
+	rect = Rect2f::fromMinAndSpan(this->getRect().getMin(), dims);
+
+	updateOverlayObTransforms();
 }
 
 
@@ -429,20 +469,6 @@ void GLUITextView::setVisible(bool visible_)
 bool GLUITextView::isVisible()
 {
 	return visible;
-}
-
-
-// Get rect of just text
-const Rect2f GLUITextView::getRect() const
-{
-	return rect;
-}
-
-
-// Get rect of background box behind text
-const Rect2f GLUITextView::getBackgroundRect() const
-{
-	return computeBackgroundRect();
 }
 
 
@@ -560,4 +586,8 @@ GLUITextView::CreateArgs::CreateArgs():
 	max_width(100000),
 	text_selectable(true),
 	z(0.f)
-{}
+{
+	sizing_type_x = GLUIWidget::SizingType::SizingType_FixedSizePx;
+	sizing_type_y = GLUIWidget::SizingType::SizingType_FixedSizePx;
+	fixed_size = Vec2f(100, 21);
+}

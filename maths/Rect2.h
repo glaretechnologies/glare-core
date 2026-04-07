@@ -38,6 +38,7 @@ public:
 	inline bool inClosedRectangle(const Vec2<Real>& p) const; // does p lie in (min, max)?
 
 	inline const Vec2<Real> getWidths() const;
+	inline const Vec2<Real> centroid() const;
 	inline Real area() const { return (max.x - min.x) * (max.y - min.y); }
 
 	inline void enlargeToHoldPoint(const Vec2<Real>& p);
@@ -84,6 +85,14 @@ const Vec2<Real> Rect2<Real>::getWidths() const
 {
 	return max - min;
 }
+
+
+template <class Real>
+const Vec2<Real> Rect2<Real>::centroid() const
+{
+	return (min + max) * 0.5f;
+}
+
 
 template <class Real>
 void Rect2<Real>::enlargeToHoldPoint(const Vec2<Real>& p)

@@ -41,6 +41,25 @@ public:
 };
 
 
+class GLUISpinBoxValueChangedEvent : public GLUICallbackEvent
+{
+public:
+	GLUISpinBoxValueChangedEvent() {}
+
+	double value;
+};
+
+
+class GLUIDropDownListValueChangedEvent : public GLUICallbackEvent
+{
+public:
+	GLUIDropDownListValueChangedEvent() {}
+
+	size_t index;
+	std::string value;
+};
+
+
 class GLUICallbackHandler// : public RefCounted
 {
 public:
@@ -53,6 +72,8 @@ public:
 	virtual void mouseWheelEventOccurred(GLUICallbackMouseWheelEvent& /*event*/) {}
 
 	virtual void sliderValueChangedEventOccurred(GLUISliderValueChangedEvent& /*event*/) {}
+
+	virtual void spinBoxValueChangedEventOccurred(GLUISpinBoxValueChangedEvent& /*event*/) {}
 };
 
 

@@ -1,20 +1,14 @@
 /*=====================================================================
 GLUITextView.h
--------------
+--------------
 Copyright Glare Technologies Limited 2024 -
 =====================================================================*/
 #pragma once
 
 
 #include "GLUIWidget.h"
-#include "GLUICallbackHandler.h"
 #include "GLUIText.h"
-#include "../OpenGLEngine.h"
-#include "../utils/RefCounted.h"
-#include "../utils/Reference.h"
-#include "../maths/Rect2.h"
 #include "../graphics/colour3.h"
-#include <string>
 
 
 class GLUI;
@@ -23,7 +17,8 @@ class GLUI;
 /*=====================================================================
 GLUITextView
 ------------
-A widget that displays some text
+A widget that displays some text.
+Also can draw a background behind the text.
 =====================================================================*/
 class GLUITextView final : public GLUIWidget
 {
@@ -31,6 +26,11 @@ public:
 	struct CreateArgs
 	{
 		CreateArgs();
+
+		GLUIWidget::SizingType sizing_type_x; // Will be SizingType_FixedSizePx by default, but fixed_size will be max(fixed_size, computeTextDimsWithPadding())
+		GLUIWidget::SizingType sizing_type_y;
+		Vec2f fixed_size; // x component used if sizing_type_x == SizingType_FixedSizePx, likewise for y component.
+
 		std::string tooltip;
 		Colour3f background_colour; // Linear
 		float background_alpha;
@@ -51,17 +51,20 @@ public:
 	GLUITextView(GLUI& glui, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUITextView();
 	
-
-	void setText(GLUI& glui, const std::string& new_text);
+	void setText(const std::string& new_text);
 
 	void setTextColour(const Colour3f& col);
 	void setTextAlpha(float alpha);
 	void setBackgroundColour(const Colour3f& col);
 	void setBackgroundAlpha(float alpha);
 
-	virtual void setPos(const Vec2f& botleft) override; // Sets baseline position of text on first line.  Text descenders will be below this position.  Background quad can extend past this.
+	virtual Vec2f getMinDims() const override; // Return the natural or minimum dimensions of the widget.
+
+	virtual void setPos(const Vec2f& botleft) override; // OLD: Sets baseline position of text on first line.  Text descenders will be below this position.  Background quad can extend past this.
 
 	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override; // NOTE: discards dims
+
+	virtual void setAvailableRegionDims(const Vec2f& available_dims) override; // Expanding widgets can resize to fill any of the available space.
 
 	virtual void setZ(float new_z) override;
 
@@ -73,11 +76,6 @@ public:
 
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
-
-	//const Vec2f getDims() const;
-
-	const Rect2f getRect() const; // Get rect of just text
-	const Rect2f getBackgroundRect() const; // Get rect of background box behind text
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
@@ -93,8 +91,8 @@ private:
 	GLARE_DISABLE_COPY(GLUITextView);
 
 	void updateOverlayObTransforms();
-	void recomputeRect();
-	Rect2f computeBackgroundRect() const; // Doesn't cover descenders
+	Rect2f recomputeRect() const;
+	Vec2f computeTextDimsWithPadding() const;
 
 	OverlayObjectRef background_overlay_ob;
 	std::vector<GLUITextRef> glui_texts; // Lines of text.  glui_texts[0] is the top line.
@@ -107,8 +105,6 @@ private:
 	CreateArgs args;
 	std::string text;
 	bool visible;
-
-	Vec2f botleft; // in GL UI coords
 
 	Vec2f last_rounded_background_dims;
 

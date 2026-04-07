@@ -32,7 +32,7 @@ GLUIInertWidget::GLUIInertWidget(GLUI& glui_, const CreateArgs& args_)
 	fixed_size    = args.fixed_size;
 
 	const Vec2f botleft(0.f);
-	const Vec2f dims = computeDims(/*old dims=*/Vec2f(0.1f), *glui);
+	const Vec2f dims = computeDims(/*old dims=*/Vec2f(0.1f));
 	rect = Rect2f(botleft, botleft + dims);
 
 	background_overlay_ob = new OverlayObject();
@@ -119,7 +119,7 @@ void GLUIInertWidget::setVisible(bool visible)
 void GLUIInertWidget::updateGLTransform()
 {
 	const Vec2f botleft = getRect().getMin();
-	const Vec2f dims = computeDims(getRect().getWidths(), *glui);
+	const Vec2f dims = computeDims(getRect().getWidths());
 	rect = Rect2f(botleft, botleft + dims);
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();

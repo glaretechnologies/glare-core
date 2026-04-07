@@ -60,7 +60,7 @@ GLUIButton::GLUIButton(GLUI& glui_, const std::string& tex_path, const CreateArg
 
 
 	const Vec2f botleft(0.f);
-	const Vec2f dims = computeDims(/*old dims=*/Vec2f(0.1f), *glui);
+	const Vec2f dims = computeDims(/*old dims=*/Vec2f(0.1f));
 	rect = Rect2f(botleft, botleft + dims);
 
 
@@ -166,7 +166,7 @@ void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 void GLUIButton::updateGLTransform()
 {
 	const Vec2f botleft = getRect().getMin();
-	const Vec2f dims = computeDims(getRect().getWidths(), *glui);
+	const Vec2f dims = computeDims(getRect().getWidths());
 	rect = Rect2f(botleft, botleft + dims);
 
 	updateOverlayTransform();
