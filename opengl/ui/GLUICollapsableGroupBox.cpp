@@ -234,14 +234,6 @@ void GLUICollapsableGroupBox::setPos(const Vec2f& botleft)
 }
 
 
-void GLUICollapsableGroupBox::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
-{
-	rect = Rect2f(botleft, botleft + dims);
-
-	updateWidgetTransforms();
-}
-
-
 void GLUICollapsableGroupBox::setClipRegion(const Rect2f& /*clip_rect*/)
 {
 	// TODO

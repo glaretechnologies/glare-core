@@ -400,12 +400,6 @@ void GLUITextView::setPos(const Vec2f& new_botleft)
 }
 
 
-void GLUITextView::setPosAndDims(const Vec2f& new_botleft, const Vec2f& /*dims*/)
-{
-	setPos(new_botleft);
-}
-
-
 void GLUITextView::setAvailableRegionDims(const Vec2f& available_dims)
 {
 	Vec2f dims = this->getDims();

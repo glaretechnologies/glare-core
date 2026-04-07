@@ -620,12 +620,6 @@ void GLUILineEdit::setPos(const Vec2f& botleft_)
 }
 
 
-void GLUILineEdit::setPosAndDims(const Vec2f& new_botleft, const Vec2f& dims)
-{
-	setPos(new_botleft);
-}
-
-
 void GLUILineEdit::setAvailableRegionDims(const Vec2f& available_dims) // Expanding widgets can resize to fill any of the available space.
 {
 	Vec2f dims = getMinDims();

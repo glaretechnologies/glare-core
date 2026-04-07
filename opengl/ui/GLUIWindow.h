@@ -89,7 +89,6 @@ public:
 	virtual bool acceptsTextInput() override { return false; }
 
 	virtual void setPos(const Vec2f& botleft) override;
-	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
 	void setClipRegion(const Rect2f& rect) override;
 
 	virtual void setZ(float new_z) override;

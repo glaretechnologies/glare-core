@@ -65,7 +65,7 @@ public:
 	virtual void setPos(const Vec2f& botleft) override;
 
 	void setDims(const Vec2f& dims);
-	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
+	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
 
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
 

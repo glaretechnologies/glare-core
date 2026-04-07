@@ -191,14 +191,6 @@ void GLUICheckBox::setPos(const Vec2f& botleft)
 }
 
 
-void GLUICheckBox::setPosAndDims(const Vec2f& botleft, const Vec2f& new_dims)
-{
-	rect = Rect2f(botleft, botleft + new_dims);
-
-	updateOverlayTransforms();
-}
-
-
 void GLUICheckBox::setClipRegion(const Rect2f& clip_rect)
 {
 	tick_overlay_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);

@@ -59,7 +59,6 @@ public:
 	virtual Vec2f getMinDims() const;
 
 	virtual void setPos(const Vec2f& botleft) = 0;
-	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) = 0;
 
 	virtual void setAvailableRegionDims(const Vec2f& /*available_dims*/) {} // Expanding widgets can resize to fill any of the available space.
 

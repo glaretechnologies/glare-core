@@ -200,14 +200,6 @@ void GLUITextButton::setZ(float new_z)
 }
 
 
-void GLUITextButton::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
-{
-	text_view->setPosAndDims(botleft/* + Vec2f(text_view->getPaddingWidth())*/, dims);
-
-	rect = text_view->getRect(); // getBackgroundRect();
-}
-
-
 void GLUITextButton::setClipRegion(const Rect2f& clip_rect)
 {
 	text_view->setClipRegion(clip_rect);

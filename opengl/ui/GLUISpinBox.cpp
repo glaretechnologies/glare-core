@@ -352,13 +352,6 @@ void GLUISpinBox::setPos(const Vec2f& botleft)
 }
 
 
-void GLUISpinBox::setPosAndDims(const Vec2f& botleft, const Vec2f& new_dims)
-{
-	rect = Rect2f(botleft, botleft + new_dims);
-	updateOverlayTransforms();
-}
-
-
 void GLUISpinBox::setClipRegion(const Rect2f& clip_rect)
 {
 	background_ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);

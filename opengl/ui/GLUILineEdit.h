@@ -58,7 +58,6 @@ public:
 
 	virtual void setAvailableRegionDims(const Vec2f& available_dims) override; // Expanding widgets can resize to fill any of the available space.
 
-	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
 
 	virtual void setZ(float new_z) override;

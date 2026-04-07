@@ -393,13 +393,6 @@ void GLUIDropDownList::setPos(const Vec2f& botleft)
 }
 
 
-void GLUIDropDownList::setPosAndDims(const Vec2f& botleft, const Vec2f& new_dims)
-{
-	rect = Rect2f(botleft, botleft + new_dims);
-	updateWidgetTransforms();
-}
-
-
 void GLUIDropDownList::setClipRegion(const Rect2f& clip_rect)
 {
 	open_button_overlay_ob->clip_region  = glui->OpenGLRectCoordsForUICoords(clip_rect);

@@ -358,27 +358,6 @@ void GLUIGridContainer::setPos(const Vec2f& botleft)
 }
 
 
-void GLUIGridContainer::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
-{
-	const Vec2f delta = botleft - getRect().getMin();
-
-	rect = Rect2f(botleft, botleft + dims);
-
-
-	// Move contained items.  Just translate by delta instead of triggering a recomputeLayout.
-	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
-	for(size_t x=0; x<cell_widgets.getWidth(); ++x)	
-	{
-		GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
-		if(widget)
-			widget->setPos(widget->getRect().getMin() + delta);
-	}
-
-
-	updateBackgroundOverlayTransform();
-}
-
-
 void GLUIGridContainer::setClipRegion(const Rect2f& clip_rect)
 {
 //TEMP	for(size_t y=0; y<cell_widgets.getHeight(); ++y)

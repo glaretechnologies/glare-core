@@ -209,14 +209,6 @@ void GLUIWindow::setPos(const Vec2f& botleft)
 }
 
 
-void GLUIWindow::setPosAndDims(const Vec2f& botleft, const Vec2f& dims)
-{
-	rect = Rect2f(botleft, botleft + dims);
-
-	updateWidgetTransforms();
-}
-
-
 void GLUIWindow::setClipRegion(const Rect2f& clip_rect)
 {
 	// TODO

@@ -64,8 +64,10 @@ public:
 	virtual bool acceptsTextInput() override { return false; }
 
 	virtual void setPos(const Vec2f& botleft) override;
-	virtual void setPosAndDims(const Vec2f& botleft, const Vec2f& dims) override;
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
+
+
+	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
 
 private:
 	GLARE_DISABLE_COPY(GLUIInertWidget);
