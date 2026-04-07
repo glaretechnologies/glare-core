@@ -567,7 +567,7 @@ void GLUILineEdit::handleCopyEvent(std::string& clipboard_contents_out)
 }
 
 
-void GLUILineEdit::updateGLTransform()
+void GLUILineEdit::viewportResized()
 {
 	updateTextTransform();
 	updateOverlayObTransforms();

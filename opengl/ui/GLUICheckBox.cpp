@@ -165,7 +165,7 @@ void GLUICheckBox::doHandleMouseMoved(MouseEvent& mouse_event)
 }
 
 
-void GLUICheckBox::updateGLTransform()
+void GLUICheckBox::viewportResized()
 {
 	Vec2f dims = this->getDims();
 

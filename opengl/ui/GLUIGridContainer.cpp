@@ -129,7 +129,7 @@ void GLUIGridContainer::setVisible(bool visible)
 }
 
 
-void GLUIGridContainer::updateGLTransform()
+void GLUIGridContainer::viewportResized()
 {
 	// Call on children first
 	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
@@ -137,7 +137,7 @@ void GLUIGridContainer::updateGLTransform()
 	{
 		GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
 		if(widget)
-			widget->updateGLTransform();
+			widget->viewportResized();
 	}
 
 	recomputeLayout();

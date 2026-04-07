@@ -50,7 +50,7 @@ void GLUIWidget::handleTextInputEvent(TextInputEvent& text_input_event)
 }
 
 
-void GLUIWidget::updateGLTransform()
+void GLUIWidget::viewportResized()
 {
 }
 

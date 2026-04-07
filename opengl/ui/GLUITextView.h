@@ -80,7 +80,7 @@ public:
 	virtual void handleMouseDoubleClick(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual void handleLosingKeyboardFocus() override;
-	virtual void updateGLTransform() override; // Called when e.g. the viewport changes size
+	virtual void viewportResized() override;
 
 	virtual void handleCutEvent(std::string& clipboard_contents_out) override;
 	virtual void handleCopyEvent(std::string& clipboard_contents_out) override;

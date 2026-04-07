@@ -421,7 +421,7 @@ bool GLUIDropDownList::isVisible()
 }
 
 
-void GLUIDropDownList::updateGLTransform()
+void GLUIDropDownList::viewportResized()
 {
 	Vec2f dims = getDims();
 	if(sizing_type_x == SizingType_FixedSizePx)
@@ -432,7 +432,7 @@ void GLUIDropDownList::updateGLTransform()
 	const Vec2f botleft = rect.getMin();
 	rect = Rect2f(botleft, botleft + dims);
 
-	text->updateGLTransform();
+	text->viewportResized();
 
 	updateWidgetTransforms();
 }

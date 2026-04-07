@@ -81,8 +81,7 @@ public:
 	virtual bool isVisible() override;
 	virtual void setVisible(bool visible) override;
 
-	// Called when e.g. the viewport changes size
-	virtual void updateGLTransform() override;
+	virtual void viewportResized() override;
 
 	virtual void recomputeLayout() override; // For containers - call recursively on contained widgets and then place each contained widget at final location.
 

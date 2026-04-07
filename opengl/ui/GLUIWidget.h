@@ -64,8 +64,7 @@ public:
 
 	virtual void setClipRegion(const Rect2f& clip_rect) = 0; // clip_rect is in UI coords
 
-	// Called when e.g. the viewport changes size
-	virtual void updateGLTransform();
+	virtual void viewportResized(); // Called when e.g. the viewport changes size
 
 	virtual void recomputeLayout() {} // For containers - call recursively on contained widgets and then place each contained widget at final location.
 

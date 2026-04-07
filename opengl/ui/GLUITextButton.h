@@ -52,7 +52,7 @@ public:
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
-	virtual void updateGLTransform() override; // Called when e.g. the viewport changes size
+	virtual void viewportResized() override;
 
 	void rebuild();
 

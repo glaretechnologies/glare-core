@@ -49,7 +49,7 @@ public:
 	virtual void handleMouseRelease(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 
-	virtual void updateGLTransform() override;
+	virtual void viewportResized() override;
 
 	virtual void setPos(const Vec2f& botleft) override;
 

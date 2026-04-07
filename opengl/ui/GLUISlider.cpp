@@ -268,7 +268,7 @@ void GLUISlider::updateOverlayTransforms()
 }
 
 
-void GLUISlider::updateGLTransform()
+void GLUISlider::viewportResized()
 {
 	Vec2f dims = this->getDims();
 

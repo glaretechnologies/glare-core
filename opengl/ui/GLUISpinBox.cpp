@@ -384,7 +384,7 @@ bool GLUISpinBox::isVisible()
 }
 
 
-void GLUISpinBox::updateGLTransform()
+void GLUISpinBox::viewportResized()
 {
 	Vec2f dims = getDims();
 	if(sizing_type_x == SizingType_FixedSizePx)

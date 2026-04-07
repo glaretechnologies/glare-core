@@ -338,7 +338,7 @@ Vec2f GLUITextView::getMinDims() const
 }
 
 
-void GLUITextView::updateGLTransform()
+void GLUITextView::viewportResized()
 {
 	for(size_t i=0; i<glui_texts.size(); ++i)
 		glui_texts[i]->updateGLTransform();

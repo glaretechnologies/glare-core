@@ -168,10 +168,10 @@ void GLUIWindow::setVisible(bool visible)
 }
 
 
-void GLUIWindow::updateGLTransform()
+void GLUIWindow::viewportResized()
 {
 	if(body_widget)
-		body_widget->updateGLTransform();
+		body_widget->viewportResized();
 
 	recomputeLayout();
 }

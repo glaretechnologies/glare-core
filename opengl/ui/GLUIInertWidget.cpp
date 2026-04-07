@@ -116,7 +116,7 @@ void GLUIInertWidget::setVisible(bool visible)
 }
 
 
-void GLUIInertWidget::updateGLTransform()
+void GLUIInertWidget::viewportResized()
 {
 	const Vec2f botleft = getRect().getMin();
 	const Vec2f dims = computeDims(getRect().getWidths());

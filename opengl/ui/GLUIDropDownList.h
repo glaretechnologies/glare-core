@@ -75,7 +75,7 @@ public:
 	virtual void setZ(float new_z) override;
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
-	virtual void updateGLTransform() override;
+	virtual void viewportResized() override;
 
 	std::function<void(GLUIDropDownListValueChangedEvent&)> handler_func;
 

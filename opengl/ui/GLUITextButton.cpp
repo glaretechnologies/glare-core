@@ -133,9 +133,9 @@ void GLUITextButton::doHandleMouseMoved(MouseEvent& mouse_event)
 }
 
 
-void GLUITextButton::updateGLTransform()
+void GLUITextButton::viewportResized()
 {
-	text_view->updateGLTransform();
+	text_view->viewportResized();
 
 	this->rect = text_view->getRect(); // getBackgroundRect();
 }

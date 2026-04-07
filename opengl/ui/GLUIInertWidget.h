@@ -58,8 +58,7 @@ public:
 	virtual bool isVisible() override;
 	virtual void setVisible(bool visible) override;
 
-	// Called when e.g. the viewport changes size
-	virtual void updateGLTransform() override;
+	virtual void viewportResized() override;
 
 	virtual bool acceptsTextInput() override { return false; }
 

@@ -163,7 +163,7 @@ void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 }
 
 
-void GLUIButton::updateGLTransform()
+void GLUIButton::viewportResized()
 {
 	const Vec2f botleft = getRect().getMin();
 	const Vec2f dims = computeDims(getRect().getWidths());

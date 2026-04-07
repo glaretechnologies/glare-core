@@ -171,7 +171,7 @@ void GLUIImage::setClipRegion(const Rect2f& clip_rect)
 }
 
 
-void GLUIImage::updateGLTransform()
+void GLUIImage::viewportResized()
 {
 	Vec2f dims = this->getDims();
 

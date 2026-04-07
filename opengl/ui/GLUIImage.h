@@ -42,7 +42,7 @@ public:
 
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
 
-	virtual void updateGLTransform() override;
+	virtual void viewportResized() override;
 
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;

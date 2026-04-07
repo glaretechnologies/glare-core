@@ -168,10 +168,10 @@ void GLUICollapsableGroupBox::setVisible(bool visible)
 }
 
 
-void GLUICollapsableGroupBox::updateGLTransform()
+void GLUICollapsableGroupBox::viewportResized()
 {
 	if(body_widget)
-		body_widget->updateGLTransform();
+		body_widget->viewportResized();
 
 	recomputeLayout();
 }
