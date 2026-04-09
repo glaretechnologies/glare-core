@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "GLUIInertWidget.h"
+#include "GLUITextView.h"
 #include <graphics/SRGBUtils.h>
 #include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
@@ -296,6 +297,31 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 		mouse_over_text_input_widget = new_mouse_over_text_input_widget;
 	}
 
+
+	// Update debug overlay with details of the closest widget under the mouse pointer.
+	if(debug_overlay)
+	{
+		getSortedWidgetsAtEventPos(widgets, coords, temp_widgets);
+
+		if(!temp_widgets.empty())
+		{
+			GLUIWidget* widget = temp_widgets[0].ptr();
+
+			std::string str = widget->className() + " ('" + widget->debug_name + "')\n";
+			str += "min: " + widget->getRect().getMin().toStringMaxNDecimalPlaces(3) + "\n";
+			str += "dims: " + widget->getDims().toStringMaxNDecimalPlaces(3) + "\n";
+			debug_overlay->setText(str);
+		}
+		else
+		{
+			debug_overlay->setText("");
+		}
+		debug_overlay->setPos(this->viewportTopRight() - debug_overlay->getDims()); // Position at top right of viewport
+
+
+		temp_widgets.clear();
+	}
+
 	return false;
 }
 
@@ -471,5 +497,20 @@ void GLUI::setCurrentDevicePixelRatio(float new_device_pixel_ratio)
 	{
 		GLUIWidget* widget = it->ptr();
 		widget->viewportResized();
+	}
+}
+
+
+void GLUI::setDebugOverlayEnabled(bool enabled)
+{
+	if(enabled)
+	{
+		GLUITextView::CreateArgs args;
+		debug_overlay = new GLUITextView(*this, "debug overlay", Vec2f(0.f), args);
+		this->addWidget(debug_overlay);
+	}
+	else
+	{
+		checkRemoveAndDeleteWidget(this, debug_overlay);
 	}
 }

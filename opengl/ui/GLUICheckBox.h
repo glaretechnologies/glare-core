@@ -61,6 +61,8 @@ public:
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
+	virtual std::string className() const override { return "GLUICheckBox"; }
+
 	GLUICallbackHandler* handler;
 
 	bool checked;

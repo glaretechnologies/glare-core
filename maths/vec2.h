@@ -41,6 +41,8 @@ public:
 	}
 
 	const std::string toString() const;
+	const std::string toStringNSigFigs(int n) const;
+	const std::string toStringMaxNDecimalPlaces(int n) const;
 
 	inline const Vec2 operator + (const Vec2& rhs) const
 	{

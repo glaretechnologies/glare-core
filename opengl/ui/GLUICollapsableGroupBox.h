@@ -106,6 +106,8 @@ public:
 
 	virtual void eventOccurred(GLUICallbackEvent& /*event*/) override; // From GLUICallbackHandler
 
+	virtual std::string className() const override { return "GLUICollapsableGroupBox"; }
+
 	GLUICallbackHandler* handler; // For close event
 
 private:

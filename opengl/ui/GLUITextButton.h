@@ -72,6 +72,8 @@ public:
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
+	virtual std::string className() const override { return "GLUITextButton"; }
+
 	GLUICallbackHandler* handler;
 	std::function<void(GLUICallbackEvent&)> handler_func;
 private:

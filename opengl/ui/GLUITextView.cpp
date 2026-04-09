@@ -154,7 +154,10 @@ void GLUITextView::setText(const std::string& new_text)
 		// Create the line text objects
 		const float padding = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
 
-		float cur_line_y_offset = 0;
+		// See getOffsetToTopLine()
+		const float offset_to_top_line = glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f) * myMax(0, (int)line_begin_end_bytes.size() - 1);
+
+		float cur_line_y_offset = -offset_to_top_line;
 		for(size_t i=0; i<line_begin_end_bytes.size(); ++i)
 		{
 			runtimeCheck(line_begin_end_bytes[i].first < text.size());
@@ -334,7 +337,36 @@ void GLUITextView::setBackgroundAlpha(float alpha)
 
 Vec2f GLUITextView::getMinDims() const
 {
-	return computeTextDimsWithPadding();
+	// NOTE: same code as recomputeRect() currently...
+	Vec2f text_dims = computeTextDimsWithPadding();
+	Vec2f dims(0.f);
+	if(sizing_type_x == SizingType_FixedSizePx)
+	{
+		dims.x = myMax(glui->getUIWidthForDevIndepPixelWidth(fixed_size.x), text_dims.x);
+	}
+	else if(sizing_type_x == SizingType_FixedSizeUICoords)
+	{
+		dims.x = myMax(fixed_size.x, text_dims.x);
+	}
+	else if(sizing_type_x == SizingType_Expanding)
+	{
+		dims.x = text_dims.x;
+	}
+
+	if(sizing_type_y == SizingType_FixedSizePx)
+	{
+		dims.y = myMax(glui->getUIWidthForDevIndepPixelWidth(fixed_size.y), text_dims.y);
+	}
+	else if(sizing_type_y == SizingType_FixedSizeUICoords)
+	{
+		dims.y = myMax(fixed_size.y, text_dims.y);
+	}
+	else if(sizing_type_y == SizingType_Expanding)
+	{
+		dims.y = text_dims.y;
+	}
+
+	return dims;
 }
 
 

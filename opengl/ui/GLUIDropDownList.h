@@ -77,6 +77,8 @@ public:
 	virtual bool isVisible() override;
 	virtual void viewportResized() override;
 
+	virtual std::string className() const override { return "GLUIDropDownList"; }
+
 	std::function<void(GLUIDropDownListValueChangedEvent&)> handler_func;
 
 private:

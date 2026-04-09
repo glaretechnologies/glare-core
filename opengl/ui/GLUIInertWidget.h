@@ -65,6 +65,7 @@ public:
 	virtual void setPos(const Vec2f& botleft) override;
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
 
+	virtual std::string className() const override { return "GLUIInertWidget"; }
 
 	void setPosAndDims(const Vec2f& botleft, const Vec2f& dims);
 

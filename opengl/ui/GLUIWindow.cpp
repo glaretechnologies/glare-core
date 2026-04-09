@@ -248,12 +248,12 @@ void GLUIWindow::updateWidgetTransforms()
 
 	if(body_widget)
 	{
-		const Vec2f body_botleft = Vec2f(this->getRect().getMin().x + padding, this->getRect().getMax().y - title_bar_h - body_widget->getDims().y);
+		const Vec2f body_botleft = this->getRect().getMin() + Vec2f(padding);
 		body_widget->setPos(body_botleft);
 
-		const Vec2f clip_botleft = this->getRect().getMin() + Vec2f(padding);
-		const Vec2f clip_topright = max(clip_botleft, this->getRect().getMax() - Vec2f(padding, title_bar_h));
-		body_widget->setClipRegion(Rect2f(clip_botleft, clip_topright));
+	//TEMP	const Vec2f clip_botleft = this->getRect().getMin() + Vec2f(padding);
+	//TEMP	const Vec2f clip_topright = max(clip_botleft, this->getRect().getMax() - Vec2f(padding, title_bar_h));
+	//TEMP	body_widget->setClipRegion(Rect2f(clip_botleft, clip_topright));
 	}
 
 	if(title_text)

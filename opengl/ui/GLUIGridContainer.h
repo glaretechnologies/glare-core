@@ -83,6 +83,8 @@ public:
 
 	virtual void containedWidgetChangedSize() override; // For containers - a widget in the container has changed size (e.g. group box collapsed or expanded), so a relayout is probably needed.
 
+	virtual std::string className() const override { return "GLUIGridContainer"; }
+
 	//float getCellPaddding() const; // in UI coords
 
 	Rect2f getClippedContentRect() const; // Get the rectangle around any non-null widgets in the cells, intersected with the container rectangle (in case of overflow).

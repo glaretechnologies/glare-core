@@ -97,6 +97,8 @@ public:
 
 	virtual void eventOccurred(GLUICallbackEvent& /*event*/) override; // From GLUICallbackHandler
 
+	virtual std::string className() const override { return "GLUIWindow"; }
+
 	GLUICallbackHandler* handler; // For close event
 
 private:

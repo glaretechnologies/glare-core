@@ -50,6 +50,8 @@ public:
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
 
+	virtual std::string className() const override { return "GLUIImage"; }
+
 	OverlayObjectRef overlay_ob;
 
 	GLUICallbackHandler* handler;

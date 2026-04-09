@@ -187,17 +187,15 @@ void GLUICollapsableGroupBox::recomputeLayout()
 
 	//const Vec2f top_left = Vec2f(this->getRect().getMin().x, this->getRect().getMax().y);
 
-	const Vec2f body_dims = body_widget ? body_widget->getDims() : Vec2f(0.f);
-
 	const float title_bar_w = collapse_expand_button->getDims().x + title_text->getMinDims().x * 1.3f;
 	const float title_bar_h = glui->getUIWidthForDevIndepPixelWidth(title_bar_h_px);
 	const float padding = glui->getUIWidthForDevIndepPixelWidth(args.padding_px);
 
-	
+	const Vec2f body_dims = (body_widget && expanded) ? (body_widget->getDims() + Vec2f(padding * 2)) : Vec2f(0.f);
 
-	const float width  = expanded ? myMax(title_bar_w, (body_dims.x + padding * 2.f)) : myMax(title_bar_w, getDims().x);
-	const float height = expanded ? (title_bar_h + body_dims.y + padding * 2.f) : title_bar_h;
-	//this->rect = Rect2f(top_left - Vec2f(0, height), top_left + Vec2f(width, 0));
+	const float width  = myMax(title_bar_w, body_dims.x);
+	const float height = title_bar_h + body_dims.y;
+
 
 	// Update dimensions
 	Vec2 dims = this->getDims();
@@ -215,13 +213,16 @@ void GLUICollapsableGroupBox::recomputeLayout()
 
 Vec2f GLUICollapsableGroupBox::getMinDims() const
 {
+	const float title_bar_w = collapse_expand_button->getDims().x + title_text->getMinDims().x * 1.3f;
 	const float title_bar_h = glui->getUIWidthForDevIndepPixelWidth(title_bar_h_px);
+	const float padding = glui->getUIWidthForDevIndepPixelWidth(args.padding_px);
 
-	const Vec2f body_min_dims = body_widget ? body_widget->getMinDims() : Vec2f(0.f);
-	return Vec2f(
-		myMax(body_min_dims.x, collapse_expand_button->getMinDims().x + title_text->getMinDims().x),
-		title_bar_h + body_min_dims.y
-	);
+	const Vec2f body_min_dims = (body_widget && expanded) ? (body_widget->getMinDims() + Vec2f(padding * 2)) : Vec2f(0.f);
+
+	const float width  = myMax(title_bar_w, body_min_dims.x);
+	const float height = title_bar_h + body_min_dims.y;
+
+	return Vec2f(width, height);
 }
 
 
@@ -243,6 +244,12 @@ void GLUICollapsableGroupBox::setClipRegion(const Rect2f& /*clip_rect*/)
 void GLUICollapsableGroupBox::setZ(float new_z)
 {
 	this->m_z = new_z;
+
+	if(title_text)
+		title_text->setZ(new_z - 0.01f); // Position nearer to cam
+
+	if(collapse_expand_button)
+		collapse_expand_button->setZ(new_z - 0.01f); // Position nearer to cam
 
 	if(body_widget)
 		body_widget->setZ(new_z - 0.01f); // Position nearer to cam
@@ -266,6 +273,7 @@ void GLUICollapsableGroupBox::eventOccurred(GLUICallbackEvent& ev)
 		{
 			// Expand
 			collapse_expand_button->setTexture(opengl_engine->getDataDir() + "/gl_data/ui/expanded.png");
+			collapse_expand_button->setTooltip("Collapse");
 
 			body_widget->setVisible(true);
 
@@ -275,6 +283,7 @@ void GLUICollapsableGroupBox::eventOccurred(GLUICallbackEvent& ev)
 		{
 			// Collapse
 			collapse_expand_button->setTexture(opengl_engine->getDataDir() + "/gl_data/ui/collapsed.png");
+			collapse_expand_button->setTooltip("Expand");
 
 			body_widget->setVisible(false);
 
@@ -298,7 +307,7 @@ void GLUICollapsableGroupBox::updateWidgetTransforms()
 
 	if(body_widget)
 	{
-		const Vec2f body_botleft = Vec2f(this->getRect().getMin().x + padding, /*this->getRect().getMax().y - title_bar_h - body_widget->getDims().y*/this->getRect().getMin().y + padding);
+		const Vec2f body_botleft = this->getRect().getMin() + Vec2f(padding);
 		body_widget->setPos(body_botleft);
 
 		const Vec2f clip_botleft = this->getRect().getMin() + Vec2f(padding);

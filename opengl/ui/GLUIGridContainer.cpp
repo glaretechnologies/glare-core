@@ -164,6 +164,7 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 			GLUIWidget* widget = cell_widgets.elem(x, y).ptr();
 			if(widget)
 			{
+				widget->recomputeLayout();
 				const Vec2f widget_min_dims = widget->getMinDims();
 				//widget->recomputeLayout();
 				const float left_x_padding  = ((x == 0)                           ? exterior_cell_x_padding : interior_cell_x_padding);
@@ -290,8 +291,8 @@ Vec2f GLUIGridContainer::getMinDims() const
 	const float exterior_cell_x_padding = glui->getUIWidthForDevIndepPixelWidth(args.exterior_cell_x_padding_px);
 	const float exterior_cell_y_padding = glui->getUIWidthForDevIndepPixelWidth(args.exterior_cell_y_padding_px);
 
+	// Iterate over columns, compute width of column (as max width of all widgets in column), sum column widths.
 	float total_width = 0;
-
 	for(size_t x=0; x<cell_widgets.getWidth(); ++x)
 	{
 		float max_padded_w = 0; // Maximum padded width over all widgets on column x.
@@ -310,9 +311,8 @@ Vec2f GLUIGridContainer::getMinDims() const
 		total_width += max_padded_w;
 	}
 
-	std::vector<float> row_heights(cell_widgets.getHeight());
+	// Iterate over rows, compute height of row (as max height of all widgets in row), sum row heights.
 	float total_height = 0;
-
 	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
 	{
 		float max_padded_h = 0; // Maximum padded height over all widgets on row y
@@ -328,7 +328,6 @@ Vec2f GLUIGridContainer::getMinDims() const
 				max_padded_h = myMax(max_padded_h, padded_h);
 			}
 		}
-		row_heights[y] = max_padded_h;
 		total_height += max_padded_h;
 	}
 

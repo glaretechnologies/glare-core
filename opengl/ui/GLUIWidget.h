@@ -74,6 +74,8 @@ public:
 
 	virtual void containedWidgetChangedSize() {} // For containers - a widget in the container has changed size (e.g. group box collapsed or expanded), so a relayout is probably needed.
 
+	virtual std::string className() const { return "unknown"; }
+
 	inline Rect2f getRect() const { return rect; }
 	inline Vec2f getDims() const { return rect.getWidths(); }
 	inline float getZ() const { return m_z; }
@@ -93,6 +95,8 @@ public:
 
 	void setGLUI(GLUI* new_glui) { glui = new_glui; } // Set on unremoved widgets when gl_ui is about to be destroyed, so that glui is not a dangling pointer to gl_ui.
 	void setOpenGLEngine(OpenGLEngine* new_opengl_engine) { opengl_engine = new_opengl_engine; } // Set on unremoved widgets when gl_ui is about to be destroyed, so we don't have a dangling pointer to opengl_engine.
+
+	void setTooltip(const std::string& new_tooltip) { tooltip = new_tooltip; }
 
 	std::string client_data;
 

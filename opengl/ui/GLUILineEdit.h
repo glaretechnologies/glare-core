@@ -78,6 +78,7 @@ public:
 
 	virtual bool acceptsTextInput() override { return true; }
 
+	virtual std::string className() const override { return "GLUILineEdit"; }
 
 	std::function<void()> on_enter_pressed;
 

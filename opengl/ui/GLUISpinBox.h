@@ -82,6 +82,8 @@ public:
 	virtual bool isVisible() override;
 	virtual void viewportResized() override;
 
+	virtual std::string className() const override { return "GLUISpinBox"; }
+
 	std::function<void(GLUISpinBoxValueChangedEvent&)> handler_func;
 private:
 	GLARE_DISABLE_COPY(GLUISpinBox);

@@ -85,6 +85,8 @@ public:
 	virtual void handleCutEvent(std::string& clipboard_contents_out) override;
 	virtual void handleCopyEvent(std::string& clipboard_contents_out) override;
 
+	virtual std::string className() const override { return "GLUITextView"; }
+
 private:
 	GLARE_DISABLE_COPY(GLUITextView);
 
