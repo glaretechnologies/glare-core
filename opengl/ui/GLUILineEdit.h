@@ -81,6 +81,7 @@ public:
 	virtual std::string className() const override { return "GLUILineEdit"; }
 
 	std::function<void()> on_enter_pressed;
+	std::function<void()> on_losing_keyboard_focus;
 
 private:
 	GLARE_DISABLE_COPY(GLUILineEdit);

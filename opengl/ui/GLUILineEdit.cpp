@@ -520,6 +520,9 @@ void GLUILineEdit::handleLosingKeyboardFocus()
 	// Clear selection
 	this->selection_start = this->selection_end = -1;
 	updateOverlayObTransforms(); // Redraw
+
+	if(on_losing_keyboard_focus)
+		on_losing_keyboard_focus();
 }
 
 

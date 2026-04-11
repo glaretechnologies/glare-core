@@ -97,7 +97,7 @@ GLUISpinBox::GLUISpinBox(GLUI& glui_, const CreateArgs& args_)
 		le_args.sizing_type_x        = GLUIWidget::SizingType_FixedSizePx;
 		le_args.z                    = m_z;
 		line_edit = new GLUILineEdit(glui_, Vec2f(0.f), le_args);
-		line_edit->on_enter_pressed = [this]()
+		line_edit->on_enter_pressed = line_edit->on_losing_keyboard_focus = [this]()
 		{
 			try
 			{
@@ -341,6 +341,11 @@ void GLUISpinBox::doHandleMouseWheelEvent(MouseWheelEvent& event)
 		changeValue(args.step * event.angle_delta.y * 0.1);
 		event.accepted = true;
 	}
+}
+
+
+void GLUISpinBox::handleLosingKeyboardFocus()
+{
 }
 
 

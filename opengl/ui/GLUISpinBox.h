@@ -74,6 +74,7 @@ public:
 	virtual void handleMouseDoubleClick(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
+	virtual void handleLosingKeyboardFocus() override;
 
 	virtual void setPos(const Vec2f& botleft) override;
 	virtual void setClipRegion(const Rect2f& clip_rect) override;
