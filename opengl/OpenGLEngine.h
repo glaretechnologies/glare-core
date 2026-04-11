@@ -631,8 +631,8 @@ private:
 	CameraType camera_type;
 
 	Matrix4f world_to_camera_space_matrix; // Maps world space to a camera space where (1,0,0) is right, (0,1,0) is forwards and (0,0,1) is up.
-	Matrix4f cam_to_world;
 public:
+	Matrix4f cam_to_world;
 	Matrix4f overlay_world_to_camera_space_matrix; // Identity by default
 
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> objects;
@@ -1112,6 +1112,11 @@ public:
 
 	// Return window coordinates - e.g. coordinates in the viewport, for a given world space position.  (0,0) is the top left of the viewport.
 	bool getWindowCoordsForWSPos(const Vec4f& pos_ws, Vec2f& coords_out) const; // Returns true if in front of camera
+
+	Vec4f pixelToRayDirWS(const Vec2f& px) const;
+
+	// Returns true if world space position is on front side of camera.
+	bool worldSpacePosToPixel(const Vec4f& ws_pos, Vec2f& px_out);
 	//----------------------------------------------------------------------------------------
 
 

@@ -36,4 +36,5 @@ public:
 	static Reference<OpenGLMeshRenderData> makeSpriteQuad(VertexBufferAllocator& allocator);
 	static Reference<OpenGLMeshRenderData> makeCuboidEdgeAABBMesh(VertexBufferAllocator& allocator, const Vec4f& span, float edge_width);
 	static Reference<OpenGLMeshRenderData> makeCircleSector(VertexBufferAllocator& allocator, float angle/*, int num_segments*/); // Make circle sector in x-y plane, starting at x axis and extending counter-clockwise.
+	static Reference<OpenGLMeshRenderData> makeRotationArcHandleMeshData(VertexBufferAllocator& allocator, float arc_end_angle); // Arc tube in x-y plane from angle 0 to arc_end_angle, with arrow heads at each end.
 };

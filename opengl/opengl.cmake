@@ -91,6 +91,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLMemoryObject.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLMemoryObject.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLExtensions.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLExtensions.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TransformGizmo.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TransformGizmo.h
 )
 
 
