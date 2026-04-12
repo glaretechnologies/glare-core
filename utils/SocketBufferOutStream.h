@@ -25,7 +25,7 @@ public:
 		DontUseNetworkByteOrder // Use little-endian instead.
 	};
 
-	SocketBufferOutStream(UseNetworkByteOrder use_network_byte_order);
+	SocketBufferOutStream(UseNetworkByteOrder use_network_byte_order = DontUseNetworkByteOrder);
 	virtual ~SocketBufferOutStream();
 
 	virtual void writeData(const void* data, size_t num_bytes);
