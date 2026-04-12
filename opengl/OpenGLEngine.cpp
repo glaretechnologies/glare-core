@@ -10409,7 +10409,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
-	// These are objects like the move/rotate arrows, that should be visible even when behind other objects.
+	// These are objects like the move/rotate gizmo arrows, that should be visible even when behind other objects.
 	// The drawing strategy for these will be:
 	// Draw once without depth testing, and without depth writes, but with blending, so they are always partially visible.
 	// Then draw again with depth testing, so they look proper when not occluded by another object.
@@ -10445,7 +10445,7 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
-		glBlendColor(1, 1, 1, 0.5f);
+		glBlendColor(1, 1, 1, 0.75f);
 		
 
 		glEnable(GL_CULL_FACE); // We will cull backfaces, since we are not doing depth testing, to make it looks slightly less weird.
