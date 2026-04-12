@@ -190,8 +190,6 @@ void GLUIDropDownList::handleMousePress(MouseEvent& event)
 
 void GLUIDropDownList::handleMouseRelease(MouseEvent& event)
 {
-	conPrint("-----GLUIDropDownList::handleMouseRelease-----");
-
 	/*if(open_button_pressed)
 	{
 		open_button_pressed = false;
@@ -203,8 +201,6 @@ void GLUIDropDownList::handleMouseRelease(MouseEvent& event)
 
 void GLUIDropDownList::handleMouseDoubleClick(MouseEvent& event)
 {
-	conPrint("-----handleMouseDoubleClick-----");
-
 	// A mouse double-click event is another press and release.
 	handleMousePress(event);
 	handleMouseRelease(event);

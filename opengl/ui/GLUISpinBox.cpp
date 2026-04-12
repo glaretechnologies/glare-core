@@ -221,8 +221,6 @@ void GLUISpinBox::setValueNoEvent(double new_val)
 
 void GLUISpinBox::handleMousePress(MouseEvent& event)
 {
-	conPrint("-----handleMousePress-----");
-
 	if(!background_ob->draw)
 		return;
 
