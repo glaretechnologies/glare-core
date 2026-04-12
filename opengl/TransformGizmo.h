@@ -27,12 +27,15 @@ class GizmoDelegateInterface
 {
 public:
 	// Called each mouseMoved tick during a translation drag.
+	// total_translation is the total translation since the axis was grabbed.
 	// desired_new_ob_pos is the new world-space origin of the edited object.
-	virtual void onTranslationDrag(const Vec4f& desired_new_ob_pos) = 0;
+	virtual void onTranslationDrag(const Vec4f& total_translation, const Vec4f& desired_new_ob_pos) = 0;
 
 	// Called each mouseMoved tick during a rotation drag.
+	// total_angle_change is the total angle change since the arc was grabbed.
+	// delta_angle is the angle change since onRotationDrag was last called.
 	// axis is a world-space unit vector; delta_angle is a signed radian increment.
-	virtual void onRotationDrag(const Vec4f& axis, float delta_angle) = 0;
+	virtual void onRotationDrag(const Vec4f& axis, float total_angle_change, float delta_angle) = 0;
 
 	// Called when the user starts a drag (mouse down on an arrow/arc).
 	// is_rotation: true if grabbing a rotation arc, false if a translation arrow.
@@ -78,6 +81,7 @@ public:
 	bool isGrabbed() const { return grabbed_axis >= 0; }
 
 private:
+	void updateGizmoDrawTransform(const Vec4f& new_gizmo_centre);
 	// Returns the axis index (integer in [0, 3)) of the closest axis arrow, or the axis index of the closest rotation arc handle (integer in [3, 6))
 	// or -1 if no arrow or rotation arc close to pixel coords.
 	// Also returns world space coords of the closest point.

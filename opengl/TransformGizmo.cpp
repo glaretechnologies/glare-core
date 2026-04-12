@@ -79,70 +79,10 @@ static float safeATan2(float y, float x)
 
 void TransformGizmo::update(const Vec4f& ob_pos_ws)
 {
-	const Vec4f cam_pos      = engine->getCurrentScene()->cam_to_world.getColumn(3); // = cam_to_world * Vec4f(0,0,0,1);
-
-	const Vec4f use_ob_origin = ob_pos_ws;
-	const Vec4f cam_to_ob = use_ob_origin - cam_pos;
-	const float control_scale = cam_to_ob.length() * 0.2f;
-
-	const float arrow_len = control_scale;
-
-	// Flip each arrow to point toward the camera.
-	axis_arrow_segments[0] = LineSegment4f(use_ob_origin, use_ob_origin + Vec4f(cam_to_ob[0] > 0 ? -arrow_len : arrow_len, 0, 0, 0));
-	axis_arrow_segments[1] = LineSegment4f(use_ob_origin, use_ob_origin + Vec4f(0, cam_to_ob[1] > 0 ? -arrow_len : arrow_len, 0, 0));
-	axis_arrow_segments[2] = LineSegment4f(use_ob_origin, use_ob_origin + Vec4f(0, 0, cam_to_ob[2] > 0 ? -arrow_len : arrow_len, 0));
-
-	for(int i=0; i<NUM_AXIS_ARROWS; ++i)
+	// If grabbed something, don't update from external changes
+	if(grabbed_axis == -1)
 	{
-		axis_arrow_objects[i]->ob_to_world_matrix = OpenGLEngine::arrowObjectTransform(axis_arrow_segments[i].a, axis_arrow_segments[i].b, arrow_len);
-		engine->updateObjectTransformData(*axis_arrow_objects[i]);
-	}
-
-	//----------------------- Update rotation control handle arcs -----------------------
-	const Vec4f arc_centre = use_ob_origin;
-	const float arc_radius = control_scale * 0.7f;
-
-	for(int i=0; i<3; ++i)
-	{
-		const Vec4f basis_a = basis_vectors[i*2];
-		const Vec4f basis_b = basis_vectors[i*2 + 1];
-
-		const Vec4f to_cam = cam_pos - arc_centre;
-		const float to_cam_angle = safeATan2(dot(basis_b, to_cam), dot(basis_a, to_cam));
-
-		// Position the rotation arc so its oriented towards the camera, unless the user is currently holding and dragging the arc.
-		float angle = to_cam_angle;
-		if(grabbed_axis >= NUM_AXIS_ARROWS)
-		{
-			const int grabbed_rot_axis = grabbed_axis - NUM_AXIS_ARROWS;
-			if(i == grabbed_rot_axis)
-				angle = grabbed_angle + grabbed_arc_angle_offset;
-		}
-
-		// Position the arc line segments used for mouse picking.
-		const float start_angle = angle - arc_handle_half_angle - 0.1f;; // Extend a little so the arrow heads can be selected
-		const float end_angle   = angle + arc_handle_half_angle + 0.1f;
-
-		const size_t N = 32;
-		rot_handle_lines[i].resize(N);
-		for(size_t z=0; z<N; ++z)
-		{
-			const float theta_0 = start_angle + (end_angle - start_angle) * (float)z       / (float)N;
-			const float theta_1 = start_angle + (end_angle - start_angle) * (float)(z + 1) / (float)N;
-
-			const Vec4f p0 = arc_centre + basis_a * (cos(theta_0) * arc_radius) + basis_b * (sin(theta_0) * arc_radius);
-			const Vec4f p1 = arc_centre + basis_a * (cos(theta_1) * arc_radius) + basis_b * (sin(theta_1) * arc_radius);
-
-			rot_handle_lines[i][z] = LineSegment4f(p0, p1);
-		}
-
-		rot_handle_arc_objects[i]->ob_to_world_matrix =
-			Matrix4f::translationMatrix(arc_centre) *
-			Matrix4f::rotationMatrix(crossProduct(basis_a, basis_b), angle - arc_handle_half_angle) *
-			Matrix4f(basis_a, basis_b, crossProduct(basis_a, basis_b), Vec4f(0,0,0,1)) *
-			Matrix4f::uniformScaleMatrix(arc_radius);
-
-		engine->updateObjectTransformData(*rot_handle_arc_objects[i]);
+		updateGizmoDrawTransform(ob_pos_ws);
 	}
 }
 
@@ -354,6 +294,76 @@ inline static bool clipLineToPlaneBackHalfSpace(const Planef& plane, Vec4f& a, V
 }
 
 
+void TransformGizmo::updateGizmoDrawTransform(const Vec4f& new_gizmo_centre)
+{
+	const Vec4f cam_pos = engine->getCurrentScene()->cam_to_world.getColumn(3); // = cam_to_world * Vec4f(0,0,0,1);
+
+	const Vec4f use_ob_origin = new_gizmo_centre;
+	const Vec4f cam_to_ob = use_ob_origin - cam_pos;
+	const float control_scale = cam_to_ob.length() * 0.2f;
+
+	const float arrow_len = control_scale;
+
+	// Flip each arrow to point toward the camera.
+	axis_arrow_segments[0] = LineSegment4f(use_ob_origin, use_ob_origin + Vec4f(cam_to_ob[0] > 0 ? -arrow_len : arrow_len, 0, 0, 0));
+	axis_arrow_segments[1] = LineSegment4f(use_ob_origin, use_ob_origin + Vec4f(0, cam_to_ob[1] > 0 ? -arrow_len : arrow_len, 0, 0));
+	axis_arrow_segments[2] = LineSegment4f(use_ob_origin, use_ob_origin + Vec4f(0, 0, cam_to_ob[2] > 0 ? -arrow_len : arrow_len, 0));
+
+	for(int i=0; i<NUM_AXIS_ARROWS; ++i)
+	{
+		axis_arrow_objects[i]->ob_to_world_matrix = OpenGLEngine::arrowObjectTransform(axis_arrow_segments[i].a, axis_arrow_segments[i].b, arrow_len);
+		engine->updateObjectTransformData(*axis_arrow_objects[i]);
+	}
+
+	//----------------------- Update rotation control handle arcs -----------------------
+	const Vec4f arc_centre = use_ob_origin;
+	const float arc_radius = control_scale * 0.7f;
+
+	for(int i=0; i<3; ++i)
+	{
+		const Vec4f basis_a = basis_vectors[i*2];
+		const Vec4f basis_b = basis_vectors[i*2 + 1];
+
+		const Vec4f to_cam = cam_pos - arc_centre;
+		const float to_cam_angle = safeATan2(dot(basis_b, to_cam), dot(basis_a, to_cam));
+
+		// Position the rotation arc so its oriented towards the camera, unless the user is currently holding and dragging the arc.
+		float angle = to_cam_angle;
+		if(grabbed_axis >= NUM_AXIS_ARROWS)
+		{
+			const int grabbed_rot_axis = grabbed_axis - NUM_AXIS_ARROWS;
+			if(i == grabbed_rot_axis)
+				angle = grabbed_angle + grabbed_arc_angle_offset;
+		}
+
+		// Position the arc line segments used for mouse picking.
+		const float start_angle = angle - arc_handle_half_angle - 0.1f;; // Extend a little so the arrow heads can be selected
+		const float end_angle   = angle + arc_handle_half_angle + 0.1f;
+
+		const size_t N = 32;
+		rot_handle_lines[i].resize(N);
+		for(size_t z=0; z<N; ++z)
+		{
+			const float theta_0 = start_angle + (end_angle - start_angle) * (float)z       / (float)N;
+			const float theta_1 = start_angle + (end_angle - start_angle) * (float)(z + 1) / (float)N;
+
+			const Vec4f p0 = arc_centre + basis_a * (cos(theta_0) * arc_radius) + basis_b * (sin(theta_0) * arc_radius);
+			const Vec4f p1 = arc_centre + basis_a * (cos(theta_1) * arc_radius) + basis_b * (sin(theta_1) * arc_radius);
+
+			rot_handle_lines[i][z] = LineSegment4f(p0, p1);
+		}
+
+		rot_handle_arc_objects[i]->ob_to_world_matrix =
+			Matrix4f::translationMatrix(arc_centre) *
+			Matrix4f::rotationMatrix(crossProduct(basis_a, basis_b), angle - arc_handle_half_angle) *
+			Matrix4f(basis_a, basis_b, crossProduct(basis_a, basis_b), Vec4f(0,0,0,1)) *
+			Matrix4f::uniformScaleMatrix(arc_radius);
+
+		engine->updateObjectTransformData(*rot_handle_arc_objects[i]);
+	}
+}
+
+
 // Returns the axis index (integer in [0, 3)) of the closest axis arrow, or the axis index of the closest rotation arc handle (integer in [3, 6))
 // or -1 if no arrow or rotation arc close to pixel coords.
 // Also returns world space coords of the closest point.
@@ -428,8 +438,6 @@ int TransformGizmo::mouseOverAxisArrowOrRotArc(const Vec2f& px, Vec4f& closest_w
 
 bool TransformGizmo::mousePressed(const Vec2f& px, const Vec4f& ob_pos_ws, GizmoDelegateInterface* delegate)
 {
-	const Vec4f cam_pos      = engine->getCurrentScene()->cam_to_world.getColumn(3); // = cam_to_world * Vec4f(0,0,0,1);
-
 	const int axis = mouseOverAxisArrowOrRotArc(px,  grabbed_point_ws);
 	if(axis < 0)
 		return false;
@@ -442,6 +450,7 @@ bool TransformGizmo::mousePressed(const Vec2f& px, const Vec4f& ob_pos_ws, Gizmo
 	if(grabbed_axis >= NUM_AXIS_ARROWS)
 	{
 		// Compute the initial angle on the rotation plane so we can track deltas.
+		const Vec4f cam_pos = engine->getCurrentScene()->cam_to_world.getColumn(3); // = cam_to_world * Vec4f(0,0,0,1);
 		const int rot_axis = grabbed_axis - NUM_AXIS_ARROWS;
 		const Vec4f basis_a = basis_vectors[rot_axis*2];
 		const Vec4f basis_b = basis_vectors[rot_axis*2 + 1];
@@ -504,7 +513,10 @@ bool TransformGizmo::mouseMoved(const Vec2f& px, const Vec4f& ob_pos_ws, GizmoDe
 			if(grid_spacing > 1.0e-5f)
 				tentative[grabbed_axis] = (float)Maths::roundToMultipleFloating((double)tentative[grabbed_axis], (double)grid_spacing);
 
-			delegate->onTranslationDrag(tentative);
+			updateGizmoDrawTransform(/*new_gizmo_centre=*/tentative);
+
+			const Vec4f total_translation = tentative - ob_origin_at_grab;
+			delegate->onTranslationDrag(total_translation, tentative);
 		}
 	}
 	else
@@ -523,7 +535,10 @@ bool TransformGizmo::mouseMoved(const Vec2f& px, const Vec4f& ob_pos_ws, GizmoDe
 		const float angle = safeATan2(dot(plane_p - arc_centre, basis_b), dot(plane_p - arc_centre, basis_a));
 		const float delta = angle - grabbed_angle;
 
-		delegate->onRotationDrag(crossProduct(basis_a, basis_b), delta);
+		updateGizmoDrawTransform(/*new_gizmo_centre=*/ob_origin_at_grab);
+
+		const float total_angle_change = angle - original_grabbed_angle;
+		delegate->onRotationDrag(crossProduct(basis_a, basis_b), total_angle_change, delta);
 
 		grabbed_angle = angle;
 	}
