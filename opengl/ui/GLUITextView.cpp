@@ -19,6 +19,25 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/RuntimeCheck.h"
 
 
+GLUITextView::CreateArgs::CreateArgs():
+	background_colour(0.f),
+	background_alpha(1),
+	background_corner_radius_px(0),
+	text_colour(1.f),
+	text_alpha(1.f),
+	padding_px((int)std::ceil(GLUI::getDefaultFontSizePx() * 0.6f)),
+	font_size_px(GLUI::getDefaultFontSizePx()),
+	line_0_x_offset(0),
+	max_width(100000),
+	text_selectable(true),
+	z(0.f)
+{
+	sizing_type_x = GLUIWidget::SizingType::SizingType_FixedSizePx;
+	sizing_type_y = GLUIWidget::SizingType::SizingType_FixedSizePx;
+	fixed_size = Vec2f(100, std::ceil(GLUI::getDefaultFontSizePx() * 2.4f));
+}
+
+
 GLUITextView::GLUITextView(GLUI& glui_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args_)
 {
 	this->clip_rect = Rect2f(Vec2f(-1.0e10f), Vec2f(1.0e10f));
@@ -597,23 +616,4 @@ void GLUITextView::handleLosingKeyboardFocus()
 		this->selection_start = this->selection_end = -1;
 		updateOverlayObTransforms(); // Redraw
 	}
-}
-
-
-GLUITextView::CreateArgs::CreateArgs():
-	background_colour(0.f),
-	background_alpha(1),
-	background_corner_radius_px(0),
-	text_colour(1.f),
-	text_alpha(1.f),
-	padding_px(10),
-	font_size_px(14),
-	line_0_x_offset(0),
-	max_width(100000),
-	text_selectable(true),
-	z(0.f)
-{
-	sizing_type_x = GLUIWidget::SizingType::SizingType_FixedSizePx;
-	sizing_type_y = GLUIWidget::SizingType::SizingType_FixedSizePx;
-	fixed_size = Vec2f(100, 21);
 }

@@ -19,9 +19,9 @@ GLUITextButton::CreateArgs::CreateArgs()
 {
 	sizing_type_x = GLUIWidget::SizingType::SizingType_FixedSizePx;
 	sizing_type_y = GLUIWidget::SizingType::SizingType_FixedSizePx;
-	fixed_size = Vec2f(100, 21);
+	fixed_size = Vec2f(100, std::ceil(GLUI::getDefaultFontSizePx() * 2.4f));
 
-	font_size_px = 14;
+	font_size_px = GLUI::getDefaultFontSizePx();
 
 	background_colour           = Colour3f(1.f);
 	toggled_background_colour   = toLinearSRGB(Colour3f(0.7f, 0.8f, 1.f));

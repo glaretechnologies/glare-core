@@ -16,10 +16,10 @@ Copyright Glare Technologies Limited 2026 -
 
 
 GLUIDropDownList::CreateArgs::CreateArgs()
-:	font_size_px(14),
+:	font_size_px(GLUI::getDefaultFontSizePx()),
 	sizing_type_x(GLUIWidget::SizingType_FixedSizePx),
 	sizing_type_y(GLUIWidget::SizingType_FixedSizePx),
-	fixed_size(150.f, 34.f),
+	fixed_size(150.f, std::ceil(GLUI::getDefaultFontSizePx() * 2.4f)),
 	background_colour(toLinearSRGB(Colour3f(0.2f))),
 	mouseover_background_colour(toLinearSRGB(Colour3f(0.3f))),
 	text_colour(Colour3f(0.9f)),

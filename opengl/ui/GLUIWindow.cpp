@@ -44,7 +44,7 @@ GLUIWindow::GLUIWindow(GLUI& glui_, const CreateArgs& args_)
 		text_view_args.background_alpha = 0;
 		text_view_args.text_colour = args.title_text_colour;
 		text_view_args.z = m_z - 0.01f;
-		text_view_args.font_size_px = 20;
+		text_view_args.font_size_px = (int)(GLUI::getDefaultFontSizePx() * 1.5f);
 
 		title_text = new GLUITextView(*glui, args.title, Vec2f(0), text_view_args);
 

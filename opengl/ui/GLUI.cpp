@@ -20,6 +20,9 @@ static const float TOOLTIP_Z = -0.999f; // -1 is near clip plane
 static const int tooltip_font_size_px = 12;
 
 
+int GLUI::default_font_size_px = 12;
+
+
 GLUI::GLUI()
 :	callbacks(NULL),
 	mouse_over_text_input_widget(false),

@@ -82,6 +82,7 @@ public:
 
 	std::function<void()> on_enter_pressed;
 	std::function<void()> on_losing_keyboard_focus;
+	std::function<void()> on_text_changed;
 
 private:
 	GLARE_DISABLE_COPY(GLUILineEdit);

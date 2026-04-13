@@ -17,6 +17,23 @@ Copyright Glare Technologies Limited 2024 -
 #include "../../utils/UTF8Utils.h"
 
 
+GLUILineEdit::CreateArgs::CreateArgs()
+:	sizing_type_x(GLUIWidget::SizingType_FixedSizePx),
+	sizing_type_y(GLUIWidget::SizingType_FixedSizePx),
+	fixed_size(120.f, std::ceil(GLUI::getDefaultFontSizePx() * 2.4f)),
+	background_colour(0.07f),
+	mouseover_background_colour(0.07f),
+	background_alpha(1),
+	text_colour(1.f),
+	text_alpha(1.f),
+	padding_px(10),
+	font_size_px(GLUI::getDefaultFontSizePx()),
+	//width(0.2f),
+	rounded_corner_radius_px(8),
+	z(0.f)
+{}
+
+
 GLUILineEdit::GLUILineEdit(GLUI& glui_, const Vec2f& botleft_, const CreateArgs& args_)
 {
 	glui = &glui_;
@@ -486,9 +503,12 @@ void GLUILineEdit::doHandleKeyPressedEvent(KeyEvent& key_event)
 	else
 	{
 	}
-	
+
 	recreateTextWidget(); // Re-create glui_text to show new text
 	updateOverlayObTransforms();
+
+	if(on_text_changed)
+		on_text_changed();
 
 	key_event.accepted = true;
 }
@@ -510,6 +530,9 @@ void GLUILineEdit::doHandleTextInputEvent(TextInputEvent& text_input_event)
 
 	recreateTextWidget(); // Re-create glui_text to show new text
 	updateOverlayObTransforms();
+
+	if(on_text_changed)
+		on_text_changed();
 
 	text_input_event.accepted = true;
 }
@@ -549,6 +572,9 @@ void GLUILineEdit::handleCutEvent(std::string& clipboard_contents_out)
 
 		recreateTextWidget(); // Re-create glui_text to show new text
 		updateOverlayObTransforms(); // Redraw
+
+		if(on_text_changed)
+			on_text_changed();
 	}
 }
 
@@ -658,20 +684,3 @@ void GLUILineEdit::setZ(float new_z)
 	updateTextTransform();
 	updateOverlayObTransforms();
 }
-
-
-GLUILineEdit::CreateArgs::CreateArgs()
-:	sizing_type_x(GLUIWidget::SizingType_FixedSizePx),
-	sizing_type_y(GLUIWidget::SizingType_FixedSizePx),
-	fixed_size(120.f, 24.f),
-	background_colour(0.07f),
-	mouseover_background_colour(0.07f),
-	background_alpha(1),
-	text_colour(1.f),
-	text_alpha(1.f),
-	padding_px(10),
-	font_size_px(14),
-	//width(0.2f),
-	rounded_corner_radius_px(8),
-	z(0.f)
-{}

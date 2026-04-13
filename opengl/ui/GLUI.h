@@ -108,6 +108,8 @@ public:
 
 	void setDebugOverlayEnabled(bool enabled);
 
+	static int getDefaultFontSizePx() { return default_font_size_px; }
+
 
 	Reference<OpenGLEngine> opengl_engine;
 	
@@ -141,6 +143,8 @@ private:
 	std::vector<GLUIWidgetRef> temp_widgets;
 
 	Reference<GLUITextView> debug_overlay;
+
+	static int default_font_size_px;
 };
 
 
