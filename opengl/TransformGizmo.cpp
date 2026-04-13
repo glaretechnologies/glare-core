@@ -24,7 +24,7 @@ static const Vec4f basis_vectors[6] = { Vec4f(0,1,0,0), Vec4f(0,0,1,0), Vec4f(0,
 static const float arc_handle_half_angle = 1.5f;
 
 
-TransformGizmo::TransformGizmo(OpenGLEngine* engine_)
+TransformGizmo::TransformGizmo(OpenGLEngine* engine_, const Vec4f& gizmo_centre)
 :	engine(engine_),
 	grabbed_axis(-1),
 	grabbed_angle(0),
@@ -53,6 +53,8 @@ TransformGizmo::TransformGizmo(OpenGLEngine* engine_)
 		rot_handle_arc_objects[i] = ob;
 		engine->addObject(rot_handle_arc_objects[i]);
 	}
+
+	updateGizmoDrawTransform(gizmo_centre);
 }
 
 
@@ -298,16 +300,16 @@ void TransformGizmo::updateGizmoDrawTransform(const Vec4f& new_gizmo_centre)
 {
 	const Vec4f cam_pos = engine->getCurrentScene()->cam_to_world.getColumn(3); // = cam_to_world * Vec4f(0,0,0,1);
 
-	const Vec4f use_ob_origin = new_gizmo_centre;
-	const Vec4f cam_to_ob = use_ob_origin - cam_pos;
-	const float control_scale = cam_to_ob.length() * 0.2f;
+	const Vec4f gizmo_centre = new_gizmo_centre;
+	const Vec4f cam_to_gizmo = gizmo_centre - cam_pos;
+	const float control_scale = cam_to_gizmo.length() * 0.2f;
 
 	const float arrow_len = control_scale;
 
 	// Flip each arrow to point toward the camera.
-	axis_arrow_segments[0] = LineSegment4f(use_ob_origin, use_ob_origin + Vec4f(cam_to_ob[0] > 0 ? -arrow_len : arrow_len, 0, 0, 0));
-	axis_arrow_segments[1] = LineSegment4f(use_ob_origin, use_ob_origin + Vec4f(0, cam_to_ob[1] > 0 ? -arrow_len : arrow_len, 0, 0));
-	axis_arrow_segments[2] = LineSegment4f(use_ob_origin, use_ob_origin + Vec4f(0, 0, cam_to_ob[2] > 0 ? -arrow_len : arrow_len, 0));
+	axis_arrow_segments[0] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(cam_to_gizmo[0] > 0 ? -arrow_len : arrow_len, 0, 0, 0));
+	axis_arrow_segments[1] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(0, cam_to_gizmo[1] > 0 ? -arrow_len : arrow_len, 0, 0));
+	axis_arrow_segments[2] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(0, 0, cam_to_gizmo[2] > 0 ? -arrow_len : arrow_len, 0));
 
 	for(int i=0; i<NUM_AXIS_ARROWS; ++i)
 	{
@@ -316,7 +318,6 @@ void TransformGizmo::updateGizmoDrawTransform(const Vec4f& new_gizmo_centre)
 	}
 
 	//----------------------- Update rotation control handle arcs -----------------------
-	const Vec4f arc_centre = use_ob_origin;
 	const float arc_radius = control_scale * 0.7f;
 
 	for(int i=0; i<3; ++i)
@@ -324,7 +325,7 @@ void TransformGizmo::updateGizmoDrawTransform(const Vec4f& new_gizmo_centre)
 		const Vec4f basis_a = basis_vectors[i*2];
 		const Vec4f basis_b = basis_vectors[i*2 + 1];
 
-		const Vec4f to_cam = cam_pos - arc_centre;
+		const Vec4f to_cam = cam_pos - gizmo_centre;
 		const float to_cam_angle = safeATan2(dot(basis_b, to_cam), dot(basis_a, to_cam));
 
 		// Position the rotation arc so its oriented towards the camera, unless the user is currently holding and dragging the arc.
@@ -347,14 +348,14 @@ void TransformGizmo::updateGizmoDrawTransform(const Vec4f& new_gizmo_centre)
 			const float theta_0 = start_angle + (end_angle - start_angle) * (float)z       / (float)N;
 			const float theta_1 = start_angle + (end_angle - start_angle) * (float)(z + 1) / (float)N;
 
-			const Vec4f p0 = arc_centre + basis_a * (cos(theta_0) * arc_radius) + basis_b * (sin(theta_0) * arc_radius);
-			const Vec4f p1 = arc_centre + basis_a * (cos(theta_1) * arc_radius) + basis_b * (sin(theta_1) * arc_radius);
+			const Vec4f p0 = gizmo_centre + basis_a * (cos(theta_0) * arc_radius) + basis_b * (sin(theta_0) * arc_radius);
+			const Vec4f p1 = gizmo_centre + basis_a * (cos(theta_1) * arc_radius) + basis_b * (sin(theta_1) * arc_radius);
 
 			rot_handle_lines[i][z] = LineSegment4f(p0, p1);
 		}
 
 		rot_handle_arc_objects[i]->ob_to_world_matrix =
-			Matrix4f::translationMatrix(arc_centre) *
+			Matrix4f::translationMatrix(gizmo_centre) *
 			Matrix4f::rotationMatrix(crossProduct(basis_a, basis_b), angle - arc_handle_half_angle) *
 			Matrix4f(basis_a, basis_b, crossProduct(basis_a, basis_b), Vec4f(0,0,0,1)) *
 			Matrix4f::uniformScaleMatrix(arc_radius);

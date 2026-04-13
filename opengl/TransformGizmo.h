@@ -61,7 +61,7 @@ Usage:
 class TransformGizmo : public ThreadSafeRefCounted
 {
 public:
-	TransformGizmo(OpenGLEngine* engine);
+	TransformGizmo(OpenGLEngine* engine, const Vec4f& gizmo_centre);
 	~TransformGizmo();
 
 	// Reposition the arrows and arcs based on the object origin and camera.
