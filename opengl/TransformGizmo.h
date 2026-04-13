@@ -6,7 +6,7 @@ Copyright Glare Technologies Limited 2026 -
 #pragma once
 
 
-#include "../maths/vec4.h"
+#include "../maths/Vec4f.h"
 #include "../maths/vec2.h"
 #include "../maths/LineSegment4f.h"
 #include "../utils/Reference.h"
