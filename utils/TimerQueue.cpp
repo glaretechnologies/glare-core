@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2026 -
 #include "Clock.h"
 #include <cassert>
 #include <algorithm>
+#include <limits>
 
 
 TimerQueue::TimerQueue()
