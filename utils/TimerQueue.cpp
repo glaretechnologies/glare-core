@@ -92,6 +92,7 @@ void TimerQueue::think()
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
 #include "../utils/TestUtils.h"
+#include "../utils/PlatformUtils.h"
 #include "../maths/PCG32.h"
 #include <Timer.h>
 
@@ -100,7 +101,42 @@ void TimerQueue::test()
 {
 	conPrint("TimerQueue::test()");
 
-	// TODO
+	// Test with a single event
+	{
+		TimerQueue queue;
+		std::vector<bool> event_occurred(1, false);
+		queue.addTimer(/*period=*/0.0001f, /*repeating=*/false, /*timer event func=*/[&event_occurred](){ 
+			testAssert(!event_occurred[0]);
+			event_occurred[0] = true;
+		});
+
+		PlatformUtils::Sleep(1);
+		queue.think();
+		testAssert(event_occurred[0]);
+	}
+
+	// Test with a couple of events.  Test ordering of event fires.
+	{
+		TimerQueue queue;
+		std::vector<bool> event_occurred(2, false);
+
+		queue.addTimer(/*period=*/0.0001f, /*repeating=*/false, /*timer event func=*/[&event_occurred](){ 
+			testAssert(!event_occurred[0]);
+			event_occurred[0] = true;
+		});
+
+		queue.addTimer(/*period=*/0.000001f, /*repeating=*/false, /*timer event func=*/[&event_occurred](){ 
+			testAssert(!event_occurred[0]); // This event should fire before event 0
+			testAssert(!event_occurred[1]);
+			event_occurred[1] = true;
+		});
+
+		PlatformUtils::Sleep(1);
+		queue.think();
+
+		testAssert(event_occurred[0]);
+		testAssert(event_occurred[1]);
+	}
 
 	conPrint("TimerQueue::test() done");
 }
