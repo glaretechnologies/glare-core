@@ -233,6 +233,9 @@ void GLUIDropDownList::updateButtonColours(const Vec2f& mouse_ui_coords)
 }
 
 
+static const size_t MAX_NUM_ROWS = 15; // Use a multi-column layout to avoid columns becoming excessively large when there are a lot of options.
+
+
 void GLUIDropDownList::openButtonPressed()
 {
 	if(!options_grid)
@@ -240,7 +243,7 @@ void GLUIDropDownList::openButtonPressed()
 		//----------------------------- Create options grid and populate with options -----------------------------
 		{
 			GLUIGridContainer::CreateArgs grid_args;
-			grid_args.z = m_z - 0.01f;
+			grid_args.z = m_z - 0.05f;
 			grid_args.background_colour = this->args.mouseover_background_colour; // Colour3f(1, 0, 0);
 			grid_args.interior_cell_x_padding_px = 0;
 			grid_args.interior_cell_y_padding_px = 0;
@@ -248,6 +251,7 @@ void GLUIDropDownList::openButtonPressed()
 		}
 
 		// Add the option buttons
+		options_grid->cell_widgets.resize(/*num cols=*/Maths::roundedUpDivide(args.options.size(), MAX_NUM_ROWS), /*num rows=*/myMin(args.options.size(), MAX_NUM_ROWS));
 		for(size_t i=0; i<args.options.size(); ++i)
 		{
 			// Create button
@@ -261,7 +265,7 @@ void GLUIDropDownList::openButtonPressed()
 			GLUITextButtonRef button = new GLUITextButton(*glui, /*button text=*/args.options[i], Vec2f(0.f), but_args);
 			button->handler_func = [this](GLUICallbackEvent& event) { this->optionButtonPressed(event); };
 
-			options_grid->addWidgetOnNewRow(button);
+			options_grid->setCellWidget(i / MAX_NUM_ROWS, i % MAX_NUM_ROWS, button);
 		}
 
 		glui->addWidget(options_grid);
@@ -283,7 +287,10 @@ void GLUIDropDownList::optionButtonPressed(GLUICallbackEvent& event)
 
 	for(size_t i=0; i<args.options.size(); ++i)
 	{
-		if((i < options_grid->cell_widgets.getHeight()) && (options_grid->cell_widgets.elem(0, i).ptr() == event.widget))
+		const size_t cell_x = i / MAX_NUM_ROWS;
+		const size_t cell_y = i % MAX_NUM_ROWS;
+
+		if((cell_x < options_grid->cell_widgets.getWidth()) && (cell_y < options_grid->cell_widgets.getHeight()) && (options_grid->cell_widgets.elem(cell_x, cell_y).ptr() == event.widget))
 		{
 			this->cur_index = i;
 
