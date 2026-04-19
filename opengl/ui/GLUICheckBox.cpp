@@ -19,13 +19,15 @@ GLUICheckBox::CreateArgs::CreateArgs()
 	pressed_colour       = toLinearSRGB(Colour3f(0.5f));
 
 	checked = false;
+	enabled = true;
 }
 
 
 GLUICheckBox::GLUICheckBox(GLUI& glui_, const std::string& tick_texture_path, const CreateArgs& args_)
 :	handler(NULL),
 	checked(args_.checked),
-	pressed(false)
+	pressed(false),
+	enabled(args_.enabled)
 {
 	glui = &glui_;
 	opengl_engine = glui_.opengl_engine.ptr();
@@ -76,7 +78,7 @@ void GLUICheckBox::handleMousePress(MouseEvent& event)
 		return;
 
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(coords) && enabled)
 	{
 		pressed = true;
 
@@ -92,6 +94,12 @@ void GLUICheckBox::handleMousePress(MouseEvent& event)
 			if(callback_event.accepted)
 				event.accepted = true;
 		}
+
+		if(on_checked_changed)
+		{
+			on_checked_changed();
+			event.accepted = true;
+		}
 	}
 
 	updateColour(coords);
@@ -106,7 +114,7 @@ void GLUICheckBox::handleMouseDoubleClick(MouseEvent& event)
 		return;
 
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(coords) && enabled)
 	{
 		checked = !checked;
 
@@ -121,6 +129,12 @@ void GLUICheckBox::handleMouseDoubleClick(MouseEvent& event)
 			handler->eventOccurred(callback_event);
 			if(callback_event.accepted)
 				event.accepted = true;
+		}
+
+		if(on_checked_changed)
+		{
+			on_checked_changed();
+			event.accepted = true;
 		}
 	}
 
@@ -203,6 +217,12 @@ void GLUICheckBox::setChecked(bool checked_)
 	checked = checked_;
 
 	tick_overlay_ob->draw = isVisible() && checked;
+}
+
+
+void GLUICheckBox::setEnabled(bool enabled_)
+{
+	enabled = enabled_;
 }
 
 
