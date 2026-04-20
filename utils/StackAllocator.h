@@ -32,7 +32,7 @@ public:
 	StackAllocator(size_t size);
 	~StackAllocator();
 
-	void* alloc(size_t size, size_t alignment);
+	void* alloc(size_t size, size_t alignment); // Returns a non-null pointer or throws std::bad_alloc.
 	void free(void* ptr);
 
 	inline size_t size() const { return data.size(); }
