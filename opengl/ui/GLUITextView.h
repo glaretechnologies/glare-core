@@ -51,7 +51,7 @@ public:
 	GLUITextView(GLUI& glui, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
 	~GLUITextView();
 	
-	void setText(const std::string& new_text);
+	void setText(const string_view new_text);
 
 	void setTextColour(const Colour3f& col);
 	void setTextAlpha(float alpha);

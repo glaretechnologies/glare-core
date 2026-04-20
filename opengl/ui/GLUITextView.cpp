@@ -98,7 +98,7 @@ GLUITextView::~GLUITextView()
 
 
 // Also updates rect
-void GLUITextView::setText(const std::string& new_text)
+void GLUITextView::setText(const string_view new_text)
 {
 	if(new_text != text)
 	{
