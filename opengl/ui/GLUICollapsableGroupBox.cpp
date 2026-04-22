@@ -26,6 +26,7 @@ GLUICollapsableGroupBox::GLUICollapsableGroupBox(GLUI& glui_, const CreateArgs& 
 	opengl_engine = glui_.opengl_engine.ptr();
 	args = args_;
 	m_z = args_.z;
+	visible = true;
 	expanded = true;
 
 	sizing_type_x = GLUIWidget::SizingType_Expanding;
@@ -98,7 +99,7 @@ void GLUICollapsableGroupBox::setBodyWidget(const GLUIWidgetRef body_widget_)
 
 void GLUICollapsableGroupBox::handleMousePress(MouseEvent& event)
 {
-	if(!background_overlay_ob->draw || !args.background_consumes_events)
+	if(!visible || !args.background_consumes_events)
 		return;
 
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
@@ -114,7 +115,7 @@ void GLUICollapsableGroupBox::handleMouseRelease(MouseEvent& /*event*/)
 
 void GLUICollapsableGroupBox::handleMouseDoubleClick(MouseEvent& event)
 {
-	if(!background_overlay_ob->draw || !args.background_consumes_events)
+	if(!visible || !args.background_consumes_events)
 		return;
 
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
@@ -125,7 +126,7 @@ void GLUICollapsableGroupBox::handleMouseDoubleClick(MouseEvent& event)
 
 void GLUICollapsableGroupBox::doHandleMouseMoved(MouseEvent& event)
 {
-	if(!background_overlay_ob->draw || !args.background_consumes_events)
+	if(!visible || !args.background_consumes_events)
 		return;
 
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
@@ -136,7 +137,7 @@ void GLUICollapsableGroupBox::doHandleMouseMoved(MouseEvent& event)
 
 void GLUICollapsableGroupBox::doHandleMouseWheelEvent(MouseWheelEvent& event)
 {
-	if(!background_overlay_ob->draw || !args.background_consumes_events)
+	if(!visible || !args.background_consumes_events)
 		return;
 
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
@@ -152,16 +153,18 @@ void GLUICollapsableGroupBox::doHandleKeyPressedEvent(KeyEvent& /*event*/)
 
 bool GLUICollapsableGroupBox::isVisible()
 {
-	return background_overlay_ob->draw;
+	return visible;
 }
 
 
-void GLUICollapsableGroupBox::setVisible(bool visible)
+void GLUICollapsableGroupBox::setVisible(bool visible_)
 {
+	this->visible = visible_;
+
 	background_overlay_ob->draw = visible;
 
 	if(body_widget)
-		body_widget->setVisible(visible);
+		body_widget->setVisible(visible && expanded);
 
 	title_text->setVisible(visible);
 	collapse_expand_button->setVisible(visible);

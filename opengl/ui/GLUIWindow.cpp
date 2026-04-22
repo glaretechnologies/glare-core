@@ -75,6 +75,8 @@ GLUIWindow::GLUIWindow(GLUI& glui_, const CreateArgs& args_)
 
 GLUIWindow::~GLUIWindow()
 {
+	on_contained_widget_changed_size = std::function<void()>(); // Clear callback function as we don't want events emitted about this window as it's being destroyed.
+
 	checkRemoveAndDeleteWidget(glui, body_widget);
 	checkRemoveAndDeleteWidget(glui, title_text);
 	checkRemoveAndDeleteWidget(glui, close_button);
@@ -227,6 +229,9 @@ void GLUIWindow::setZ(float new_z)
 void GLUIWindow::containedWidgetChangedSize()
 {
 	recomputeLayout();
+
+	if(on_contained_widget_changed_size)
+		on_contained_widget_changed_size();
 }
 
 

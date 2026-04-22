@@ -124,6 +124,7 @@ private:
 	
 	OverlayObjectRef background_overlay_ob;
 
+	bool visible;
 	bool expanded;
 };
 
