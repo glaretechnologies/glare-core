@@ -55,6 +55,9 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, const Vec2f& botleft_, const CreateArgs&
 	selection_start = -1;
 	selection_end = -1;
 
+	this->last_viewport_dims   = Vec2i(0);
+	this->last_background_dims = Vec2f(0);
+
 	this->height_px = (float)args.font_size_px + (float)args.padding_px*2;
 	
 	// Create background quad to go behind text
@@ -64,8 +67,7 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, const Vec2f& botleft_, const CreateArgs&
 	background_overlay_ob->material.alpha = args.background_alpha;
 	background_overlay_ob->ob_to_world_matrix = Matrix4f::identity(); // Dummy data, to be replaced in updateOverlayObTransforms().
 	opengl_engine->addOverlayObject(background_overlay_ob);
-	
-	this->last_viewport_dims = Vec2i(0); // Dummy
+
 
 	recreateTextWidget();
 
@@ -171,14 +173,15 @@ void GLUILineEdit::updateOverlayObTransforms()
 		const float background_w = glui->getUIWidthForDevIndepPixelWidth(fixed_size.x);
 		const float background_h = glui->getUIWidthForDevIndepPixelWidth(this->height_px);
 
-		if(this->last_viewport_dims != opengl_engine->getViewportDims())
+		if(last_background_dims != Vec2f(background_w, background_h) || this->last_viewport_dims != opengl_engine->getViewportDims())
 		{
-			// Viewport has changed, recreate rounded-corner rect.
-			//conPrint("GLUILineEdit: Viewport has changed, recreate rounded-corner rect.");
+			// background or viewport dimensions have changed, recreate rounded-corner rect.
+			// conPrint("GLUILineEdit: background or viewport dimensions have changed, recreate rounded-corner rect.");
 			
 			background_overlay_ob->mesh_data = MeshPrimitiveBuilding::makeRoundedCornerRect(*opengl_engine->vert_buf_allocator, /*i=*/Vec4f(1,0,0,0), /*j=*/Vec4f(0,1,0,0), /*w=*/background_w, /*h=*/background_h, 
 				/*corner radius=*/glui->getUIWidthForDevIndepPixelWidth(args.rounded_corner_radius_px), /*tris_per_corner=*/8);
 
+			this->last_background_dims = Vec2f(background_w, background_h);
 			this->last_viewport_dims = opengl_engine->getViewportDims();
 		}
 
