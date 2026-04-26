@@ -15,7 +15,7 @@ GLUIWindow::CreateArgs::CreateArgs()
 	background_alpha(1.f),
 	z(0.f),
 	padding_px(10),
-	background_consumes_events(false)
+	background_consumes_events(true)
 {}
 
 
