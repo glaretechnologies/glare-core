@@ -96,6 +96,7 @@ public:
 	virtual void responseDataReceived(const std::string& /*data*/) {};
 	virtual void toolFunctionCallsReceived(const Reference<AIToolFunctionCalls>& /*function_calls*/) {};
 	virtual void responseDone() {};
+	virtual void modelIsThinking() {};
 };
 
 
@@ -113,9 +114,20 @@ public:
 	virtual ~LLMClient();
 
 
-	void appendChatMessage(const std::string& message, bool should_send_to_server_immediately);
+	struct SendResult
+	{
+		enum SendResultType
+		{
+			SendResultType_NoSend,
+			SendResultType_SendSucceeded,
+			SendResultType_SendFailed
+		};
+		SendResultType type;
+	};
 
-	void appendToolCallResult(const ToolCallResult& result, bool should_send_to_server_immediately);
+	SendResult appendChatMessage(const std::string& message, bool should_send_to_server_immediately);
+
+	SendResult appendToolCallResult(const ToolCallResult& result, bool should_send_to_server_immediately);
 
 
 	
@@ -123,7 +135,7 @@ public:
 	virtual void handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo& response_info) override;
 
 private:
-	void sendChatRequestToLLMServer();
+	LLMClient::SendResult sendChatRequestToLLMServer();
 	Reference<HTTPClient> createHTTPClient();
 	void trimChatMessageHistory();
 

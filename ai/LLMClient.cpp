@@ -59,12 +59,26 @@ LLMClient::LLMClient(const AIModel& AI_model, const ToolFunctionsSpec& tool_func
 
 	tools_json += 
 		"],																				\n";
-	tools_json += 
-		"\"tool_choice\": \"auto\",														\n";
 
+	if(cur_ai_model_is_anthropic)
+		tools_json += 
+			"\"tool_choice\": {\"type\":\"auto\"},											\n";
+	else
+		tools_json += 
+			"\"tool_choice\": \"auto\",														\n";
 
 
 	base_prompt_json_escaped = web::Escaping::JSONEscape(base_prompt);
+
+
+	try
+	{
+		m_http_client = createHTTPClient();
+	}
+	catch(glare::Exception& e)
+	{
+		conPrint("Error: Failed to create HTTP client: " + e.what());
+	}
 }
 
 
@@ -73,7 +87,7 @@ LLMClient::~LLMClient()
 }
 
 
-void LLMClient::appendChatMessage(const std::string& message, bool should_send_to_server_immediately)
+LLMClient::SendResult LLMClient::appendChatMessage(const std::string& message, bool should_send_to_server_immediately)
 {
 	conPrint("LLMClient::appendChatMessage(): message: '" + message + "'.");
 
@@ -88,11 +102,17 @@ void LLMClient::appendChatMessage(const std::string& message, bool should_send_t
 	trimChatMessageHistory();
 
 	if(should_send_to_server_immediately)
-		sendChatRequestToLLMServer();
+		return sendChatRequestToLLMServer();
+	else
+	{
+		SendResult res;
+		res.type = SendResult::SendResultType_NoSend;
+		return res;
+	}
 }
 
 
-void LLMClient::appendToolCallResult(const ToolCallResult& result, bool should_send_to_server_immediately)
+LLMClient::SendResult LLMClient::appendToolCallResult(const ToolCallResult& result, bool should_send_to_server_immediately)
 {
 	conPrint("LLMClient::appendToolCallResult().  (should_send_to_server_immediately=" + boolToString(should_send_to_server_immediately) + ")");
 
@@ -109,12 +129,18 @@ void LLMClient::appendToolCallResult(const ToolCallResult& result, bool should_s
 	trimChatMessageHistory();
 
 	if(should_send_to_server_immediately)
-		sendChatRequestToLLMServer();
+		return sendChatRequestToLLMServer();
+	else
+	{
+		SendResult res;
+		res.type = SendResult::SendResultType_NoSend;
+		return res;
+	}
 }
 
 
 
-void LLMClient::sendChatRequestToLLMServer()
+LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 {
 	// Construct HTTP content payload to send to LLM server.
 	std::string post_content = "{\"model\": \"";
@@ -207,7 +233,7 @@ void LLMClient::sendChatRequestToLLMServer()
 #endif
 	//-------------------------------------------------------------------------------------------------
 
-	// conPrint("post_content: " + post_content);
+	// conPrint("LLMClient,  sendChatRequestToLLMServer(): post_content: \n" + post_content);
 
 	if(!m_http_client)
 	{
@@ -220,6 +246,9 @@ void LLMClient::sendChatRequestToLLMServer()
 			conPrint("Error: Failed to create HTTP client: " + e.what());
 		}
 	}
+
+	SendResult res;
+	res.type = SendResult::SendResultType_SendFailed;
 
 	if(m_http_client)
 	{
@@ -257,8 +286,10 @@ void LLMClient::sendChatRequestToLLMServer()
 				{
 					conPrint("http_response_data: '" + std::string(http_response_data.data(), http_response_data.size()) + "'");
 
-					// TODO; report some kind of failure message? 
+					res.type = SendResult::SendResultType_SendFailed;
 				}
+				else
+					res.type = SendResult::SendResultType_SendSucceeded;
 				
 				break;
 			}
@@ -274,6 +305,8 @@ void LLMClient::sendChatRequestToLLMServer()
 			}
 		}
 	}
+
+	return res;
 }
 
 
@@ -363,42 +396,64 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 						runtimeCheck(parser.currentPos() <= parser.getTextSize());
 						const string_view value(parser.getText() + parser.currentPos(), parser.getTextSize() - parser.currentPos());
 
-						//if(cur_ai_model_is_anthropic)
-						//{
-						//	// We are expecting a JSON object
-						//	JSONParser json_parser;
-						//	json_parser.parseBuffer(value.data(), value.size());
-						//
-						//	const std::string& type = json_parser.nodes[0].getChildStringValue(json_parser, "type");
-						//	if(type == "content_block_start")
-						//	{
-						//		const JSONNode& content_block_node = json_parser.nodes[0].getChildNode(json_parser, "content_block");
-						//		const std::string& content_text = content_block_node.getChildStringValue(json_parser, "text");
-						//
-						//		// Send AIChatResponseDataMessage message to client
-						//		AIChatResponseDataMessage* msg = new AIChatResponseDataMessage();
-						//		msg->message = content_text;
-						//		out_msg_queue->enqueue(msg);
-						//	}
-						//	else if(type == "content_block_delta")
-						//	{
-						//		const JSONNode& delta_node = json_parser.nodes[0].getChildNode(json_parser, "delta");
-						//		const std::string& delta_text = delta_node.getChildStringValue(json_parser, "text");
-						//
-						//		// Send AIChatResponseDataMessage message to client
-						//		AIChatResponseDataMessage* msg = new AIChatResponseDataMessage();
-						//		msg->message = delta_text;
-						//		out_msg_queue->enqueue(msg);
-						//	}
-						//	else if(type == "content_block_stop")
-						//	{
-						//		// Add to chat history
-						//		//this->chat_messages.push_back(ChatMessage({/*role=*/ChatMessage::Role_Assistant, /*content=*/total_llm_response}));
-						//
-						//		out_msg_queue->enqueue(new AIChatResponseDoneMessage());
-						//	}
-						//}
-						//else
+						// conPrint("received data:");
+						// conPrint(toString(value));
+
+						if(cur_ai_model_is_anthropic)
+						{
+							// We are expecting a JSON object
+							JSONParser json_parser;
+							json_parser.parseBuffer(value.data(), value.size());
+						
+							const std::string& type = json_parser.nodes[0].getChildStringValue(json_parser, "type");
+							if(type == "content_block_start")
+							{
+								const JSONNode& content_block_node = json_parser.nodes[0].getChildNode(json_parser, "content_block");
+								const std::string& content_type = content_block_node.getChildStringValue(json_parser, "type");
+								if(content_type == "thinking")
+								{
+									handler->modelIsThinking();
+								}
+								else if(content_type == "text")
+								{
+									const std::string& content_text = content_block_node.getChildStringValue(json_parser, "text");
+									if(!content_text.empty()) // For streaming responses, the text in a content_block_start element is always empty.
+									{
+										this->current_assistant_response.content += content_text;
+										handler->responseDataReceived(content_text);
+									}
+								}
+							}
+							else if(type == "content_block_delta")
+							{
+								const JSONNode& delta_node = json_parser.nodes[0].getChildNode(json_parser, "delta");
+								const std::string& content_type = delta_node.getChildStringValue(json_parser, "type");
+								if(content_type == "text_delta")
+								{
+									const std::string& delta_text = delta_node.getChildStringValue(json_parser, "text");
+
+									this->current_assistant_response.content += delta_text;
+
+									handler->responseDataReceived(delta_text);
+								}
+							}
+							//else if(type == "content_block_stop")
+							//{}
+							else if(type == "message_stop")
+							{
+								// Note that we can have multiple content blocks inside one message.  So consider the response done only when the complete message has been received.
+
+								// Add total response to chat history
+								this->chat_messages.push_back(current_assistant_response);
+
+								// Clear current_assistant_response
+								current_assistant_response = LLMChatMessage();
+								current_assistant_response.role = LLMChatMessage::Role_Assistant;
+
+								handler->responseDone();
+							}
+						}
+						else
 						{
 							if(parser.parseCString("[DONE]"))
 							{
