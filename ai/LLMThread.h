@@ -75,7 +75,17 @@ Handles the client side of communication with a LLM cloud server.
 class LLMThread : public LLMClientHandlerInterface, public MessageableThread
 {
 public:
-	LLMThread(const std::string& AI_model_id, const ToolFunctionsSpec& tool_functions, const std::string& base_prompt);
+	class Settings
+	{
+	public:
+		Settings() : max_num_messages(100) {}
+
+		ToolFunctionsSpec tool_functions;
+		std::string base_prompt;
+		size_t max_num_messages; // Maximum number of messages to keep in chat history.  If exceeded, the oldest messages are removed.
+	};
+
+	LLMThread(const std::string& AI_model_id, const Settings& settings);
 	virtual ~LLMThread();
 
 	virtual void doRun() override;
@@ -94,9 +104,8 @@ public:
 	WeakReference<ChatBot> chatbot; // ChatBot has a strong reference to this ob, so use a weak reference to avoid cycles.
 
 private:
+	Settings settings;
 	std::string AI_model_id;
-	ToolFunctionsSpec tool_functions;
-	std::string base_prompt;
 
 	glare::AtomicInt should_quit;
 };

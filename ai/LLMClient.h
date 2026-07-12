@@ -20,7 +20,18 @@ struct AIModel
 	std::string description; // Description shown to user, e.g. "Meta's open source model, hosted by together.ai"
 
 	std::string api_domain; // e.g. api.openai.com
-	std::string api_key_credential_name; // e.g. "openai_api_key"
+	std::string api_key_credential_name; // Key used to look up API key credential, e.g. "openai_api_key"
+
+	enum Provider
+	{
+		Provider_Anthropic,
+		Provider_XAI,
+		Provider_OpenAI,
+		Provider_Other
+	};
+	Provider provider;
+
+	AIModel() : provider(Provider_Other) {}
 };
 
 
@@ -148,14 +159,13 @@ private:
 	std::vector<char> http_response_data; // We will stream http response data into here, and search for newlines with next_nonempty_line_start and newline_search_pos
 
 	AIModel cur_ai_model;
-	bool cur_ai_model_is_anthropic;
 
 	std::deque<LLMChatMessage> chat_messages; // Chat message history
 public:
 	std::string base_prompt_json_escaped;
 	std::string tools_json;
 
-	size_t max_num_messages;
+	size_t max_num_messages; // Maximum number of messages to keep in chat history.  If exceeded, the oldest messages are removed.
 	size_t max_tokens;
 
 	LLMChatMessage current_assistant_response; // Accumulated complete response from the LLM

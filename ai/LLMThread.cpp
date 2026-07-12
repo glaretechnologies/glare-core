@@ -15,10 +15,9 @@ Copyright Glare Technologies Limited 2026 -
 #include <SimpleCredentials.h>
 
 
-LLMThread::LLMThread(const std::string& AI_model_id_, const ToolFunctionsSpec& tool_functions_, const std::string& base_prompt_)
+LLMThread::LLMThread(const std::string& AI_model_id_, const Settings& settings_)
 :	AI_model_id(AI_model_id_),
-	tool_functions(tool_functions_),
-	base_prompt(base_prompt_)
+	settings(settings_)
 {
 }
 
@@ -43,6 +42,7 @@ void LLMThread::doRun()
 			model.description = "GPT-4o is OpenAI's versatile, high-intelligence flagship model.";
 			model.api_domain = "api.openai.com";
 			model.api_key_credential_name = "openai_api_key";
+			model.provider = AIModel::Provider_OpenAI;
 			models.push_back(model);
 		}
 		{
@@ -53,27 +53,31 @@ void LLMThread::doRun()
 			model.description = "GPT-4o mini is OpenAI's fast, affordable small model for focused tasks.";
 			model.api_domain = "api.openai.com";
 			model.api_key_credential_name = "openai_api_key";
+			model.provider = AIModel::Provider_OpenAI;
+			models.push_back(model);
+		}
+
+
+		{
+			AIModel model;
+			model.id_string = "xai/grok-4.3";
+			model.api_id_string = "grok-4.3";
+			model.name = "Grok 4.3";
+			model.description = "From SpaceXAI. Fast, reliable model with strong tool calling and instruction following capabilities.";
+			model.api_domain = "api.x.ai";
+			model.api_key_credential_name = "xai_api_key";
+			model.provider = AIModel::Provider_XAI;
 			models.push_back(model);
 		}
 		{
 			AIModel model;
-			model.id_string = "xai/grok-4";
-			model.api_id_string = "grok-4";
-			model.name = "Grok 4";
-			model.description = "X.AI's latest and greatest flagship model, offering unparalleled performance in natural language, math and reasoning - the perfect jack of all trades.";
+			model.id_string = "xai/grok-4.5";
+			model.api_id_string = "grok-4.5";
+			model.name = "Grok 4.5";
+			model.description = "SpaceXAI's intelligent coding model for agentic software, engineering, and workflow tasks.";
 			model.api_domain = "api.x.ai";
 			model.api_key_credential_name = "xai_api_key";
-			models.push_back(model);
-		}
-	
-		{
-			AIModel model;
-			model.id_string = "xai/grok-4-1-fast-non-reasoning";
-			model.api_id_string = "grok-4-1-fast-non-reasoning";
-			model.name = "Grok 4.1 Fast (Non-Reasoning)";
-			model.description = "From xAI. A frontier multimodal model optimized specifically for high-performance agentic tool calling.";
-			model.api_domain = "api.x.ai";
-			model.api_key_credential_name = "xai_api_key";
+			model.provider = AIModel::Provider_XAI;
 			models.push_back(model);
 		}
 
@@ -85,8 +89,8 @@ void LLMThread::doRun()
 		if(cur_ai_model.id_string.empty())
 			throw glare::Exception("Failed to find AI model with id '" + this->AI_model_id + "'");
 
-		Reference<LLMClient> llm_client = new LLMClient(cur_ai_model, tool_functions, base_prompt, credentials, /*handler=*/this);
-		llm_client->max_num_messages = 50;
+		Reference<LLMClient> llm_client = new LLMClient(cur_ai_model, settings.tool_functions, settings.base_prompt, credentials, /*handler=*/this);
+		llm_client->max_num_messages = settings.max_num_messages;
 
 		js::Vector<ThreadMessageRef, 16> temp_messages;
 

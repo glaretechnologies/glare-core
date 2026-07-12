@@ -21,7 +21,6 @@ Copyright Glare Technologies Limited 2026 -
 
 LLMClient::LLMClient(const AIModel& AI_model, const ToolFunctionsSpec& tool_functions, const std::string& base_prompt, const SimpleCredentials* credentials_, LLMClientHandlerInterface* handler_)
 :	cur_ai_model(AI_model),
-	cur_ai_model_is_anthropic(false),
 	credentials(credentials_),
 	handler(handler_),
 	max_num_messages(1000000),
@@ -29,8 +28,6 @@ LLMClient::LLMClient(const AIModel& AI_model, const ToolFunctionsSpec& tool_func
 	next_nonempty_line_start(0),
 	newline_search_pos(0)
 {
-	this->cur_ai_model_is_anthropic = cur_ai_model.api_domain == "api.anthropic.com";
-
 	// Make tools_json
 	tools_json = 
 		"\"tools\": [         \n";
@@ -60,7 +57,7 @@ LLMClient::LLMClient(const AIModel& AI_model, const ToolFunctionsSpec& tool_func
 	tools_json += 
 		"],																				\n";
 
-	if(cur_ai_model_is_anthropic)
+	if(cur_ai_model.provider == AIModel::Provider_Anthropic)
 		tools_json += 
 			"\"tool_choice\": {\"type\":\"auto\"},											\n";
 	else
@@ -147,16 +144,20 @@ LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 	post_content += cur_ai_model.api_id_string;
 	post_content += "\", ";
 								
-	if(cur_ai_model_is_anthropic)
+	if(cur_ai_model.provider == AIModel::Provider_Anthropic)
 	{
 		post_content += "\"max_tokens\": " + toString(this->max_tokens) + ",";
 		post_content += "\"system\": \"" + this->base_prompt_json_escaped + "\","; // For Claude, the system prompt is separate and not part of the chat messages
+	}
+	else if(cur_ai_model.provider == AIModel::Provider_XAI)
+	{
+		post_content += "\"reasoning\": {\"effort\": \"low\"},";
 	}
 
 	//------------ Write messages array -----------
 	post_content += "\"messages\": [";
 
-	if(!cur_ai_model_is_anthropic) // For Claude, the system prompt is separate and not part of the chat messages, so don't include it here.
+	if(cur_ai_model.provider != AIModel::Provider_Anthropic) // For Claude, the system prompt is separate and not part of the chat messages, so don't include it here.
 		post_content += "{\"role\": \"system\", \"content\": \"" + this->base_prompt_json_escaped + "\"},";
 
 	for(size_t z=0; z<this->chat_messages.size(); ++z)
@@ -265,7 +266,7 @@ LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 				current_assistant_response.role = LLMChatMessage::Role_Assistant;
 
 				std::string path;
-				if(cur_ai_model_is_anthropic)
+				if(cur_ai_model.provider == AIModel::Provider_Anthropic)
 					path = "/v1/messages";
 				else if(cur_ai_model.api_domain == "api.fireworks.ai")
 					path = "/inference/v1/chat/completions";
@@ -399,7 +400,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 						// conPrint("received data:");
 						// conPrint(toString(value));
 
-						if(cur_ai_model_is_anthropic)
+						if(cur_ai_model.provider == AIModel::Provider_Anthropic)
 						{
 							// We are expecting a JSON object
 							JSONParser json_parser;
