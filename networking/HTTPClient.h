@@ -66,6 +66,9 @@ public:
 	void connectAndEnableKeepAlive(const std::string& protocol, const std::string& hostname, int port); // Port = -1 means use default port.
 	void resetConnection();
 
+	// Enables both TCP and HTTP keepalive.
+	void setKeepAlive(bool enabled) { keepalive_socket = enabled; }
+
 	enum RequestType
 	{
 		RequestType_Get,
