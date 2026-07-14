@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/TestUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
+#include "../utils/JSONWriteUtils.h"
 
 
 namespace web
@@ -208,32 +209,9 @@ const std::string Escaping::HTMLUnescape(const std::string& s)
 }
 
 
-/*
-JSON RFC:
-http://tools.ietf.org/html/rfc7159
-
-"All Unicode characters may be placed within the
-quotation marks, except for the characters that must be escaped:
-quotation mark, reverse solidus, and the control characters (U+0000
-through U+001F)."
-*/
 const std::string Escaping::JSONEscape(const std::string& s)
 {
-	std::string result;
-	result.reserve(s.size());
-
-	for(size_t i=0; i<s.size(); ++i)
-	{
-		if(s[i] == '"')
-			result += "\\\"";
-		else if(s[i] == '\\') // a single backslash needs to be escaped as two backslashes.
-			result += "\\\\";
-		else if(s[i] >= 0 && s[i] <= 0x1F) // control characters (U+0000 through U+001F).
-			result += "\\u" + leftPad(toString(s[i]), '0', 4);
-		else
-			result.push_back(s[i]);
-	}
-	return result;
+	return JSONWriteUtils::JSONEscape(s);
 }
 
 
