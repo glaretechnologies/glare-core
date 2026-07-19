@@ -79,7 +79,7 @@ bool JSONNode::getBoolValue() const
 }
 
 
-bool JSONNode::hasChild(const string_view& name) const
+bool JSONNode::hasChild(const string_view name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -92,7 +92,7 @@ bool JSONNode::hasChild(const string_view& name) const
 }
 
 
-const JSONNode& JSONNode::getChildNode(const JSONParser& parser, const string_view& name) const
+const JSONNode& JSONNode::getChildNode(const JSONParser& parser, const string_view name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -105,7 +105,7 @@ const JSONNode& JSONNode::getChildNode(const JSONParser& parser, const string_vi
 }
 
 
-size_t JSONNode::getChildUIntValue(const JSONParser& parser, const string_view& name) const
+size_t JSONNode::getChildUIntValue(const JSONParser& parser, const string_view name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -118,7 +118,7 @@ size_t JSONNode::getChildUIntValue(const JSONParser& parser, const string_view& 
 }
 
 
-size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser, const string_view& name, size_t default_val) const
+size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser, const string_view name, size_t default_val) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -131,7 +131,7 @@ size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser, const
 }
 
 
-int JSONNode::getChildIntValue(const JSONParser& parser, const string_view& name) const
+int JSONNode::getChildIntValue(const JSONParser& parser, const string_view name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -144,7 +144,7 @@ int JSONNode::getChildIntValue(const JSONParser& parser, const string_view& name
 }
 
 
-int JSONNode::getChildIntValueWithDefaultVal(const JSONParser& parser, const string_view& name, int default_val) const
+int JSONNode::getChildIntValueWithDefaultVal(const JSONParser& parser, const string_view name, int default_val) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -157,7 +157,7 @@ int JSONNode::getChildIntValueWithDefaultVal(const JSONParser& parser, const str
 }
 
 
-double JSONNode::getChildDoubleValue(const JSONParser& parser, const string_view& name) const
+double JSONNode::getChildDoubleValue(const JSONParser& parser, const string_view name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -170,7 +170,7 @@ double JSONNode::getChildDoubleValue(const JSONParser& parser, const string_view
 }
 
 
-double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view& name, double default_val) const
+double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view name, double default_val) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -183,7 +183,7 @@ double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser, con
 }
 
 
-bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view& name, bool default_val) const
+bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view name, bool default_val) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -196,7 +196,7 @@ bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser, const s
 }
 
 
-const std::string& JSONNode::getChildStringValue(const JSONParser& parser, const string_view& name) const
+const std::string& JSONNode::getChildStringValue(const JSONParser& parser, const string_view name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -209,7 +209,7 @@ const std::string& JSONNode::getChildStringValue(const JSONParser& parser, const
 }
 
 
-const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view& name, const string_view& default_val) const
+const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view name, const string_view default_val) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -222,7 +222,7 @@ const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& 
 }
 
 
-const JSONNode& JSONNode::getChildObject(const JSONParser& parser, const string_view& name) const
+const JSONNode& JSONNode::getChildObject(const JSONParser& parser, const string_view name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -240,7 +240,7 @@ const JSONNode& JSONNode::getChildObject(const JSONParser& parser, const string_
 }
 
 
-const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_view& name) const
+const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_view name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");

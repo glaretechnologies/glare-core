@@ -43,25 +43,25 @@ struct JSONNode
 	bool getBoolValue() const;
 
 	// For objects:
-	bool hasChild(const string_view& name) const;
-	const JSONNode& getChildNode(const JSONParser& parser, const string_view& name) const;
+	bool hasChild(const string_view name) const;
+	const JSONNode& getChildNode(const JSONParser& parser, const string_view name) const;
 
-	size_t getChildUIntValue(const JSONParser& parser, const string_view& name) const;
-	size_t getChildUIntValueWithDefaultVal(const JSONParser& parser, const string_view& name, size_t default_val) const;
+	size_t getChildUIntValue(const JSONParser& parser, const string_view name) const;
+	size_t getChildUIntValueWithDefaultVal(const JSONParser& parser, const string_view name, size_t default_val) const;
 
-	int getChildIntValue(const JSONParser& parser, const string_view& name) const;
-	int getChildIntValueWithDefaultVal(const JSONParser& parser, const string_view& name, int default_val) const;
+	int getChildIntValue(const JSONParser& parser, const string_view name) const;
+	int getChildIntValueWithDefaultVal(const JSONParser& parser, const string_view name, int default_val) const;
 
 
-	double getChildDoubleValue(const JSONParser& parser, const string_view& name) const;
-	double getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view& name, double default_val) const;
+	double getChildDoubleValue(const JSONParser& parser, const string_view name) const;
+	double getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view name, double default_val) const;
 
-	bool getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view& name, bool default_val) const;
+	bool getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view name, bool default_val) const;
 
-	const std::string& getChildStringValue(const JSONParser& parser, const string_view& name) const;
-	const std::string getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view& name, const string_view& default_val) const;
-	const JSONNode& getChildObject(const JSONParser& parser, const string_view& name) const;
-	const JSONNode& getChildArray(const JSONParser& parser, const string_view& name) const;
+	const std::string& getChildStringValue(const JSONParser& parser, const string_view name) const;
+	const std::string getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view name, const string_view default_val) const;
+	const JSONNode& getChildObject(const JSONParser& parser, const string_view name) const;
+	const JSONNode& getChildArray(const JSONParser& parser, const string_view name) const;
 
 	// Parse the values from an array node like [1.0, 2.0, 3.0]
 	void parseDoubleArrayValues(const JSONParser& parser, size_t expected_num_elems, double* values_out) const;
