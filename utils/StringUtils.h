@@ -148,8 +148,8 @@ const std::string stripWhitespace(const std::string& s); // Strip all whitespace
 const std::string collapseWhitespace(const std::string& s); // Convert runs of 1 or more whitespace characters to just the first whitespace char.
 bool isAllWhitespace(const std::string& s);
 
-const std::string toLowerCase(const std::string& text);
-const std::string toUpperCase(const std::string& text);
+std::string toLowerCase(const string_view text);
+std::string toUpperCase(const string_view text);
 
 char toLowerCase(char c);
 char toUpperCase(char c);

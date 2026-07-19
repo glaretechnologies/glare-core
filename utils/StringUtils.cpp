@@ -837,23 +837,35 @@ void removeSuffixInPlace(std::string& s, const std::string& suffix)
 }
 
 
-const std::string toLowerCase(const std::string& text)
+std::string toLowerCase(const string_view text)
 {
-	std::string lowerstr = text;
-	for(size_t i=0; i<lowerstr.size(); ++i)
-		if(lowerstr[i] >= 'A' && lowerstr[i] <= 'Z')
-			lowerstr[i] = lowerstr[i] - 'A' + 'a';
+	std::string lowerstr;
+	lowerstr.resize(text.size());
+
+	for(size_t i=0; i<text.size(); ++i)
+	{
+		if(text[i] >= 'A' && text[i] <= 'Z')
+			lowerstr[i] = text[i] - 'A' + 'a';
+		else
+			lowerstr[i] = text[i];
+	}
 
 	return lowerstr;
 }
 
 
-const std::string toUpperCase(const std::string& text)
+std::string toUpperCase(const string_view text)
 {
-	std::string upperstr = text;
-	for(size_t i=0; i<upperstr.size(); ++i)
-		if(upperstr[i] >= 'a' && upperstr[i] <= 'z')
-			upperstr[i] = upperstr[i] - 'a' + 'A';
+	std::string upperstr;
+	upperstr.resize(text.size());
+
+	for(size_t i=0; i<text.size(); ++i)
+	{
+		if(text[i] >= 'a' && text[i] <= 'z')
+			upperstr[i] = text[i] - 'a' + 'A';
+		else
+			upperstr[i] = text[i];
+	}
 
 	return upperstr;
 }
@@ -2684,9 +2696,19 @@ void StringUtils::test()
 
 
 
-	testAssert(::toUpperCase("meh666XYZ") == "MEH666XYZ");
-
 	testAssert(::toLowerCase("meh666XYZ") == "meh666xyz");
+	testAssert(::toLowerCase("") == "");
+	testAssert(::toLowerCase("123") == "123");
+	testAssert(::toLowerCase("aAbBzZ") == "aabbzz");
+	testAssert(::toLowerCase("\x1") == "\x1");
+	testAssert(::toLowerCase("\xFF") == "\xFF");
+
+	testAssert(::toUpperCase("meh666XYZ") == "MEH666XYZ");
+	testAssert(::toUpperCase("") == "");
+	testAssert(::toUpperCase("123") == "123");
+	testAssert(::toUpperCase("aAbBzZ") == "AABBZZ");
+	testAssert(::toUpperCase("\x1") == "\x1");
+	testAssert(::toUpperCase("\xFF") == "\xFF");
 
 	testAssert(::toLowerCase('C') == 'c');
 	testAssert(::toLowerCase('1') == '1');
