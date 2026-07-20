@@ -286,49 +286,49 @@ void Matrix4f::getUpperLeftAdjugateTranspose(Matrix4f& adjugate_trans_out) const
 }
 
 
-void Matrix4f::setToRotationMatrix(const Vec4f& unit_axis, float angle)
+void Matrix4f::setToRotationMatrix(const Vec4f& unit_axis, float theta)
 {
 	assert(unit_axis.isUnitLength());
 
-	const float cost = std::cos(angle);
-	const float sint = std::sin(angle);
+	float cost_ = std::cos(theta);
+	float sint_ = std::sin(theta);
 
-	Vec4f costv = Vec4f(cost);
-	Vec4f sintv = Vec4f(sint);
+	Vec4f cos_theta = Vec4f(cost_);
+	Vec4f sin_theta = Vec4f(sint_);
 
-	const Vec4f one_minus_cost_axis = unit_axis * (1 - cost);
+	Vec4f v_one_minus_cos_theta = unit_axis * (1 - cost_);                  // [x (1 - cos(theta)), y (1 - cos(theta)), z (1 - cos(theta)), 0]
 
-	Vec4f abc_sint = unit_axis * sintv; // [asint, bsint, csint, 0]
-	Vec4f neg_abc_sint = -abc_sint;     // [-asint, -bsint, -csint, 0]
+	Vec4f v_sin_theta = unit_axis * sin_theta;                              // [x sin(theta), y sin(theta), z sin(theta), 0]
+	Vec4f neg_v_sin_theta = -v_sin_theta;                                   // [-x sin(theta), -y sin(theta), -z sin(theta), 0]
+	 
+	Vec4f cos_theta_z_sin_theta = unpackhi(cos_theta, v_sin_theta);         // [cos(theta), z sin(theta), cos(theta), 0]
 
-	Vec4f cost_csint = unpackhi(costv, abc_sint); // [cost, csint, cost, 0]
+	Vec4f z_sin_theta_cos_theta = unpackhi(neg_v_sin_theta, cos_theta);     // [-z sin(theta), cos(theta), 0, cos(theta)]
 
-	Vec4f csint_cost = unpackhi(neg_abc_sint, costv); // [-csint, cost, 0, cost]
+	Vec4f x_sin_theta_y_sin_theta = unpacklo(v_sin_theta, neg_v_sin_theta); // [x sin(theta), -x sin(theta), y sin(theta), -y sin(theta)]
 
-	Vec4f asint_bsint = unpacklo(abc_sint, neg_abc_sint); // [asint, -asint, bsint, -bsint]
-
-	Vec4f col0 = copyToAll<0>(unit_axis) * one_minus_cost_axis + shuffle<0, 1, 1, 3>(cost_csint, neg_abc_sint); // ... + [cost, csint, -bsint, 0]
-	Vec4f col1 = copyToAll<1>(unit_axis) * one_minus_cost_axis + shuffle<0, 1, 0, 3>(csint_cost, abc_sint);     // ... + [-csint, cost, asint, 0]
-	Vec4f col2 = copyToAll<2>(unit_axis) * one_minus_cost_axis + shuffle<2, 1, 0, 3>(asint_bsint, cost_csint);  // ... + [bsint, -asint, cost, 0]
+	Vec4f col0 = copyToAll<0>(unit_axis) * v_one_minus_cos_theta + shuffle<0, 1, 1, 3>(cos_theta_z_sin_theta, neg_v_sin_theta);          // ... + [cos(theta), z sin(theta), -y sin(theta), 0]
+	Vec4f col1 = copyToAll<1>(unit_axis) * v_one_minus_cos_theta + shuffle<0, 1, 0, 3>(z_sin_theta_cos_theta, v_sin_theta);              // ... + [-z sin(theta), cos(theta), x sin(theta), 0]
+	Vec4f col2 = copyToAll<2>(unit_axis) * v_one_minus_cos_theta + shuffle<2, 1, 0, 3>(x_sin_theta_y_sin_theta, cos_theta_z_sin_theta);  // ... + [y sin(theta), -x sin(theta), cos(theta), 0]
 
 #ifndef NDEBUG
-	const float one_minus_cost = 1 - cost;
+	const float one_minus_cost = 1 - cost_;
 	const float a = unit_axis[0];
 	const float b = unit_axis[1];
 	const float c = unit_axis[2];
-	assert(epsEqual(col0[0], a * a * one_minus_cost + cost));
-	assert(epsEqual(col0[1], a * b * one_minus_cost + c * sint));
-	assert(epsEqual(col0[2], a * c * one_minus_cost - b * sint));
+	assert(epsEqual(col0[0], a * a * one_minus_cost +  cost_));
+	assert(epsEqual(col0[1], a * b * one_minus_cost + c*sint_));
+	assert(epsEqual(col0[2], a * c * one_minus_cost - b*sint_));
 	assert(col0[3] == 0);
 
-	assert(epsEqual(col1[0], a * b * one_minus_cost - c * sint));
-	assert(epsEqual(col1[1], b * b * one_minus_cost + cost));
-	assert(epsEqual(col1[2], b * c * one_minus_cost + a * sint));
+	assert(epsEqual(col1[0], a * b * one_minus_cost - c*sint_));
+	assert(epsEqual(col1[1], b * b * one_minus_cost + cost_));
+	assert(epsEqual(col1[2], b * c * one_minus_cost + a*sint_));
 	assert(col1[3] == 0);
 
-	assert(epsEqual(col2[0], a * c * one_minus_cost + b * sint));
-	assert(epsEqual(col2[1], b * c * one_minus_cost - a * sint));
-	assert(epsEqual(col2[2], c * c * one_minus_cost + cost));
+	assert(epsEqual(col2[0], a * c * one_minus_cost + b*sint_));
+	assert(epsEqual(col2[1], b * c * one_minus_cost - a*sint_));
+	assert(epsEqual(col2[2], c * c * one_minus_cost + cost_));
 	assert(col2[3] == 0);
 #endif
 
@@ -336,50 +336,50 @@ void Matrix4f::setToRotationMatrix(const Vec4f& unit_axis, float angle)
 }
 
 
-// See http://mathworld.wolfram.com/RodriguesRotationFormula.html
-const Matrix4f Matrix4f::rotationMatrix(const Vec4f& unit_axis, float angle)
+// See https://en.wikipedia.org/wiki/Rotation_matrix, 'Rotation matrix from axis and angle' section.
+const Matrix4f Matrix4f::rotationMatrix(const Vec4f& unit_axis, float theta)
 {
 	assert(unit_axis.isUnitLength());
 
-	const float cost = std::cos(angle);
-	const float sint = std::sin(angle);
+	float cost_ = std::cos(theta);
+	float sint_ = std::sin(theta);
 
-	Vec4f costv = Vec4f(cost);
-	Vec4f sintv = Vec4f(sint);
+	Vec4f cos_theta = Vec4f(cost_);
+	Vec4f sin_theta = Vec4f(sint_);
 
-	const Vec4f one_minus_cost_axis = unit_axis * (1 - cost);
+	Vec4f v_one_minus_cos_theta = unit_axis * (1 - cost_);                  // [x (1 - cos(theta)), y (1 - cos(theta)), z (1 - cos(theta)), 0]
 
-	Vec4f abc_sint = unit_axis * sintv; // [asint, bsint, csint, 0]
-	Vec4f neg_abc_sint = -abc_sint;     // [-asint, -bsint, -csint, 0]
+	Vec4f v_sin_theta = unit_axis * sin_theta;                              // [x sin(theta), y sin(theta), z sin(theta), 0]
+	Vec4f neg_v_sin_theta = -v_sin_theta;                                   // [-x sin(theta), -y sin(theta), -z sin(theta), 0]
+	 
+	Vec4f cos_theta_z_sin_theta = unpackhi(cos_theta, v_sin_theta);         // [cos(theta), z sin(theta), cos(theta), 0]
 
-	Vec4f cost_csint = unpackhi(costv, abc_sint); // [cost, csint, cost, 0]
+	Vec4f z_sin_theta_cos_theta = unpackhi(neg_v_sin_theta, cos_theta);     // [-z sin(theta), cos(theta), 0, cos(theta)]
 
-	Vec4f csint_cost = unpackhi(neg_abc_sint, costv); // [-csint, cost, 0, cost]
+	Vec4f x_sin_theta_y_sin_theta = unpacklo(v_sin_theta, neg_v_sin_theta); // [x sin(theta), -x sin(theta), y sin(theta), -y sin(theta)]
 
-	Vec4f asint_bsint = unpacklo(abc_sint, neg_abc_sint); // [asint, -asint, bsint, -bsint]
-
-	Vec4f col0 = copyToAll<0>(unit_axis) * one_minus_cost_axis + shuffle<0, 1, 1, 3>(cost_csint, neg_abc_sint); // ... + [cost, csint, -bsint, 0]
-	Vec4f col1 = copyToAll<1>(unit_axis) * one_minus_cost_axis + shuffle<0, 1, 0, 3>(csint_cost, abc_sint);     // ... + [-csint, cost, asint, 0]
-	Vec4f col2 = copyToAll<2>(unit_axis) * one_minus_cost_axis + shuffle<2, 1, 0, 3>(asint_bsint, cost_csint);  // ... + [bsint, -asint, cost, 0]
+	Vec4f col0 = copyToAll<0>(unit_axis) * v_one_minus_cos_theta + shuffle<0, 1, 1, 3>(cos_theta_z_sin_theta, neg_v_sin_theta);          // ... + [cos(theta), z sin(theta), -y sin(theta), 0]
+	Vec4f col1 = copyToAll<1>(unit_axis) * v_one_minus_cos_theta + shuffle<0, 1, 0, 3>(z_sin_theta_cos_theta, v_sin_theta);              // ... + [-z sin(theta), cos(theta), x sin(theta), 0]
+	Vec4f col2 = copyToAll<2>(unit_axis) * v_one_minus_cos_theta + shuffle<2, 1, 0, 3>(x_sin_theta_y_sin_theta, cos_theta_z_sin_theta);  // ... + [y sin(theta), -x sin(theta), cos(theta), 0]
 
 #ifndef NDEBUG
-	const float one_minus_cost = 1 - cost;
+	const float one_minus_cost = 1 - cost_;
 	const float a = unit_axis[0];
 	const float b = unit_axis[1];
 	const float c = unit_axis[2];
-	assert(epsEqual(col0[0], a * a * one_minus_cost +  cost));
-	assert(epsEqual(col0[1], a * b * one_minus_cost + c*sint));
-	assert(epsEqual(col0[2], a * c * one_minus_cost - b*sint));
+	assert(epsEqual(col0[0], a * a * one_minus_cost +  cost_));
+	assert(epsEqual(col0[1], a * b * one_minus_cost + c*sint_));
+	assert(epsEqual(col0[2], a * c * one_minus_cost - b*sint_));
 	assert(col0[3] == 0);
 
-	assert(epsEqual(col1[0], a * b * one_minus_cost - c*sint));
-	assert(epsEqual(col1[1], b * b * one_minus_cost + cost));
-	assert(epsEqual(col1[2], b * c * one_minus_cost + a*sint));
+	assert(epsEqual(col1[0], a * b * one_minus_cost - c*sint_));
+	assert(epsEqual(col1[1], b * b * one_minus_cost + cost_));
+	assert(epsEqual(col1[2], b * c * one_minus_cost + a*sint_));
 	assert(col1[3] == 0);
 
-	assert(epsEqual(col2[0], a * c * one_minus_cost + b*sint));
-	assert(epsEqual(col2[1], b * c * one_minus_cost - a*sint));
-	assert(epsEqual(col2[2], c * c * one_minus_cost + cost));
+	assert(epsEqual(col2[0], a * c * one_minus_cost + b*sint_));
+	assert(epsEqual(col2[1], b * c * one_minus_cost - a*sint_));
+	assert(epsEqual(col2[2], c * c * one_minus_cost + cost_));
 	assert(col2[3] == 0);
 #endif
 	
@@ -988,6 +988,25 @@ void Matrix4f::test()
 		testAssert(epsEqual(m * Vec4f(1,0,0,0), Vec4f(0,0,-1,0)));
 		testAssert(epsEqual(m * Vec4f(0,0,1,0), Vec4f(1,0,0,0)));
 	}
+
+
+	//---------------------------- Test rotationMatrix -----------------------------------------
+	{
+		Matrix4f m = Matrix4f::rotationMatrix(Vec4f(0,0,1,0), Maths::pi_2<float>());
+		testAssert(epsEqual(m * Vec4f(1,0,0,0), Vec4f(0,1,0,0)));
+		testAssert(epsEqual(m * Vec4f(0,1,0,0), Vec4f(-1,0,0,0)));
+	}
+	{
+		Matrix4f m = Matrix4f::rotationMatrix(Vec4f(1,0,0,0), Maths::pi_2<float>());
+		testAssert(epsEqual(m * Vec4f(0,1,0,0), Vec4f(0,0,1,0)));
+		testAssert(epsEqual(m * Vec4f(0,0,1,0), Vec4f(0,-1,0,0)));
+	}
+	{
+		Matrix4f m = Matrix4f::rotationMatrix(Vec4f(0,1,0,0), Maths::pi_2<float>());
+		testAssert(epsEqual(m * Vec4f(1,0,0,0), Vec4f(0,0,-1,0)));
+		testAssert(epsEqual(m * Vec4f(0,0,1,0), Vec4f(1,0,0,0)));
+	}
+
 
 	// Test rotationAroundXAxis
 	{
