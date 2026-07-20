@@ -162,7 +162,7 @@ template<class Real> const Quat<Real> Quat<Real>::zAxisRot(Real angle)
 
 template <class Real> void Quat<Real>::toAxisAndAngle(Vec4f& unit_axis_out, Real& angle_out) const
 {
-	angle_out = 2 * std::acos(v[3]);
+	angle_out = 2 * std::acos(myClamp(v[3], -1.f, 1.f));
 	assert(isFinite(angle_out));
 	const Vec4f vec = maskWToZero(v);
 	const float v_len = vec.length();
@@ -428,6 +428,7 @@ template <class Real> const Quat<Real> Quat<Real>::slerp(const Quat<Real>& q0, c
 
 	const Quat<Real> q2(normalise(q1 - q0*dot)); // { q0, q2 } is now an orthonormal basis
 
+//	assert((q0*std::cos(theta) + q2*std::sin(theta)).v[3] <= 1.f);
 	return q0*std::cos(theta) + q2*std::sin(theta);
 }
 
