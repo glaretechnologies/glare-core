@@ -1,7 +1,7 @@
 /*=====================================================================
 vec3.h
 ------
-Copyright Glare Technologies Limited 2018 -
+Copyright Glare Technologies Limited 2026 -
 =====================================================================*/
 #include "vec3.h"
 
@@ -10,7 +10,6 @@ Copyright Glare Technologies Limited 2018 -
 #include "../indigo/globals.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Timer.h"
-#include "../utils/StringUtils.h"
 #include <stdio.h>
 #include <string>
 
@@ -69,6 +68,9 @@ const std::string Vec3<Real>::toStringMaxNDecimalPlaces(int n) const
 #if BUILD_TESTS
 
 
+#include "../utils/TestUtils.h"
+
+
 //__declspec(nothrow)
 static GLARE_STRONG_INLINE Vec3f vmul(const Vec3f& a, float f)
 {
@@ -105,6 +107,67 @@ inline void vadd(const Vec3f& a, const Vec3f& b, Vec3f& out)
 template <>
 void Vec3<float>::test()
 {
+	{
+		Vec3f v(10.f, 20.f, 30.f);
+		testAssert(v.toVec4fVector() == Vec4f(10.f, 20.f, 30.f, 0));
+		testAssert(v.toVec4fPoint()  == Vec4f(10.f, 20.f, 30.f, 1.f));
+	}
+	{
+		Vec3d v(10, 20, 30);
+		testAssert(v.toVec4fVector() == Vec4f(10.f, 20.f, 30.f, 0));
+		testAssert(v.toVec4fPoint()  == Vec4f(10.f, 20.f, 30.f, 1.f));
+	}
+
+
+	//============================ Measure speed of toVec4fVector etc. =============================
+
+	//----------------------------- Vec3f -------------------------------------
+	{
+		const int trials = 100;
+		const int N = 1000;
+		std::vector<Vec3f> data(N);
+		for(int i=0; i<N; ++i)
+			data[i] = Vec3f(10, 20, 30);
+
+		{
+			Timer timer;
+			Vec4f sum(0.f);
+			for(int t=0; t<trials; ++t)
+			for(int i=0; i<N; ++i)
+			{
+				sum += data[i].toVec4fVector();
+			}
+			const double elapsed = timer.elapsed() / (N * trials);
+			conPrint("\t\t\t\t\t Vec3f::toVec4fVector took       " + doubleToStringNDecimalPlaces(elapsed * 1.0e9) + " ns");
+			printVar(sum);
+		}
+	}
+
+	//----------------------------- Vec3d -------------------------------------
+	{
+		const int trials = 100;
+		const int N = 1000;
+		std::vector<Vec3d> data(N);
+		for(int i=0; i<N; ++i)
+			data[i] = Vec3d(10, 20, 30);
+
+		{
+			Timer timer;
+			Vec4f sum(0.f);
+			for(int t=0; t<trials; ++t)
+			for(int i=0; i<N; ++i)
+			{
+				sum += data[i].toVec4fVector();
+			}
+			const double elapsed = timer.elapsed() / (N * trials);
+			conPrint("\t\t\t\t\t Vec3d::toVec4fVector took       " + doubleToStringNDecimalPlaces(elapsed * 1.0e9) + " ns");
+			printVar(sum);
+		}
+	}
+
+
+
+
 	//__m128 temp_hakz = { 0.f };
 
 	const Vec3f a(1.f, 2.f, 3.f);
@@ -143,8 +206,6 @@ void Vec3<float>::test()
 	}
 
 	//conPrint(::toString(temp_hakz.m128_f32[0]));
-
-	exit(0);
 }
 #endif
 
