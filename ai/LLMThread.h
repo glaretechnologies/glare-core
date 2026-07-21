@@ -85,7 +85,7 @@ public:
 		size_t max_num_messages; // Maximum number of messages to keep in chat history.  If exceeded, the oldest messages are removed.
 	};
 
-	LLMThread(const std::string& AI_model_id, const Settings& settings);
+	LLMThread(const std::string& AI_model_id, const Settings& settings, const SimpleCredentials* credentials, ThreadSafeQueue<ThreadMessageRef>* out_msg_queue);
 	virtual ~LLMThread();
 
 	virtual void doRun() override;
@@ -98,14 +98,13 @@ public:
 	virtual void toolFunctionCallsReceived(const Reference<AIToolFunctionCalls>& function_calls) override;
 	virtual void responseDone() override;
 
-	ThreadSafeQueue<ThreadMessageRef>* out_msg_queue;
-
-	const SimpleCredentials* credentials;
 	WeakReference<ChatBot> chatbot; // ChatBot has a strong reference to this ob, so use a weak reference to avoid cycles.
 
 private:
-	Settings settings;
 	std::string AI_model_id;
+	Settings settings;
+	const SimpleCredentials* credentials;
+	ThreadSafeQueue<ThreadMessageRef>* out_msg_queue;
 
 	glare::AtomicInt should_quit;
 };

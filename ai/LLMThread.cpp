@@ -15,9 +15,11 @@ Copyright Glare Technologies Limited 2026 -
 #include <SimpleCredentials.h>
 
 
-LLMThread::LLMThread(const std::string& AI_model_id_, const Settings& settings_)
+LLMThread::LLMThread(const std::string& AI_model_id_, const Settings& settings_, const SimpleCredentials* credentials_, ThreadSafeQueue<ThreadMessageRef>* out_msg_queue_)
 :	AI_model_id(AI_model_id_),
-	settings(settings_)
+	settings(settings_),
+	credentials(credentials_),
+	out_msg_queue(out_msg_queue_)
 {
 }
 
