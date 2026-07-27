@@ -84,11 +84,12 @@ public:
 	class Settings
 	{
 	public:
-		Settings() : max_num_messages(100) {}
+		Settings() : max_num_messages(100), reasoning_effort(LLMClient::ReasoningEffort_low) {}
 
 		ToolFunctionsSpec tool_functions;
 		std::string base_prompt;
 		size_t max_num_messages; // Maximum number of messages to keep in chat history.  If exceeded, the oldest messages are removed.
+		LLMClient::ReasoningEffort reasoning_effort;
 	};
 
 	LLMThread(const std::string& AI_model_id, const Settings& settings, const SimpleCredentials* credentials, ThreadSafeQueue<ThreadMessageRef>* out_msg_queue);

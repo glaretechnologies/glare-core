@@ -174,7 +174,7 @@ public:
 
 	SendResult appendToolCallResult(const ToolCallResult& result, bool should_send_to_server_immediately);
 
-
+	SendResult flushAppendedMessages() { return sendChatRequestToLLMServer(); }
 	
 	// HTTPClient::StreamingDataHandler interface
 	virtual void handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo& response_info) override;
@@ -184,6 +184,7 @@ private:
 	LLMClient::SendResult sendChatRequestToLLMServer();
 	Reference<HTTPClient> createHTTPClient();
 	void trimChatMessageHistory();
+	std::string chatMessagesToString() const;
 
 	LLMClientHandlerInterface* handler;
 
@@ -212,6 +213,7 @@ public:
 		ReasoningEffort_max, // extra-high
 	};
 	ReasoningEffort reasoning_effort; // low by default
+	static std::string reasoningEffortString(ReasoningEffort e);
 
 	LLMChatMessage current_assistant_response; // Accumulated complete response from the LLM
 
