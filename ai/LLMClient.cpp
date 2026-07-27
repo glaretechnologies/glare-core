@@ -26,43 +26,63 @@ LLMClient::LLMClient(const AIModel& AI_model, const ToolFunctionsSpec& tool_func
 	max_num_messages(1000000),
 	max_tokens(100000),
 	next_nonempty_line_start(0),
-	newline_search_pos(0)
+	newline_search_pos(0),
+	reasoning_effort(ReasoningEffort_low)
 {
 	// Make tools_json
 	tools_json = 
 		"\"tools\": [         \n";
 
-
-	int index = 0;
-	for(auto it = tool_functions.funcs.begin(); it != tool_functions.funcs.end(); ++it)
+	for(size_t i=0; i<tool_functions.funcs.size(); ++i)
 	{
-		const ToolFunctionSpec& func = *it;
-		tools_json +=
-		"	{																			\n"
-		"	  \"type\": \"function\",													\n"
-		"	  \"function\": {															\n"
-		"		\"name\": \"" + web::Escaping::JSONEscape(func.name) + "\",				\n"
-		"		\"description\": \"" + web::Escaping::JSONEscape(func.description) + "\",	\n"
-		"		\"parameters\": {														\n"
-		"		  \"type\": \"object\",													\n" // TEMP: just assuming all functions take zero parameters for now.
-		"		  \"properties\": {},													\n"
-		"		  \"required\": []														\n"
-		"		}																		\n"
-		"	  }																			\n"
-		"	}" + (((index + 1) < tool_functions.funcs.size()) ? "," : "") + "\n";
+		const ToolFunctionSpec& func = tool_functions.funcs[i];
 
-		index++;
+		// A function with no schema takes no arguments.
+		const std::string schema_json = func.input_schema_json.empty() ? "{\"type\": \"object\", \"properties\": {}, \"required\": []}" : func.input_schema_json;
+
+		if(cur_ai_model.provider == AIModel::Provider_Anthropic)
+		{
+			// Anthropic format: See https://docs.anthropic.com/en/docs/build-with-claude/tool-use
+			tools_json +=
+			"	{\n"
+			"		\"name\": \"" + web::Escaping::JSONEscape(func.name) + "\",\n"
+			"		\"description\": \"" + web::Escaping::JSONEscape(func.description) + "\",\n"
+			"		\"input_schema\": " + schema_json + "\n"
+			"	}" + (((i + 1) < tool_functions.funcs.size()) ? "," : "") + "\n";
+		}
+		else
+		{
+			// OpenAI-compatible format
+			tools_json +=
+			"	{\n"
+			"	  \"type\": \"function\",\n"
+			"	  \"function\": {\n"
+			"		\"name\": \"" + web::Escaping::JSONEscape(func.name) + "\",\n"
+			"		\"description\": \"" + web::Escaping::JSONEscape(func.description) + "\",\n"
+			"		\"parameters\": " + schema_json + "\n"
+			"	  }\n"
+			"	}" + (((i + 1) < tool_functions.funcs.size()) ? "," : "") + "\n";
+		}
 	}
 
-	tools_json += 
-		"],																				\n";
+	// Allow code execution (server-side python in a VM)
+	if(false) // cur_ai_model.provider == AIModel::Provider_Anthropic)
+	{
+		if(!tool_functions.funcs.empty())
+			tools_json += ",";
 
+		tools_json +=
+			"{"
+			"	\"type\": \"code_execution_20260521\","
+			"	\"name\": \"code_execution\""
+			"}";
+	}
+		
+	tools_json += "],\n";
 	if(cur_ai_model.provider == AIModel::Provider_Anthropic)
-		tools_json += 
-			"\"tool_choice\": {\"type\":\"auto\"},											\n";
+		tools_json += "\"tool_choice\": {\"type\":\"auto\"},\n";
 	else
-		tools_json += 
-			"\"tool_choice\": \"auto\",														\n";
+		tools_json += "\"tool_choice\": \"auto\",\n";
 
 
 	base_prompt_json_escaped = web::Escaping::JSONEscape(base_prompt);
@@ -86,7 +106,7 @@ LLMClient::~LLMClient()
 
 LLMClient::SendResult LLMClient::appendChatMessage(const std::string& message, bool should_send_to_server_immediately)
 {
-	conPrint("LLMClient::appendChatMessage(): message: '" + message + "'.");
+	// conPrint("LLMClient::appendChatMessage(): message: '" + message + "'.");
 
 	// Append message to back of chat history
 	{
@@ -111,16 +131,29 @@ LLMClient::SendResult LLMClient::appendChatMessage(const std::string& message, b
 
 LLMClient::SendResult LLMClient::appendToolCallResult(const ToolCallResult& result, bool should_send_to_server_immediately)
 {
-	conPrint("LLMClient::appendToolCallResult().  (should_send_to_server_immediately=" + boolToString(should_send_to_server_immediately) + ")");
+	// conPrint("LLMClient::appendToolCallResult().  (should_send_to_server_immediately=" + boolToString(should_send_to_server_immediately) + ")");
 
 	// Append message to back of chat history
+	if(cur_ai_model.provider == AIModel::Provider_Anthropic)
+	{
+		// Append to current Role_User msg, if it exists, create a Role_User msg if not.
+		if(!this->chat_messages.empty() && this->chat_messages.back().role == LLMChatMessage::Role::Role_User)
+		{
+			this->chat_messages.back().tool_call_results.push_back(result);
+		}
+		else
+		{
+			this->chat_messages.push_back(LLMChatMessage());
+			this->chat_messages.back().role = LLMChatMessage::Role::Role_User;
+			this->chat_messages.back().tool_call_results.push_back(result);
+		}
+	}
+	else
 	{
 		LLMChatMessage new_user_msg;
 		new_user_msg.role = LLMChatMessage::Role::Role_Tool;
-		new_user_msg.tool_call_id = result.tool_call_id;
-		new_user_msg.tool_call_name = result.tool_call_name;
-		new_user_msg.content = result.content;
 		this->chat_messages.push_back(new_user_msg);
+		this->chat_messages.back().tool_call_results.push_back(result);
 	}
 
 	trimChatMessageHistory();
@@ -136,7 +169,6 @@ LLMClient::SendResult LLMClient::appendToolCallResult(const ToolCallResult& resu
 }
 
 
-
 LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 {
 	// Construct HTTP content payload to send to LLM server.
@@ -148,11 +180,42 @@ LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 	{
 		post_content += "\"max_tokens\": " + toString(this->max_tokens) + ",";
 		post_content += "\"system\": \"" + this->base_prompt_json_escaped + "\","; // For Claude, the system prompt is separate and not part of the chat messages
+
+		switch(reasoning_effort)
+		{
+		case ReasoningEffort_low:   post_content += "\"output_config\": { \"effort\": \"low\" },";    break;
+		case ReasoningEffort_med:   post_content += "\"output_config\": { \"effort\": \"medium\" },"; break;
+		case ReasoningEffort_high:  post_content += "\"output_config\": { \"effort\": \"high\" },";   break;
+		case ReasoningEffort_xhigh: post_content += "\"output_config\": { \"effort\": \"xhigh\" },";   break;
+		case ReasoningEffort_max:   post_content += "\"output_config\": { \"effort\": \"max\" },";   break;
+		}
 	}
 	else if(cur_ai_model.provider == AIModel::Provider_XAI)
 	{
-		post_content += "\"reasoning\": {\"effort\": \"low\"},";
+		// https://docs.x.ai/developers/model-capabilities/text/reasoning#effort-levels
+		switch(reasoning_effort)
+		{
+		case ReasoningEffort_low:   post_content += "\"reasoning\": {\"effort\": \"low\"},";    break;
+		case ReasoningEffort_med:   post_content += "\"reasoning\": {\"effort\": \"medium\"},"; break;
+		case ReasoningEffort_high:  post_content += "\"reasoning\": {\"effort\": \"high\"},";  break;
+		case ReasoningEffort_xhigh: post_content += "\"reasoning\": {\"effort\": \"high\"},";  break; // X.ai doesn't support xhigh or max, so just use high.
+		case ReasoningEffort_max:   post_content += "\"reasoning\": {\"effort\": \"high\"},";  break;
+		}
 	}
+	else
+	{
+		// OpenAI compatible: https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode
+		switch(reasoning_effort)
+		{
+		case ReasoningEffort_low:   post_content += "\"reasoning\": {\"effort\": \"low\"},";    break;
+		case ReasoningEffort_med:   post_content += "\"reasoning\": {\"effort\": \"medium\"},"; break;
+		case ReasoningEffort_high:  post_content += "\"reasoning\": {\"effort\": \"high\"},";  break;
+		case ReasoningEffort_xhigh: post_content += "\"reasoning\": {\"effort\": \"xhigh\"},";  break;
+		case ReasoningEffort_max:   post_content += "\"reasoning\": {\"effort\": \"max\"},";  break;
+		}
+		// NOTE: OpenAI also supports "none"
+	}
+
 
 	//------------ Write messages array -----------
 	post_content += "\"messages\": [";
@@ -176,31 +239,128 @@ LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 
 		if(message.role == LLMChatMessage::Role_Tool)
 		{
-			post_content += "\"tool_call_id\":\"" + web::Escaping::JSONEscape(message.tool_call_id) + "\",";
-			post_content += "\"name\":\"" + web::Escaping::JSONEscape(message.tool_call_name) + "\",";
-		}
-
-		post_content += "\"content\":\"";
-		post_content += web::Escaping::JSONEscape(message.content);
-		post_content += "\"";
-
-		if(!message.tool_calls.empty())
-		{
-			post_content += ",\"tool_calls\":[";
-			for(size_t t=0; t<message.tool_calls.size(); ++t)
+			assert(!message.tool_call_results.empty());
+			if(!message.tool_call_results.empty())
 			{
-				const ToolFunctionCall* call = message.tool_calls[t].ptr();
-				post_content += "{\"id\":\"" + web::Escaping::JSONEscape(call->call_id) + "\",";
-				post_content += "\"type\": \"function\",";
-				post_content += "\"function\": {";
-				post_content += "	\"name\":\"" + web::Escaping::JSONEscape(call->function_name) + "\",";
-				post_content += "	\"arguments\": \"{}\""; // JSON string of args.  TEMP: assuming zero args.
-				post_content += "}}";
-
-				if((t + 1) < message.tool_calls.size())
-					post_content += ",";
+				post_content += "\"tool_call_id\":\"" + web::Escaping::JSONEscape(message.tool_call_results.back().tool_call_id) + "\",";
+				post_content += "\"name\":\"" + web::Escaping::JSONEscape(message.tool_call_results.back().tool_call_name) + "\",";
+				post_content += "\"content\":\"" + web::Escaping::JSONEscape(message.tool_call_results.back().content) + "\"";
 			}
-			post_content += "]";
+		}
+		else
+		{
+			if((cur_ai_model.provider == AIModel::Provider_Anthropic))
+			{
+				post_content += "\"content\":[";
+
+				bool need_comma = false; // Do we need to write a comma before the next content block?
+
+				// Append thinking blocks (should exist only for LLMChatMessage::Role_Assistant).
+				// These have to come before the text and tool_use blocks: when thinking is enabled, the server requires
+				// the assistant message to start with the thinking blocks it emitted.
+				for(size_t t=0; t<message.thinking_blocks.size(); ++t)
+				{
+					const ThinkingBlock& thinking_block = message.thinking_blocks[t];
+
+					// The server rejects thinking blocks without their opaque signature (or data), so skip any such blocks.
+					if(thinking_block.redacted ? thinking_block.data.empty() : thinking_block.signature.empty())
+						continue;
+
+					if(need_comma)
+						post_content += ",";
+
+					if(thinking_block.redacted)
+						post_content += "{\"type\": \"redacted_thinking\",\"data\":\"" + web::Escaping::JSONEscape(thinking_block.data) + "\"}";
+					else
+					{
+						post_content += "{\"type\": \"thinking\",";
+						post_content += "\"thinking\":\"" + web::Escaping::JSONEscape(thinking_block.thinking) + "\","; // Note that the thinking text can be empty, it still has to be sent back.
+						post_content += "\"signature\":\"" + web::Escaping::JSONEscape(thinking_block.signature) + "\"}";
+					}
+
+					need_comma = true;
+				}
+
+				if(!message.content.empty())
+				{
+					if(need_comma)
+						post_content += ",";
+
+					post_content += "{\"type\":\"text\",\"text\":\"";
+					post_content += web::Escaping::JSONEscape(message.content);
+					post_content += "\"}";
+
+					need_comma = true;
+				}
+
+				// Append tool_calls (should exist only for LLMChatMessage::Role_Assistant)
+				for(size_t t=0; t<message.tool_calls.size(); ++t)
+				{
+					if(need_comma)
+						post_content += ",";
+
+					const ToolFunctionCall* call = message.tool_calls[t].ptr();
+					runtimeCheck(call != nullptr);
+					post_content += "{\"type\": \"tool_use\",";
+					post_content += "\"id\":\"" + web::Escaping::JSONEscape(call->call_id) + "\",";
+					post_content += "\"name\":\"" + web::Escaping::JSONEscape(call->function_name) + "\",";
+					post_content += "\"input\": " + (call->args_json.empty() ? "{}" : call->args_json); // NOTE: JSON inserted directly as Anthropic requires.
+					post_content += "}";
+
+					need_comma = true;
+				}
+
+				// Append tool_call_results (should exist only for LLMChatMessage::Role_User)
+				for(size_t t=0; t<message.tool_call_results.size(); ++t)
+				{
+					if(need_comma)
+						post_content += ",";
+
+					const ToolCallResult& result = message.tool_call_results[t];
+					post_content += "{\"type\": \"tool_result\",";
+					post_content += "\"tool_use_id\":\"" + web::Escaping::JSONEscape(result.tool_call_id) + "\",";
+					post_content += "\"content\":\"" + web::Escaping::JSONEscape(result.content) + "\"";
+					post_content += "}";
+					// NOTE: can also pass "is_error": true or "is_error": false.
+
+					need_comma = true;
+				}
+
+				post_content += "]";
+			}
+			else
+			{
+				post_content += "\"content\":\"";
+				post_content += web::Escaping::JSONEscape(message.content);
+				post_content += "\"";
+
+				if(!message.tool_calls.empty())
+				{
+					post_content += ",\"tool_calls\":[";
+					for(size_t t=0; t<message.tool_calls.size(); ++t)
+					{
+						const ToolFunctionCall* call = message.tool_calls[t].ptr();
+						runtimeCheck(call != nullptr);
+						post_content += "{\"id\":\"" + web::Escaping::JSONEscape(call->call_id) + "\",";
+						post_content += "\"type\": \"function\",";
+						post_content += "\"function\": {";
+						post_content += "	\"name\":\"" + web::Escaping::JSONEscape(call->function_name) + "\",";
+						// Note that arguments is a JSON *string* containing JSON, so needs escaping.
+						post_content += "	\"arguments\": \"" + web::Escaping::JSONEscape(call->args_json.empty() ? "{}" : call->args_json) + "\"";
+						post_content += "}";
+						if(!call->extra_content_json.empty())
+						{
+							post_content += ", ";
+							post_content += call->extra_content_json;
+						}
+						post_content += "}";
+
+						if((t + 1) < message.tool_calls.size())
+							post_content += ",";
+					}
+					post_content += "]";
+				}
+			}
 		}
 
 		post_content += "}";
@@ -265,13 +425,12 @@ LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 				current_assistant_response = LLMChatMessage(); // Clear current_assistant_response
 				current_assistant_response.role = LLMChatMessage::Role_Assistant;
 
-				std::string path;
-				if(cur_ai_model.provider == AIModel::Provider_Anthropic)
-					path = "/v1/messages";
-				else if(cur_ai_model.api_domain == "api.fireworks.ai")
-					path = "/inference/v1/chat/completions";
-				else
-					path = "/v1/chat/completions"; // OpenAI path
+				const std::string path = cur_ai_model.api_path;
+				if(path.empty())
+				{
+					assert(!path.empty());
+					throw glare::Exception("cur_ai_model.api_path was empty");
+				}
 
 				Timer timer;
 				HTTPClient::ResponseInfo response_info = m_http_client->sendPost(
@@ -349,6 +508,16 @@ Reference<HTTPClient> LLMClient::createHTTPClient()
 }
 
 
+// Find the thinking block in 'msg' that came from the content block with index 'content_block_index', or NULL if there is no such block.
+static ThinkingBlock* findThinkingBlockWithIndex(LLMChatMessage& msg, int content_block_index)
+{
+	for(size_t i=0; i<msg.thinking_blocks.size(); ++i)
+		if(msg.thinking_blocks[i].content_block_index == content_block_index)
+			return &msg.thinking_blocks[i];
+	return NULL;
+}
+
+
 // Called when we receive data back from the HTTP client
 // This will be streaming data using server-sent-events (SSE).
 void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo& response_info)
@@ -409,10 +578,26 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 							const std::string& type = json_parser.nodes[0].getChildStringValue(json_parser, "type");
 							if(type == "content_block_start")
 							{
+								const int block_index = json_parser.nodes[0].getChildIntValueWithDefaultVal(json_parser, "index", 0);
 								const JSONNode& content_block_node = json_parser.nodes[0].getChildNode(json_parser, "content_block");
 								const std::string& content_type = content_block_node.getChildStringValue(json_parser, "type");
-								if(content_type == "thinking")
+								if(content_type == "thinking" || content_type == "redacted_thinking")
 								{
+									// Record the thinking block, so that we can send it back to the server as part of the chat history.
+									// This is required for assistant messages that contain tool calls, when thinking is enabled.
+									const size_t MAX_NUM_THINKING_BLOCKS = 1000;
+									if(current_assistant_response.thinking_blocks.size() >= MAX_NUM_THINKING_BLOCKS)
+										throw glare::Exception("Too many thinking blocks in response");
+
+									ThinkingBlock thinking_block;
+									thinking_block.content_block_index = block_index;
+									thinking_block.redacted = (content_type == "redacted_thinking");
+									// For streaming responses these are usually empty in the content_block_start element, with the content arriving in deltas.
+									thinking_block.thinking  = content_block_node.getChildStringValueWithDefaultVal(json_parser, "thinking",  "");
+									thinking_block.signature = content_block_node.getChildStringValueWithDefaultVal(json_parser, "signature", "");
+									thinking_block.data      = content_block_node.getChildStringValueWithDefaultVal(json_parser, "data",      "");
+									current_assistant_response.thinking_blocks.push_back(thinking_block);
+
 									handler->modelIsThinking();
 								}
 								else if(content_type == "text")
@@ -424,9 +609,22 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 										handler->responseDataReceived(content_text);
 									}
 								}
+								else if(content_type == "tool_use")
+								{
+									const int MAX_NUM_TOOL_CALLS = 1000;
+									if(block_index < 0 || block_index >= MAX_NUM_TOOL_CALLS)
+										throw glare::Exception("Invalid content block index: " + toString(block_index));
+									if((size_t)block_index >= current_assistant_response.tool_calls.size())
+										current_assistant_response.tool_calls.resize(block_index + 1);
+									Reference<ToolFunctionCall> call = new ToolFunctionCall();
+									call->call_id       = content_block_node.getChildStringValue(json_parser, "id");
+									call->function_name = content_block_node.getChildStringValue(json_parser, "name");
+									current_assistant_response.tool_calls[block_index] = call;
+								}
 							}
 							else if(type == "content_block_delta")
 							{
+								const int block_index = json_parser.nodes[0].getChildIntValueWithDefaultVal(json_parser, "index", 0);
 								const JSONNode& delta_node = json_parser.nodes[0].getChildNode(json_parser, "delta");
 								const std::string& content_type = delta_node.getChildStringValue(json_parser, "type");
 								if(content_type == "text_delta")
@@ -437,12 +635,44 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 
 									handler->responseDataReceived(delta_text);
 								}
+								else if(content_type == "input_json_delta")
+								{
+									const std::string& partial_json = delta_node.getChildStringValue(json_parser, "partial_json");
+									if(block_index >= 0 && (size_t)block_index < current_assistant_response.tool_calls.size() && !current_assistant_response.tool_calls[block_index].isNull())
+										current_assistant_response.tool_calls[block_index]->args_json += partial_json;
+								}
+								else if(content_type == "thinking_delta")
+								{
+									ThinkingBlock* thinking_block = findThinkingBlockWithIndex(current_assistant_response, block_index);
+									if(thinking_block)
+										thinking_block->thinking += delta_node.getChildStringValue(json_parser, "thinking");
+								}
+								else if(content_type == "signature_delta")
+								{
+									ThinkingBlock* thinking_block = findThinkingBlockWithIndex(current_assistant_response, block_index);
+									if(thinking_block)
+										thinking_block->signature += delta_node.getChildStringValue(json_parser, "signature");
+								}
 							}
 							//else if(type == "content_block_stop")
 							//{}
 							else if(type == "message_stop")
 							{
 								// Note that we can have multiple content blocks inside one message.  So consider the response done only when the complete message has been received.
+
+								// Now that the complete response has been received, any tool calls in it have their full arguments, so tell the handler about them.
+								if(!current_assistant_response.tool_calls.empty())
+								{
+									// Copy any non-null tool_calls to a AIToolFunctionCalls object.   Null calls can happen if the server skipped a tool call index.
+									Reference<AIToolFunctionCalls> func_calls = new AIToolFunctionCalls();
+									for(size_t i=0; i<current_assistant_response.tool_calls.size(); ++i)
+										if(current_assistant_response.tool_calls[i].nonNull())
+											func_calls->calls.push_back(current_assistant_response.tool_calls[i]);
+
+									current_assistant_response.tool_calls = func_calls->calls; // Store the array with no null calls back in current_assistant_response.
+									handler->toolFunctionCallsReceived(func_calls);
+								}
+
 
 								// Add total response to chat history
 								this->chat_messages.push_back(current_assistant_response);
@@ -454,11 +684,24 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 								handler->responseDone();
 							}
 						}
-						else
+						else // else if cur_ai_model.provider != AIModel::Provider_Anthropic:
 						{
 							if(parser.parseCString("[DONE]"))
 							{
 								// conPrint("=======Received [DONE]======");
+
+								// Now that the complete response has been received, any tool calls in it have their full arguments, so tell the handler about them.
+								if(!current_assistant_response.tool_calls.empty())
+								{
+									// Copy any non-null tool_calls to a AIToolFunctionCalls object.  Null calls can happen if the server skipped a tool call index.
+									Reference<AIToolFunctionCalls> func_calls = new AIToolFunctionCalls();
+									for(size_t i=0; i<current_assistant_response.tool_calls.size(); ++i)
+										if(current_assistant_response.tool_calls[i].nonNull())
+											func_calls->calls.push_back(current_assistant_response.tool_calls[i]);
+
+									current_assistant_response.tool_calls = func_calls->calls; // Store the array with no null calls back in current_assistant_response.
+									handler->toolFunctionCallsReceived(func_calls);
+								}
 
 								// Add total response to chat history
 								this->chat_messages.push_back(current_assistant_response);
@@ -506,27 +749,66 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 									{
 										const JSONNode& tool_calls_node = delta_node.getChildArray(json_parser, "tool_calls");
 
-										Reference<AIToolFunctionCalls> func_calls = new AIToolFunctionCalls();
-
+										// Tool calls are streamed to us in fragments: the id and function name arrive in the first fragment for a
+										// given index, then the arguments arrive as a series of partial JSON string fragments.  So accumulate the
+										// calls in current_assistant_response, and only tell the handler about them once the response is complete.
 										for(size_t i=0; i<tool_calls_node.child_indices.size(); ++i)
 										{
 											const JSONNode& call_node = json_parser.nodes[tool_calls_node.child_indices[i]];
 
-											Reference<ToolFunctionCall> call = new ToolFunctionCall();
+											int call_index = 0;
+											if(call_node.hasChild("index"))
+												call_index = call_node.getChildIntValueWithDefaultVal(json_parser, "index", 0);
+											else
+												call_index = (int)current_assistant_response.tool_calls.size();
 
-											call->call_id = call_node.getChildStringValue(json_parser, "id");
+											const int MAX_NUM_TOOL_CALLS = 1000;
+											if(call_index < 0 || call_index >= MAX_NUM_TOOL_CALLS)
+												throw glare::Exception("Invalid tool call index: " + toString(call_index));
 
-											const JSONNode& function_node = call_node.getChildObject(json_parser, "function");
+											if((size_t)call_index >= current_assistant_response.tool_calls.size())
+												current_assistant_response.tool_calls.resize(call_index + 1);
 
-											call->function_name = function_node.getChildStringValue(json_parser, "name");
+											if(current_assistant_response.tool_calls[call_index].isNull())
+												current_assistant_response.tool_calls[call_index] = new ToolFunctionCall();
 
-											func_calls->calls.push_back(call);
+											ToolFunctionCall* call = current_assistant_response.tool_calls[call_index].ptr();
+
+											if(call_node.hasChild("id"))
+												call->call_id = call_node.getChildStringValue(json_parser, "id"); // Don't append, overwrite instead: assume id arrives atomically.
+
+											if(call_node.hasChild("function"))
+											{
+												const JSONNode& function_node = call_node.getChildObject(json_parser, "function");
+
+												if(function_node.hasChild("name"))
+													call->function_name = function_node.getChildStringValue(json_parser, "name"); // Don't append, overwrite instead: assume name arrives atomically.
+
+												if(function_node.hasChild("arguments"))
+													call->args_json += function_node.getChildStringValue(json_parser, "arguments");
+											}
+
+											// For Gemini using the OpenAI compatibility API, we need to get the extra_content 'thought_signature' JSON, and pass it back in our chat messages.
+											if(cur_ai_model.provider == AIModel::Provider_Google)
+											{
+												if(call_node.hasChild("extra_content"))
+												{
+													const JSONNode& extra_content_node = call_node.getChildObject(json_parser, "extra_content");
+
+													if(extra_content_node.hasChild("google"))
+													{
+														const JSONNode& google_node = extra_content_node.getChildObject(json_parser, "google");
+														
+														if(google_node.hasChild("thought_signature"))
+														{
+															call->extra_content_json = "\"extra_content\": { \"google\": { \"thought_signature\": \"" + 
+																web::Escaping::JSONEscape(google_node.getChildStringValue(json_parser, "thought_signature")) + 
+																"\"}}";
+														}
+													}
+												}
+											}
 										}
-
-										// Call handler
-										handler->toolFunctionCallsReceived(func_calls);
-
-										this->current_assistant_response.tool_calls = func_calls->calls;
 									}
 								}
 							}
@@ -543,3 +825,101 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 		}
 	}
 }
+
+
+#if BUILD_TESTS
+
+
+void LLMClient::test()
+{
+	conPrint("LLMClient::test()");
+
+	if(false)
+	{
+		AIModel model;
+		model.id_string = "anthropic/claude-opus-4-8";
+		model.api_id_string = "claude-opus-4-8";
+		model.name = "Claude Opus 4.8";
+		model.description = "Anthropic's most capable model for agentic coding, long-horizon software engineering, and knowledge-work tasks.";
+		model.api_domain = "api.anthropic.com";
+		model.api_path = "/v1/messages";
+		model.api_key_credential_name = "anthropic_api_key";
+		model.provider = AIModel::Provider_Anthropic;
+
+		//model.id_string = "anthropic/claude-opus-5";
+		//model.api_id_string = "claude-opus-5";
+		//model.name = "Claude Opus 5";
+		//model.description = "Anthropic's most capable model for agentic coding, long-horizon software engineering, and knowledge-work tasks.";
+		//model.api_domain = "api.anthropic.com";
+		//model.api_path = "/v1/messages";
+		//model.api_key_credential_name = "anthropic_api_key";
+		//model.provider = AIModel::Provider_Anthropic;
+
+		//https://generativelanguage.googleapis.com/v1beta/openai/
+		/*model.id_string = "google/gemini-3.6-flash";
+		model.api_id_string = "gemini-3.6-flash";
+		model.name = "Gemini 3.6 Flash";
+		model.description = "";
+		model.api_domain = "generativelanguage.googleapis.com";
+		model.api_path = "/v1beta/openai/chat/completions";
+		model.api_key_credential_name = "gemini_api_key";
+		model.provider = AIModel::Provider_Google;*/
+
+
+		ToolFunctionsSpec spec;
+		spec.funcs.push_back(ToolFunctionSpec());
+		spec.funcs.back().name = "get_temp";
+		spec.funcs.back().description = "Get the current temperature at a city.";
+		spec.funcs.back().input_schema_json = "{\"type\":\"object\", \"properties\":{\"city\":{\"type\":\"string\"}}, \"required\":[\"city\"]}";
+
+
+		struct TestLLMClientHandler: public LLMClientHandlerInterface
+		{
+			virtual void responseDataReceived(const std::string& data)
+			{
+				conPrint("TestLLMClientHandler::responseDataReceived().  data:\n" + data);
+			}
+
+			virtual void toolFunctionCallsReceived(const Reference<AIToolFunctionCalls>& function_calls)
+			{
+				conPrint("TestLLMClientHandler::toolFunctionCallsReceived().  function_calls: " + toString(function_calls->calls.size()));
+				last_function_calls = function_calls;
+			}
+
+			virtual void responseDone()
+			{
+				conPrint("TestLLMClientHandler::responseDone()");
+			}
+			virtual void modelIsThinking()
+			{
+				conPrint("TestLLMClientHandler::modelIsThinking()");
+			}
+
+			Reference<AIToolFunctionCalls> last_function_calls;
+		};
+
+		TestLLMClientHandler handler;
+
+		SimpleCredentials credentials;
+
+		Reference<LLMClient> client = new LLMClient(model, spec, /*base prompt=*/"Do multiple tool calls in the same message", &credentials, &handler);
+		client->appendChatMessage("what's the temperature in Wellington and in Auckland?", /*should_send_to_server_immediately=*/true);
+
+		if(handler.last_function_calls.nonNull() && handler.last_function_calls->calls.size() >= 1)
+		{
+			ToolCallResult result;
+			result.tool_call_id   = handler.last_function_calls->calls[0]->call_id;
+			// result.tool_call_name = handler.last_function_calls->calls[0]->;
+			result.content = "10.0";
+			
+			client->appendToolCallResult(result, /*should_send_to_server_immediately=*/true);
+		}
+
+		conPrint(".");
+	}
+
+	conPrint("LLMClient::test() done");
+}
+
+
+#endif // BUILD_TESTS

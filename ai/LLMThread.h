@@ -6,15 +6,16 @@ Copyright Glare Technologies Limited 2026 -
 #pragma once
 
 
-#include <ai/LLMClient.h>
+#include "LLMClient.h"
+#include "LLMThreadUser.h"
 #include <MessageableThread.h>
 #include <Platform.h>
 #include <WeakReference.h>
 #include <AtomicInt.h>
 #include <string>
 class Server;
-class ChatBot;
 class SimpleCredentials;
+class EventFD;
 
 
 // Append a user chat message to the chat history, and send to LLM server.
@@ -46,7 +47,7 @@ class AIChatResponseDataMessage : public ThreadMessage
 {
 public:
 	std::string message;
-	WeakReference<ChatBot> chatbot;
+	WeakReference<LLMThreadUser> user;
 };
 
 
@@ -55,7 +56,7 @@ class AIToolFunctionCallMessage : public ThreadMessage
 {
 public:
 	Reference<AIToolFunctionCalls> calls;
-	WeakReference<ChatBot> chatbot;
+	WeakReference<LLMThreadUser> user;
 };
 
 
@@ -63,7 +64,7 @@ public:
 class AIChatResponseDoneMessage : public ThreadMessage
 {
 public:
-	WeakReference<ChatBot> chatbot;
+	WeakReference<LLMThreadUser> user;
 };
 
 
@@ -71,6 +72,11 @@ public:
 LLMThread
 ---------
 Handles the client side of communication with a LLM cloud server.
+
+Receives SendAIChatPostContent, SendAIChatToolCallResult messages on its thread queue.
+
+Sends back AIChatResponseDataMessage, AIToolFunctionCallMessage, AIChatResponseDoneMessage messages 
+on out_msg_queue.
 =====================================================================*/
 class LLMThread : public LLMClientHandlerInterface, public MessageableThread
 {
@@ -93,12 +99,18 @@ public:
 	virtual void kill() override;
 
 
-	// LLMClientHandlerInterface interface:
+	// Internal: LLMClientHandlerInterface interface:
 	virtual void responseDataReceived(const std::string& data) override;
 	virtual void toolFunctionCallsReceived(const Reference<AIToolFunctionCalls>& function_calls) override;
 	virtual void responseDone() override;
 
-	WeakReference<ChatBot> chatbot; // ChatBot has a strong reference to this ob, so use a weak reference to avoid cycles.
+	// A reference to some object that is a user of this class.
+	// Not directly used in this class, just passed along with evert response message queued on out_msg_queue.
+	WeakReference<LLMThreadUser> user; // User objects may have a strong reference to this ob, so use a weak reference to avoid cycles.
+
+	// Optional.  If non-null, this is notified after each response message is enqueued on out_msg_queue.
+	// Used to wake a consumer that blocks on an event fd (e.g. a socket-reading thread) rather than on the queue itself.
+	EventFD* out_msg_queue_event_fd;
 
 private:
 	std::string AI_model_id;

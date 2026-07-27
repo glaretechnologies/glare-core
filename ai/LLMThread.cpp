@@ -13,13 +13,15 @@ Copyright Glare Technologies Limited 2026 -
 #include <KillThreadMessage.h>
 #include <RuntimeCheck.h>
 #include <SimpleCredentials.h>
+#include <EventFD.h>
 
 
 LLMThread::LLMThread(const std::string& AI_model_id_, const Settings& settings_, const SimpleCredentials* credentials_, ThreadSafeQueue<ThreadMessageRef>* out_msg_queue_)
 :	AI_model_id(AI_model_id_),
 	settings(settings_),
 	credentials(credentials_),
-	out_msg_queue(out_msg_queue_)
+	out_msg_queue(out_msg_queue_),
+	out_msg_queue_event_fd(NULL)
 {
 }
 
@@ -36,30 +38,36 @@ void LLMThread::doRun()
 		PlatformUtils::setCurrentThreadNameIfTestsEnabled("LLMThread");
 
 		std::vector<AIModel> models;
+
+		//--------------------------------------------- OpenAI/GPT ---------------------------------------------
+		//--------------------------------------------- Anthropic/Claude ---------------------------------------------
 		{
 			AIModel model;
-			model.id_string = "openai/gpt-4o";
-			model.api_id_string = "gpt-4o";
-			model.name = "GPT-4o";
-			model.description = "GPT-4o is OpenAI's versatile, high-intelligence flagship model.";
-			model.api_domain = "api.openai.com";
-			model.api_key_credential_name = "openai_api_key";
-			model.provider = AIModel::Provider_OpenAI;
-			models.push_back(model);
-		}
-		{
-			AIModel model;
-			model.id_string = "openai/gpt-4o-mini";
-			model.api_id_string = "gpt-4o-mini";
-			model.name = "GPT-4o mini";
-			model.description = "GPT-4o mini is OpenAI's fast, affordable small model for focused tasks.";
-			model.api_domain = "api.openai.com";
-			model.api_key_credential_name = "openai_api_key";
-			model.provider = AIModel::Provider_OpenAI;
+			model.id_string = "anthropic/claude-opus-4-8";
+			model.api_id_string = "claude-opus-4-8";
+			model.name = "Claude Opus 4.8";
+			model.description = "Anthropic's most capable model for agentic coding, long-horizon software engineering, and knowledge-work tasks.";
+			model.api_domain = "api.anthropic.com";
+			model.api_path = "/v1/messages";
+			model.api_key_credential_name = "anthropic_api_key";
+			model.provider = AIModel::Provider_Anthropic;
 			models.push_back(model);
 		}
 
+		{
+			AIModel model;
+			model.id_string = "anthropic/claude-opus-5";
+			model.api_id_string = "claude-opus-5";
+			model.name = "Claude Opus 5";
+			model.description = "Anthropic's most capable model for agentic coding, long-horizon software engineering, and knowledge-work tasks.";
+			model.api_domain = "api.anthropic.com";
+			model.api_path = "/v1/messages";
+			model.api_key_credential_name = "anthropic_api_key";
+			model.provider = AIModel::Provider_Anthropic;
+			models.push_back(model);
+		}
 
+		//--------------------------------------------- X.AI/Grok ---------------------------------------------
 		{
 			AIModel model;
 			model.id_string = "xai/grok-4.3";
@@ -67,6 +75,7 @@ void LLMThread::doRun()
 			model.name = "Grok 4.3";
 			model.description = "From SpaceXAI. Fast, reliable model with strong tool calling and instruction following capabilities.";
 			model.api_domain = "api.x.ai";
+			model.api_path = "/v1/chat/completions";
 			model.api_key_credential_name = "xai_api_key";
 			model.provider = AIModel::Provider_XAI;
 			models.push_back(model);
@@ -78,8 +87,23 @@ void LLMThread::doRun()
 			model.name = "Grok 4.5";
 			model.description = "SpaceXAI's intelligent coding model for agentic software, engineering, and workflow tasks.";
 			model.api_domain = "api.x.ai";
+			model.api_path = "/v1/chat/completions";
 			model.api_key_credential_name = "xai_api_key";
 			model.provider = AIModel::Provider_XAI;
+			models.push_back(model);
+		}
+
+		//--------------------------------------------- Google/Gemini ---------------------------------------------
+		{
+			AIModel model;
+			model.id_string = "google/gemini-3.6-flash";
+			model.api_id_string = "gemini-3.6-flash";
+			model.name = "Gemini 3.6 Flash";
+			model.description = "";
+			model.api_domain = "generativelanguage.googleapis.com";
+			model.api_path = "/v1beta/openai/chat/completions";
+			model.api_key_credential_name = "gemini_api_key";
+			model.provider = AIModel::Provider_Google;
 			models.push_back(model);
 		}
 
@@ -162,8 +186,11 @@ void LLMThread::responseDataReceived(const std::string& data)
 	// Send AIChatResponseDataMessage message
 	AIChatResponseDataMessage* msg = new AIChatResponseDataMessage();
 	msg->message = data;
-	msg->chatbot = chatbot;
+	msg->user = user;
 	out_msg_queue->enqueue(msg);
+
+	if(out_msg_queue_event_fd)
+		out_msg_queue_event_fd->notify();
 }
 
 
@@ -171,9 +198,12 @@ void LLMThread::toolFunctionCallsReceived(const Reference<AIToolFunctionCalls>& 
 {
 	// Send AIToolFunctionCallMessage message
 	Reference<AIToolFunctionCallMessage> call_msg = new AIToolFunctionCallMessage();
-	call_msg->chatbot = chatbot;
+	call_msg->user = user;
 	call_msg->calls = function_calls;
 	out_msg_queue->enqueue(call_msg);
+
+	if(out_msg_queue_event_fd)
+		out_msg_queue_event_fd->notify();
 }
 
 
@@ -181,6 +211,9 @@ void LLMThread::responseDone()
 {
 	// Send AIChatResponseDoneMessage message
 	AIChatResponseDoneMessage* done_msg = new AIChatResponseDoneMessage();
-	done_msg->chatbot = chatbot;
+	done_msg->user = user;
 	out_msg_queue->enqueue(done_msg);
+
+	if(out_msg_queue_event_fd)
+		out_msg_queue_event_fd->notify();
 }
