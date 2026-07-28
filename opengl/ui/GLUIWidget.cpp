@@ -83,6 +83,15 @@ void GLUIWidget::setFixedDimsPx(const Vec2f& dims_px)
 }
 
 
+void GLUIWidget::setFixedWidthUICoords(float w)
+{
+	sizing_type_x = SizingType_FixedSizeUICoords; 
+	fixed_size.x = w;
+
+	this->rect = Rect2f(this->rect.getMin(), Vec2f(this->rect.getMin().x + fixed_size.x, this->rect.getMax().y));
+}
+
+
 Vec2f GLUIWidget::getMinDims() const
 {
 	Vec2f min_dims(0.f);

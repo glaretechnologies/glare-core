@@ -265,7 +265,7 @@ void GLUIDropDownList::openButtonPressed()
 			GLUITextButtonRef button = new GLUITextButton(*glui, /*button text=*/args.options[i], Vec2f(0.f), but_args);
 			button->handler_func = [this](GLUICallbackEvent& event) { this->optionButtonPressed(event); };
 
-			options_grid->setCellWidget(i / MAX_NUM_ROWS, i % MAX_NUM_ROWS, button);
+			options_grid->setCellWidget((int)(i / MAX_NUM_ROWS), (int)(i % MAX_NUM_ROWS), button);
 		}
 
 		glui->addWidget(options_grid);

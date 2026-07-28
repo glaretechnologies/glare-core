@@ -85,6 +85,7 @@ public:
 	void setFixedWidthPx (float x_px);
 	void setFixedHeightPx(float y_px);
 	void setFixedDimsPx(const Vec2f& dims_px);
+	void setFixedWidthUICoords(float w);
 	void setFixedDimsUICoords(const Vec2f& dims_px) { sizing_type_x = SizingType_FixedSizeUICoords; sizing_type_y = SizingType_FixedSizeUICoords; fixed_size = dims_px; }
 
 	// Returns old_dims or recomputes new dims if sizing type is SizingType_FixedSizeUICoords or SizingType_FixedSizePx
@@ -117,6 +118,7 @@ public:
 	SizingType sizing_type_y;
 
 	Vec2f fixed_size; // x component used if sizing_type_x == SizingType_FixedSizePx, likewise for y component.
+	// Units are pixels if SizingType_FixedSizePx, and UI coordinate units if SizingType_FixedSizeUICoords.
 
 	std::string debug_name;
 private:

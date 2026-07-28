@@ -237,11 +237,16 @@ void GLUIWindow::containedWidgetChangedSize()
 
 void GLUIWindow::eventOccurred(GLUICallbackEvent& ev)
 {
-	if(handler && (ev.widget == close_button.ptr()))
+	if(ev.widget == close_button.ptr())
 	{
-		GLUICallbackEvent close_ev;
-		close_ev.widget = this;
-		handler->closeWindowEventOccurred(close_ev);
+		if(on_close_window)
+			on_close_window();
+		else if(handler)
+		{
+			GLUICallbackEvent close_ev;
+			close_ev.widget = this;
+			handler->closeWindowEventOccurred(close_ev);
+		}
 	}
 }
 

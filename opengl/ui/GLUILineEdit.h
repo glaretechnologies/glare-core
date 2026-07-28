@@ -108,10 +108,6 @@ private:
 	int selection_start; // cursor position of selection start, or -1 if no selection.
 	int selection_end; // cursor position of selection end.  May be < selection_start
 
-	Vec2f botleft; // in GL UI coords
-
-	float height_px;
-
 	double last_cursor_update_time;
 };
 

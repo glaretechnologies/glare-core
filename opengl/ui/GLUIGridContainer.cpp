@@ -156,6 +156,7 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 	std::vector<float> column_widths(cell_widgets.getWidth());
 	float total_width = 0;
 
+	// Compute column widths
 	for(size_t x=0; x<cell_widgets.getWidth(); ++x)
 	{
 		float max_padded_w = 0; // Maximum padded width over all widgets on column x.
@@ -173,10 +174,30 @@ void GLUIGridContainer::recomputeLayout() // For grid containers - call recursiv
 				max_padded_w = myMax(max_padded_w, padded_w);
 			}
 		}
+
+		/*
+		In this case we want to increase the width of column 1, as column 2 starts to the right of total_width
+		      col 0          col 1            col 2
+		|--------------|------------|    |-----------
+
+		<------------------------------->|
+		   col_min_x_px_vals[2]
+		
+		*/
+		if(((x + 1) < col_min_x_px_vals.size()) && (col_min_x_px_vals[x+1] > 0))
+		{
+			float tentative_total_width = total_width + max_padded_w;
+			float next_col_min_x = glui->getUIWidthForDevIndepPixelWidth(col_min_x_px_vals[x + 1]);
+			if(tentative_total_width < next_col_min_x)
+				max_padded_w += next_col_min_x - tentative_total_width;
+		}
+
+
 		column_widths[x] = max_padded_w;
 		total_width += max_padded_w;
 	}
 
+	// Compute row heights
 	std::vector<float> row_heights(cell_widgets.getHeight());
 	float total_height = 0;
 
@@ -308,6 +329,15 @@ Vec2f GLUIGridContainer::getMinDims() const
 				max_padded_w = myMax(max_padded_w, padded_w);
 			}
 		}
+
+		if(((x + 1) < col_min_x_px_vals.size()) && (col_min_x_px_vals[x+1] > 0))
+		{
+			float tentative_total_width = total_width + max_padded_w;
+			float next_col_min_x = glui->getUIWidthForDevIndepPixelWidth(col_min_x_px_vals[x + 1]);
+			if(tentative_total_width < next_col_min_x)
+				max_padded_w += next_col_min_x - tentative_total_width;
+		}
+
 		total_width += max_padded_w;
 	}
 
@@ -389,6 +419,8 @@ void GLUIGridContainer::setZ(float new_z)
 void GLUIGridContainer::setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widget)
 {
 	assert(cell_x >= 0 && cell_y >= 0);
+	assert(!isInserted(widget)); // Check is not already inserted in another cell
+
 
 	// Enlarge cell_widgets array if needed.
 	if(cell_x >= cell_widgets.getWidth() || cell_y >= cell_widgets.getHeight())
@@ -411,6 +443,16 @@ void GLUIGridContainer::setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widg
 	widget->setZ(this->getZ() - 0.01f); // Position in front of the container.
 
 	recomputeLayout();
+}
+
+
+bool GLUIGridContainer::isInserted(GLUIWidgetRef widget) const
+{
+	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
+	for(size_t x=0; x<cell_widgets.getWidth(); ++x)
+		if(cell_widgets.elem(x, y) == widget)
+			return true;
+	return false;
 }
 
 
@@ -476,7 +518,12 @@ Rect2f GLUIGridContainer::getClippedContentRect() const
 	if(!content_rect_inited)
 		return Rect2f(this->getRect().getMin(), this->getRect().getMin());
 	else
-		return intersection(content_rect, this->getRect());
+	{
+		if(content_rect.disjoint(this->getRect()))
+			return this->getRect();
+		else
+			return intersection(content_rect, this->getRect());
+	}
 }
 
 

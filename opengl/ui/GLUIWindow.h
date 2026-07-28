@@ -102,6 +102,7 @@ public:
 	GLUICallbackHandler* handler; // For close event
 
 	std::function<void()> on_contained_widget_changed_size;
+	std::function<void()> on_close_window;
 private:
 	GLARE_DISABLE_COPY(GLUIWindow);
 

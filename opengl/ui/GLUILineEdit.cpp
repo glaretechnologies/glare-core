@@ -28,7 +28,6 @@ GLUILineEdit::CreateArgs::CreateArgs()
 	text_alpha(1.f),
 	padding_px(10),
 	font_size_px(GLUI::getDefaultFontSizePx()),
-	//width(0.2f),
 	rounded_corner_radius_px(8),
 	z(0.f)
 {}
@@ -47,8 +46,6 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, const Vec2f& botleft_, const CreateArgs&
 	sizing_type_y = args.sizing_type_y;
 	fixed_size = args.fixed_size;
 
-	botleft = botleft_;
-
 	cursor_pos = 0;
 	last_cursor_update_time = 0;
 
@@ -58,7 +55,8 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, const Vec2f& botleft_, const CreateArgs&
 	this->last_viewport_dims   = Vec2i(0);
 	this->last_background_dims = Vec2f(0);
 
-	this->height_px = (float)args.font_size_px + (float)args.padding_px*2;
+	const Vec2f dims = computeDims(Vec2f(glui->getUIWidthForDevIndepPixelWidth(120.f), (float)args.font_size_px + (float)args.padding_px*2));
+	this->rect = Rect2f(botleft_, botleft_ + dims);
 	
 	// Create background quad to go behind text
 	background_overlay_ob = new OverlayObject();
@@ -142,18 +140,6 @@ const std::string& GLUILineEdit::getText() const
 }
 
 
-//void GLUILineEdit::setWidth(float width)
-//{
-//	if(width != args.width)
-//	{
-//		args.width = width;
-//
-//		this->last_viewport_dims = Vec2i(0); // Force recreate rounded-corner rect
-//		updateOverlayObTransforms();
-//	}
-//}
-
-
 void GLUILineEdit::clear()
 {
 	text.clear();
@@ -167,35 +153,31 @@ void GLUILineEdit::clear()
 
 void GLUILineEdit::updateOverlayObTransforms()
 {
-	if(background_overlay_ob.nonNull())
+	if(background_overlay_ob)
 	{
-		assert(sizing_type_x == GLUIWidget::SizingType_FixedSizePx); // TEMP: assert fixed size in x for now
-		const float background_w = glui->getUIWidthForDevIndepPixelWidth(fixed_size.x);
-		const float background_h = glui->getUIWidthForDevIndepPixelWidth(this->height_px);
+		const Vec2f dims = getDims();
 
-		if(last_background_dims != Vec2f(background_w, background_h) || this->last_viewport_dims != opengl_engine->getViewportDims())
+		if(last_background_dims != dims || this->last_viewport_dims != opengl_engine->getViewportDims())
 		{
 			// background or viewport dimensions have changed, recreate rounded-corner rect.
 			// conPrint("GLUILineEdit: background or viewport dimensions have changed, recreate rounded-corner rect.");
 			
-			background_overlay_ob->mesh_data = MeshPrimitiveBuilding::makeRoundedCornerRect(*opengl_engine->vert_buf_allocator, /*i=*/Vec4f(1,0,0,0), /*j=*/Vec4f(0,1,0,0), /*w=*/background_w, /*h=*/background_h, 
+			background_overlay_ob->mesh_data = MeshPrimitiveBuilding::makeRoundedCornerRect(*opengl_engine->vert_buf_allocator, /*i=*/Vec4f(1,0,0,0), /*j=*/Vec4f(0,1,0,0), /*w=*/dims.x, /*h=*/dims.y, 
 				/*corner radius=*/glui->getUIWidthForDevIndepPixelWidth(args.rounded_corner_radius_px), /*tris_per_corner=*/8);
 
-			this->last_background_dims = Vec2f(background_w, background_h);
+			this->last_background_dims = dims;
 			this->last_viewport_dims = opengl_engine->getViewportDims();
 		}
 
 		const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
 		const float z = m_z + 0.001f;
-		background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(1, y_scale, 1);
-
-		rect = Rect2f(botleft, botleft + Vec2f(background_w, background_h));
+		background_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(getRect().getMin().x, getRect().getMin().y * y_scale, z) * Matrix4f::scaleMatrix(1, y_scale, 1);
 	}
 
 	
 
 	// Update cursor ob
-	if(cursor_overlay_ob.nonNull())
+	if(cursor_overlay_ob)
 	{
 		const float w = glui->getUIWidthForDevIndepPixelWidth(1);
 		const float extra_half_h_factor = 0.2f; // Make the cursor a bit bigger than the font size
@@ -215,7 +197,7 @@ void GLUILineEdit::updateOverlayObTransforms()
 	}
 
 	// Update selection ob
-	if(selection_overlay_ob.nonNull())
+	if(selection_overlay_ob)
 	{
 		const float extra_half_h_factor = 0.2f; // Make the cursor a bit bigger than the font size
 		const float h = (float)glui->getUIWidthForDevIndepPixelWidth((float)args.font_size_px * (1 + extra_half_h_factor*2));
@@ -266,8 +248,7 @@ void GLUILineEdit::recreateTextWidget()
 	glui_text = new GLUIText(*glui, text, /*botleft=*/Vec2f(0.f), text_create_args);
 
 	// Set clip region so text doesn't draw outside of line edit.
-	assert(sizing_type_x == GLUIWidget::SizingType_FixedSizePx); // TEMP: assert fixed size in x for now
-	glui_text->setClipRegion(Rect2f(botleft, botleft + Vec2f(glui->getUIWidthForDevIndepPixelWidth(fixed_size.x), glui->getUIWidthForDevIndepPixelWidth(this->height_px))));
+	glui_text->setClipRegion(getRect());
 
 	updateTextTransform();
 }
@@ -275,26 +256,26 @@ void GLUILineEdit::recreateTextWidget()
 
 void GLUILineEdit::updateTextTransform()
 {
-	if(glui_text.nonNull())
+	if(glui_text)
 	{
 		const float margin_x = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
 		const float margin_y = margin_x;
 
-		Vec2f rel_cursor_pos = glui_text->getRelativeCharPos(*glui, cursor_pos);
+		const Vec2f rel_cursor_pos = glui_text->getRelativeCharPos(*glui, cursor_pos);
 
 		// Shift text left if cursor position would be to right of line edit.
-		assert(sizing_type_x == GLUIWidget::SizingType_FixedSizePx); // TEMP: assert fixed size in x for now
+		const float width_x = getDims().x;
 
-		const float max_rel_cursor_x = glui->getUIWidthForDevIndepPixelWidth(fixed_size.x) - margin_x * 2; // glui->getUIWidthForDevIndepPixelWidth(15);
+		const float max_rel_cursor_x = width_x - margin_x * 2;
 		const float left_shift_amount = myMax(0.f, rel_cursor_pos.x - max_rel_cursor_x);
-		const Vec2f text_botleft = botleft + Vec2f(margin_x, margin_y) - Vec2f(left_shift_amount, 0);
+		const Vec2f text_botleft = getRect().getMin() + Vec2f(margin_x, margin_y) - Vec2f(left_shift_amount, 0);
 
 		glui_text->setPos(text_botleft);
 		glui_text->setZ(m_z - 0.01f);
 		glui_text->updateGLTransform();
 
 		// Set clip region so text doesn't draw outside of line edit.
-		glui_text->setClipRegion(Rect2f(botleft, botleft + Vec2f(glui->getUIWidthForDevIndepPixelWidth(fixed_size.x), glui->getUIWidthForDevIndepPixelWidth(this->height_px))));
+		glui_text->setClipRegion(getRect());
 	}
 }
 
@@ -645,7 +626,7 @@ Vec2f GLUILineEdit::getMinDims() const
 
 void GLUILineEdit::setPos(const Vec2f& botleft_)
 {
-	botleft = botleft_;
+	this->rect = Rect2f(botleft_, botleft_ + getDims());
 
 	updateTextTransform();
 	updateOverlayObTransforms();

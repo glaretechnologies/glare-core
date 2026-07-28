@@ -77,6 +77,8 @@ public:
 
 	void setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widget);
 
+	bool isInserted(GLUIWidgetRef widget) const;
+
 	void addWidgetOnNewRow(GLUIWidgetRef widget); // Adds new row at bottom of grid.
 
 	void clear(); // Remove all widgets from grid, resize cell_widgets to zero.
