@@ -8,7 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include <Exception.h>
 #include <Parser.h>
-#include <SharedStringTable.h>
+//#include <SharedStringTable.h>
 #include <pugixml.hpp>
 #include <sstream>
 #include <cstring>
@@ -177,14 +177,14 @@ const std::string XMLParseUtils::parseStringWithDefault(pugi::xml_node parent_el
 }
 
 
-glare::SharedImmutableString XMLParseUtils::parseSharedImmutableStringWithDefault(pugi::xml_node parent_elem, const char* elemname, const char* default_val, glare::SharedStringTable* table)
-{
-	pugi::xml_node childnode = parent_elem.child(elemname);
-	if(childnode)
-		return glare::getOrMakeSharedImmutableString(childnode.child_value(), table);
-	else
-		return glare::getOrMakeSharedImmutableString(default_val, table);
-}
+//glare::SharedImmutableString XMLParseUtils::parseSharedImmutableStringWithDefault(pugi::xml_node parent_elem, const char* elemname, const char* default_val, glare::SharedStringTable* table)
+//{
+//	pugi::xml_node childnode = parent_elem.child(elemname);
+//	if(childnode)
+//		return glare::getOrMakeSharedImmutableString(childnode.child_value(), table);
+//	else
+//		return glare::getOrMakeSharedImmutableString(default_val, table);
+//}
 
 
 double XMLParseUtils::parseDoubleDirectly(pugi::xml_node elem)
