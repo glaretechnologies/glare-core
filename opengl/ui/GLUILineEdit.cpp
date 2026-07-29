@@ -582,6 +582,10 @@ void GLUILineEdit::handleCopyEvent(std::string& clipboard_contents_out)
 
 void GLUILineEdit::viewportResized()
 {
+	Vec2f dims = computeDims(this->getDims());
+	const Vec2f botleft = getRect().getMin();
+	rect = Rect2f(botleft, botleft + dims);
+
 	updateTextTransform();
 	updateOverlayObTransforms();
 }

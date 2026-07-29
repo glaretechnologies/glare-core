@@ -69,7 +69,7 @@ void GLUIWidget::setFixedHeightPx(float y_px)
 	sizing_type_y = SizingType_FixedSizePx; 
 	fixed_size.y = y_px;
 
-	this->rect = Rect2f(this->rect.getMin(), Vec2f(this->rect.getMax().x, this->rect.getMin().x + glui->getUIWidthForDevIndepPixelWidth(fixed_size.x)));
+	this->rect = Rect2f(this->rect.getMin(), Vec2f(this->rect.getMax().x, this->rect.getMin().y + glui->getUIWidthForDevIndepPixelWidth(fixed_size.y)));
 }
 
 
