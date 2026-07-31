@@ -21,25 +21,42 @@ static const Colour3f axis_arrows_mouseover_cols[] = { Colour3f(1,0.45f,0.3f),  
 // For each direction x, y, z, the two other basis vectors. 
 static const Vec4f basis_vectors[6] = { Vec4f(0,1,0,0), Vec4f(0,0,1,0), Vec4f(0,0,1,0), Vec4f(1,0,0,0), Vec4f(1,0,0,0), Vec4f(0,1,0,0) };
 
+// 'axis index' 0 = x-y plane
+// 'axis index' 1 = x-z plane
+// 'axis index' 2 = y-z plane
+static const Vec4f plane_quad_normals[3] = { Vec4f(0,0,1,0), Vec4f(0,1,0,0), Vec4f(1,0,0,0) };
+static const int plane_axes_a[3] = { 0, 0, 1 }; // The first axis of the movement plane
+static const int plane_axes_b[3] = { 1, 2, 2 }; // The second axis of the movement plane
+
 static const float arc_handle_half_angle = 1.5f;
 
 
 TransformGizmo::TransformGizmo(OpenGLEngine* engine_, const Vec4f& gizmo_centre)
 :	engine(engine_),
-	grabbed_axis(-1),
+	cur_gizmo_centre(gizmo_centre),
+	grabbed_type(MouseOverResult::MouseOver_none),
+	grabbed_axis(0),
 	grabbed_angle(0),
 	original_grabbed_angle(0),
 	grabbed_arc_angle_offset(0)
 {
-	axis_arrow_objects[0] = engine->makeArrowObject(Vec4f(0,0,0,1), Vec4f(1, 0, 0, 1), Colour4f(0.6, 0.2, 0.2, 1.f), 1.f);
-	axis_arrow_objects[1] = engine->makeArrowObject(Vec4f(0,0,0,1), Vec4f(0, 1, 0, 1), Colour4f(0.2, 0.6, 0.2, 1.f), 1.f);
-	axis_arrow_objects[2] = engine->makeArrowObject(Vec4f(0,0,0,1), Vec4f(0, 0, 1, 1), Colour4f(0.2, 0.2, 0.6, 1.f), 1.f);
+	axis_arrow_objects[0] = engine->makeArrowObject(Vec4f(0,0,0,1), Vec4f(1, 0, 0, 1), Colour4f(1.f), 1.f);
+	axis_arrow_objects[1] = engine->makeArrowObject(Vec4f(0,0,0,1), Vec4f(0, 1, 0, 1), Colour4f(1.f), 1.f);
+	axis_arrow_objects[2] = engine->makeArrowObject(Vec4f(0,0,0,1), Vec4f(0, 0, 1, 1), Colour4f(1.f), 1.f);
+
+	plane_quad_objects[0] = engine->makeAABBObject(Vec4f(0,0,0,1), Vec4f(1, 1, 0, 1), Colour4f(1.f)); // x-y plane
+	plane_quad_objects[1] = engine->makeAABBObject(Vec4f(0,0,0,1), Vec4f(1, 0, 1, 1), Colour4f(1.f)); // x-z plane
+	plane_quad_objects[2] = engine->makeAABBObject(Vec4f(0,0,0,1), Vec4f(0, 1, 1, 1), Colour4f(1.f)); // y-z plane
 
 	for(int i=0; i<NUM_AXIS_ARROWS; ++i)
 	{
 		axis_arrow_objects[i]->materials[0].albedo_linear_rgb = toLinearSRGB(axis_arrows_default_cols[i]);
 		axis_arrow_objects[i]->always_visible = true;
 		engine->addObject(axis_arrow_objects[i]);
+
+		plane_quad_objects[i]->materials[0].albedo_linear_rgb = toLinearSRGB(axis_arrows_default_cols[2 - i]);
+		plane_quad_objects[i]->always_visible = true;
+		engine->addObject(plane_quad_objects[i]);
 	}
 
 	for(int i=0; i<3; ++i)
@@ -54,6 +71,7 @@ TransformGizmo::TransformGizmo(OpenGLEngine* engine_, const Vec4f& gizmo_centre)
 		engine->addObject(rot_handle_arc_objects[i]);
 	}
 
+
 	updateGizmoDrawTransform(gizmo_centre);
 }
 
@@ -61,10 +79,11 @@ TransformGizmo::TransformGizmo(OpenGLEngine* engine_, const Vec4f& gizmo_centre)
 TransformGizmo::~TransformGizmo()
 {
 	for(int i=0; i<NUM_AXIS_ARROWS; ++i)
+	{
 		checkRemoveObAndSetRefToNull(*engine, axis_arrow_objects[i]);
-
-	for(int i=0; i<NUM_AXIS_ARROWS; ++i)
 		checkRemoveObAndSetRefToNull(*engine, rot_handle_arc_objects[i]);
+		checkRemoveObAndSetRefToNull(*engine, plane_quad_objects[i]);
+	}
 }
 
 
@@ -82,7 +101,7 @@ static float safeATan2(float y, float x)
 void TransformGizmo::update(const Vec4f& ob_pos_ws)
 {
 	// If grabbed something, don't update from external changes
-	if(grabbed_axis == -1)
+	if(grabbed_type == MouseOverResult::MouseOver_none)
 	{
 		updateGizmoDrawTransform(ob_pos_ws);
 	}
@@ -296,26 +315,50 @@ inline static bool clipLineToPlaneBackHalfSpace(const Planef& plane, Vec4f& a, V
 }
 
 
-void TransformGizmo::updateGizmoDrawTransform(const Vec4f& new_gizmo_centre)
+void TransformGizmo::updateGizmoDrawTransform(const Vec4f& gizmo_centre)
 {
+	cur_gizmo_centre = gizmo_centre;
+
 	const Vec4f cam_pos = engine->getCurrentScene()->cam_to_world.getColumn(3); // = cam_to_world * Vec4f(0,0,0,1);
 
-	const Vec4f gizmo_centre = new_gizmo_centre;
 	const Vec4f cam_to_gizmo = gizmo_centre - cam_pos;
 	const float control_scale = cam_to_gizmo.length() * 0.2f;
 
 	const float arrow_len = control_scale;
 
 	// Flip each arrow to point toward the camera.
-	axis_arrow_segments[0] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(cam_to_gizmo[0] > 0 ? -arrow_len : arrow_len, 0, 0, 0));
-	axis_arrow_segments[1] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(0, cam_to_gizmo[1] > 0 ? -arrow_len : arrow_len, 0, 0));
-	axis_arrow_segments[2] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(0, 0, cam_to_gizmo[2] > 0 ? -arrow_len : arrow_len, 0));
+	const float x_sign = -Maths::sign(cam_to_gizmo[0]);
+	const float y_sign = -Maths::sign(cam_to_gizmo[1]);
+	const float z_sign = -Maths::sign(cam_to_gizmo[2]);
+	axis_arrow_segments[0] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(arrow_len * x_sign, 0, 0, 0));
+	axis_arrow_segments[1] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(0, arrow_len * y_sign, 0, 0));
+	axis_arrow_segments[2] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(0, 0, arrow_len * z_sign, 0));
 
 	for(int i=0; i<NUM_AXIS_ARROWS; ++i)
 	{
 		axis_arrow_objects[i]->ob_to_world_matrix = OpenGLEngine::arrowObjectTransform(axis_arrow_segments[i].a, axis_arrow_segments[i].b, arrow_len);
 		engine->updateObjectTransformData(*axis_arrow_objects[i]);
 	}
+
+
+	//---------------------- Update plane translation quads ---------------------------
+	{
+		const float quad_offset = control_scale * 0.14f; // Offset of the centre of the quad from the axes.
+		quad_w                  = control_scale * 0.2f; // Store so we can use for mouseover detection also.
+
+		// Store these so we can use for mouseover detection also.
+		quad_start[0] = Vec4f(quad_offset * x_sign - quad_w/2, quad_offset * y_sign - quad_w/2,                               0, 0) + gizmo_centre; // coords of the quad min bounds
+		quad_start[1] = Vec4f(quad_offset * x_sign - quad_w/2,                               0, quad_offset * z_sign - quad_w/2, 0) + gizmo_centre; // coords of the quad min bounds
+		quad_start[2] = Vec4f(                              0, quad_offset * y_sign - quad_w/2, quad_offset * z_sign - quad_w/2, 0) + gizmo_centre; // coords of the quad min bounds
+
+		plane_quad_objects[0]->ob_to_world_matrix = Matrix4f::translationMatrix(quad_start[0]) * Matrix4f::scaleMatrix(quad_w, quad_w, quad_w * 0.01f); // x-y plane
+		plane_quad_objects[1]->ob_to_world_matrix = Matrix4f::translationMatrix(quad_start[1]) * Matrix4f::scaleMatrix(quad_w, quad_w * 0.01f, quad_w); // x-z plane
+		plane_quad_objects[2]->ob_to_world_matrix = Matrix4f::translationMatrix(quad_start[2]) * Matrix4f::scaleMatrix(quad_w * 0.01f, quad_w, quad_w); // y-z plane
+
+		for(int i=0; i<3; ++i)
+			engine->updateObjectTransformData(*plane_quad_objects[i]);
+	}
+
 
 	//----------------------- Update rotation control handle arcs -----------------------
 	const float arc_radius = control_scale * 0.7f;
@@ -330,10 +373,9 @@ void TransformGizmo::updateGizmoDrawTransform(const Vec4f& new_gizmo_centre)
 
 		// Position the rotation arc so its oriented towards the camera, unless the user is currently holding and dragging the arc.
 		float angle = to_cam_angle;
-		if(grabbed_axis >= NUM_AXIS_ARROWS)
+		if(grabbed_type == MouseOverResult::MouseOver_rot_handle)
 		{
-			const int grabbed_rot_axis = grabbed_axis - NUM_AXIS_ARROWS;
-			if(i == grabbed_rot_axis)
+			if(i == grabbed_axis)
 				angle = grabbed_angle + grabbed_arc_angle_offset;
 		}
 
@@ -365,10 +407,10 @@ void TransformGizmo::updateGizmoDrawTransform(const Vec4f& new_gizmo_centre)
 }
 
 
-// Returns the axis index (integer in [0, 3)) of the closest axis arrow, or the axis index of the closest rotation arc handle (integer in [3, 6))
-// or -1 if no arrow or rotation arc close to pixel coords.
+// Returns the index of the closest axis arrow, or the axis index of the closest rotation arc handle,
+// or the index of the plane translation quad.
 // Also returns world space coords of the closest point.
-int TransformGizmo::mouseOverAxisArrowOrRotArc(const Vec2f& px, Vec4f& closest_ws_out)
+TransformGizmo::MouseOverResult TransformGizmo::mouseOverAxisArrowOrRotArcOrPlaneQuad(const Vec2f& px)
 {
 	const Vec4f cam_pos      = engine->getCurrentScene()->cam_to_world.getColumn(3); // = cam_to_world * Vec4f(0,0,0,1);
 	const Vec4f cam_forwards = engine->getCurrentScene()->cam_to_world.getColumn(1); // = cam_to_world * Vec4f(0,1,0,0);
@@ -377,10 +419,13 @@ int TransformGizmo::mouseOverAxisArrowOrRotArc(const Vec2f& px, Vec4f& closest_w
 
 	const float max_selection_dist = 12.f;
 	float closest_dist = 10000.f;
-	int closest_axis = -1;
+	//int closest_axis = -1;
 
 	const Planef cam_front_plane(cam_pos + cam_forwards * 0.01f, cam_forwards);
 	const Vec4f ray_dir = engine->pixelToRayDirWS(px);
+
+	MouseOverResult res;
+	res.type = MouseOverResult::MouseOver_none;
 
 	// Test translation arrows.
 	for(int i=0; i<NUM_AXIS_ARROWS; ++i)
@@ -400,9 +445,10 @@ int TransformGizmo::mouseOverAxisArrowOrRotArc(const Vec2f& px, Vec4f& closest_w
 
 		if(d <= closest_dist && d < use_max_dist)
 		{
-			closest_ws_out = closest_pt;
+			res.type = MouseOverResult::MouseOver_axis;
+			res.axis_index = i;
+			res.closest_p_ws = closest_pt;
 			closest_dist = d;
-			closest_axis = i;
 		}
 	}
 
@@ -426,35 +472,64 @@ int TransformGizmo::mouseOverAxisArrowOrRotArc(const Vec2f& px, Vec4f& closest_w
 
 			if(d <= closest_dist && d < use_max_dist)
 			{
-				closest_ws_out = closest_pt;
+				res.type = MouseOverResult::MouseOver_rot_handle;
+				res.axis_index = i;
+				res.closest_p_ws = closest_pt;
 				closest_dist = d;
-				closest_axis = NUM_AXIS_ARROWS + i;
 			}
 		}
 	}
 
-	return closest_axis;
+	// Test plane translation quads.
+	for(int i=0; i<3; ++i)
+	{
+		// Intersect mouse ray with plane
+		const Planef plane(/*origin=*/cur_gizmo_centre, /*normal=*/plane_quad_normals[i]);
+
+		const float d = plane.rayIntersect(cam_pos, ray_dir);
+		if(d > 0)
+		{
+			const Vec4f p = cam_pos + ray_dir * d;
+			// See if p is in quad
+			const int axis_a = plane_axes_a[i];
+			const int axis_b = plane_axes_b[i];
+			const Vec4f quad_i_start = quad_start[i];
+			const Vec4f quad_i_end   = quad_start[i] + Vec4f(quad_w);
+			if( p[axis_a] >= quad_i_start[axis_a] && p[axis_a] <= quad_i_end[axis_a] &&
+				p[axis_b] >= quad_i_start[axis_b] && p[axis_b] <= quad_i_end[axis_b]) // If point lies in quad:
+			{
+				// then ray hit quad
+				res.type = MouseOverResult::MouseOver_plane_quad;
+				res.axis_index = i;
+				res.closest_p_ws = p;
+				closest_dist = 0;
+			}
+		}
+	}
+
+	return res;
 }
 
 
 bool TransformGizmo::mousePressed(const Vec2f& px, const Vec4f& ob_pos_ws, GizmoDelegateInterface* delegate)
 {
-	const int axis = mouseOverAxisArrowOrRotArc(px,  grabbed_point_ws);
-	if(axis < 0)
+	const MouseOverResult res = mouseOverAxisArrowOrRotArcOrPlaneQuad(px);
+	if(res.type == MouseOverResult::MouseOver_none)
 		return false;
 
-	grabbed_axis        = axis;
+	grabbed_type        = res.type;
+	grabbed_axis        = res.axis_index;
+	grabbed_point_ws    = res.closest_p_ws;
 	ob_origin_at_grab   = ob_pos_ws;
 
-	delegate->onGrabStart(grabbed_axis >= NUM_AXIS_ARROWS);
+	delegate->onGrabStart(/*is rotation=*/res.type == MouseOverResult::MouseOver_rot_handle);
 
-	if(grabbed_axis >= NUM_AXIS_ARROWS)
+	if(res.type == MouseOverResult::MouseOver_rot_handle)
 	{
 		// Compute the initial angle on the rotation plane so we can track deltas.
 		const Vec4f cam_pos = engine->getCurrentScene()->cam_to_world.getColumn(3); // = cam_to_world * Vec4f(0,0,0,1);
-		const int rot_axis = grabbed_axis - NUM_AXIS_ARROWS;
-		const Vec4f basis_a = basis_vectors[rot_axis*2];
-		const Vec4f basis_b = basis_vectors[rot_axis*2 + 1];
+		const Vec4f basis_a = basis_vectors[grabbed_axis*2];
+		const Vec4f basis_b = basis_vectors[grabbed_axis*2 + 1];
 		const Vec4f arc_centre = ob_pos_ws;
 
 		const Vec4f dir = engine->pixelToRayDirWS(px);
@@ -477,13 +552,13 @@ bool TransformGizmo::mousePressed(const Vec2f& px, const Vec4f& ob_pos_ws, Gizmo
 
 bool TransformGizmo::mouseMoved(const Vec2f& px, const Vec4f& ob_pos_ws, GizmoDelegateInterface* delegate, float grid_spacing)
 {
-	if(grabbed_axis < 0)
+	if(grabbed_type == MouseOverResult::MouseOver_none)
 		return false;
 
 	const Vec4f cam_pos      = engine->getCurrentScene()->cam_to_world.getColumn(3); // = cam_to_world * Vec4f(0,0,0,1);
 	const Vec4f cam_forwards = engine->getCurrentScene()->cam_to_world.getColumn(1); // = cam_to_world * Vec4f(0,1,0,0);
 
-	if(grabbed_axis < NUM_AXIS_ARROWS)
+	if(grabbed_type == MouseOverResult::MouseOver_axis)
 	{
 		// Translation drag: project mouse onto the grabbed world-space axis line.
 		const float MAX_MOVE_DIST = 100.f;
@@ -520,12 +595,11 @@ bool TransformGizmo::mouseMoved(const Vec2f& px, const Vec4f& ob_pos_ws, GizmoDe
 			delegate->onTranslationDrag(total_translation, tentative);
 		}
 	}
-	else
+	else if(grabbed_type == MouseOverResult::MouseOver_rot_handle)
 	{
 		// Rotation drag: intersect mouse ray with the rotation plane.
-		const int rot_axis = grabbed_axis - NUM_AXIS_ARROWS;
-		const Vec4f basis_a = basis_vectors[rot_axis*2];
-		const Vec4f basis_b = basis_vectors[rot_axis*2 + 1];
+		const Vec4f basis_a = basis_vectors[grabbed_axis*2];
+		const Vec4f basis_b = basis_vectors[grabbed_axis*2 + 1];
 		const Vec4f arc_centre = ob_origin_at_grab;
 
 		const Vec4f dir = engine->pixelToRayDirWS(px);
@@ -543,6 +617,42 @@ bool TransformGizmo::mouseMoved(const Vec2f& px, const Vec4f& ob_pos_ws, GizmoDe
 
 		grabbed_angle = angle;
 	}
+	else if(grabbed_type == MouseOverResult::MouseOver_plane_quad)
+	{
+		// Translation in plane drag: intersect mouse ray with the dragging plane
+		const float MAX_MOVE_DIST = 100.f;
+		
+		// Intersect mouse ray with plane
+		const Planef plane(/*origin=*/cur_gizmo_centre, /*normal=*/plane_quad_normals[grabbed_axis]);
+
+		const Vec4f ray_dir = engine->pixelToRayDirWS(px);
+
+		const float d = plane.rayIntersect(cam_pos, ray_dir);
+		if(d > 0)
+		{
+			Vec4f new_p = cam_pos + ray_dir * d;
+
+			Vec4f delta_p = new_p - grabbed_point_ws;
+			Vec4f tentative = ob_origin_at_grab + delta_p;
+
+			if(tentative.getDist(ob_origin_at_grab) > MAX_MOVE_DIST)
+				tentative = ob_origin_at_grab + (tentative - ob_origin_at_grab) * MAX_MOVE_DIST / (tentative - ob_origin_at_grab).length();
+
+			// Snap position to grid (in movement plane)
+			if(grid_spacing > 1.0e-5f)
+			{
+				const int other_axis_a = plane_axes_a[grabbed_axis];
+				const int other_axis_b = plane_axes_b[grabbed_axis];
+				tentative[other_axis_a] = (float)Maths::roundToMultipleFloating((double)tentative[other_axis_a], (double)grid_spacing);
+				tentative[other_axis_b] = (float)Maths::roundToMultipleFloating((double)tentative[other_axis_b], (double)grid_spacing);
+			}
+
+			updateGizmoDrawTransform(/*new_gizmo_centre=*/tentative);
+
+			const Vec4f total_translation = tentative - ob_origin_at_grab;
+			delegate->onTranslationDrag(total_translation, tentative);
+		}
+	}
 
 	return true;
 }
@@ -550,10 +660,10 @@ bool TransformGizmo::mouseMoved(const Vec2f& px, const Vec4f& ob_pos_ws, GizmoDe
 
 bool TransformGizmo::mouseReleased(GizmoDelegateInterface* delegate)
 {
-	if(grabbed_axis < 0)
+	if(grabbed_type == MouseOverResult::MouseOver_none)
 		return false;
 
-	grabbed_axis = -1;
+	grabbed_type = MouseOverResult::MouseOver_none;
 	delegate->onGrabEnd();
 	return true;
 }
@@ -561,32 +671,44 @@ bool TransformGizmo::mouseReleased(GizmoDelegateInterface* delegate)
 
 void TransformGizmo::updateMouseoverHighlight(const Vec2f& px)
 {
-	// Reset all to default colours.
+	const MouseOverResult res = mouseOverAxisArrowOrRotArcOrPlaneQuad(px);
+
 	for(int i=0; i<NUM_AXIS_ARROWS; ++i)
 	{
-		axis_arrow_objects[i]->materials[0].albedo_linear_rgb = toLinearSRGB(axis_arrows_default_cols[i % 3]);
-		engine->objectMaterialsUpdated(*axis_arrow_objects[i]);
+		const bool highlight = (res.type == MouseOverResult::MouseOver_axis) && (res.axis_index == i);
+		const Colour3f desired_col = toLinearSRGB(highlight ? axis_arrows_mouseover_cols[i] : axis_arrows_default_cols[i]);
+		if(axis_arrow_objects[i]->materials[0].albedo_linear_rgb != desired_col)
+		{
+			axis_arrow_objects[i]->materials[0].albedo_linear_rgb = desired_col;
+			engine->objectMaterialsUpdated(*axis_arrow_objects[i]);
+		}
 	}
+
 	for(int i=0; i<3; ++i)
 	{
-		rot_handle_arc_objects[i]->materials[0].albedo_linear_rgb = toLinearSRGB(axis_arrows_default_cols[i]);
-		engine->objectMaterialsUpdated(*rot_handle_arc_objects[i]);
+		const bool highlight = (res.type == MouseOverResult::MouseOver_rot_handle) && (res.axis_index == i);
+		const Colour3f desired_col = toLinearSRGB(highlight ? axis_arrows_mouseover_cols[i] : axis_arrows_default_cols[i]);
+		if(rot_handle_arc_objects[i]->materials[0].albedo_linear_rgb != desired_col)
+		{
+			rot_handle_arc_objects[i]->materials[0].albedo_linear_rgb = desired_col;
+			engine->objectMaterialsUpdated(*rot_handle_arc_objects[i]);
+		}
 	}
 
-	Vec4f dummy;
-	const int axis = mouseOverAxisArrowOrRotArc(px, dummy);
-	if(axis < 0)
-		return;
+	for(int i=0; i<3; ++i)
+	{
+		const bool highlight = (res.type == MouseOverResult::MouseOver_plane_quad) && (res.axis_index == i);
+		const Colour3f desired_col = toLinearSRGB(highlight ? axis_arrows_mouseover_cols[2 - i] : axis_arrows_default_cols[2 - i]);
+		if(plane_quad_objects[i]->materials[0].albedo_linear_rgb != desired_col)
+		{
+			plane_quad_objects[i]->materials[0].albedo_linear_rgb = desired_col;
+			engine->objectMaterialsUpdated(*plane_quad_objects[i]);
+		}
+	}
+}
 
-	if(axis < NUM_AXIS_ARROWS)
-	{
-		axis_arrow_objects[axis]->materials[0].albedo_linear_rgb = toLinearSRGB(axis_arrows_mouseover_cols[axis]);
-		engine->objectMaterialsUpdated(*axis_arrow_objects[axis]);
-	}
-	else
-	{
-		const int rot_axis = axis - NUM_AXIS_ARROWS;
-		rot_handle_arc_objects[rot_axis]->materials[0].albedo_linear_rgb = toLinearSRGB(axis_arrows_mouseover_cols[rot_axis]);
-		engine->objectMaterialsUpdated(*rot_handle_arc_objects[rot_axis]);
-	}
+
+bool TransformGizmo::isGrabbed() const
+{
+	return grabbed_type != MouseOverResult::MouseOver_none;
 }
