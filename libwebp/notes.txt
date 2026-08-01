@@ -1,0 +1,4 @@
+Cloned from https://github.com/webmproject/libwebp
+On 1/august/2026
+A bunch of non-core src files deleted.
+--nick

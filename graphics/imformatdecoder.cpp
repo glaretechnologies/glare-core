@@ -25,6 +25,9 @@ Copyright Glare Technologies Limited 2021 -
 #ifndef NO_GIF_SUPPORT
 #include "GifDecoder.h"
 #endif
+#ifndef NO_WEBP_SUPPORT
+#include "WebPDecoder.h"
+#endif
 #include "RGBEDecoder.h"
 #ifndef NO_KTX_SUPPORT
 #include "KTXDecoder.h"
@@ -83,6 +86,12 @@ Reference<Map2D> ImFormatDecoder::decodeImage(const std::string& indigo_base_dir
 		return GIFDecoder::decode(path);
 	}
 #endif
+#ifndef NO_WEBP_SUPPORT
+	else if(hasExtension(path, "webp"))
+	{
+		return WebPDecoder::decode(path);
+	}
+#endif
 #ifndef NO_KTX_SUPPORT
 	else if(hasExtension(path, "ktx"))
 	{
@@ -121,6 +130,7 @@ bool ImFormatDecoder::hasImageExtension(const std::string& path)
 		hasExtension(path, "exr") ||
 		hasExtension(path, "float") ||
 		hasExtension(path, "gif") ||
+		hasExtension(path, "webp") ||
 		hasExtension(path, "hdr") ||
 		hasExtension(path, "ktx") || 
 		hasExtension(path, "ktx2");
