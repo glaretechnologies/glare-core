@@ -327,9 +327,9 @@ void TransformGizmo::updateGizmoDrawTransform(const Vec4f& gizmo_centre)
 	const float arrow_len = control_scale;
 
 	// Flip each arrow to point toward the camera.
-	const float x_sign = -Maths::sign(cam_to_gizmo[0]);
-	const float y_sign = -Maths::sign(cam_to_gizmo[1]);
-	const float z_sign = -Maths::sign(cam_to_gizmo[2]);
+	const float x_sign = -(cam_to_gizmo[0] >= 0.f ? 1.f : -1.f);
+	const float y_sign = -(cam_to_gizmo[1] >= 0.f ? 1.f : -1.f);
+	const float z_sign = -(cam_to_gizmo[2] >= 0.f ? 1.f : -1.f);
 	axis_arrow_segments[0] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(arrow_len * x_sign, 0, 0, 0));
 	axis_arrow_segments[1] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(0, arrow_len * y_sign, 0, 0));
 	axis_arrow_segments[2] = LineSegment4f(gizmo_centre, gizmo_centre + Vec4f(0, 0, arrow_len * z_sign, 0));
