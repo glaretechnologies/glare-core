@@ -373,7 +373,6 @@ struct GLObject
 	
 	bool always_visible; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
 	bool draw_to_mask_map; // Draw to terrain mask map?
-	bool is_imposter;
 	int num_instances_to_draw; // e.g. num matrices built in instance_matrix_vbo.
 	js::Vector<GlInstanceInfo, 16> instance_info; // Used for updating instance + imposter matrices.
 	

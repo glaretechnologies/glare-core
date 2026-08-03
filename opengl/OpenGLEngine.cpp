@@ -215,7 +215,7 @@ public:
 
 
 GLObject::GLObject() noexcept
-	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0), is_imposter(false),
+	: object_type(0), line_width(1.f), random_num(0), current_anim_i(0), next_anim_i(-1), transition_start_time(-2), transition_end_time(-1), use_time_offset(0),
 	num_instances_to_draw(0), always_visible(false), draw_to_mask_map(false)/*, allocator(NULL)*/, refcount(0), per_ob_vert_data_index(-1), joint_matrices_block(NULL), joint_matrices_base_index(-1), morph_start_dist(0), morph_end_dist(0),
 	depth_draw_depth_bias(0), ob_to_world_matrix_determinant(1.f)
 {
