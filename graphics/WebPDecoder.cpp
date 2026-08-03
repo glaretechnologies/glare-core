@@ -54,6 +54,24 @@ static void checkImageDims(int width, int height)
 }
 
 
+WebPDecoder::ImageInfo WebPDecoder::getInfoFromBuffer(const void* data, size_t size)
+{
+	WebPBitstreamFeatures features;
+	const VP8StatusCode status = WebPGetFeatures((const uint8_t*)data, size, &features);
+	if(status != VP8_STATUS_OK)
+		throw ImFormatExcep("Failed to read WebP features: " + errorString(status));
+
+	checkImageDims(features.width, features.height);
+
+	ImageInfo info;
+	info.width         = features.width;
+	info.height        = features.height;
+	info.has_alpha     = features.has_alpha     != 0;
+	info.has_animation = features.has_animation != 0;
+	return info;
+}
+
+
 Reference<Map2D> WebPDecoder::decode(const std::string& path, glare::Allocator* mem_allocator)
 {
 	try
@@ -254,13 +272,13 @@ Reference<Map2D> WebPDecoder::decodeImageSequenceFromBuffer(const void* data, si
 
 #if 0
 // Command line:
-// C:\fuzz_corpus\webp N:\indigo\trunk\testfiles\webps
+// C:\fuzz_corpus\webp c:/code/glare-core/testfiles/webps
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try
 	{
-		WebPDecoder::decodeFromBuffer(data, size);
+		WebPDecoder::decodeFromBuffer(data, size, /*return_animated_webp_as_sequence=*/false, /*mem_allocator=*/nullptr);
 	}
 	catch(glare::Exception&)
 	{
@@ -282,6 +300,45 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 void WebPDecoder::test()
 {
 	conPrint("WebPDecoder::test()");
+
+	// Test reading just the header of a file, without decoding the image data.
+	try
+	{
+		{
+			MemMappedFile file(TestUtils::getTestReposDir() + "/testfiles/webps/test_lossy.webp");
+			const ImageInfo info = WebPDecoder::getInfoFromBuffer(file.fileData(), file.fileSize());
+			testAssert(info.width == 128 && info.height == 128);
+			testAssert(!info.has_alpha);
+			testAssert(!info.has_animation);
+		}
+		{
+			MemMappedFile file(TestUtils::getTestReposDir() + "/testfiles/webps/sample-alpha-400x300.webp");
+			const ImageInfo info = WebPDecoder::getInfoFromBuffer(file.fileData(), file.fileSize());
+			testAssert(info.width == 400 && info.height == 300);
+			testAssert(info.has_alpha);
+			testAssert(!info.has_animation);
+		}
+		{
+			MemMappedFile file(TestUtils::getTestReposDir() + "/testfiles/webps/sample-animated-200x200.webp");
+			const ImageInfo info = WebPDecoder::getInfoFromBuffer(file.fileData(), file.fileSize());
+			testAssert(info.width == 200 && info.height == 200);
+			testAssert(info.has_animation);
+		}
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	// getInfoFromBuffer() should throw on invalid data, not crash.
+	try
+	{
+		const uint8 invalid_data[] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+		WebPDecoder::getInfoFromBuffer(invalid_data, sizeof(invalid_data));
+		failTest("Expected exception.");
+	}
+	catch(glare::Exception&)
+	{}
 
 	// Test a lossy WebP file without an alpha channel.
 	try

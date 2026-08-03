@@ -29,6 +29,18 @@ class WebPDecoder
 public:
 	// All methods throw ImFormatExcep on failure.
 
+	// Information read from a file's header, without decoding any image data.
+	struct ImageInfo
+	{
+		int width, height; // For an animation, the canvas dimensions.
+		bool has_alpha; // If true, decode() will return a 4-component image, otherwise a 3-component one.
+		bool has_animation;
+	};
+
+	// Reads just the header of a WebP file.  Much cheaper than decoding it, so useful for checking that a file is the
+	// expected size and format before committing to decoding it.
+	static ImageInfo getInfoFromBuffer(const void* data, size_t size);
+
 	static Reference<Map2D> decode(const std::string& path, glare::Allocator* mem_allocator = NULL);
 	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, bool return_animated_webp_as_sequence, glare::Allocator* mem_allocator);
 

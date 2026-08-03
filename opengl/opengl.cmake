@@ -93,6 +93,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLExtensions.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLExtensions.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TransformGizmo.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TransformGizmo.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/GaussianSplatRenderer.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/GaussianSplatRenderer.h
 )
 
 
@@ -177,6 +179,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/frag_utils.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/draw_aurora_tex_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/draw_aurora_tex_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/fog_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_frag_shader.glsl
 )
 
 
