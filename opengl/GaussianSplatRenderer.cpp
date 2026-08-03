@@ -354,7 +354,7 @@ void GaussianSplatRenderer::buildShadersIfNeeded()
 	if(shader_prog.nonNull())
 		return;
 
-	const std::string shader_dir = opengl_engine->getDataDir() + "/shaders";
+	const std::string shader_dir           = opengl_engine->getShadersDir();
 	const std::string version_directive    = opengl_engine->getVersionDirective();
 	const std::string preprocessor_defines = opengl_engine->getPreprocessorDefines();
 

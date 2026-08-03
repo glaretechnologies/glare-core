@@ -1726,6 +1726,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	ZoneScoped; // Tracy profiler
 
 	data_dir = data_dir_;
+	shaders_dir = data_dir_ + "/shaders";
 	texture_server = texture_server_;
 	print_output = print_output_;
 	main_task_manager = main_task_manager_;
@@ -2156,8 +2157,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		this->version_directive = "#version " + toString(use_glsl_version) + " core";
 #endif
 
-		const std::string use_shader_dir = data_dir + "/shaders";
-
 		if(use_ob_and_mat_data_gpu_resident)
 		{
 			// Allocate per_ob_vert_data_buffer
@@ -2298,7 +2297,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		}
 
 
-		buildPrograms(use_shader_dir);
+		buildPrograms();
 
 
 		//terrain_system = new TerrainSystem();
@@ -2605,9 +2604,11 @@ static std::string preprocessorDefsForKey(const ProgramKey& key)
 }
 
 
-void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
+void OpenGLEngine::buildPrograms()
 {
 	ZoneScoped; // Tracy profiler
+
+	const std::string& use_shader_dir = this->shaders_dir;
 
 	this->vert_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/vert_utils.glsl");
 	this->frag_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/frag_utils.glsl");
@@ -2630,7 +2631,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 		fallback_depth_prog       = getDepthDrawProgram  (ProgramKey(ProgramKey::ProgramName_depth, ProgramKeyArgs()));
 
 	//------------------------------------------- Build env prog -------------------------------------------
-	this->env_prog = buildEnvProgram(use_shader_dir);
+	this->env_prog = buildEnvProgram();
 
 	//------------------------------------------- Build overlay prog -------------------------------------------
 	{
@@ -2721,17 +2722,17 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	//------------------------------------------- Build compute-SSAO prog -------------------------------------------
 	if(settings.ssao)
 	{
-		compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);
-		blur_ssao_prog = buildBlurSSAOProg(use_shader_dir);
+		compute_ssao_prog = buildComputeSSAOProg();
+		blur_ssao_prog = buildBlurSSAOProg();
 	}
 	
 
 	if(settings.render_to_offscreen_renderbuffers)
 	{
-		buildDownsizeAndBlurPrograms(use_shader_dir);
+		buildDownsizeAndBlurPrograms();
 		
 		//------------------------------------------- Build final_imaging_prog -------------------------------------------
-		final_imaging_prog = buildFinalImagingProg(use_shader_dir);
+		final_imaging_prog = buildFinalImagingProg();
 		
 		//------------------------------------------- Build OIT_composite_prog -------------------------------------------
 		{
@@ -2778,7 +2779,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 			bindUniformBlockToProgram(dof_blur_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 		}
 
-		buildFogPostProcessProg(use_shader_dir);
+		buildFogPostProcessProg();
 	}
 
 	//------------------------------------------- Build scatter prog for updating data on GPU -------------------------------------------
@@ -2798,7 +2799,7 @@ void OpenGLEngine::buildPrograms(const std::string& use_shader_dir)
 	}
 
 	//------------------------------------------- Build draw_aurora_tex_prog -------------------------------------------
-	draw_aurora_tex_prog = buildAuroraProgram(use_shader_dir);
+	draw_aurora_tex_prog = buildAuroraProgram();
 
 	OpenGLProgram::useNoPrograms();
 }
@@ -2932,14 +2933,14 @@ void OpenGLEngine::finishBuildingProg(OpenGLProgram* prog)
 }
 
 
-OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir)
+OpenGLProgramRef OpenGLEngine::buildEnvProgram()
 {
 	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_env, ProgramKeyArgs()));
 
 	OpenGLProgramRef new_env_prog = new OpenGLProgram(
 		"env",
-		new OpenGLShader(use_shader_dir + "/env_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/env_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		new OpenGLShader(shaders_dir + "/env_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/env_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
@@ -2959,15 +2960,15 @@ OpenGLProgramRef OpenGLEngine::buildEnvProgram(const std::string& use_shader_dir
 }
 
 
-void OpenGLEngine::buildDownsizeAndBlurPrograms(const std::string& use_shader_dir)
+void OpenGLEngine::buildDownsizeAndBlurPrograms()
 {
 	//------------------------------------------- Build downsize prog -------------------------------------------
 	{
 		const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 0\n";
 		downsize_prog = new OpenGLProgram(
 			"downsize",
-			new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines  , GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+			new OpenGLShader(shaders_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines  , GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/true
 		);
@@ -2981,8 +2982,8 @@ void OpenGLEngine::buildDownsizeAndBlurPrograms(const std::string& use_shader_di
 		const std::string use_preprocessor_defines = preprocessor_defines + "#define DOWNSIZE_FROM_MAIN_BUF 1\n";
 		downsize_from_main_buf_prog = new OpenGLProgram(
 			"downsize_from_main_buf",
-			new OpenGLShader(use_shader_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
+			new OpenGLShader(shaders_dir + "/downsize_vert_shader.glsl", version_directive, use_preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/downsize_frag_shader.glsl", version_directive, use_preprocessor_defines, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/true
 		);
@@ -3005,8 +3006,8 @@ void OpenGLEngine::buildDownsizeAndBlurPrograms(const std::string& use_shader_di
 	//------------------------------------------- Build gaussian_blur_prog -------------------------------------------
 	gaussian_blur_prog = new OpenGLProgram(
 		"gaussian_blur",
-		new OpenGLShader(use_shader_dir + "/gaussian_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/gaussian_blur_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+		new OpenGLShader(shaders_dir + "/gaussian_blur_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/gaussian_blur_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
@@ -3015,13 +3016,13 @@ void OpenGLEngine::buildDownsizeAndBlurPrograms(const std::string& use_shader_di
 }
 
 
-void OpenGLEngine::buildFogPostProcessProg(const std::string& use_shader_dir)
+void OpenGLEngine::buildFogPostProcessProg()
 {
 	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_fog_post, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
 	fog_post_prog = new OpenGLProgram(
 		"fog_post",
-		new OpenGLShader(use_shader_dir + "/dof_blur_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/fog_frag_shader.glsl",      version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		new OpenGLShader(shaders_dir + "/dof_blur_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/fog_frag_shader.glsl",      version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
@@ -3037,14 +3038,14 @@ void OpenGLEngine::buildFogPostProcessProg(const std::string& use_shader_dir)
 }
 
 
-OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_dir)
+OpenGLProgramRef OpenGLEngine::buildAuroraProgram()
 {
 	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_draw_aurora_tex, ProgramKeyArgs()));
 
 	OpenGLProgramRef prog = new OpenGLProgram(
 		"draw_aurora_tex",
-		new OpenGLShader(use_shader_dir + "/draw_aurora_tex_vert_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/draw_aurora_tex_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		new OpenGLShader(shaders_dir + "/draw_aurora_tex_vert_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/draw_aurora_tex_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
@@ -3062,14 +3063,14 @@ OpenGLProgramRef OpenGLEngine::buildAuroraProgram(const std::string& use_shader_
 }
 
 
-OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shader_dir)
+OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg()
 {
 	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_compute_ssao, ProgramKeyArgs()));
 
 	OpenGLProgramRef prog = new OpenGLProgram(
 		"compute_ssao",
-		new OpenGLShader(use_shader_dir + "/compute_ssao_vert_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/compute_ssao_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		new OpenGLShader(shaders_dir + "/compute_ssao_vert_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/compute_ssao_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
@@ -3087,14 +3088,14 @@ OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg(const std::string& use_shade
 }
 
 
-OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg(const std::string& use_shader_dir)
+OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg()
 {
 	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_blur_ssao, ProgramKeyArgs()));
 
 	OpenGLProgramRef prog = new OpenGLProgram(
 		"blur_ssao",
-		new OpenGLShader(use_shader_dir + "/blur_ssao_vert_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/blur_ssao_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+		new OpenGLShader(shaders_dir + "/blur_ssao_vert_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_vert_structs, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/blur_ssao_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
@@ -3113,13 +3114,13 @@ OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg(const std::string& use_shader_d
 }
 
 
-OpenGLProgramRef OpenGLEngine::buildFinalImagingProg(const std::string& use_shader_dir)
+OpenGLProgramRef OpenGLEngine::buildFinalImagingProg()
 {
 	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_final_imaging, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
 	OpenGLProgramRef prog = new OpenGLProgram(
 		"final_imaging",
-		new OpenGLShader(use_shader_dir + "/final_imaging_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(use_shader_dir + "/final_imaging_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
+		new OpenGLShader(shaders_dir + "/final_imaging_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/final_imaging_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
 		getAndIncrNextProgramIndex(),
 		/*wait for build to complete=*/true
 	);
@@ -3166,12 +3167,11 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 		const std::string key_defs = preprocessorDefsForKey(key);
 		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
 		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
-		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef phong_prog = new OpenGLProgram(
 			"phong",
-			new OpenGLShader(use_shader_dir + "/phong_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/phong_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(shaders_dir + "/phong_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/phong_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/!parallel_shader_compile_support
 		);
@@ -3251,12 +3251,11 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 		const std::string key_defs = preprocessorDefsForKey(key);
 		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
 		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
-		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"transparent",
-			new OpenGLShader(use_shader_dir + "/transparent_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/transparent_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(shaders_dir + "/transparent_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/transparent_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/!parallel_shader_compile_support
 		);
@@ -3344,12 +3343,11 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix
 		const std::string key_defs = preprocessorDefsForKey(key);
 		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
 		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
-		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			toString(shader_name_prefix),
-			new OpenGLShader(use_shader_dir + "/" + toString(shader_name_prefix) + "_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/" + toString(shader_name_prefix) + "_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(shaders_dir + "/" + toString(shader_name_prefix) + "_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/" + toString(shader_name_prefix) + "_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/true
 		);
@@ -3407,12 +3405,11 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 		const std::string key_defs = preprocessorDefsForKey(key);
 		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
 		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
-		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"imposter",
-			new OpenGLShader(use_shader_dir + "/imposter_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/imposter_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(shaders_dir + "/imposter_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/imposter_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/true
 		);
@@ -3470,12 +3467,11 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 		const std::string key_defs = preprocessorDefsForKey(key);
 		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
 		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
-		const std::string use_shader_dir = data_dir + "/shaders";
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			"depth",
-			new OpenGLShader(use_shader_dir + "/depth_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
-			new OpenGLShader(use_shader_dir + "/depth_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
+			new OpenGLShader(shaders_dir + "/depth_vert_shader.glsl", version_directive, use_vert_defs, GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/depth_frag_shader.glsl", version_directive, use_frag_defs, GL_FRAGMENT_SHADER),
 			getAndIncrNextProgramIndex(),
 			/*wait for build to complete=*/!parallel_shader_compile_support
 		);
@@ -6909,19 +6905,17 @@ void OpenGLEngine::draw()
 		if(reload_shaders_callback)
 			reload_shaders_callback->reloadShaders();
 
-		const std::string use_shader_dir = data_dir + "/shaders";
-
 		try
 		{
-			this->vert_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/vert_utils.glsl");
-			this->frag_utils_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/frag_utils.glsl");
+			this->vert_utils_glsl = FileUtils::readEntireFileTextMode(shaders_dir + "/vert_utils.glsl");
+			this->frag_utils_glsl = FileUtils::readEntireFileTextMode(shaders_dir + "/frag_utils.glsl");
 
 			this->preprocessor_defines_with_common_vert_structs = preprocessor_defines;
-			preprocessor_defines_with_common_vert_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_vert_structures.glsl");
+			preprocessor_defines_with_common_vert_structs += FileUtils::readEntireFileTextMode(shaders_dir + "/common_vert_structures.glsl");
 			preprocessor_defines_with_common_vert_structs += vert_utils_glsl;
 
 			this->preprocessor_defines_with_common_frag_structs = preprocessor_defines;
-			preprocessor_defines_with_common_frag_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_frag_structures.glsl");
+			preprocessor_defines_with_common_frag_structs += FileUtils::readEntireFileTextMode(shaders_dir + "/common_frag_structures.glsl");
 			preprocessor_defines_with_common_frag_structs += frag_utils_glsl;
 		}
 		catch(glare::Exception& e)
@@ -6933,7 +6927,7 @@ void OpenGLEngine::draw()
 		OpenGLProgramRef new_env_prog;
 		try
 		{
-			new_env_prog = buildEnvProgram(use_shader_dir);
+			new_env_prog = buildEnvProgram();
 			env_prog = new_env_prog;
 		}
 		catch(glare::Exception& e)
@@ -6943,7 +6937,7 @@ void OpenGLEngine::draw()
 
 		try
 		{
-			buildDownsizeAndBlurPrograms(use_shader_dir);
+			buildDownsizeAndBlurPrograms();
 		}
 		catch(glare::Exception& e)
 		{
@@ -6952,7 +6946,7 @@ void OpenGLEngine::draw()
 
 		try
 		{
-			buildFogPostProcessProg(use_shader_dir);
+			buildFogPostProcessProg();
 		}
 		catch(glare::Exception& e)
 		{
@@ -6962,7 +6956,7 @@ void OpenGLEngine::draw()
 		// Try and reload draw-aurora shader
 		try
 		{
-			this->draw_aurora_tex_prog = buildAuroraProgram(use_shader_dir);
+			this->draw_aurora_tex_prog = buildAuroraProgram();
 		}
 		catch(glare::Exception& e)
 		{
@@ -6974,8 +6968,8 @@ void OpenGLEngine::draw()
 		{
 			if(settings.ssao)
 			{
-				this->compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);;
-				this->blur_ssao_prog = buildBlurSSAOProg(use_shader_dir);
+				this->compute_ssao_prog = buildComputeSSAOProg();
+				this->blur_ssao_prog = buildBlurSSAOProg();
 			}
 		}
 		catch(glare::Exception& e)
@@ -6986,7 +6980,7 @@ void OpenGLEngine::draw()
 		// Try and reload final_imaging_prog
 		try
 		{
-			this->final_imaging_prog = buildFinalImagingProg(use_shader_dir);
+			this->final_imaging_prog = buildFinalImagingProg();
 		}
 		catch(glare::Exception& e)
 		{
@@ -12754,9 +12748,8 @@ void OpenGLEngine::setSSAOEnabled(bool ssao_enabled)
 
 	if(settings.ssao && !compute_ssao_prog)
 	{
-		const std::string use_shader_dir = data_dir + "/shaders";
-		compute_ssao_prog = buildComputeSSAOProg(use_shader_dir);
-		blur_ssao_prog = buildBlurSSAOProg(use_shader_dir);
+		compute_ssao_prog = buildComputeSSAOProg();
+		blur_ssao_prog = buildBlurSSAOProg();
 	}
 }
 

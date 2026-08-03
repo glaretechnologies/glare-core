@@ -1047,6 +1047,7 @@ public:
 	const std::string& getVersionDirective() const { return version_directive; } // for compiling shader programs
 
 	const std::string& getDataDir() const { return data_dir; } // data_dir should contain 'gl_data' and 'shaders' dirs.
+	const std::string& getShadersDir() const { return shaders_dir; }
 
 	void waitForAllBuildingProgramsToBuild();
 
@@ -1353,13 +1354,13 @@ private:
 	OpenGLProgramRef getDepthDrawProgram(const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	void doPostBuildForDepthDrawProgram(OpenGLProgramRef prog);
 	OpenGLProgramRef getDepthDrawProgramWithFallbackOnError(const ProgramKey& key);
-	OpenGLProgramRef buildEnvProgram(const std::string& use_shader_dir);
-	void buildDownsizeAndBlurPrograms(const std::string& use_shader_dir);
-	void buildFogPostProcessProg(const std::string& use_shader_dir);
-	OpenGLProgramRef buildAuroraProgram(const std::string& use_shader_dir);
-	OpenGLProgramRef buildComputeSSAOProg(const std::string& use_shader_dir);
-	OpenGLProgramRef buildBlurSSAOProg(const std::string& use_shader_dir);
-	OpenGLProgramRef buildFinalImagingProg(const std::string& use_shader_dir);
+	OpenGLProgramRef buildEnvProgram();
+	void buildDownsizeAndBlurPrograms();
+	void buildFogPostProcessProg();
+	OpenGLProgramRef buildAuroraProgram();
+	OpenGLProgramRef buildComputeSSAOProg();
+	OpenGLProgramRef buildBlurSSAOProg();
+	OpenGLProgramRef buildFinalImagingProg();
 public:
 	OpenGLProgramRef buildProgram(const string_view shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
 	uint32 getAndIncrNextProgramIndex() { return next_program_index++; }
@@ -1417,7 +1418,7 @@ public:
 private:
 	void drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAuroraTex();
-	void buildPrograms(const std::string& use_shader_dir);
+	void buildPrograms();
 	void finishBuildingProg(OpenGLProgram* prog);
 	void bindStandardTexturesToTextureUnits();
 	void bindStandardShadowMappingDepthTextures();
@@ -1529,6 +1530,7 @@ private:
 	//size_t index_mem_used; // B
 
 	std::string data_dir;
+	std::string shaders_dir;
 public:
 	std::vector<std::string> additional_shader_dirs; // For ShaderFileWatcherThread
 private:
