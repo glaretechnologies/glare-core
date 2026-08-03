@@ -99,7 +99,7 @@ Reference<Map2D> WebPDecoder::decodeFromBuffer(const void* data, size_t size, bo
 		if(features.has_animation)
 		{
 			Reference<Map2D> sequence = decodeImageSequenceFromBuffer(data, size, mem_allocator);
-			return return_animated_webp_as_sequence ? sequence : sequence.downcastToPtr<ImageMapSequenceUInt8>()->images[0];
+			return return_animated_webp_as_sequence ? sequence : sequence.downcastToPtr<ImageMapSequenceUInt8>()->images[0].upcast<Map2D>();
 		}
 
 		checkImageDims(features.width, features.height);
