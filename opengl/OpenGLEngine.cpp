@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "GLMeshBuilding.h"
 #include "MeshPrimitiveBuilding.h"
 #include "OpenGLMeshRenderData.h"
+#include "GaussianSplatRenderer.h"
 #include "ShaderFileWatcherThread.h"
 #include "AsyncTextureLoader.h"
 #include "Query.h"
@@ -317,6 +318,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	animated_objects(NULL),
 	transparent_objects(NULL),
 	alpha_blended_objects(NULL),
+	splat_cloud_objects(NULL),
 	water_objects(NULL),
 	decal_objects(NULL),
 	always_visible_objects(NULL),
@@ -453,6 +455,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	outline_colour(0.43f, 0.72f, 0.95f, 1.0),
 	outline_width_px(3.0f),
 	last_num_obs_in_frustum(0),
+	last_num_splat_clouds_drawn(0),
+	last_num_splats_drawn(0),
 	print_output(NULL),
 	tex_CPU_mem_usage(0),
 	tex_GPU_mem_usage(0),
@@ -520,6 +524,10 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	vert_buf_allocator = new VertexBufferAllocator(settings.use_grouped_vbo_allocator);
 
 	animated_objects_task_group = new glare::TaskGroup();
+
+	// Doesn't touch OpenGL, and doesn't build its shaders until the first splat cloud is registered with it, so an
+	// engine that never renders one pays essentially nothing for this.
+	splat_renderer.set(new GaussianSplatRenderer(*this));
 
 	initial_thread_id = PlatformUtils::getCurrentThreadID();
 }
@@ -3741,6 +3749,7 @@ void OpenGLScene::unloadAllData()
 	this->transparent_objects.clear();
 	this->decal_objects.clear();
 	this->alpha_blended_objects.clear();
+	this->splat_cloud_objects.clear();
 
 	this->env_ob->materials[0] = OpenGLMaterial();
 }
@@ -4380,6 +4389,8 @@ void OpenGLEngine::buildObjectData(const Reference<GLObject>& object)
 
 void OpenGLEngine::addObject(const Reference<GLObject>& object)
 {
+	assert(object->mesh_data && !object->mesh_data->aabb_os.isEmpty());
+
 	buildObjectData(object);
 
 	// Don't add always_visible objects to objects set, we will draw them a special way.
@@ -4392,6 +4403,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_partic_media_mat = false;
 	bool have_alpha_blend_mat = false;
 	bool have_decal_mat = false;
+	bool have_splat_cloud_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
 		const OpenGLMaterial& mat = object->materials[i];
@@ -4401,6 +4413,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 		have_partic_media_mat   = have_partic_media_mat   || mat.participating_media;
 		have_alpha_blend_mat    = have_alpha_blend_mat    || mat.alpha_blend;
 		have_decal_mat          = have_decal_mat          || mat.decal;
+		have_splat_cloud_mat    = have_splat_cloud_mat    || mat.splat_cloud;
 	}
 
 	if(have_transparent_mat)
@@ -4412,8 +4425,14 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	if(have_water_mat)
 		current_scene->water_objects.insert(object);
 
-	if(have_partic_media_mat || have_alpha_blend_mat)
+	// Splat clouds also set alpha_blend, so that the opaque, depth pre-pass and shadow paths skip them via
+	// MATERIAL_ALPHA_BLEND_BITFLAG, but they are drawn by drawSplatClouds() rather than drawAlphaBlendedObjects(), so
+	// they go in exactly one of the two sets.
+	if((have_partic_media_mat || have_alpha_blend_mat) && !have_splat_cloud_mat)
 		current_scene->alpha_blended_objects.insert(object);
+
+	if(have_splat_cloud_mat)
+		current_scene->splat_cloud_objects.insert(object);
 
 	if(object->always_visible)
 		current_scene->always_visible_objects.insert(object);
@@ -4844,6 +4863,7 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 	current_scene->water_objects.erase(object);
 	current_scene->decal_objects.erase(object);
 	current_scene->alpha_blended_objects.erase(object);
+	current_scene->splat_cloud_objects.erase(object);
 	selected_objects.erase(object.getPointer());
 
 	if(use_ob_and_mat_data_gpu_resident)
@@ -6772,6 +6792,10 @@ void OpenGLEngine::draw()
 
 	cur_scene->frame_num++;
 
+	// Applies any completed splat depth sorts and kicks off new ones.  Has to run after the frame's camera transform has
+	// been set, which it has by the time draw() is called, and before drawSplatClouds() reads the clouds' bounds.
+	splat_renderer->think();
+
 
 
 	if(settings.shadow_mapping && !cur_scene->shadow_mapping)
@@ -7668,6 +7692,10 @@ void OpenGLEngine::draw()
 
 	//================= Draw decals =================
 	drawDecals(view_matrix, proj_matrix);
+
+	//================= Draw Gaussian splat clouds =================
+	// Before the alpha-blended objects, so that transparent props composite over splat captures, which are environment content.
+	drawSplatClouds(view_matrix, proj_matrix);
 
 	//================= Draw triangle batches with that use alpha-blending (e.g. participating media materials / particles, text objects) =================
 	drawAlphaBlendedObjects(view_matrix, proj_matrix);
@@ -9088,6 +9116,151 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
 	}
+}
+
+
+// Returns true if cloud a must be drawn after cloud b, i.e. a is nearer the camera than b.
+//
+// The two AABBs are disjoint - GaussianSplatRenderer merges any two clouds whose bounds intersect into one cloud,
+// precisely so that this holds.  Disjoint AABBs are separated by an axis-aligned plane on at least one of x, y and z,
+// and a ray from the camera crosses that plane at most once, so every intersection with the cloud on the camera's side
+// of it comes before every intersection with the cloud on the far side.  That makes the ordering exact, even where the
+// two clouds overlap in screen space, which distance-to-AABB ordering does not guarantee.
+//
+// The gap midpoint is used as the separating plane.  Any plane in the gap is equally valid: when the camera lies
+// between the two boxes on the separating axis, no ray can hit both clouds, so either answer is correct.
+static inline bool splatCloudIsNearer(const js::AABBox& a, const js::AABBox& b, const Vec4f& campos_ws)
+{
+	// The axis loop order is fixed, so both directions of a pair select the same separating axis and give opposite
+	// answers.  Without that the relation wouldn't be antisymmetric and the counting pass below would be nonsense.
+	for(int axis=0; axis<3; ++axis)
+	{
+		if(a.max_[axis] < b.min_[axis]) // a is on the low side of the gap:
+			return campos_ws[axis] < (a.max_[axis] + b.min_[axis]) * 0.5f;
+		if(b.max_[axis] < a.min_[axis]) // b is on the low side of the gap:
+			return campos_ws[axis] > (b.max_[axis] + a.min_[axis]) * 0.5f;
+	}
+	return false; // The AABBs overlap, so the clouds should have been merged.  Any answer is as good as any other.
+}
+
+
+/*
+Draws Gaussian splat clouds, back-to-front.
+
+This is a separate pass from drawAlphaBlendedObjects() because splat clouds need an exact ordering against each other,
+which the distance-to-AABB key that pass sorts on doesn't provide (see splatCloudIsNearer() above).  Every cloud uses
+the same shader program, so the program bind and shared uniforms are hoisted out of the draw loop, and the
+per-batch program dispatch that drawAlphaBlendedObjects() needs isn't required here.
+
+The cost of a separate pass is that clouds are ordered as a block against other transparent geometry rather than
+interleaved with it: this pass runs first, so glass, water, particles and text all composite over the splats.  That is
+the right way round for splat captures, which are environment content.
+*/
+void OpenGLEngine::drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	DebugGroup debug_group("drawSplatClouds()");
+	TracyGpuZone("drawSplatClouds");
+
+	last_num_splat_clouds_drawn = 0;
+	last_num_splats_drawn = 0;
+
+	if(current_scene->splat_cloud_objects.empty())
+		return;
+
+	ZoneScopedN("Draw splat clouds"); // Tracy profiler
+	assertCurrentProgramIsZero();
+
+	// Frustum-cull first: the ordering pass below is O(n^2) in the number of clouds actually drawn.
+	visible_splat_clouds.resize(0);
+	{
+		const GLObjectRef* const clouds = current_scene->splat_cloud_objects.vector.data();
+		const size_t clouds_size        = current_scene->splat_cloud_objects.vector.size();
+		for(size_t q=0; q<clouds_size; ++q)
+		{
+			const GLObject* const ob = clouds[q].ptr();
+			if(ob->num_instances_to_draw > 0 && // A cloud with no splats left in it still sits in the scene - see GaussianSplatRenderer::removeAllObjects().
+				AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
+			{
+				assert(ob->batch_draw_info.size() == 1);
+				if(BitUtils::isBitSet(ob->batch_draw_info[0].program_index_and_flags, PROGRAM_FINISHED_BUILDING_BITFLAG))
+					visible_splat_clouds.push_back(ob);
+			}
+		}
+	}
+
+	const size_t num_visible = visible_splat_clouds.size();
+	if(num_visible == 0)
+		return;
+
+	last_num_splat_clouds_drawn = num_visible;
+	for(size_t i=0; i<num_visible; ++i)
+		last_num_splats_drawn += (uint64)visible_splat_clouds[i]->num_instances_to_draw;
+
+	const Vec4f campos_ws = this->getCameraPositionWS();
+
+	// Order the clouds far-to-near by counting, for each cloud, how many of the others are nearer than it.
+	//
+	// Every pair of clouds is separable - the partitioning in GaussianSplatRenderer guarantees it - and
+	// splatCloudIsNearer() gives exactly one answer per pair, so the "is nearer than" relation is a *tournament*: a
+	// complete, antisymmetric digraph, like a round-robin where every cloud plays every other cloud once.  An acyclic
+	// tournament is a total order, and in one the win counts are distinct - a permutation of {0, .., n-1} - so counting
+	// is the sort.  The cloud with every other cloud nearer than it has count n-1 and is drawn first.
+	//
+	// Cycles are possible in principle (A and B separated on x, B and C on y, C and A on z, with the camera placed so
+	// that all three orders flip), and show up as two clouds tying on a count.  They only produce a visible artifact if
+	// every cloud in the cycle overlaps the others in screen space at the same time, so ties are simply broken by the
+	// insertion order of the draw loop below.
+	splat_cloud_num_nearer.resizeNoCopy(num_visible);
+	for(size_t i=0; i<num_visible; ++i)
+	{
+		int num_nearer = 0;
+		for(size_t j=0; j<num_visible; ++j)
+			if(i != j && splatCloudIsNearer(visible_splat_clouds[j]->aabb_ws, visible_splat_clouds[i]->aabb_ws, campos_ws))
+				num_nearer++; // Cloud j is nearer than cloud i, so i is drawn before j.
+		splat_cloud_num_nearer[i] = num_nearer;
+	}
+
+	if(current_scene->render_to_main_render_framebuffer)
+	{
+		current_scene->main_render_framebuffer->bindForDrawing();
+		assert(current_scene->main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == current_scene->main_colour_renderbuffer->buffer_name);
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+	}
+	else
+	{
+		if(this->target_frame_buffer)
+		{
+			this->target_frame_buffer->bindForDrawing();
+			setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+		}
+		else
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Bind to default frame buffer and use the draw buffer set already for it.
+	}
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDepthMask(GL_FALSE); // Disable writing to depth buffer - splats must not occlude each other or other transparent objects.
+
+	// Draw in descending num_behind order, which is farthest first.  n is the number of splat clouds in view, so this
+	// selection loop is cheaper than building and sorting a key array.
+	for(int target = (int)num_visible - 1; target >= 0; --target)
+		for(size_t i=0; i<num_visible; ++i)
+			if(splat_cloud_num_nearer[i] == target)
+			{
+				const GLObject* const ob = visible_splat_clouds[i];
+				const uint32 batch_i = 0;
+				const bool program_changed = checkUseProgram(ob->batch_draw_info[batch_i].getProgramIndex());
+				if(program_changed) // Only true on the first cloud drawn: every splat cloud shares one program.
+					setSharedUniformsForProg(*prog_vector[ob->batch_draw_info[batch_i].getProgramIndex()].ptr(), view_matrix, proj_matrix);
+
+				bindMeshData(*ob);
+				drawBatchWithDenormalisedData(*ob, ob->batch_draw_info[batch_i], batch_i);
+			}
+
+	flushDrawCommandsAndUnbindPrograms();
+
+	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
+	glDisable(GL_BLEND);
 }
 
 

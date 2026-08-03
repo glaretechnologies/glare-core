@@ -51,6 +51,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/Array.h"
 #include "../utils/Mutex.h"
 #include "../utils/LinearIterSet.h"
+#include "../utils/UniqueRef.h"
 #include "../physics/HashedGrid2.h"
 #include <assert.h>
 #include <unordered_set>
@@ -65,6 +66,7 @@ class RenderBuffer;
 class Query;
 class TimestampQuery;
 class BufferedTimeElapsedQuery;
+class GaussianSplatRenderer;
 namespace glare { class BestFitAllocator; }
 template <class V, class VTraits> class ImageMap;
 
@@ -134,6 +136,7 @@ public:
 		decal(false),
 		participating_media(false),
 		alpha_blend(false),
+		splat_cloud(false),
 		allow_alpha_test(true),
 		sdf_text(false),
 		combined(false),
@@ -177,6 +180,7 @@ public:
 	bool decal;
 	bool participating_media;
 	bool alpha_blend;
+	bool splat_cloud; // Gaussian splat cloud.  Drawn in drawSplatClouds(), which orders whole clouds back-to-front against each other; see GaussianSplatRenderer.
 	bool allow_alpha_test; // Alpha test (discard) will be done if albedo_texture has alpha.
 	bool sdf_text;
 	bool combined; // Is this a material on a combined object, consisting of multiple objects combined into a single object, using an atlas texture.
@@ -640,6 +644,7 @@ public:
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> transparent_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> alpha_blended_objects;
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> splat_cloud_objects; // Gaussian splat clouds, drawn in their own pass before the alpha-blended objects.
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> water_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> decal_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> always_visible_objects; // For objects like the move/rotate arrows, that should be visible even when behind other objects.
@@ -1404,6 +1409,12 @@ private:
 	void drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+public:
+	// Renders Gaussian splat clouds.  Owned by the engine, and cheap until the first cloud is registered with it: it
+	// doesn't build its shaders until then.  draw() drives it, so callers only need addObject()/removeObject().
+	GaussianSplatRenderer& getSplatRenderer() { return *splat_renderer.ptr(); }
+private:
 	void drawBackgroundEnvMap(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAuroraTex();
 	void buildPrograms(const std::string& use_shader_dir);
@@ -1600,6 +1611,19 @@ private:
 	js::Vector<BatchDrawInfo, 16> temp2_batch_draw_info; // Used for temporary working space while sorting temp_batch_draw_info
 	js::Vector<BatchDrawInfoWithDist, 16> batch_draw_info_dist;
 	js::Vector<BatchDrawInfoWithDist, 16> temp_batch_draw_info_dist;
+
+	UniqueRef<GaussianSplatRenderer> splat_renderer;
+public:
+	// What drawSplatClouds() actually drew last frame, after frustum culling.  Read by
+	// GaussianSplatRenderer::getDiagnostics(); comparing these against the totals is how you tell whether culling is
+	// doing anything for the current view.
+	uint64 last_num_splat_clouds_drawn;
+	uint64 last_num_splats_drawn;
+private:
+
+	// Working space for drawSplatClouds()'s ordering pass, kept to avoid allocating every frame.
+	js::Vector<const GLObject*, 16> visible_splat_clouds;
+	js::Vector<int, 16> splat_cloud_num_nearer;
 	std::vector<uint32> temp_counts;
 	uint32 num_prog_changes;
 	uint32 num_vao_binds;

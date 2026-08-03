@@ -6,170 +6,170 @@ Copyright Glare Technologies Limited 2026 -
 #pragma once
 
 
-#include "OpenGLEngine.h"
-#include "OpenGLProgram.h"
 #include "../graphics/GaussianSplatData.h"
 #include "../maths/Quat.h"
+#include "../maths/Vec4f.h"
 #include "../physics/jscol_aabbox.h"
 #include "../utils/Platform.h"
 #include "../utils/Reference.h"
 #include "../utils/ThreadMessage.h"
 #include "../utils/ThreadSafeQueue.h"
+#include "../utils/Vector.h"
+#include <map>
 #include <string>
 #include <vector>
 
+
+class OpenGLEngine;
+class OpenGLProgram;
 namespace glare { class TaskManager; }
-class GaussianSplatSortScratch; // Defined in GaussianSplatRenderer.cpp - the reusable working buffers the background depth-sort uses.
+class SplatCloud; // Defined in GaussianSplatRenderer.cpp - one drawable cloud, holding one or more splat objects.
+struct CloudMember; // Defined in GaussianSplatRenderer.cpp - one registered splat object within a cloud.
+class GaussianSplatSortScratch; // Defined in GaussianSplatRenderer.cpp - the reusable working buffers a background depth-sort uses.
 
 
 /*=====================================================================
 GaussianSplatRenderer
 ---------------------
-Renders any number of Gaussian splat clouds as a single OpenGL object - "the
-world splat cloud" - drawn through the engine's normal transparent pass.
+Renders Gaussian splat clouds.  Owned by OpenGLEngine - get at it with
+OpenGLEngine::getSplatRenderer().  Callers register a cloud with addObject()
+and keep the returned Handle to later move or remove it.
 
-Splat clouds have to be drawn back-to-front, so they need a depth sort.  The
-reason everything goes into one shared object, rather than each cloud getting
-its own, is that per-object sorting can't give correct results between
-objects: merging per-object sorted lists at draw time is far too slow at
-realistic splat counts, and the obvious optimisation (only interleaving
-objects whose bounds overlap) is simply wrong, since two objects whose 3D
-bounds are disjoint can still overlap on screen.  With one shared cloud there
-is no "between objects" left to get wrong.  Each cloud just owns a
-[offset, count) range within the shared arrays, and positions/scales/rotations
-are baked into world space when the cloud is added.
+Splats are semi-transparent and have to be composited back-to-front, so every
+cloud carries a depth sort.  Clouds are drawn by OpenGLEngine::drawSplatClouds(),
+which is a pass of its own rather than part of the alpha-blended pass; see the
+comment there for why.
 
-GPU representation:
- - all splat attributes (position, scale, rotation, colour and opacity) are
-   packed into one RGBA32F texture, 4 texels per splat, read back with
-   texelFetch() in the vertex shader.  A single packed texture is what the
-   engine's custom-shader draw path allows, since it only binds
-   material.albedo_texture for app-supplied shaders.
- - the geometry is one instanced quad, with draw order controlled by a
-   dedicated per-splat uint32 index VBO ("splat_index_in", forced to attribute
-   location 1), not by gl_InstanceID directly.
- - the texture and index VBO are grown geometrically as clouds are added, so a
-   small world doesn't pay for a large allocation.  Growth reuploads
-   everything; ordinary appends only upload the newly added texture rows.
+Partitioning
+------------
+Each registered object usually gets a drawable cloud of its own, which is what
+makes frustum culling, cheap add/remove and a per-cloud sort budget possible.
+That only works while the clouds can be correctly ordered against each other.
+Two clouds with disjoint AABBs always can be: a disjoint pair is separated by an
+axis-aligned plane, and every ray from the camera crosses that plane at most
+once, so the cloud on the camera's side is nearer along every ray that hits
+both - true even where the two overlap in screen space.
+
+Objects whose bounds *do* intersect have no such plane, so they are merged into
+one cloud, where the per-splat sort orders them against each other and there is
+no cross-cloud ordering left to get wrong.  Merging is by union AABB and runs to
+a fixpoint, since a merged cloud's bounds can in turn intersect a third cloud.
+That over-merges in some arrangements - the union of two diagonally placed boxes
+contains corners neither of them occupies - which costs culling granularity but
+never correctness.  Under-merging is the direction that would break, which is
+why member bounds are padded by the splat extent rather than bounding the splat
+centres alone.
+
+Within a cloud, splat data is baked into world space, so the GLObject's
+ob_to_world_matrix stays identity, and each member owns a [offset, count) range
+of the shared arrays.
 
 The depth sort runs on a worker thread in two stages: a fast approximate
 counting sort is posted first so the view updates promptly, followed by a
 precise radix sort.  Splats are sorted by distance from the camera rather than
 by depth along the view axis, which makes the resulting order invariant to
-camera rotation, so only camera *movement* triggers a re-sort.
+camera rotation, so only camera *movement* triggers a re-sort - and the distance
+a cloud's camera must move to earn one scales with how far away the cloud is.
 
-Concurrency: the sort worker never reads the live splat arrays, since the main
-thread can reallocate them.  think() copies the positions into a snapshot
-buffer on the main thread when it kicks a sort off, and the worker only reads
-that.  A plain append while a sort is in flight is safe without any extra
-bookkeeping, because the in-flight result only covers a prefix of the splats
-and the appended tail is already in identity order.  removeObject() is the one
-operation that invalidates in-flight results, since it renumbers everything -
-hence structure_generation, which every result carries and which think() checks
-before applying a result.
+Concurrency: a sort worker never reads the live splat arrays, since the main
+thread can reallocate them.  think() copies the positions into a snapshot buffer
+on the main thread when it kicks a sort off, and the worker only reads that.  A
+plain append while a sort is in flight is safe without extra bookkeeping,
+because the in-flight result only covers a prefix of the splats and the appended
+tail is already in identity order.  Anything that renumbers a cloud bumps its
+structure_generation, which every result carries and which think() checks before
+applying a result; results for a cloud that has since been merged away are
+dropped by cloud id.
 
 Not handled:
  - order-independent transparency.
  - non-uniform scaling of a cloud.
- - more splats than a single texture can address (see maxSupportedSplats()).
+ - more splats in a single cloud than one texture can address (see
+   maxSplatsPerCloud()).  A merge that would exceed it is refused, leaving the
+   clouds separate and their relative order approximate.
 =====================================================================*/
 class GaussianSplatRenderer
 {
 public:
-	GaussianSplatRenderer();
+	// Doesn't touch OpenGL: the shader program is built on the first addObject() call, so an engine that never renders
+	// a splat cloud doesn't pay for it.
+	GaussianSplatRenderer(OpenGLEngine& opengl_engine);
 	~GaussianSplatRenderer();
 
-	// Identifies a splat cloud that has been added to the world cloud.  Callers keep this to later move or remove it.
+	// Identifies a splat cloud that has been registered.  Callers keep this to later move or remove it.
 	typedef uint64 Handle;
 	static const Handle invalid_handle = 0;
 
-	// Builds the shared shader program.  Call once, after the OpenGL context exists.
-	void makeShaders(OpenGLEngine& opengl_engine, const std::string& shader_dir);
-
-	// Bakes splat_data's positions/scales/rotations into world space with the given pose, and appends the result to the
-	// shared world splat cloud.  Note that non-uniform scaling isn't supported.
+	// Bakes splat_data's positions/scales/rotations into world space with the given pose, and registers the result.
+	// Note that non-uniform scaling isn't supported.
 	//
-	// The first call creates the shared GLObject and adds it to the engine.  Use getWorldGLObject() to get at it - callers
-	// must not add it to, or remove it from, the engine themselves.
-	//
-	// Callers are responsible for checking numSplatsInWorld() + splat_data->numSplats() against maxSupportedSplats()
-	// first: this will otherwise just try to grow GPU storage to fit.
-	Handle addObject(const GaussianSplatDataRef& splat_data, const Vec4f& translation_ws, const Quat<float>& rotation_ws,
-		float uniform_scale_ws, OpenGLEngine& opengl_engine);
+	// Throws glare::Exception if splat_data has more splats than maxSplatsPerCloud(), or if the shader fails to build.
+	Handle addObject(const GaussianSplatDataRef& splat_data, const Vec4f& translation_ws, const Quat<float>& rotation_ws, float uniform_scale_ws);
 
-	// Re-bakes a cloud with a new pose and re-uploads just the affected texture rows.  Returns false if the handle isn't valid.
-	bool updateObjectTransform(Handle handle, const Vec4f& translation_ws, const Quat<float>& rotation_ws, float uniform_scale_ws, OpenGLEngine& opengl_engine);
+	// Re-bakes a cloud with a new pose.  Returns false if the handle isn't valid.
+	bool updateObjectTransform(Handle handle, const Vec4f& translation_ws, const Quat<float>& rotation_ws, float uniform_scale_ws);
 
-	// Removes a cloud from the world cloud.  This rebuilds and re-uploads everything, on the basis that removal is a
-	// rare, user-driven event.  Returns false if the handle isn't valid.
+	// Returns false if the handle isn't valid.
 	bool removeObject(Handle handle);
 
-	// Removes every cloud, invalidating all outstanding handles, but keeps the shader and GPU storage so the renderer can be
-	// used again immediately.  For tearing a whole world down, where removing clouds one at a time would re-upload
-	// everything once per cloud.
+	// Removes every object, invalidating all outstanding handles.
 	void removeAllObjects();
 
 	bool isValidHandle(Handle handle) const;
 
-	// The shared GLObject holding every splat in the world, or null if no cloud has been added yet.
-	GLObjectRef getWorldGLObject() const { return world_ob; }
+	// The most splats one drawable cloud can hold, given the real GL_MAX_TEXTURE_SIZE.  Note that this is a per-cloud
+	// limit, not a world-wide one: several clouds of this size can coexist, so long as they don't have to be merged.
+	size_t maxSplatsPerCloud() const;
 
-	// The maximum number of splats the world can hold, given the real GL_MAX_TEXTURE_SIZE (OpenGLEngine::max_texture_size).
-	static size_t maxSupportedSplats(int gl_max_texture_size);
+	size_t numSplatsInWorld() const;
+	size_t numObjectsInWorld() const;
+	size_t numDrawableClouds() const { return clouds.size(); } // How many clouds the partition has settled on.
 
-	size_t numSplatsInWorld() const { return total_splats; }
-	size_t numObjectsInWorld() const { return entries.size(); }
+	// Multi-line summary of the partition, the sort state and GPU/CPU memory use, for the diagnostics display.
+	// Returns an empty string if no splat object is registered, so it costs nothing in a world without any.
+	std::string getDiagnostics() const;
 
-	// Per-frame update: refreshes the viewport and focal-length uniforms the shader needs for the covariance projection,
-	// applies any completed background sort, and kicks off a new sort if the camera has moved far enough.  Call once per
-	// frame, after the frame's camera transform has been set on opengl_engine.
-	void think(OpenGLEngine& opengl_engine, glare::TaskManager& task_manager);
-
-	//void shutdown();
+	// Per-frame update: refreshes the uniforms the shader needs for the covariance projection, applies any completed
+	// background sorts, and kicks off new ones for clouds whose camera has moved far enough.  Called by
+	// OpenGLEngine::draw(), after the frame's camera transform has been set.
+	void think();
 
 private:
 	GLARE_DISABLE_COPY(GaussianSplatRenderer);
 
-	// Grows the data texture and instance index VBO if needed_splats exceeds the current capacity.  ob_already_in_engine
-	// must be false only for the very first call, made while addObject() is still building world_ob.
-	void ensureGpuCapacity(size_t needed_splats, OpenGLEngine& opengl_engine, bool ob_already_in_engine);
-	void rebuildVAO(); // Rebuilds world_ob->vert_vao against the current instance index VBO - needed whenever that VBO is replaced.
-	void uploadTexelRowsForSplatRange(size_t first_splat, size_t num_splats_to_upload); // Repacks and re-uploads just the texture rows spanning the given splat range.
-	void rebuildWorldAABB(); // Recomputes the world AABB as the union of each entry's bounds.  O(num entries), not O(num splats).
-	void bakeRangeToWorldSpace(const GaussianSplatData& splat_data, size_t dest_offset, const Vec4f& translation_ws, const Quat<float>& rotation_ws,
-		float uniform_scale_ws, js::AABBox& aabb_ws_out);
+	void buildShadersIfNeeded();
 
-	Reference<OpenGLProgram> shader_prog;
+	Reference<SplatCloud> allocCloud(); // Builds an empty cloud with its GLObject.  Not added to the engine until it holds a member - see addCloudToEngineIfNeeded().
+	void addCloudToEngineIfNeeded(SplatCloud& cloud); // Adds the cloud's GLObject to the engine, once it has real bounds and an instance count for the engine to cache.
+	void destroyCloud(const Reference<SplatCloud>& cloud); // Removes the cloud's GLObject from the engine and drops the cloud.
 
-	GLObjectRef world_ob; // The single persistent world splat cloud object, created lazily by the first addObject() call.  Its ob_to_world_matrix stays identity: splat positions are already in world space.
-	Reference<VBO> instance_index_vbo;
-	size_t gpu_capacity_splats; // Allocated capacity of the data texture and index VBO, in splats.  total_splats <= gpu_capacity_splats always.
-	size_t total_splats;
+	void ensureGpuCapacity(SplatCloud& cloud, size_t needed_splats); // Grows the data texture and instance index VBO if needed.
+	void rebuildVAO(SplatCloud& cloud); // Rebuilds vert_vao against the current instance index VBO - needed whenever that VBO is replaced.
+	void uploadTexelRowsForSplatRange(SplatCloud& cloud, size_t first_splat, size_t num_splats_to_upload); // Repacks and re-uploads just the texture rows spanning the given splat range.
+	void writeIdentityIndices(SplatCloud& cloud, size_t first_splat, size_t num_splats); // Writes an identity draw order over the given range of the instance index VBO.
+	void rebuildCloudAABB(SplatCloud& cloud); // Recomputes the cloud AABB as the union of its members' bounds.  O(num members), not O(num splats).
 
-	// World-space splat data for the whole world, concatenated in registration order.
-	js::Vector<Vec3f, 16> world_positions;
-	js::Vector<Vec3f, 16> world_scales;
-	js::Vector<Vec4f, 16> world_rotations; // (x, y, z, w)
-	js::Vector<Vec4f, 16> world_colours; // Never changes once added, since a cloud's pose doesn't affect its colours.
+	void appendMemberToCloud(SplatCloud& cloud, const CloudMember& member); // Fast path: bakes one member onto the tail and uploads only the affected rows.  member.offset is assigned here.
+	void rebuildCloud(SplatCloud& cloud); // Re-bakes every member from its stored pose.  Used after a merge or a removal, where offsets change.
+	void mergeIntersectingClouds(SplatCloud& seed_cloud); // Merges any cloud whose AABB intersects seed_cloud into it, to a fixpoint.
 
-	struct WorldSplatEntry
-	{
-		Handle handle;
-		GaussianSplatDataRef splat_data; // The original object-space data, kept so that a move can re-bake from scratch rather than accumulating error over repeated re-bakes.
-		size_t offset, count; // This entry's range within the arrays above, and within the GPU texture and VBO.
-		js::AABBox aabb_ws;
-	};
-	std::vector<WorldSplatEntry> entries;
+	void drainSortResults();
+	void kickOffSorts();
+
+	Reference<OpenGLProgram> shader_prog; // Shared by every cloud.  Null until the first addObject().
+
+	OpenGLEngine* opengl_engine;
+
+	std::vector<Reference<SplatCloud> > clouds;
+	std::map<Handle, SplatCloud*> handle_to_cloud; // Kept in step with the member lists, since a merge moves members between clouds.
 	Handle next_handle;
+	uint64 next_cloud_id;
 
-	uint64 structure_generation; // Bumped by removeObject(), which renumbers everything.  Not bumped by addObject(), since a pure append leaves existing indices meaningful.
+	// Sort scratch is pooled rather than per-cloud: at large splat counts these buffers run to hundreds of MB, so N
+	// clouds must not mean N copies of them.  Borrowed for the duration of a sort, returned when its precise result lands.
+	std::vector<Reference<GaussianSplatSortScratch> > free_scratch;
+	int num_sorts_in_flight;
 
-	bool sort_in_flight; // True from when a sort is kicked off until its precise result is applied.  The coarse result doesn't clear it.
-	Vec4f last_sort_cam_pos_ws; // Camera position as of the last sort kicked off (not necessarily completed).
-	bool have_last_sort_cam_pos;
-	Reference<GaussianSplatSortScratch> sort_scratch; // Working buffers, reused across sorts.  Reference counted so an in-flight sort keeps them alive across a shutdown().
-
-	ThreadSafeQueue<Reference<ThreadMessage> > sort_result_queue; // Written by the sort task, drained by think().
-
+	ThreadSafeQueue<Reference<ThreadMessage> > sort_result_queue; // Shared by every cloud; results carry the cloud id they belong to.
 	js::Vector<Reference<ThreadMessage>, 16> completed_msgs;
 };
