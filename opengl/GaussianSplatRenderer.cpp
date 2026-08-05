@@ -389,7 +389,7 @@ void GaussianSplatRenderer::buildShadersIfNeeded()
 	resolve_prog = new OpenGLProgram(
 		"gaussian splat resolve prog",
 		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_frag_shader.glsl", version_directive, preprocessor_defines + opengl_engine->frag_utils_glsl, GL_FRAGMENT_SHADER),
 		opengl_engine->getAndIncrNextProgramIndex(),
 		/*wait_for_build_to_complete=*/true
 	);

@@ -553,9 +553,11 @@ vec3 ACESFilm(vec3 x)
 }
 
 
+const float PRE_TONE_MAP_SCALE_FACTOR = 2.0;
+
 vec3 toneMapToNonLinear(vec3 col3)
 {
-	return toNonLinear(ACESFilm(col3 * 2.0));
+	return toNonLinear(ACESFilm(col3 * PRE_TONE_MAP_SCALE_FACTOR));
 	//return toNonLinear(col3 * 4.0); // linear tone-mapping
 }
 

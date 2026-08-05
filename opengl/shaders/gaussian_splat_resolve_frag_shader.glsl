@@ -19,14 +19,6 @@ out vec4 colour_out;
 
 #if DO_POST_PROCESSING
 
-// Non-linear sRGB to linear sRGB.  Copied from frag_utils.glsl, which this shader doesn't include.
-// See http://chilliant.blogspot.com/2012/08/srgb-approximations-for-hlsl.html
-vec3 nonLinearSRGBToLinearSRGB(vec3 c)
-{
-	vec3 c2 = c * c;
-	return c * c2 * 0.305306011 + c2 * 0.682171111 + c * 0.012522878;
-}
-
 
 // Inverse of ACESFilm() in frag_utils.glsl, which is f(x) = (x*(a*x + b)) / (x*(c*x + d) + e).
 // Solving f(x) = y for x rearranges to the quadratic x^2*(y*c - a) + x*(y*d - b) + y*e = 0.
@@ -69,7 +61,7 @@ void main()
 	// *to* col, by inverting the whole chain.  Note that a plain gamma conversion can't do this job: the display
 	// transform isn't a gamma curve, and raising each channel to a power widens the ratios between channels, which
 	// shows up as oversaturation.
-	col = inverseACESFilm(nonLinearSRGBToLinearSRGB(col)) * 0.5; // The 0.5 undoes toneMapToNonLinear()'s * 2.0.
+	col = inverseACESFilm(fastApproxNonLinearSRGBToLinearSRGB(col)) * (1.0 / PRE_TONE_MAP_SCALE_FACTOR);
 #endif
 
 	// Premultiplied again for the composite: drawSplatClouds() blends this with (GL_ONE, GL_ONE_MINUS_SRC_ALPHA), so

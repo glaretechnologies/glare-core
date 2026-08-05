@@ -1467,12 +1467,14 @@ private:
 	uint32 num_indices_submitted;
 	//uint64 num_aabbs_submitted;
 
+public:
 	std::string preprocessor_defines;
 	std::string preprocessor_defines_with_common_vert_structs;
 	std::string preprocessor_defines_with_common_frag_structs;
 	std::string vert_utils_glsl;
 	std::string frag_utils_glsl;
 	std::string version_directive;
+private:
 
 	// Map from preprocessor defs to built program.
 	std::map<ProgramKey, OpenGLProgramRef> progs;
