@@ -2578,7 +2578,7 @@ void OpenGLEngine::textureLoaded(Reference<OpenGLTexture> texture, const std::st
 }
 
 
-static std::string preprocessorDefsForKey(const ProgramKey& key)
+std::string preprocessorDefsForKey(const ProgramKey& key)
 {
 	return 
 		"#define ALPHA_TEST " + toString(key.alpha_test) + "\n" +

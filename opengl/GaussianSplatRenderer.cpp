@@ -367,7 +367,7 @@ void GaussianSplatRenderer::buildShadersIfNeeded()
 			new OpenGLShader(shader_dir + "/gaussian_splat_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
 			new OpenGLShader(shader_dir + "/gaussian_splat_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
 			opengl_engine->getAndIncrNextProgramIndex(),
-			/*wait_for_build_to_complete=*/false,
+			/*wait_for_build_to_complete=*/!opengl_engine->parallel_shader_compile_support,
 			extra_args
 		);
 	}
@@ -381,12 +381,13 @@ void GaussianSplatRenderer::buildShadersIfNeeded()
 	// Splats blend into an accumulation buffer of their own rather than straight onto the main colour buffer, so that
 	// the blend happens in the display-referred space 3DGS fits them in; this program does the full-viewport pass that
 	// resolves that buffer and composites it.  See OpenGLEngine::drawSplatClouds().
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_splat_resolve, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc. for frag_utils_glsl.
 	resolve_prog = new OpenGLProgram(
 		"gaussian splat resolve prog",
-		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_frag_shader.glsl", version_directive, preprocessor_defines + opengl_engine->frag_utils_glsl, GL_FRAGMENT_SHADER),
+		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + opengl_engine->frag_utils_glsl, GL_FRAGMENT_SHADER),
 		opengl_engine->getAndIncrNextProgramIndex(),
-		/*wait_for_build_to_complete=*/false
+		/*wait_for_build_to_complete=*/!opengl_engine->parallel_shader_compile_support
 	);
 	opengl_engine->addProgram(resolve_prog);
 }
@@ -424,9 +425,6 @@ bool GaussianSplatRenderer::isValidHandle(Handle handle) const
 
 std::string GaussianSplatRenderer::getDiagnostics() const
 {
-	if(handle_to_cloud.empty() && clouds.empty())
-		return std::string();
-
 	size_t num_merged_clouds = 0, largest_cloud_splats = 0, total_splats = 0;
 	uint64 tex_bytes = 0, index_vbo_bytes = 0;
 	for(size_t i=0; i<clouds.size(); ++i)
@@ -460,6 +458,8 @@ std::string GaussianSplatRenderer::getDiagnostics() const
 	s += "Sorts in flight: " + toString(num_sorts_in_flight) + " / " + toString(max_concurrent_sorts) + "\n";
 	s += "GPU mem: " + getMBSizeString((size_t)tex_bytes) + " data textures, " + getMBSizeString((size_t)index_vbo_bytes) + " index VBOs\n";
 	s += "Sort scratch pooled: " + toString(free_scratch.size()) + " buffers, " + getMBSizeString((size_t)scratch_bytes) + "\n";
+	s += "Splat shader prog built:   " + boolToString(shader_prog && shader_prog->isBuilt()) + "\n";
+	s += "Resolve shader prog built: " + boolToString(resolve_prog && resolve_prog->isBuilt()) + "\n";
 
 	// The per-cloud breakdown is what shows whether the partitioning is behaving - a world of separate captures should
 	// show one member per cloud.  Capped, since a world could hold many.

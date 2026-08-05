@@ -1845,7 +1845,7 @@ void checkForOpenGLErrors();
 void doCheckForOpenGLErrorsAtLocation(long line, const char* file);
 void checkUniformBlockSize(OpenGLProgramRef prog, const char* block_name, size_t target_size);
 void bindShaderStorageBlockToProgram(OpenGLProgramRef prog, const char* name, int binding_point_index);
-
+std::string preprocessorDefsForKey(const ProgramKey& key);
 
 
 // Removes a GLObject from the OpenGLEngine if the object reference is non-null.

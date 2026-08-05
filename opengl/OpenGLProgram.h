@@ -110,7 +110,9 @@ struct ProgramKey
 		ProgramName_draw_aurora_tex,
 		ProgramName_compute_ssao,
 		ProgramName_blur_ssao,
-		ProgramName_final_imaging
+		ProgramName_final_imaging,
+		ProgramName_splat,
+		ProgramName_splat_resolve
 	};
 
 	ProgramKey(ProgramName program_name_, const ProgramKeyArgs& args)
