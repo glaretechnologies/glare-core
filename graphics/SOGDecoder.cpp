@@ -117,8 +117,10 @@ ZipIndex readZipIndex(const uint8* data, size_t size)
 	{
 		if(cursor + CENTRAL_DIR_ENTRY_HDR_SIZE > size)
 			throw glare::Exception("SOGDecoder: truncated ZIP central directory entry.");
+#if !FUZZING
 		if(readU32LE(data + cursor) != CENTRAL_DIR_FILE_HDR_SIG)
 			throw glare::Exception("SOGDecoder: bad ZIP central directory file header signature.");
+#endif
 
 		const uint16 compression_method = readU16LE(data + cursor + 10);
 		const uint32 compressed_size    = readU32LE(data + cursor + 20);
@@ -454,14 +456,19 @@ GaussianSplatDataRef SOGDecoder::decodeFromBuffer(const void* data_, size_t size
 		// Rebuild the quaternion by writing the three stored components back into the components that weren't omitted,
 		// in order, and the recovered one into the omitted slot.  Note that the index in the alpha channel is into
 		// (w, x, y, z) order, which is not the (x, y, z, w) order we store.
-		const int omitted_index = myClamp((int)quats_px[3] - 252, 0, 3);
-		const float stored[3] = { qa, qb, qc };
-		float wxyz[4];
-		int next_stored = 0;
-		for(int c=0; c<4; ++c)
-			wxyz[c] = (c == omitted_index) ? qd : stored[next_stored++];
+		const int omitted_index = (int)quats_px[3] - 252;
 
-		splats->rotations[i] = Vec4f(wxyz[1], wxyz[2], wxyz[3], wxyz[0]);
+		Vec4f rot;
+		if(omitted_index == 0)
+			rot = Vec4f(qd, qa, qb, qc);
+		else if(omitted_index == 1)
+			rot = Vec4f(qa, qd, qb, qc);
+		else if(omitted_index == 2)
+			rot = Vec4f(qa, qb, qd, qc);
+		else
+			rot = Vec4f(qa, qb, qc, qd);
+
+		splats->rotations[i] = swizzle<1, 2, 3, 0>(rot); // Convert from wxyz to xyzw order
 
 		// Base colour, from the DC spherical harmonic term, plus opacity.  Note that this is deliberately not clamped:
 		// evaluating the DC term can land slightly outside [0, 1] (real files have codebooks reaching low enough to
@@ -528,6 +535,33 @@ SOGDecoder::MetaSummary SOGDecoder::readMetaSummaryFromBuffer(const void* data_,
 #include "../utils/TestUtils.h"
 #include "../utils/ConPrint.h"
 #include "../utils/Timer.h"
+
+
+#if 0
+// Command line:
+// C:\fuzz_corpus\sog c:/code/glare-core/testfiles/sog
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		SOGDecoder::decodeFromBuffer(data, size, /*mem_allocator=*/nullptr);
+	}
+	catch(glare::Exception&)
+	{
+	}
+
+	try
+	{
+		SOGDecoder::readMetaSummaryFromBuffer(data, size);
+	}
+	catch(glare::Exception&)
+	{
+	}
+
+	return 0;  // Non-zero return values are reserved for future use.
+}
+#endif
 
 
 void SOGDecoder::test()
