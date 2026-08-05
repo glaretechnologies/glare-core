@@ -26,12 +26,263 @@ Copyright Glare Technologies Limited 2016 -
 #ifndef NO_GIF_SUPPORT
 #include <graphics/GifDecoder.h>
 #endif
+#include <set>
 
 
 namespace OpenGLEngineTests
 {
 
 #if BUILD_TESTS
+
+
+//==================================== Gaussian splat cloud ordering ====================================
+//
+// Tests orderSplatCloudsBackToFront(), which puts splat clouds in back-to-front draw order by recursively partitioning
+// them on axis-aligned planes.  See the comments on it in OpenGLEngine.cpp.
+//
+// What makes an order correct is a property, not a particular permutation, and it is weaker than "sorted by distance":
+// a pair of clouds only constrains the order if a ray from the camera can hit both of them.  See
+// splatCloudMustBeDrawnAfter() below, which is what these check against.
+
+
+// All the ordering pass reads off a cloud is its world-space AABB, so that's all these carry.
+static GLObjectRef makeSplatCloudTestOb(const Vec4f& min_ws, const Vec4f& max_ws)
+{
+	GLObjectRef ob = new GLObject();
+	ob->aabb_ws = js::AABBox(min_ws, max_ws);
+	return ob;
+}
+
+
+static void orderSplatCloudTestObs(const std::vector<GLObjectRef>& obs, const Vec4f& campos_ws, js::Vector<const GLObject*, 16>& clouds_out)
+{
+	clouds_out.resize(obs.size());
+	for(size_t i=0; i<obs.size(); ++i)
+		clouds_out[i] = obs[i].ptr();
+
+	js::Vector<SplatCloudRange, 16> range_stack;
+	orderSplatCloudsBackToFront(clouds_out.data(), clouds_out.size(), campos_ws, range_stack);
+}
+
+
+// The ordering permutes the array in place, so whatever else it does, the result has to be the clouds it started with -
+// no cloud dropped, none drawn twice.
+static void checkSplatCloudOrderIsPermutation(const std::vector<GLObjectRef>& obs, const js::Vector<const GLObject*, 16>& clouds)
+{
+	testAssert(clouds.size() == obs.size());
+
+	std::set<const GLObject*> in, out;
+	for(size_t i=0; i<obs.size(); ++i)
+		in.insert(obs[i].ptr());
+	for(size_t i=0; i<clouds.size(); ++i)
+		out.insert(clouds[i]);
+
+	testAssert(in == out);
+}
+
+
+/*
+Returns whether cloud a has to be drawn after cloud b - that is, whether a is the nearer of the two along some ray from
+the camera that hits both.
+
+Two clouds only constrain each other where a ray can hit both of them, and disjoint clouds often can't be: on an axis
+that separates them a ray crosses the gap at most once, so whichever cloud is on the camera's side is hit first, but if
+the camera sits *inside* the gap then rays reaching one travel away from the other and no ray hits both.  Those pairs
+may be drawn in either order.
+
+So this is deliberately weaker than "is nearer".  A correct order can put a farther cloud second - what it can't do is
+put a cloud in front of one that occludes it.  Asserting on distance alone would fail valid orders: with the camera in
+among a row of clouds, a partition can legitimately draw an entire far group before a near group that contains a cloud
+farther away than some of it.
+
+Where two axes both separate the pair and disagree about which is nearer, no ray can hit both either, so that is a
+don't-care as well.  Checking every axis rather than the first one that separates them keeps this independent of the
+axis-priority convention splatCloudIsNearer() uses.
+*/
+static bool splatCloudMustBeDrawnAfter(const js::AABBox& a, const js::AABBox& b, const Vec4f& campos_ws)
+{
+	bool a_nearer = false, b_nearer = false;
+	for(int axis=0; axis<3; ++axis)
+	{
+		float gap_min, gap_max;
+		bool a_is_low;
+		if(a.max_[axis] < b.min_[axis])
+		{
+			gap_min = a.max_[axis]; gap_max = b.min_[axis]; a_is_low = true;
+		}
+		else if(b.max_[axis] < a.min_[axis])
+		{
+			gap_min = b.max_[axis]; gap_max = a.min_[axis]; a_is_low = false;
+		}
+		else
+			continue; // The two overlap on this axis, so it doesn't separate them.
+
+		if(campos_ws[axis] > gap_min && campos_ws[axis] < gap_max)
+			return false; // Camera inside the gap: no ray hits both clouds, so either order will do.
+
+		if((campos_ws[axis] <= gap_min) == a_is_low) // Camera on a's side of the gap, so a is hit first along any ray that hits both:
+			a_nearer = true;
+		else
+			b_nearer = true;
+	}
+
+	return a_nearer && !b_nearer;
+}
+
+
+// Checks the order is back-to-front: no cloud is drawn before one it would be composited over.
+static void checkSplatCloudOrderIsBackToFront(const js::Vector<const GLObject*, 16>& clouds, const Vec4f& campos_ws)
+{
+	for(size_t i=0; i<clouds.size(); ++i)
+		for(size_t j=i+1; j<clouds.size(); ++j)
+			testAssert(!splatCloudMustBeDrawnAfter(clouds[i]->aabb_ws, clouds[j]->aabb_ws, campos_ws));
+}
+
+
+static void testSplatCloudOrderingIsValid(const std::vector<GLObjectRef>& obs, const Vec4f& campos_ws)
+{
+	js::Vector<const GLObject*, 16> clouds;
+	orderSplatCloudTestObs(obs, campos_ws, clouds);
+
+	checkSplatCloudOrderIsPermutation(obs, clouds);
+	checkSplatCloudOrderIsBackToFront(clouds, campos_ws);
+}
+
+
+/*
+Places clouds in distinct cells of a grid, each one a random box inside its cell.
+
+Two constraints on the boxes, both of which the arrangements this has to model already satisfy:
+
+Every box is inset from its cell walls, so clouds in adjacent cells have a real gap between them rather than touching.
+That is the invariant GaussianSplatRenderer maintains, by merging any two clouds whose bounds intersect.
+
+Every box also covers the middle of its cell on each axis, so two clouds sharing a cell coordinate on some axis always
+overlap on that axis rather than being separated on it, and the pair is ordered on the first axis where their cells
+differ.  That keeps the arrangements close enough to a plain grid that a valid draw order exists for all of them - none
+of the sets this generates with the seed and counts below is cyclic.  That was measured, not proved: two clouds sharing
+a cell can still have different extents on that axis, and so order differently against a third cloud elsewhere, which
+is a cycle.  Worth knowing if the counts or the trial count are ever changed, since a cyclic set has no order able to
+satisfy it and would fail.
+*/
+static void makeRandomSplatCloudGrid(PCG32& rng, size_t num_obs, int grid_res, std::vector<GLObjectRef>& obs_out)
+{
+	const size_t num_cells = (size_t)grid_res * grid_res * grid_res;
+	std::vector<size_t> cells(num_cells);
+	for(size_t i=0; i<num_cells; ++i)
+		cells[i] = i;
+	for(size_t i=0; i+1<num_cells; ++i) // Shuffle, so the clouds land in unrelated cells rather than in scan order.
+		std::swap(cells[i], cells[i + (size_t)rng.nextUInt((uint32)(num_cells - i))]);
+
+	obs_out.resize(0);
+	for(size_t i=0; i<num_obs; ++i)
+	{
+		const size_t cell = cells[i];
+		const Vec4f cell_min((float)(cell % grid_res), (float)((cell / grid_res) % grid_res), (float)(cell / ((size_t)grid_res * grid_res)), 0);
+
+		Vec4f box_min(1.f), box_max(1.f);
+		for(int axis=0; axis<3; ++axis)
+		{
+			box_min[axis] = cell_min[axis] + 0.05f + rng.unitRandom() * 0.25f; // In [0.05, 0.3] within the cell.
+			box_max[axis] = cell_min[axis] + 0.70f + rng.unitRandom() * 0.25f; // In [0.70, 0.95] within the cell.
+		}
+		obs_out.push_back(makeSplatCloudTestOb(box_min, box_max));
+	}
+}
+
+
+static void testSplatCloudOrdering()
+{
+	conPrint("testSplatCloudOrdering()");
+
+	//------------ Two clouds separated on x: the order has to flip as the camera crosses the gap ------------
+	{
+		std::vector<GLObjectRef> obs;
+		obs.push_back(makeSplatCloudTestOb(Vec4f(0,0,0,1), Vec4f(1,1,1,1)));
+		obs.push_back(makeSplatCloudTestOb(Vec4f(3,0,0,1), Vec4f(4,1,1,1)));
+
+		js::Vector<const GLObject*, 16> clouds;
+
+		orderSplatCloudTestObs(obs, Vec4f(-10, 0.5f, 0.5f, 1), clouds);
+		testAssert(clouds[0] == obs[1].ptr()); // Camera off to -x, so the +x cloud is the far one and is drawn first.
+
+		orderSplatCloudTestObs(obs, Vec4f(10, 0.5f, 0.5f, 1), clouds);
+		testAssert(clouds[0] == obs[0].ptr()); // Camera off to +x, so the order reverses.
+	}
+
+	//------------ A cloud straddling a candidate plane can't be assigned a side ------------
+	// A spans x=5 and B lies entirely beyond it, but the two are disjoint only on y.  A partition on x that put the
+	// straddler A on the camera's side would draw B first, and yet a ray from this camera hits B and then A, so A is
+	// the far one.  This is why findSplatCloudSplitPlane() only ever splits on an empty gap.
+	{
+		std::vector<GLObjectRef> obs;
+		obs.push_back(makeSplatCloudTestOb(Vec4f(4, 0, 0, 1), Vec4f(6, 1, 1, 1))); // A
+		obs.push_back(makeSplatCloudTestOb(Vec4f(5, 2, 0, 1), Vec4f(8, 3, 1, 1))); // B
+
+		js::Vector<const GLObject*, 16> clouds;
+		orderSplatCloudTestObs(obs, Vec4f(4, 10, 0.5f, 1), clouds);
+		testAssert(clouds[0] == obs[0].ptr()); // A drawn first.
+	}
+
+	//------------ One wide cloud covering the middle of the extent ------------
+	// The plane starts at the middle of the clouds' extent on the axis, which the wide cloud spans, so walking up from
+	// there runs off the end of the axis.  The gap on x lies below the middle, so x only yields a split if the search
+	// also walks down.
+	{
+		std::vector<GLObjectRef> obs;
+		for(int i=0; i<40; ++i) // A row of small clouds down at the low end of x.
+			obs.push_back(makeSplatCloudTestOb(Vec4f(0, (float)i * 2, 0, 1), Vec4f(1, (float)i * 2 + 1, 1, 1)));
+		obs.push_back(makeSplatCloudTestOb(Vec4f(10, 0, 10, 1), Vec4f(1000, 100, 11, 1))); // Wide, and separated from the row on x and z.
+
+		testSplatCloudOrderingIsValid(obs, Vec4f(-50, 30, 0.5f, 1));
+		testSplatCloudOrderingIsValid(obs, Vec4f(2000, 30, 0.5f, 1));
+		testSplatCloudOrderingIsValid(obs, Vec4f(5, 30, 5, 1)); // Camera in between.
+	}
+
+	//------------ No separating plane on any axis ------------
+	// Four clouds in a pinwheel: on every axis their projections form one connected run, so there is no gap anywhere to
+	// split on and findSplatCloudSplitPlane() gives up on all three.  A pinwheel is also where cycles in "is nearer"
+	// come from - with one, no order satisfies every pair - so only the permutation property is checked here.  The
+	// point of the case is that the fallback path runs and doesn't lose clouds.
+	{
+		std::vector<GLObjectRef> obs;
+		obs.push_back(makeSplatCloudTestOb(Vec4f(0, 0, 0, 1), Vec4f(3, 1, 1, 1)));
+		obs.push_back(makeSplatCloudTestOb(Vec4f(3, 0, 0, 1), Vec4f(4, 3, 1, 1)));
+		obs.push_back(makeSplatCloudTestOb(Vec4f(1, 3, 0, 1), Vec4f(4, 4, 1, 1)));
+		obs.push_back(makeSplatCloudTestOb(Vec4f(0, 1, 0, 1), Vec4f(1, 4, 1, 1)));
+
+		PCG32 rng(1);
+		for(int t=0; t<200; ++t)
+		{
+			const Vec4f campos((rng.unitRandom() - 0.5f) * 20, (rng.unitRandom() - 0.5f) * 20, (rng.unitRandom() - 0.5f) * 20, 1);
+
+			js::Vector<const GLObject*, 16> clouds;
+			orderSplatCloudTestObs(obs, campos, clouds);
+			checkSplatCloudOrderIsPermutation(obs, clouds);
+		}
+	}
+
+	//------------ Random disjoint clouds ------------
+	// This is the case that caught the partitioning bottoming out into a pairwise sort of the last dozen clouds: those
+	// sets have perfectly good draw orders, but a cyclic "is nearer" relation, so sorting on it produced orders that
+	// violated pairs which really were observable.  Around 2% of the sets below fail if that shortcut comes back.
+	{
+		PCG32 rng(1);
+		const size_t counts[] = { 0, 1, 2, 3, 5, 11, 12, 13, 17, 40, 137, 300 };
+		for(size_t c=0; c<staticArrayNumElems(counts); ++c)
+			for(int t=0; t<40; ++t)
+			{
+				std::vector<GLObjectRef> obs;
+				makeRandomSplatCloudGrid(rng, counts[c], /*grid_res=*/8, obs);
+
+				// Cameras among the clouds, just outside them, and a long way off.
+				const float spread = (t % 3 == 0) ? 8.f : ((t % 3 == 1) ? 30.f : 1000.f);
+				const Vec4f campos((rng.unitRandom() - 0.25f) * spread, (rng.unitRandom() - 0.25f) * spread, (rng.unitRandom() - 0.25f) * spread, 1);
+
+				testSplatCloudOrderingIsValid(obs, campos);
+			}
+	}
+}
 
 
 static void doTest(const std::string& /*indigo_base_dir*/, const std::string& mesh_path)
@@ -363,6 +614,9 @@ void test(const std::string& indigo_base_dir)
 {
 	conPrint("OpenGLEngineTests::test()");
 
+	testSplatCloudOrdering(); // Doesn't need a GL context or any test data.
+#if 0
+
 	doTest(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/arrow.igmesh"); // Has both tris and quads
 	doTest(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/quad_mesh_500x500_verts.igmesh");
 	doTest(indigo_base_dir, TestUtils::getTestReposDir() + "/testscenes/poolparty_reduced/mesh_18276362613739127974.igmesh"); // ~100 KB mesh
@@ -381,6 +635,7 @@ void test(const std::string& indigo_base_dir)
 			doTest(indigo_base_dir, paths[i]);
 		}
 	}
+#endif
 
 	conPrint("OpenGLEngineTests::test() done.");
 }

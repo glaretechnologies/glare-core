@@ -380,6 +380,21 @@ void GaussianSplatRenderer::buildShadersIfNeeded()
 	shader_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Vec2, "viewport_dims_px");
 	shader_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Vec2, "focal_len_px");
 	shader_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int,  "splat_tex_width");
+
+
+	// Splats blend into an accumulation buffer of their own rather than straight onto the main colour buffer, so that
+	// the blend happens in the display-referred space 3DGS fits them in; this program does the full-viewport pass that
+	// resolves that buffer and composites it.  See OpenGLEngine::drawSplatClouds().  It has no custom attributes, so
+	// unlike shader_prog above it can just be built to completion in one go.
+	resolve_prog = new OpenGLProgram(
+		"gaussian splat resolve prog",
+		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+		opengl_engine->getAndIncrNextProgramIndex(),
+		/*wait_for_build_to_complete=*/true
+	);
+	opengl_engine->addProgram(resolve_prog);
+	assert(resolve_prog->albedo_texture_loc >= 0);
 }
 
 

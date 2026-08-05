@@ -7295,12 +7295,14 @@ void OpenGLEngine::draw()
 			cur_scene->main_depth_copy_texture = NULL;
 			cur_scene->transparent_accum_copy_texture = NULL;
 			cur_scene->total_transmittance_copy_texture = NULL;
+			cur_scene->splat_accum_copy_texture = NULL;
 
 			cur_scene->main_colour_renderbuffer = NULL;
 			cur_scene->main_normal_renderbuffer = NULL;
 			cur_scene->main_depth_renderbuffer = NULL;
 			cur_scene->transparent_accum_renderbuffer = NULL;
 			cur_scene->total_transmittance_renderbuffer = NULL;
+			cur_scene->splat_accum_renderbuffer = NULL; // Reallocated by drawSplatClouds() if the scene has splat clouds.
 
 			cur_scene->main_render_framebuffer = NULL;
 			cur_scene->main_render_copy_framebuffer = NULL;
@@ -9126,7 +9128,7 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 static inline bool splatCloudIsNearer(const js::AABBox& a, const js::AABBox& b, const Vec4f& campos_ws)
 {
 	// The axis loop order is fixed, so both directions of a pair select the same separating axis and give opposite
-	// answers.  Without that the relation wouldn't be antisymmetric and the counting pass below would be nonsense.
+	// answers.  Without that the relation wouldn't be antisymmetric, and a sort over it would be nonsense.
 	for(int axis=0; axis<3; ++axis)
 	{
 		if(a.max_[axis] < b.min_[axis]) // a is on the low side of the gap:
@@ -9135,6 +9137,192 @@ static inline bool splatCloudIsNearer(const js::AABBox& a, const js::AABBox& b, 
 			return campos_ws[axis] > (b.max_[axis] + a.min_[axis]) * 0.5f;
 	}
 	return false; // The AABBs overlap, so the clouds should have been merged.  Any answer is as good as any other.
+}
+
+
+// Orders clouds[0, num) far-to-near directly from the pairwise test above, by insertion sort.
+//
+// Best-effort, and used only where orderSplatCloudsBackToFront() has no separating plane to partition on at all - an
+// arrangement with no gap on any axis, where the clouds interlock and a correct order may well not exist.  Sorting on
+// splatCloudIsNearer() is not sound in general, since that relation can hold cycles; see the comment there.
+//
+// Insertion sort rather than std::sort because a cyclic relation breaks std::sort's comparator contract and lets it run
+// off the ends of the array.  Insertion sort just returns a wrong order, which for these arrangements is the best
+// available anyway.
+static void insertionSortSplatClouds(const GLObject** clouds, size_t num, const Vec4f& campos_ws)
+{
+	for(size_t i=1; i<num; ++i)
+	{
+		const GLObject* const ob = clouds[i];
+
+		size_t j = i;
+		while(j > 0 && splatCloudIsNearer(clouds[j-1]->aabb_ws, ob->aabb_ws, campos_ws)) // While the cloud to the left is nearer, so belongs after ob:
+		{
+			clouds[j] = clouds[j-1];
+			--j;
+		}
+		clouds[j] = ob;
+	}
+}
+
+
+/*
+Looks for an axis-aligned plane that separates clouds[0, num) into two non-empty groups with no cloud straddling it.
+
+A straddler has to be excluded, not just assigned to a side.  A cloud straddling the plane and a cloud wholly beyond it
+are still disjoint, so they are separated on *some* axis - but not necessarily on this one, and when it's another axis
+that separates them the plane says nothing about their order.  Two clouds side by side in y, both spanning the plane's x
+range, are the case: the camera's y decides which is nearer, and any order the x plane imposes is wrong half the time.
+
+Requiring an empty gap removes that: every cloud below the plane is then below every cloud above it on this axis, which
+is exactly the separation splatCloudIsNearer() tests, applied to two whole groups at once.
+
+No attempt is made to balance the two groups.  A lopsided split still makes progress, and the plane starts at the middle
+of the range's extent, so the recursion depth follows how far apart the clouds are rather than how many there are.  It
+takes exponentially clustered clouds to peel one off at a time.
+
+Returns the axis, with the plane position in plane_out, or -1 if no axis has a gap.  Doesn't touch the array.
+*/
+static int findSplatCloudSplitPlane(const GLObject* const * clouds, size_t num, float& plane_out)
+{
+	for(int axis=0; axis<3; ++axis)
+	{
+		float extent_min = std::numeric_limits<float>::infinity();
+		float extent_max = -std::numeric_limits<float>::infinity();
+		for(size_t i=0; i<num; ++i)
+		{
+			extent_min = myMin(extent_min, clouds[i]->aabb_ws.min_[axis]);
+			extent_max = myMax(extent_max, clouds[i]->aabb_ws.max_[axis]);
+		}
+		const float mid = (extent_min + extent_max) * 0.5f;
+
+		// Walk the plane up the axis from the middle of the extent, and then down from it.  Both directions are needed:
+		// one wide cloud covering the middle pushes the plane off the end of the axis, past gaps that lie the other way.
+		for(int dir=0; dir<2; ++dir)
+		{
+			float c = mid;
+
+			// A cloud spanning c can't be put on either side, so move c past every cloud that spans it and look again.
+			// A spanning cloud covers everything between c's old and new positions, so no gap is stepped over.  c moves
+			// strictly one way, so this walks off the end of the axis and stops; the cap just bounds the number of small
+			// steps it can take on the way.
+			for(int iter=0; iter<8; ++iter)
+			{
+				float lo_max = -std::numeric_limits<float>::infinity(); // Highest upper bound among the clouds below c.
+				float hi_min = std::numeric_limits<float>::infinity();  // Lowest lower bound among the clouds above c.
+				float span_min = std::numeric_limits<float>::infinity();
+				float span_max = -std::numeric_limits<float>::infinity();
+				bool any_below = false, any_above = false, any_spanning = false;
+				for(size_t i=0; i<num; ++i)
+				{
+					const js::AABBox& aabb = clouds[i]->aabb_ws;
+					if(aabb.max_[axis] <= c)
+					{
+						lo_max = myMax(lo_max, aabb.max_[axis]);
+						any_below = true;
+					}
+					else if(aabb.min_[axis] >= c)
+					{
+						hi_min = myMin(hi_min, aabb.min_[axis]);
+						any_above = true;
+					}
+					else
+					{
+						span_min = myMin(span_min, aabb.min_[axis]);
+						span_max = myMax(span_max, aabb.max_[axis]);
+						any_spanning = true;
+					}
+				}
+
+				if(any_spanning)
+				{
+					c = (dir == 0) ? span_max : span_min; // Everything that spanned c is now entirely on one side of it.
+					continue;
+				}
+
+				// Both groups have to be non-empty - a plane with everything on one side of it isn't a split, and would
+				// hand orderSplatClouds() back the range it started with.  The gap also has to be open rather than just
+				// touching: splatCloudIsNearer() treats two clouds as separated only when one's upper bound is strictly
+				// below the other's lower bound, and the partition needs a plane strictly inside the gap to classify on.
+				if(any_below && any_above && lo_max < hi_min)
+				{
+					plane_out = (lo_max + hi_min) * 0.5f;
+					return axis;
+				}
+
+				break; // The plane has run off the end of the clouds, or the two groups touch exactly.  Try the other direction, then the next axis.
+			}
+		}
+	}
+
+	return -1; // Every axis has the clouds' projections forming one connected run - a pinwheel arrangement, or just a cloud spanning the others.
+}
+
+
+/*
+Permutes clouds[0, num_clouds) into back-to-front draw order.
+
+The clouds' AABBs are pairwise disjoint (GaussianSplatRenderer merges any that aren't), so splatCloudIsNearer() answers
+every pair and sorting on it would do.  Testing every pair is O(n^2); this instead partitions, which is the same move a
+k-d tree makes.
+
+A plane with no cloud straddling it splits the set into a near group and a far group in one test against the camera
+position - every cloud on the camera's side of the plane is nearer than every cloud beyond it, because a ray crosses the
+plane at most once.  So the two groups can be laid down as blocks and then ordered independently.  Finding a plane and
+partitioning on it are both a linear pass over the range, so a level of the recursion costs O(n) regardless of how the
+split falls, and the whole thing is O(n log n) for clouds spread over a world.
+
+Note that this does not reproduce the order sorting on splatCloudIsNearer() would give, and doesn't need to.  Where the
+camera lies between two clouds no ray hits both, so their relative order is unobservable; splatCloudIsNearer() still
+returns an answer for such a pair and the partitioning is free to contradict it.  Both orders composite identically.
+
+That is also why the recursion runs all the way down to single clouds rather than stopping at some short length and
+sorting the rest pairwise, which looks like an easy win and is not.  splatCloudIsNearer()'s answers on the unobservable
+pairs are arbitrary, and arbitrary answers form cycles: a run of a dozen clouds with a perfectly good draw order can
+have a cyclic "is nearer" relation, and sorting on it then produces an order that violates one of the pairs that *is*
+observable.  Partitioning never does that, because it only ever orders two groups that a plane separates.  A leaf cutoff
+of 12 was measurably wrong on ~2% of random cloud sets before it was removed.
+
+Everything happens in place: each range is permuted within its own bounds, so ranges are independent and the order they
+come off the stack doesn't matter.
+
+range_stack is working space, passed in so that the per-frame call doesn't allocate.
+*/
+void orderSplatCloudsBackToFront(const GLObject** clouds, size_t num_clouds, const Vec4f& campos_ws, js::Vector<SplatCloudRange, 16>& range_stack)
+{
+	range_stack.resize(0);
+	range_stack.push_back(SplatCloudRange(0, (uint32)num_clouds));
+
+	while(!range_stack.empty())
+	{
+		const SplatCloudRange range = range_stack.back();
+		range_stack.pop_back();
+
+		const size_t num = range.end - range.begin;
+		if(num <= 1)
+			continue;
+
+		float plane;
+		const int axis = findSplatCloudSplitPlane(clouds + range.begin, num, plane);
+		if(axis < 0) // No plane separates this run, so fall back to the pairwise sort for it.  Rare - see findSplatCloudSplitPlane().
+		{
+			insertionSortSplatClouds(clouds + range.begin, num, campos_ws);
+			continue;
+		}
+
+		// Move the far group to the front of the range.  It's the group on the far side of the plane from the camera:
+		// the near group has to be drawn over it.
+		const bool cam_below_plane = campos_ws[axis] < plane;
+		const GLObject** const split = std::partition(clouds + range.begin, clouds + range.end,
+			[axis, plane, cam_below_plane](const GLObject* ob) { return (ob->aabb_ws.min_[axis] > plane) == cam_below_plane; });
+
+		// The plane lies in an open gap with clouds on both sides of it, so neither group is empty.  If one ever were,
+		// this would push back the range it was handed and spin.
+		assert(split > clouds + range.begin && split < clouds + range.end);
+
+		range_stack.push_back(SplatCloudRange(range.begin, (uint32)(split - clouds)));
+		range_stack.push_back(SplatCloudRange((uint32)(split - clouds), range.end));
+	}
 }
 
 
@@ -9149,6 +9337,11 @@ per-batch program dispatch that drawAlphaBlendedObjects() needs isn't required h
 The cost of a separate pass is that clouds are ordered as a block against other transparent geometry rather than
 interleaved with it: this pass runs first, so glass, water, particles and text all composite over the splats.  That is
 the right way round for splat captures, which are environment content.
+
+The splats are blended into an accumulation buffer of their own, which resolveSplatAccumBuffer() then composites onto
+the main colour buffer.  The extra buffer is what lets the splats blend in the display-referred sRGB space they were
+fitted in while the rest of the frame stays linear - see gaussian_splat_frag_shader.glsl for why that space is not
+optional.
 */
 void OpenGLEngine::drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
@@ -9164,7 +9357,7 @@ void OpenGLEngine::drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& 
 	ZoneScopedN("Draw splat clouds"); // Tracy profiler
 	assertCurrentProgramIsZero();
 
-	// Frustum-cull first: the ordering pass below is O(n^2) in the number of clouds actually drawn.
+	// Frustum-cull first: the ordering pass below only has to handle the clouds actually drawn.
 	visible_splat_clouds.resize(0);
 	{
 		const GLObjectRef* const clouds = current_scene->splat_cloud_objects.vector.data();
@@ -9192,33 +9385,34 @@ void OpenGLEngine::drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& 
 
 	const Vec4f campos_ws = this->getCameraPositionWS();
 
-	// Order the clouds far-to-near by counting, for each cloud, how many of the others are nearer than it.
+	// Order the clouds far-to-near.
 	//
-	// Every pair of clouds is separable - the partitioning in GaussianSplatRenderer guarantees it - and
-	// splatCloudIsNearer() gives exactly one answer per pair, so the "is nearer than" relation is a *tournament*: a
-	// complete, antisymmetric digraph, like a round-robin where every cloud plays every other cloud once.  An acyclic
-	// tournament is a total order, and in one the win counts are distinct - a permutation of {0, .., n-1} - so counting
-	// is the sort.  The cloud with every other cloud nearer than it has count n-1 and is drawn first.
-	//
-	// Cycles are possible in principle (A and B separated on x, B and C on y, C and A on z, with the camera placed so
-	// that all three orders flip), and show up as two clouds tying on a count.  They only produce a visible artifact if
-	// every cloud in the cycle overlaps the others in screen space at the same time, so ties are simply broken by the
-	// insertion order of the draw loop below.
-	splat_cloud_num_nearer.resizeNoCopy(num_visible);
-	for(size_t i=0; i<num_visible; ++i)
-	{
-		int num_nearer = 0;
-		for(size_t j=0; j<num_visible; ++j)
-			if(i != j && splatCloudIsNearer(visible_splat_clouds[j]->aabb_ws, visible_splat_clouds[i]->aabb_ws, campos_ws))
-				num_nearer++; // Cloud j is nearer than cloud i, so i is drawn before j.
-		splat_cloud_num_nearer[i] = num_nearer;
-	}
+	// Cycles in the "is nearer" relation are possible in principle (A and B separated on x, B and C on y, C and A on z,
+	// with the camera placed so that all three orders flip), and no order satisfies every pair when there is one.  They
+	// only produce a visible artifact if every cloud in the cycle overlaps the others in screen space at the same time,
+	// so whatever order the pass below happens to settle on for them is left alone.
+	orderSplatCloudsBackToFront(visible_splat_clouds.data(), num_visible, campos_ws, splat_cloud_range_stack);
 
-	if(current_scene->render_to_main_render_framebuffer)
+	// Splats blend into an accumulation buffer of their own rather than straight onto the main colour buffer, so that
+	// the blend runs in the display-referred sRGB space they were fitted in and the engine's display transform can be
+	// inverted once afterwards instead of per splat - see gaussian_splat_frag_shader.glsl for why that matters.  The
+	// accumulation buffer takes the place of the main colour buffer on main_render_framebuffer, which is what gives it
+	// the scene's depth buffer to test against, at a matching sample count.
+	//
+	// Without the main render framebuffer there's no attachment to swap and no depth renderbuffer we could attach
+	// alongside our own colour buffer, so splats blend straight into the target instead.  Nothing tone maps that target,
+	// so its contents are display-referred as well, and the splats' authored colours are already the values to write.
+	const bool use_accum_buffer = allocSplatAccumBuffersIfNeeded();
+	if(use_accum_buffer)
 	{
-		current_scene->main_render_framebuffer->bindForDrawing();
 		assert(current_scene->main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == current_scene->main_colour_renderbuffer->buffer_name);
-		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+		current_scene->main_render_framebuffer->attachRenderBuffer(*current_scene->splat_accum_renderbuffer, GL_COLOR_ATTACHMENT0); // Replaces the colour buffer as GL_COLOR_ATTACHMENT0.  Restored in resolveSplatAccumBuffer().
+		current_scene->main_render_framebuffer->bindForDrawing();
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to the accumulation buffer (not the normal buffer).
+
+		// NOTE that glClearBufferfv uses draw buffer indices, so glDrawBuffers() needs to be called first.
+		const float col_zero[4] = { 0, 0, 0, 0 };
+		glClearBufferfv(GL_COLOR, /*drawBuffer=*/0, col_zero);
 	}
 	else
 	{
@@ -9232,29 +9426,131 @@ void OpenGLEngine::drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& 
 	}
 
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFunc(/*source factor=*/GL_ONE, /*destination factor=*/GL_ONE_MINUS_SRC_ALPHA); // The splat shader outputs colour premultiplied by alpha.
 	glDepthMask(GL_FALSE); // Disable writing to depth buffer - splats must not occlude each other or other transparent objects.
 
-	// Draw in descending num_behind order, which is farthest first.  n is the number of splat clouds in view, so this
-	// selection loop is cheaper than building and sorting a key array.
-	for(int target = (int)num_visible - 1; target >= 0; --target)
-		for(size_t i=0; i<num_visible; ++i)
-			if(splat_cloud_num_nearer[i] == target)
-			{
-				const GLObject* const ob = visible_splat_clouds[i];
-				const uint32 batch_i = 0;
-				const bool program_changed = checkUseProgram(ob->batch_draw_info[batch_i].getProgramIndex());
-				if(program_changed) // Only true on the first cloud drawn: every splat cloud shares one program.
-					setSharedUniformsForProg(*prog_vector[ob->batch_draw_info[batch_i].getProgramIndex()].ptr(), view_matrix, proj_matrix);
+	for(size_t i=0; i<num_visible; ++i)
+	{
+		const GLObject* const ob = visible_splat_clouds[i];
+		const uint32 batch_i = 0;
+		const bool program_changed = checkUseProgram(ob->batch_draw_info[batch_i].getProgramIndex());
+		if(program_changed) // Only true on the first cloud drawn: every splat cloud shares one program.
+			setSharedUniformsForProg(*prog_vector[ob->batch_draw_info[batch_i].getProgramIndex()].ptr(), view_matrix, proj_matrix);
 
-				bindMeshData(*ob);
-				drawBatchWithDenormalisedData(*ob, ob->batch_draw_info[batch_i], batch_i);
-			}
+		bindMeshData(*ob);
+		drawBatchWithDenormalisedData(*ob, ob->batch_draw_info[batch_i], batch_i);
+	}
 
 	flushDrawCommandsAndUnbindPrograms();
 
 	glDepthMask(GL_TRUE); // Re-enable writing to depth buffer.
 	glDisable(GL_BLEND);
+
+	if(use_accum_buffer)
+		resolveSplatAccumBuffer();
+}
+
+
+// Allocates the buffer splat clouds blend into, and the texture the MSAA samples in it are resolved down to.
+// Returns false if the accumulation buffer can't be used for the current scene, in which case splats are blended
+// directly into whatever is being drawn to - see drawSplatClouds().
+bool OpenGLEngine::allocSplatAccumBuffersIfNeeded()
+{
+	if(!current_scene->render_to_main_render_framebuffer || current_scene->main_colour_renderbuffer.isNull())
+		return false;
+
+	// Match the main colour buffer exactly: the two are swapped on the same framebuffer, so they have to agree with its
+	// depth attachment on size and sample count, and glBlitFramebuffer requires matching sizes as well.
+	const size_t xres      = current_scene->main_colour_renderbuffer->xRes();
+	const size_t yres      = current_scene->main_colour_renderbuffer->yRes();
+	const int msaa_samples = current_scene->main_colour_renderbuffer->MSAASamples();
+
+	if(current_scene->splat_accum_renderbuffer.nonNull() &&
+		current_scene->splat_accum_renderbuffer->xRes() == xres &&
+		current_scene->splat_accum_renderbuffer->yRes() == yres &&
+		current_scene->splat_accum_renderbuffer->MSAASamples() == msaa_samples)
+		return true; // Already allocated at the right size.
+
+	// RGBA rather than the main colour buffer's format, which has no alpha channel on desktop: the resolve pass needs
+	// the accumulated coverage as well as the accumulated colour.
+	const OpenGLTextureFormat splat_accum_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
+
+	// Free any existing buffers first, to reduce max mem usage.
+	current_scene->splat_accum_copy_texture = NULL;
+	current_scene->splat_accum_renderbuffer = NULL;
+
+	conPrint("Allocating splat accumulation buffer with width " + toString(xres) + " and height " + toString(yres) + ", MSAA samples " + toString(msaa_samples));
+
+	current_scene->splat_accum_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, splat_accum_format);
+
+	current_scene->splat_accum_copy_texture = new OpenGLTexture(xres, yres, this,
+		ArrayRef<uint8>(), // data
+		splat_accum_format,
+		OpenGLTexture::Filtering_Nearest,
+		OpenGLTexture::Wrapping_Clamp,
+		false, // has_mipmaps
+		/*MSAA_samples=*/1
+	);
+
+	return true;
+}
+
+
+/*
+Composites the accumulation buffer the splats were blended into onto the main colour buffer, with the engine's display
+transform inverted once over the finished blend.
+
+The MSAA samples are resolved by the blit, i.e. before the divide by coverage in the resolve shader.  That is the right
+order: the samples hold premultiplied colour and coverage, so averaging them and then dividing weights each sample by
+how much of it the splats actually covered, whereas dividing per-sample first would weight a barely covered sample the
+same as a fully covered one.
+*/
+void OpenGLEngine::resolveSplatAccumBuffer()
+{
+	DebugGroup debug_group("resolveSplatAccumBuffer()");
+	TracyGpuZone("resolveSplatAccumBuffer");
+
+	assert(current_scene->splat_accum_renderbuffer.nonNull() && current_scene->splat_accum_copy_texture.nonNull());
+
+	//----------------------- Copy the accumulation renderbuffer to splat_accum_copy_texture, so it can be read -----------------------
+	current_scene->main_render_copy_framebuffer->attachTexture(*current_scene->splat_accum_copy_texture, GL_COLOR_ATTACHMENT0);
+
+	blitFrameBuffer(/*src_framebuffer=*/*current_scene->main_render_framebuffer, /*dest_framebuffer=*/*current_scene->main_render_copy_framebuffer,
+		/*num_buffers_to_copy=*/1, // Just the accumulation buffer, which drawSplatClouds() attached at GL_COLOR_ATTACHMENT0.
+		/*copy_buf0_colour=*/true, /*copy_buf0_depth=*/false);
+
+	// Restore the attachments both framebuffers had before this pass.
+	current_scene->main_render_framebuffer->attachRenderBuffer(*current_scene->main_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
+	current_scene->main_render_copy_framebuffer->attachTexture(*current_scene->main_colour_copy_texture, GL_COLOR_ATTACHMENT0);
+
+	//----------------------- Composite onto the main colour buffer -----------------------
+	current_scene->main_render_framebuffer->bindForDrawing();
+	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0); // Just draw to colour buffer (not normal buffer)
+
+	glDepthMask(GL_FALSE); // Don't write to z-buffer: the splats were depth tested as they were drawn, this is just a composite.
+	glDisable(GL_DEPTH_TEST); // Don't depth test
+	glEnable(GL_BLEND);
+	glBlendFunc(/*source factor=*/GL_ONE, /*destination factor=*/GL_ONE_MINUS_SRC_ALPHA); // The resolve shader outputs colour premultiplied by the accumulated coverage.
+
+	const Reference<OpenGLProgram>& resolve_prog = splat_renderer->getResolveProgram();
+	assert(resolve_prog.nonNull()); // Non-null since a cloud was drawn, which means GaussianSplatRenderer built its shaders.
+	resolve_prog->useProgram();
+	bindMeshData(*unit_quad_meshdata);
+
+	bindTextureUnitToSampler(*current_scene->splat_accum_copy_texture, /*texture_unit_index=*/0, /*sampler_uniform_location=*/resolve_prog->albedo_texture_loc);
+
+	//----------------------- Draw the quad -----------------------
+	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), unit_quad_meshdata->vbo_handle.base_vertex);
+
+	//----------------------- Cleanup -----------------------
+	OpenGLProgram::useNoPrograms();
+
+	// Unbind the texture from its texture unit.  Otherwise we get errors in Chrome: "GL_INVALID_OPERATION: Feedback loop formed between Framebuffer and active Texture."
+	unbindTextureFromTextureUnit(*current_scene->splat_accum_copy_texture, /*texture_unit_index=*/0);
+
+	glDisable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE); // Restore writing to z-buffer.
 }
 
 

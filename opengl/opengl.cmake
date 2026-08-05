@@ -181,6 +181,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/draw_aurora_tex_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/fog_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_resolve_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_resolve_frag_shader.glsl
 )
 
 

@@ -675,6 +675,11 @@ public:
 	OpenGLTextureRef transparent_accum_copy_texture;
 	OpenGLTextureRef total_transmittance_copy_texture;
 
+	// Gaussian splat clouds blend into a buffer of their own, which is then resolved onto the main colour buffer - see
+	// OpenGLEngine::drawSplatClouds().  Allocated there on demand, so a scene with no splat clouds doesn't pay for it.
+	Reference<RenderBuffer> splat_accum_renderbuffer;
+	OpenGLTextureRef splat_accum_copy_texture;
+
 
 	Reference<FrameBuffer> pre_dof_framebuffer;
 	OpenGLTextureRef pre_dof_colour_texture;
@@ -845,6 +850,23 @@ struct BatchDrawInfoWithDist
 	uint32 dist;
 	const GLObject* ob;
 };
+
+
+// One [begin, end) sub-range of the splat cloud working array still to be ordered - see orderSplatCloudsBackToFront().
+struct SplatCloudRange
+{
+	SplatCloudRange() {}
+	SplatCloudRange(uint32 begin_, uint32 end_) : begin(begin_), end(end_) {}
+
+	uint32 begin;
+	uint32 end;
+};
+
+
+// Permutes clouds[0, num_clouds) into the order they have to be drawn in, farthest first.  The clouds' AABBs must be
+// pairwise disjoint, which GaussianSplatRenderer guarantees by merging any that aren't.  range_stack is working space.
+// Used by OpenGLEngine::drawSplatClouds(); declared here so OpenGLEngineTests can reach it.
+void orderSplatCloudsBackToFront(const GLObject** clouds, size_t num_clouds, const Vec4f& campos_ws, js::Vector<SplatCloudRange, 16>& range_stack);
 
 
 
@@ -1410,6 +1432,8 @@ private:
 	void drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	bool allocSplatAccumBuffersIfNeeded(); // Allocates the buffers splat clouds blend into, matching the main colour buffer.  Returns false if they're unavailable.
+	void resolveSplatAccumBuffer(); // Composites the splat accumulation buffer onto the main colour buffer, undoing the engine's display transform once.
 public:
 	// Renders Gaussian splat clouds.  Owned by the engine, and cheap until the first cloud is registered with it: it
 	// doesn't build its shaders until then.  draw() drives it, so callers only need addObject()/removeObject().
@@ -1624,7 +1648,7 @@ private:
 
 	// Working space for drawSplatClouds()'s ordering pass, kept to avoid allocating every frame.
 	js::Vector<const GLObject*, 16> visible_splat_clouds;
-	js::Vector<int, 16> splat_cloud_num_nearer;
+	js::Vector<SplatCloudRange, 16> splat_cloud_range_stack;
 	std::vector<uint32> temp_counts;
 	uint32 num_prog_changes;
 	uint32 num_vao_binds;

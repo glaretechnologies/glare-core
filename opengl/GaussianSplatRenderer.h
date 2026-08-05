@@ -40,6 +40,11 @@ cloud carries a depth sort.  Clouds are drawn by OpenGLEngine::drawSplatClouds()
 which is a pass of its own rather than part of the alpha-blended pass; see the
 comment there for why.
 
+That pass blends into an accumulation buffer of its own and resolves it onto the
+main colour buffer afterwards, because splats have to be blended in the
+display-referred sRGB space 3DGS fits them in rather than in the engine's linear
+space - see gaussian_splat_frag_shader.glsl.
+
 Partitioning
 ------------
 Each registered object usually gets a drawable cloud of its own, which is what
@@ -125,6 +130,10 @@ public:
 	size_t numObjectsInWorld() const;
 	size_t numDrawableClouds() const { return clouds.size(); } // How many clouds the partition has settled on.
 
+	// The program OpenGLEngine::drawSplatClouds() resolves the splat accumulation buffer with.  Null until the first
+	// addObject(), like the splat program itself.
+	const Reference<OpenGLProgram>& getResolveProgram() const { return resolve_prog; }
+
 	// Multi-line summary of the partition, the sort state and GPU/CPU memory use, for the diagnostics display.
 	// Returns an empty string if no splat object is registered, so it costs nothing in a world without any.
 	std::string getDiagnostics() const;
@@ -157,6 +166,7 @@ private:
 	void kickOffSorts();
 
 	Reference<OpenGLProgram> shader_prog; // Shared by every cloud.  Null until the first addObject().
+	Reference<OpenGLProgram> resolve_prog; // Resolves the splat accumulation buffer onto the main colour buffer.  Built alongside shader_prog.
 
 	OpenGLEngine* opengl_engine;
 
