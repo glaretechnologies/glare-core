@@ -75,6 +75,7 @@ struct UserUniformInfo
 	int loc; // Location in shader as retrieved from glGetUniformLocation()
 	int index; // Index into material.user_uniform_vals
 	UniformType uniform_type;
+	std::string name; // Only set if program not built yet.
 };
 
 
@@ -173,6 +174,17 @@ struct ProgramKey
 };
 
 
+struct OpenGLProgramExtraArgs
+{
+	struct AttributeBinding
+	{
+		std::string name;
+		int index;
+	};
+	std::vector<AttributeBinding> input_vert_attribute_bindings; // Additional vertex attribute bindings
+};
+
+
 /*=====================================================================
 OpenGLProgram
 -------------
@@ -180,7 +192,8 @@ OpenGLProgram
 class OpenGLProgram : public RefCounted
 {
 public:
-	OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader, const Reference<OpenGLShader>& frag_shader, uint32 program_index, bool wait_for_build_to_complete);
+	OpenGLProgram(const std::string& prog_name, const Reference<OpenGLShader>& vert_shader, const Reference<OpenGLShader>& frag_shader, uint32 program_index, bool wait_for_build_to_complete, 
+		const OpenGLProgramExtraArgs& extra_args = OpenGLProgramExtraArgs());
 	~OpenGLProgram();
 
 	bool checkLinkingDone(); // Returns true if compilation and linking is done.

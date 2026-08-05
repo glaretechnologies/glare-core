@@ -108,7 +108,7 @@ public:
 	// Bakes splat_data's positions/scales/rotations into world space with the given pose, and registers the result.
 	// Note that non-uniform scaling isn't supported.
 	//
-	// Throws glare::Exception if splat_data has more splats than maxSplatsPerCloud(), or if the shader fails to build.
+	// Throws glare::Exception if splat_data has more splats than maxSplatsPerCloud()
 	Handle addObject(const GaussianSplatDataRef& splat_data, const Vec4f& translation_ws, const Quat<float>& rotation_ws, float uniform_scale_ws);
 
 	// Re-bakes a cloud with a new pose.  Returns false if the handle isn't valid.
@@ -133,6 +133,7 @@ public:
 	// The program OpenGLEngine::drawSplatClouds() resolves the splat accumulation buffer with.  Null until the first
 	// addObject(), like the splat program itself.
 	const Reference<OpenGLProgram>& getResolveProgram() const { return resolve_prog; }
+	const Reference<OpenGLProgram>& getShaderProgram()  const { return shader_prog; }
 
 	// Multi-line summary of the partition, the sort state and GPU/CPU memory use, for the diagnostics display.
 	// Returns an empty string if no splat object is registered, so it costs nothing in a world without any.

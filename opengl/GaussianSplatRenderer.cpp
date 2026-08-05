@@ -351,30 +351,26 @@ GaussianSplatRenderer::~GaussianSplatRenderer()
 
 void GaussianSplatRenderer::buildShadersIfNeeded()
 {
-	if(shader_prog.nonNull())
+	if(shader_prog)
 		return;
 
 	const std::string shader_dir           = opengl_engine->getShadersDir();
 	const std::string version_directive    = opengl_engine->getVersionDirective();
 	const std::string preprocessor_defines = opengl_engine->getPreprocessorDefines();
 
-	// wait_for_build_to_complete is false because we need to bind our custom attribute location and relink before the
-	// program is finished - see below.
-	shader_prog = new OpenGLProgram(
-		"gaussian splat prog",
-		new OpenGLShader(shader_dir + "/gaussian_splat_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
-		new OpenGLShader(shader_dir + "/gaussian_splat_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
-		opengl_engine->getAndIncrNextProgramIndex(),
-		/*wait_for_build_to_complete=*/false
-	);
+	{
+		OpenGLProgramExtraArgs extra_args;
+		extra_args.input_vert_attribute_bindings.push_back(OpenGLProgramExtraArgs::AttributeBinding({"splat_index_in", splat_index_attribute_loc}));
 
-	// OpenGLProgram's constructor links the program once, binding the engine's standard attribute names.  Our
-	// "splat_index_in" attribute isn't one of those, so at this point it's at whatever location the driver picked.
-	// Force it to a known location and relink, so rebuildVAO() can build the instance attribute at a location we know.
-	shader_prog->bindAttributeLocation(splat_index_attribute_loc, "splat_index_in");
-	glLinkProgram(shader_prog->program);
-	shader_prog->forceFinishLinkAndDoPostLinkCode(); // Throws glare::Exception if the relink failed.
-
+		shader_prog = new OpenGLProgram(
+			"gaussian splat prog",
+			new OpenGLShader(shader_dir + "/gaussian_splat_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(shader_dir + "/gaussian_splat_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			opengl_engine->getAndIncrNextProgramIndex(),
+			/*wait_for_build_to_complete=*/false,
+			extra_args
+		);
+	}
 	opengl_engine->addProgram(shader_prog);
 
 	shader_prog->appendUserUniformInfo(UserUniformInfo::UniformType_Vec2, "viewport_dims_px");
@@ -384,17 +380,15 @@ void GaussianSplatRenderer::buildShadersIfNeeded()
 
 	// Splats blend into an accumulation buffer of their own rather than straight onto the main colour buffer, so that
 	// the blend happens in the display-referred space 3DGS fits them in; this program does the full-viewport pass that
-	// resolves that buffer and composites it.  See OpenGLEngine::drawSplatClouds().  It has no custom attributes, so
-	// unlike shader_prog above it can just be built to completion in one go.
+	// resolves that buffer and composites it.  See OpenGLEngine::drawSplatClouds().
 	resolve_prog = new OpenGLProgram(
 		"gaussian splat resolve prog",
 		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
 		new OpenGLShader(shader_dir + "/gaussian_splat_resolve_frag_shader.glsl", version_directive, preprocessor_defines + opengl_engine->frag_utils_glsl, GL_FRAGMENT_SHADER),
 		opengl_engine->getAndIncrNextProgramIndex(),
-		/*wait_for_build_to_complete=*/true
+		/*wait_for_build_to_complete=*/false
 	);
 	opengl_engine->addProgram(resolve_prog);
-	assert(resolve_prog->albedo_texture_loc >= 0);
 }
 
 

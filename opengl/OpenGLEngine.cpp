@@ -9354,6 +9354,10 @@ void OpenGLEngine::drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& 
 	if(current_scene->splat_cloud_objects.empty())
 		return;
 
+	// Return if splat programs have not finished building yet.
+	if(splat_renderer->getShaderProgram().isNull() || !splat_renderer->getShaderProgram()->isBuilt() || !splat_renderer->getResolveProgram()->isBuilt())
+		return;
+
 	ZoneScopedN("Draw splat clouds"); // Tracy profiler
 	assertCurrentProgramIsZero();
 
@@ -9369,8 +9373,7 @@ void OpenGLEngine::drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& 
 				AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
 			{
 				assert(ob->batch_draw_info.size() == 1);
-				if(BitUtils::isBitSet(ob->batch_draw_info[0].program_index_and_flags, PROGRAM_FINISHED_BUILDING_BITFLAG))
-					visible_splat_clouds.push_back(ob);
+				visible_splat_clouds.push_back(ob);
 			}
 		}
 	}

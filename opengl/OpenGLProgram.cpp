@@ -40,7 +40,8 @@ UniformLocations::UniformLocations()
 {}
 
 
-OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_, uint32 program_index_, bool wait_for_build_to_complete)
+OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<OpenGLShader>& vert_shader_, const Reference<OpenGLShader>& frag_shader_, uint32 program_index_, bool wait_for_build_to_complete,
+	const OpenGLProgramExtraArgs& extra_args)
 :	program(0),
 	prog_name(prog_name_),
 	model_matrix_loc(-1),
@@ -94,6 +95,9 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	glBindAttribLocation(program, 10, "weight");
 	glBindAttribLocation(program, 11, "tangent_in");
 	glBindAttribLocation(program, 12, "combined_mat_index_in");
+
+	for(size_t i=0; i<extra_args.input_vert_attribute_bindings.size(); ++i)
+		glBindAttribLocation(program, extra_args.input_vert_attribute_bindings[i].index, extra_args.input_vert_attribute_bindings[i].name.c_str());
 
 	glLinkProgram(program);
 
@@ -168,6 +172,10 @@ void OpenGLProgram::forceFinishLinkAndDoPostLinkCode()
 	campos_os_loc      = glGetUniformLocation(program, "campos_os");
 	ob_random_num_loc  = glGetUniformLocation(program, "ob_random_num");
 
+	// Get locations of user uniforms
+	for(size_t i=0; i<user_uniform_info.size(); ++i)
+		user_uniform_info[i].loc = glGetUniformLocation(program, user_uniform_info[i].name.c_str());
+
 	built_successfully = true;
 }
 
@@ -236,10 +244,14 @@ int OpenGLProgram::getAttributeLocation(const std::string& name)
 void OpenGLProgram::appendUserUniformInfo(UserUniformInfo::UniformType uniform_type, const std::string& name)
 {
 	const int index = (int)user_uniform_info.size();
+
+	const int uniform_location = built_successfully ? getUniformLocation(name) : -1;
 	
 	user_uniform_info.push_back(UserUniformInfo(
-		getUniformLocation(name), // location
+		uniform_location, // location
 		index, // index in user_uniform_info
 		uniform_type
 	));
+	if(!built_successfully)
+		user_uniform_info.back().name = name;
 }
