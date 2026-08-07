@@ -13126,7 +13126,7 @@ void OpenGLEngine::toggleShowTexDebug(int index)
 bool OpenGLEngine::shouldUseSharedTextures() const
 {
 	// Shared textures seem to crash using Intel drivers.
-	return GL_EXT_memory_object_win32_support && GL_EXT_memory_object_win32_support && !openglDriverVendorIsIntel();
+	return GL_EXT_memory_object_support && GL_EXT_memory_object_win32_support && !openglDriverVendorIsIntel();
 }
 
 
