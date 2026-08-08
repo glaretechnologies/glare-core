@@ -110,6 +110,7 @@ void RenderStatsWidget::updateWidgetPositions()
 
 		auto it = frame_times.beginIt();
 		double sum_frame_time = 0;
+		float max_frame_time = 0;
 		int num_frame_times = 0;
 		for(size_t i=0; i<bars.size(); ++i)
 		{
@@ -118,6 +119,7 @@ void RenderStatsWidget::updateWidgetPositions()
 			{
 				frame_time = *it;
 				sum_frame_time += frame_time;
+				max_frame_time = myMax(max_frame_time, frame_time);
 				num_frame_times++;
 				++it;
 			}
@@ -151,10 +153,10 @@ void RenderStatsWidget::updateWidgetPositions()
 
 		if(frame_num % 100 == 0) // label_update_timer.elapsed() > 1.0)
 		{
-			stats_label->setText("av time: " + doubleToStringNDecimalPlaces(average_frame_time * 1.0e3, 2) + " ms");
+			stats_label->setText("av time: " + doubleToStringNDecimalPlaces(average_frame_time * 1.0e3, 2) + " ms\nmax time: " + doubleToStringNDecimalPlaces(max_frame_time * 1.0e3, 2) + " ms");
 			//label_update_timer.reset();
 		}
-		stats_label->setPos(Vec2f(graph_left_x + graph_h/2 - stats_label->getRect().getWidths().x/2, min_max_y - margin - graph_h - gl_ui->getUIWidthForDevIndepPixelWidth(20)));
+		stats_label->setPos(Vec2f(graph_left_x + graph_h/2 - stats_label->getRect().getWidths().x/2, min_max_y - margin - graph_h - gl_ui->getUIWidthForDevIndepPixelWidth(20) * 2));
 	}
 }
 
