@@ -35,16 +35,22 @@ OpenGLMemoryObject::~OpenGLMemoryObject()
 void OpenGLMemoryObject::importD3D11ImageFromHandle(void* shared_handle)
 {
 #ifdef _WIN32
-	glImportMemoryWin32HandleEXT(mem_obj, /*size (ignored)=*/0, GL_HANDLE_TYPE_D3D11_IMAGE_EXT, shared_handle);
+	// NOTE: KMT, not GL_HANDLE_TYPE_D3D11_IMAGE_EXT: Direct3DUtils::getSharedHandleForTexture() returns a legacy shared handle.  See the comment in
+	// Direct3DUtils::copyTextureToNewShareableTexture() for why we don't share with NT handles.
+	glImportMemoryWin32HandleEXT(mem_obj, /*size (ignored)=*/0, GL_HANDLE_TYPE_D3D11_IMAGE_KMT_EXT, shared_handle);
 #endif
 }
 
 
+// NOTE: this only works on a memory object imported from a resource created with a keyed mutex, and only where the driver exposes
+// GL_EXT_win32_keyed_mutex, which AMD's don't.  The entry points are null when the extension is absent, so check before calling.
+// Textures shared by Direct3DUtils don't use a keyed mutex, so this shouldn't be used on those.
 OpenGLMemoryObjectLock::OpenGLMemoryObjectLock(Reference<OpenGLMemoryObject> mem_ob_)
 :	mem_ob(mem_ob_)
 {
 #ifdef _WIN32
-	glAcquireKeyedMutexWin32EXT(/*memory=*/mem_ob->mem_obj, /*key=*/0, /*timeout=*/INFINITE);
+	if(glAcquireKeyedMutexWin32EXT)
+		glAcquireKeyedMutexWin32EXT(/*memory=*/mem_ob->mem_obj, /*key=*/0, /*timeout=*/INFINITE);
 #endif
 }
 
@@ -52,6 +58,7 @@ OpenGLMemoryObjectLock::OpenGLMemoryObjectLock(Reference<OpenGLMemoryObject> mem
 OpenGLMemoryObjectLock::~OpenGLMemoryObjectLock()
 {
 #ifdef _WIN32
-	glReleaseKeyedMutexWin32EXT(mem_ob->mem_obj, 0);
+	if(glReleaseKeyedMutexWin32EXT)
+		glReleaseKeyedMutexWin32EXT(mem_ob->mem_obj, 0);
 #endif
 }

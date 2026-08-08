@@ -49,7 +49,11 @@ struct FormatInfo
 	//uint32		internal_width; // in pixels
 	uint32			stride_B;
 
-	FormatInfo() : im_width(0), im_height(0), /*internal_width(0), */top_down(0), stride_B(0)
+	// How the YUV in the decoded frames should be converted to RGB.  Frames are decoded to NV12, so whoever displays them does the conversion.
+	bool			bt_709;     // Use the BT.709 YUV matrix (HD) rather than BT.601 (SD).
+	bool			full_range; // Luma uses the full 0-255 range rather than the usual 16-235.
+
+	FormatInfo() : im_width(0), im_height(0), /*internal_width(0), */top_down(0), stride_B(0), bt_709(true), full_range(false)
 	{
 		SetRectEmpty(&rcPicture);
 	}
@@ -121,7 +125,8 @@ public:
 	static void shutdownWMF();
 
 	// COM and WMF should be initialised before a WMFVideoReader is constructed.
-	WMFVideoReader(bool read_from_video_device, bool just_read_audio, const std::string& URL, bool async_mode, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws Indigo::Exception
+	// NOTE: decoder setup holds the device lock (see MFScopedDeviceLock) for hundreds of ms, so other users of the same device should not block on it.
+	WMFVideoReader(bool read_from_video_device, bool just_read_audio, const std::string& URL, bool async_mode, IMFDXGIDeviceManager* dx_device_manager, bool decode_to_d3d_tex); // Throws glare::Exception
 	~WMFVideoReader();
 
 	// Must be in async mode to call this.

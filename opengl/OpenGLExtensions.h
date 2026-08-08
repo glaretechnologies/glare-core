@@ -25,7 +25,8 @@ extern PFNGLACQUIREKEYEDMUTEXWIN32EXTPROC glAcquireKeyedMutexWin32EXT;
 extern PFNGLRELEASEKEYEDMUTEXWIN32EXTPROC glReleaseKeyedMutexWin32EXT;
 extern PFNGLTEXTURESTORAGEMEM2DEXTPROC glTextureStorageMem2DEXT;
 
-#define GL_HANDLE_TYPE_D3D11_IMAGE_EXT    0x958B
+#define GL_HANDLE_TYPE_D3D11_IMAGE_EXT     0x958B // An NT handle, from IDXGIResource1::CreateSharedHandle().
+#define GL_HANDLE_TYPE_D3D11_IMAGE_KMT_EXT 0x958C // A legacy handle, from IDXGIResource::GetSharedHandle().
 #endif
 
 

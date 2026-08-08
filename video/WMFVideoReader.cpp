@@ -222,6 +222,20 @@ static FormatInfo GetVideoFormat(IMFSourceReader* pReader)
 	format.im_height = height;
 	//format.internal_width = width;
 
+	// Work out how the YUV in the frames should be converted to RGB.  Media Foundation fills these in from the stream's colour information when it
+	// has any; when it doesn't, fall back on the usual convention of BT.709 for HD and BT.601 for anything smaller.
+	const UINT32 transfer_matrix = MFGetAttributeUINT32(pType.ptr, MF_MT_YUV_MATRIX, (UINT32)MFVideoTransferMatrix_Unknown);
+	if(transfer_matrix == MFVideoTransferMatrix_BT709)
+		format.bt_709 = true;
+	else if((transfer_matrix == MFVideoTransferMatrix_BT601) || (transfer_matrix == MFVideoTransferMatrix_SMPTE240M))
+		format.bt_709 = false;
+	else
+		format.bt_709 = height > 576;
+
+	// Video is nearly always 16-235; 0-255 has to be said explicitly.
+	const UINT32 nominal_range = MFGetAttributeUINT32(pType.ptr, MF_MT_VIDEO_NOMINAL_RANGE, (UINT32)MFNominalRange_Unknown);
+	format.full_range = nominal_range == MFNominalRange_0_255;
+
 	return format;
 }
 
@@ -235,6 +249,8 @@ static inline void throwOnError(HRESULT hres)
 
 static void configureVideoDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex, FormatInfo& format_out)
 {
+	ZoneScoped; // Tracy profiler
+
 	// Find the native format of the stream.
 	ComObHandle<IMFMediaType> pNativeType;
 	HRESULT hr = pReader->GetNativeMediaType(dwStreamIndex, 0, &pNativeType.ptr);
@@ -266,7 +282,11 @@ static void configureVideoDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex,
 	// Select a subtype.
 	if(majorType == MFMediaType_Video)
 	{
-		subtype = MFVideoFormat_RGB32; // MFVideoFormat_RGB24 doesn't seem to work.
+		// NV12 is what the hardware decoder produces natively, and it's 1.5 bytes per pixel rather than the 4 of MFVideoFormat_RGB32.  Asking for
+		// RGB32 makes Media Foundation insert a video processor to convert every frame, and makes each output surface 2.7x larger.  Allocating those
+		// surfaces at playback start is what stalls rendering, and the cost scales with their total size.
+		// The consumer has to do the YUV to RGB conversion itself now.
+		subtype = MFVideoFormat_NV12;
 	}
 	else
 	{
@@ -283,10 +303,13 @@ static void configureVideoDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex,
 	if(FAILED(hr))
 		throw glare::Exception("SetGUID failed: " + PlatformUtils::COMErrorString(hr));
 	
-	// Set the uncompressed format.
-	hr = pReader->SetCurrentMediaType(dwStreamIndex, NULL, pType.ptr);
-	if(FAILED(hr))
-		throw glare::Exception("SetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
+	// Set the uncompressed format.  NOTE: this call builds the decoder topology (loads the hardware decoder MFT and video processor), can be slow.
+	{
+		ZoneScopedN("SetCurrentMediaType"); // Tracy profiler
+		hr = pReader->SetCurrentMediaType(dwStreamIndex, NULL, pType.ptr);
+		if(FAILED(hr))
+			throw glare::Exception("SetCurrentMediaType failed: " + PlatformUtils::COMErrorString(hr));
+	}
 
 	format_out = GetVideoFormat(pReader);
 }
@@ -295,6 +318,8 @@ static void configureVideoDecoder(IMFSourceReader* pReader, DWORD dwStreamIndex,
 // Adapted from https://github.com/microsoft/Windows-classic-samples/blob/master/Samples/Win7Samples/multimedia/mediafoundation/AudioClip/main.cpp
 static void configureAudioStream(IMFSourceReader *pReader, DWORD dwStreamIndex, FormatInfo& format_out)
 {
+	ZoneScoped; // Tracy profiler
+
 	// Create a partial media type that specifies uncompressed PCM audio.
 	ComObHandle<IMFMediaType> partial_type;
 	HRESULT hr = MFCreateMediaType(&partial_type.ptr);
@@ -384,6 +409,8 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 	decode_to_d3d_tex(decode_to_d3d_tex_),
 	frame_info_allocator(new glare::PoolAllocator(/*ob alloc size=*/sizeof(WMFSampleInfo), /*alignment=*/16, /*block capacity=*/16))
 {
+	ZoneScoped; // Tracy profiler
+
 	HRESULT hr;
 
 	//Timer timer;
@@ -463,9 +490,12 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 
 		// Create the source reader.
 		//Timer timer2;
-		hr = MFCreateSourceReaderFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), pAttributes.ptr, &this->reader.ptr);
-		if(!SUCCEEDED(hr))
-			throw glare::Exception("MFCreateSourceReaderFromURL failed for URL '" + URL + "': " + PlatformUtils::COMErrorString(hr));
+		{
+			ZoneScopedN("MFCreateSourceReaderFromURL"); // Tracy profiler
+			hr = MFCreateSourceReaderFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), pAttributes.ptr, &this->reader.ptr);
+			if(!SUCCEEDED(hr))
+				throw glare::Exception("MFCreateSourceReaderFromURL failed for URL '" + URL + "': " + PlatformUtils::COMErrorString(hr));
+		}
 		//conPrint("MFCreateSourceReaderFromURL took " + timer2.elapsedString());
 	}
 
@@ -545,6 +575,8 @@ WMFVideoReader::WMFVideoReader(bool read_from_video_device_, bool just_read_audi
 
 WMFVideoReader::~WMFVideoReader()
 {
+	ZoneScoped; // Tracy profiler
+
 	//Timer timer;
 
 	// Flush all remaining sample reads in progress.  "The Flush method discards all queued samples and cancels all pending sample requests." - 
@@ -603,7 +635,7 @@ void WMFVideoReader::startReadingNextSample()
 	{
 		num_pending_reads++;
 
-		// We are using asyncrhonous mode, so set all out parameters to NULL: https://docs.microsoft.com/en-us/windows/win32/api/mfreadwrite/nf-mfreadwrite-imfsourcereader-readsample
+		// We are using asynchronous mode, so set all out parameters to NULL: https://docs.microsoft.com/en-us/windows/win32/api/mfreadwrite/nf-mfreadwrite-imfsourcereader-readsample
 		HRESULT hr = reader->ReadSample(
 			(DWORD)MF_SOURCE_READER_ANY_STREAM, // "Get the next available sample, regardless of which stream."
 			0,    // dwControlFlags
@@ -923,6 +955,12 @@ void WMFVideoReader::OnReadSample(
 					hr = dx_buffer->GetResource(__uuidof(ID3D11Texture2D), (void**)(&d3d_tex.ptr)); // Receives a pointer to the interface. The caller must release the interface.
 					throwOnError(hr);
 
+					// When decoding to NV12 the resource above is the decoder's whole picture buffer array, and this is the slice holding our frame.
+					// (When Media Foundation inserts a video processor, e.g. for RGB32 output, the resource is a single texture and this is 0.)
+					UINT subresource_index = 0;
+					hr = dx_buffer->GetSubresourceIndex(&subresource_index);
+					throwOnError(hr);
+
 					// Direct3DUtils::saveTextureToBmp(std::string("frame " + toString(frame++) + ".bmp").c_str(), d3d_tex.ptr);
 
 					//=======================================
@@ -950,22 +988,34 @@ void WMFVideoReader::OnReadSample(
 								D3D11_TEXTURE2D_DESC desc;
 								d3d_tex->GetDesc(&desc);
 
+								// We only want the one slice holding this frame, not the whole picture buffer array, so this is a single-slice texture
+								// regardless of how deep the decoder's array is.
 								D3D11_TEXTURE2D_DESC desc2;
 								desc2.Width = desc.Width;
 								desc2.Height = desc.Height;
-								desc2.MipLevels = desc.MipLevels;
-								desc2.ArraySize = desc.ArraySize;
+								desc2.MipLevels = 1;
+								desc2.ArraySize = 1;
 								desc2.Format = desc.Format;
 								desc2.SampleDesc = desc.SampleDesc;
 								desc2.Usage = D3D11_USAGE_DEFAULT;
-								desc2.BindFlags = 0;
+								// The only thing that reads these textures is the video processor that converts them to RGB, and D3D11_BIND_DECODER is
+								// what CreateVideoProcessorInputView asks for.  (Video formats such as NV12 can't be created with no bind flags at all.)
+								desc2.BindFlags = D3D11_BIND_DECODER;
 								desc2.CPUAccessFlags = 0;
 								desc2.MiscFlags = 0;
 
 								ComObHandle<ID3D11Texture2D> texture_copy;
 								hr = d3d_device->CreateTexture2D(&desc2, nullptr, &texture_copy.ptr);
 								if(FAILED(hr))
-									throw glare::Exception("Failed to create texture copy");
+								{
+									// Some drivers won't make an NV12 texture with D3D11_BIND_DECODER even though they will take one as video processor
+									// input, so fall back to a plain shader-resource texture rather than giving up on the video.
+									desc2.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+									hr = d3d_device->CreateTexture2D(&desc2, nullptr, &texture_copy.ptr);
+								}
+								if(FAILED(hr))
+									throw glare::Exception("Failed to create texture copy (" + toString(desc2.Width) + "x" + toString(desc2.Height) +
+										", format " + toString((int)desc2.Format) + "): " + PlatformUtils::COMErrorString(hr));
 
 								// conPrint("Texture copy: " + toHexString((uint64)texture_copy.ptr) + "...");
 
@@ -985,7 +1035,9 @@ void WMFVideoReader::OnReadSample(
 							}
 						} // End texture pool mutex scope.
 
-						d3d_context->CopyResource(use_tex.ptr, d3d_tex.ptr); // Copy the texture
+						// Copy just our slice of the decoder's picture buffer array into our single-slice texture.
+						d3d_context->CopySubresourceRegion(/*dest=*/use_tex.ptr, /*dest subresource=*/0, /*dest x=*/0, /*dest y=*/0, /*dest z=*/0,
+							/*source=*/d3d_tex.ptr, /*source subresource=*/subresource_index, /*source box=*/nullptr);
 				
 						frame_info->d3d_tex = use_tex;
 					}

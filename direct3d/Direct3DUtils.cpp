@@ -56,6 +56,8 @@ void Direct3DUtils::createGPUDeviceAndMFDeviceManager(ComObHandle<ID3D11Device>&
 
 			if(desc.VendorId == 0x10de || desc.VendorId == 0x1002) // if vendor is Nvidia or AMD:
 				recommended_adapter = adapter;
+
+			adapter = ComObHandle<IDXGIAdapter1>(); // Make sure to close our adapter handle before we overrite it with EnumAdapters1.
 			index++;
 		}
 	}
@@ -283,22 +285,31 @@ ComObHandle<ID3D11Texture2D> Direct3DUtils::copyTextureToNewShareableTexture(con
 	your_desc.Usage = D3D11_USAGE_DEFAULT /*D3D11_USAGE_STAGING*/;  // TEMP D3D11_USAGE_STAGING for map
 	your_desc.CPUAccessFlags = 0; // D3D11_CPU_ACCESS_READ; // TEMP
 	your_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;// | D3D11_BIND_RENDER_TARGET;
-	your_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_NTHANDLE | D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
+
+	// Share with a legacy (KMT) handle rather than an NT handle.  D3D11_RESOURCE_MISC_SHARED_NTHANDLE has to be combined with
+	// D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX, and we can't use a keyed mutex: the only other user of this texture is OpenGL, and AMD's drivers don't
+	// expose GL_EXT_win32_keyed_mutex, so GL can't take it.  A keyed-mutex resource that only one side ever locks gives no synchronisation while
+	// still being treated as shared-and-synchronised by the driver.  Ordering between the copy below and GL sampling the texture wants a shared
+	// fence (ID3D11Fence imported into GL as a semaphore) instead.
+	your_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
 
 	ComObHandle<ID3D11Texture2D> texture_copy;
-	HRESULT hr = d3d_device->CreateTexture2D(&your_desc, nullptr, &texture_copy.ptr);
-	if(!(SUCCEEDED(hr) && texture_copy))
-		throw glare::Exception("Failed to copy texture: " + PlatformUtils::COMErrorString(hr));
+	{
+		ZoneScopedN("CreateTexture2D"); // Tracy profiler
+		HRESULT hr = d3d_device->CreateTexture2D(&your_desc, nullptr, &texture_copy.ptr);
+		if(!(SUCCEEDED(hr) && texture_copy))
+			throw glare::Exception("Failed to copy texture: " + PlatformUtils::COMErrorString(hr));
+	}
 
-	ComObHandle<IDXGIKeyedMutex> texture_copy_mutex = texture_copy.getInterface<IDXGIKeyedMutex>();
-	hr = texture_copy_mutex->AcquireSync(0, INFINITE);
-	if(hr != S_OK)
-		throw glare::Exception("Failed to AcquireSync on texture_copy_mutex: " + PlatformUtils::COMErrorString(hr));
+	{
+		ZoneScopedN("CopyResource"); // Tracy profiler
+		d3d_context->CopyResource(/*dest=*/texture_copy.ptr, /*source=*/src_tex.ptr); // Copy the texture
 
-	d3d_context->CopyResource(/*dest=*/texture_copy.ptr, /*source=*/src_tex.ptr); // Copy the texture
-	//d3d_context->Flush();
-
-	texture_copy_mutex->ReleaseSync(0);
+		// The flush is required, not an optimisation: a shared surface only shows the results of commands that have been submitted, and without a
+		// keyed mutex (whose ReleaseSync submitted them for us) nothing else here does that.  A consumer that draws rarely - a browser page that
+		// paints once - otherwise samples a texture that was never written, and sees black.
+		d3d_context->Flush();
+	}
 
 	return texture_copy;
 }
@@ -309,40 +320,249 @@ void Direct3DUtils::copyTextureToExistingShareableTexture(const ComObHandle<ID3D
 	ComObHandle<ID3D11DeviceContext> d3d_context;
 	d3d_device->GetImmediateContext(&d3d_context.ptr);
 
-	ComObHandle<IDXGIKeyedMutex> texture_copy_mutex = dest_tex.getInterface<IDXGIKeyedMutex>();
-	HRESULT res = texture_copy_mutex->AcquireSync(0, INFINITE);
-	if(res != S_OK)
-		throw glare::Exception("Failed to AcquireSync on texture_copy_mutex: " + PlatformUtils::COMErrorString(res));
+	// NOTE: no keyed mutex is taken here, see the comment in copyTextureToNewShareableTexture().
+	{
+		ZoneScopedN("CopyResource"); // Tracy profiler
+		d3d_context->CopyResource(/*dest=*/dest_tex.ptr, /*source=*/src_tex.ptr); // Copy the texture
 
-	d3d_context->CopyResource(/*dest=*/dest_tex.ptr, /*source=*/src_tex.ptr); // Copy the texture
-	//d3d_context->Flush();
-
-	texture_copy_mutex->ReleaseSync(0);
+		// Required so the other side of the shared texture sees the copy, see the comment in copyTextureToNewShareableTexture().
+		d3d_context->Flush();
+	}
 }
 
 
 HANDLE Direct3DUtils::getSharedHandleForTexture(ComObHandle<ID3D11Texture2D>& tex)
 {
+	ZoneScoped; // Tracy profiler
+
 #ifndef NDEBUG
 	D3D11_TEXTURE2D_DESC desc;
 	tex->GetDesc(&desc);
 
-	assert((desc.MiscFlags & D3D11_RESOURCE_MISC_SHARED_NTHANDLE) != 0);
-	assert((desc.MiscFlags & D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX) != 0);
+	assert((desc.MiscFlags & D3D11_RESOURCE_MISC_SHARED) != 0);
 #endif
 
-	ComObHandle<IDXGIResource1> dxgi_resource = tex.getInterface<IDXGIResource1>();
+	ComObHandle<IDXGIResource> dxgi_resource = tex.getInterface<IDXGIResource>();
 
+	// NOTE: this is a legacy (KMT) handle, not an NT handle.  It is owned by the resource, so it must not be closed, and it is only valid in this
+	// process.  Import it into OpenGL with GL_HANDLE_TYPE_D3D11_IMAGE_KMT_EXT.
 	HANDLE shared_handle = nullptr;
-	HRESULT hr = dxgi_resource->CreateSharedHandle(/*security attributes=*/nullptr,
-		DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE, // access
-		nullptr, // name
-		&shared_handle
-	);
+	HRESULT hr = dxgi_resource->GetSharedHandle(&shared_handle);
 	if(!(SUCCEEDED(hr) && shared_handle))
 		throw glare::Exception("Failed to get shared handle from texture: " + PlatformUtils::COMErrorString(hr));
 
 	return shared_handle;
+}
+
+
+D3DVideoProcessor::D3DVideoProcessor(ComObHandle<ID3D11Device> device, uint32 input_width_, uint32 input_height_, uint32 output_width_, uint32 output_height_,
+	bool bt_709, bool full_range_input)
+:	d3d_device(device),
+	input_width(input_width_), input_height(input_height_),
+	output_width(output_width_), output_height(output_height_)
+{
+	ZoneScoped; // Tracy profiler
+
+	if(!d3d_device.queryInterface(video_device))
+		throw glare::Exception("Failed to get ID3D11VideoDevice interface.  (Was the device created with D3D11_CREATE_DEVICE_VIDEO_SUPPORT?)");
+
+	ComObHandle<ID3D11DeviceContext> d3d_context;
+	d3d_device->GetImmediateContext(&d3d_context.ptr);
+	if(!d3d_context.queryInterface(video_context))
+		throw glare::Exception("Failed to get ID3D11VideoContext interface.");
+
+	D3D11_VIDEO_PROCESSOR_CONTENT_DESC content_desc = {};
+	content_desc.InputFrameFormat = D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE;
+	content_desc.InputWidth   = input_width;
+	content_desc.InputHeight  = input_height;
+	content_desc.OutputWidth  = output_width;
+	content_desc.OutputHeight = output_height;
+	// The frame rates just tell the driver how much time it has per frame, they don't pace anything: we do one blt per frame we present.
+	content_desc.InputFrameRate.Numerator   = 60;  content_desc.InputFrameRate.Denominator   = 1;
+	content_desc.OutputFrameRate.Numerator  = 60;  content_desc.OutputFrameRate.Denominator  = 1;
+	content_desc.Usage = D3D11_VIDEO_USAGE_PLAYBACK_NORMAL;
+
+	HRESULT hr = video_device->CreateVideoProcessorEnumerator(&content_desc, &processor_enumerator.ptr);
+	if(FAILED(hr))
+		throw glare::Exception("CreateVideoProcessorEnumerator failed: " + PlatformUtils::COMErrorString(hr));
+
+	// Check the hardware can write the format we want out of it, so a driver that can't says so here rather than at the first blt.
+	UINT format_support = 0;
+	hr = processor_enumerator->CheckVideoProcessorFormat(DXGI_FORMAT_B8G8R8A8_UNORM, &format_support);
+	if(FAILED(hr) || ((format_support & D3D11_VIDEO_PROCESSOR_FORMAT_SUPPORT_OUTPUT) == 0))
+		throw glare::Exception("The video processor can't output DXGI_FORMAT_B8G8R8A8_UNORM.");
+
+	hr = video_device->CreateVideoProcessor(processor_enumerator.ptr, /*RateConversionIndex=*/0, &processor.ptr);
+	if(FAILED(hr))
+		throw glare::Exception("CreateVideoProcessor failed: " + PlatformUtils::COMErrorString(hr));
+
+	// All of the state below is per-processor, not per-blt, so set it once here.
+
+	// Turn off any denoising, sharpening, or frame-rate conversion the driver would otherwise apply by default.  We want the frame the decoder
+	// produced, just in a different format, and those filters cost time and change the image.
+	video_context->VideoProcessorSetStreamAutoProcessingMode(processor.ptr, /*stream index=*/0, /*Enable=*/FALSE);
+	video_context->VideoProcessorSetStreamFrameFormat(processor.ptr, /*stream index=*/0, D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE);
+	video_context->VideoProcessorSetStreamOutputRate(processor.ptr, /*stream index=*/0, D3D11_VIDEO_PROCESSOR_OUTPUT_RATE_NORMAL, /*RepeatFrame=*/FALSE, /*pCustomRate=*/nullptr);
+
+	// Take the top-left output_width * output_height of the input and put it in the same-sized region of the output: source and destination are the
+	// same size, so this is a straight conversion with no scaling, and the coded padding h264 adds is left behind.
+	const RECT src_rect  = { 0, 0, (LONG)output_width, (LONG)output_height };
+	const RECT dest_rect = { 0, 0, (LONG)output_width, (LONG)output_height };
+	video_context->VideoProcessorSetStreamSourceRect(processor.ptr, /*stream index=*/0, /*Enable=*/TRUE, &src_rect);
+	video_context->VideoProcessorSetStreamDestRect  (processor.ptr, /*stream index=*/0, /*Enable=*/TRUE, &dest_rect);
+	video_context->VideoProcessorSetOutputTargetRect(processor.ptr, /*Enable=*/FALSE, /*pRect=*/nullptr); // Write the whole target.
+
+	// Tell the processor how to interpret the YUV coming in, and what we want the RGB going out to be.  This is the actual colour conversion, and
+	// getting the matrix or the range wrong shows up as slightly washed out or over-contrasty video rather than as an error.
+	D3D11_VIDEO_PROCESSOR_COLOR_SPACE input_colour_space = {};
+	input_colour_space.Usage        = 0u; // 0 = playback (favour quality), 1 = video processing.
+	input_colour_space.RGB_Range    = 0u; // 0 = full range (0-255).  Applies to the RGB side of the conversion.
+	input_colour_space.YCbCr_Matrix = bt_709 ? 1u : 0u; // 0 = BT.601, 1 = BT.709.
+	input_colour_space.YCbCr_xvYCC  = 0u;
+	input_colour_space.Nominal_Range = full_range_input ? (UINT)D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_0_255 : (UINT)D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_16_235;
+	video_context->VideoProcessorSetStreamColorSpace(processor.ptr, /*stream index=*/0, &input_colour_space);
+
+	D3D11_VIDEO_PROCESSOR_COLOR_SPACE output_colour_space = input_colour_space;
+	output_colour_space.Nominal_Range = (UINT)D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_0_255; // We want full-range RGB out: black at 0, white at 255.
+	video_context->VideoProcessorSetOutputColorSpace(processor.ptr, &output_colour_space);
+}
+
+
+D3DVideoProcessor::~D3DVideoProcessor()
+{
+	// The cached views hold references to their textures, so drop them before the processor and device go.
+	input_views.clear();
+	output_views.clear();
+}
+
+
+ComObHandle<ID3D11Texture2D> D3DVideoProcessor::createOutputTexture()
+{
+	ZoneScoped; // Tracy profiler
+
+	D3D11_TEXTURE2D_DESC desc = {};
+	desc.Width  = output_width;
+	desc.Height = output_height;
+	desc.MipLevels = 1;
+	desc.ArraySize = 1;
+	desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE; // RENDER_TARGET is required to make a video processor output view of it.
+	desc.CPUAccessFlags = 0;
+
+	// Share with a legacy (KMT) handle rather than an NT handle.  D3D11_RESOURCE_MISC_SHARED_NTHANDLE has to be combined with
+	// D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX, and we can't use a keyed mutex: the only other user of this texture is OpenGL, and AMD's drivers don't
+	// expose GL_EXT_win32_keyed_mutex, so GL can't take it.  See the comment in copyTextureToNewShareableTexture().
+	desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+
+	ComObHandle<ID3D11Texture2D> tex;
+	const HRESULT hr = d3d_device->CreateTexture2D(&desc, nullptr, &tex.ptr);
+	if(FAILED(hr) || !tex)
+		throw glare::Exception("Failed to create " + toString(output_width) + "x" + toString(output_height) + " BGRA video output texture: " + PlatformUtils::COMErrorString(hr));
+
+	return tex;
+}
+
+
+ComObHandle<ID3D11VideoProcessorInputView> D3DVideoProcessor::getInputView(ID3D11Texture2D* src_tex)
+{
+	const auto res = input_views.find(src_tex);
+	if(res != input_views.end())
+		return res->second;
+
+	D3D11_VIDEO_PROCESSOR_INPUT_VIEW_DESC desc = {};
+	desc.FourCC = 0; // 0 = use the format the texture was created with.
+	desc.ViewDimension = D3D11_VPIV_DIMENSION_TEXTURE2D;
+	desc.Texture2D.MipSlice = 0;
+	desc.Texture2D.ArraySlice = 0;
+
+	ComObHandle<ID3D11VideoProcessorInputView> view;
+	const HRESULT hr = video_device->CreateVideoProcessorInputView(src_tex, processor_enumerator.ptr, &desc, &view.ptr);
+	if(FAILED(hr))
+	{
+		D3D11_TEXTURE2D_DESC tex_desc;
+		src_tex->GetDesc(&tex_desc);
+		throw glare::Exception("CreateVideoProcessorInputView failed for a " + toString(tex_desc.Width) + "x" + toString(tex_desc.Height) + " texture of DXGI format " +
+			toString((int)tex_desc.Format) + ": " + PlatformUtils::COMErrorString(hr));
+	}
+
+	input_views[src_tex] = view;
+	return view;
+}
+
+
+ComObHandle<ID3D11VideoProcessorOutputView> D3DVideoProcessor::getOutputView(ID3D11Texture2D* dest_tex)
+{
+	const auto res = output_views.find(dest_tex);
+	if(res != output_views.end())
+		return res->second;
+
+	D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC desc = {};
+	desc.ViewDimension = D3D11_VPOV_DIMENSION_TEXTURE2D;
+	desc.Texture2D.MipSlice = 0;
+
+	ComObHandle<ID3D11VideoProcessorOutputView> view;
+	const HRESULT hr = video_device->CreateVideoProcessorOutputView(dest_tex, processor_enumerator.ptr, &desc, &view.ptr);
+	if(FAILED(hr))
+		throw glare::Exception("CreateVideoProcessorOutputView failed: " + PlatformUtils::COMErrorString(hr));
+
+	output_views[dest_tex] = view;
+	return view;
+}
+
+
+void D3DVideoProcessor::convert(const ComObHandle<ID3D11Texture2D>& src_tex, const ComObHandle<ID3D11Texture2D>& dest_tex)
+{
+	ZoneScoped; // Tracy profiler
+
+	const ComObHandle<ID3D11VideoProcessorInputView>  input_view  = getInputView (src_tex.ptr);
+	const ComObHandle<ID3D11VideoProcessorOutputView> output_view = getOutputView(dest_tex.ptr);
+
+	D3D11_VIDEO_PROCESSOR_STREAM stream = {};
+	stream.Enable = TRUE;
+	stream.OutputIndex = 0;
+	stream.InputFrameOrField = 0;
+	stream.PastFrames = 0;   // We hand it one frame at a time: there is no deinterlacing or frame interpolation to reference neighbours for.
+	stream.FutureFrames = 0;
+	stream.pInputSurface = input_view.ptr;
+
+	const HRESULT hr = video_context->VideoProcessorBlt(processor.ptr, output_view.ptr, /*OutputFrame=*/0, /*StreamCount=*/1, &stream);
+	if(FAILED(hr))
+		throw glare::Exception("VideoProcessorBlt failed: " + PlatformUtils::COMErrorString(hr));
+}
+
+
+MFScopedDeviceLock::MFScopedDeviceLock(IMFDXGIDeviceManager* device_manager_)
+:	device_manager(device_manager_), device_handle(nullptr)
+{
+	ZoneScoped; // Tracy profiler
+
+	HANDLE handle = nullptr;
+	if(FAILED(device_manager->OpenDeviceHandle(&handle)))
+		return;
+
+	// fBlock=FALSE: fail with DXVA2_E_VIDEO_DEVICE_LOCKED instead of waiting if Media Foundation is currently using the device.
+	if(FAILED(device_manager->LockDevice(handle, IID_PPV_ARGS(&device.ptr), /*fBlock=*/FALSE)))
+	{
+		device_manager->CloseDeviceHandle(handle);
+		return;
+	}
+
+	device_handle = handle;
+}
+
+
+MFScopedDeviceLock::~MFScopedDeviceLock()
+{
+	if(device_handle)
+	{
+		device.release();
+
+		device_manager->UnlockDevice(device_handle, /*fSaveState=*/FALSE);
+		device_manager->CloseDeviceHandle(device_handle);
+	}
 }
 
 

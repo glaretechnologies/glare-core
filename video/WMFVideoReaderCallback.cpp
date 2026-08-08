@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "WMFVideoReader.h"
 #include "../utils/ConPrint.h"
+#include "../utils/Exception.h"
 
 
 // IUnknown methods
@@ -58,15 +59,24 @@ STDMETHODIMP WMFVideoReaderCallback::OnReadSample(
 {
 	if(video_reader)
 	{
-		video_reader->OnReadSample(
-			hrStatus,
-			dwStreamIndex,
-			dwStreamFlags,
-			llTimestamp,
-			pSample
-		);
+		// This is called on a Media Foundation thread, so an exception must not escape into it.
+		try
+		{
+			video_reader->OnReadSample(
+				hrStatus,
+				dwStreamIndex,
+				dwStreamFlags,
+				llTimestamp,
+				pSample
+			);
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error in WMFVideoReader::OnReadSample(): " + e.what());
+			return E_FAIL;
+		}
 	}
-	
+
 	return S_OK;
 }
 
