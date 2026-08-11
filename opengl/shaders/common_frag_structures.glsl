@@ -27,6 +27,9 @@ layout (std140) uniform MaterialCommonUniforms
 	float padding_a2;
 
 	mat4 frag_shadow_texture_matrix[5];
+
+	vec4 probe_grid_origin; // xyz = world space position of grid probe (0, 0, 0).  w = probe spacing.
+	ivec4 probe_grid_dims;  // xyz = number of probes along each axis.  w = atlas index of grid probe (0, 0, 0).
 };
 
 
@@ -34,6 +37,9 @@ layout (std140) uniform MaterialCommonUniforms
 #define CLOUD_SHADOWS_FLAG					1
 #define DO_SSAO_FLAG						2
 #define DOING_SSAO_PREPASS_FLAG				4
+#define USE_PROBE_IRRADIANCE_FLAG			8 // Read sky irradiance from the probe atlas instead of cosine_env_tex.
+#define USE_PROBE_GRID_FLAG					16 // With the above: use the probe grid rather than just the global sky probe.
+#define USE_PROBE_VISIBILITY_FLAG			32 // With the above: weight probes by the Chebyshev visibility test.
 
 
 // MaterialData flag values

@@ -51,7 +51,9 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLCircularBuffer.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLCircularBuffer.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShaderFileWatcherThread.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShaderFileWatcherThread.h
-${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShadowMapping.cpp 
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/IrradianceProbes.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/IrradianceProbes.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShadowMapping.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShadowMapping.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSBO.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSBO.h
@@ -183,6 +185,12 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_resolve_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_resolve_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/blur_ssao_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/blur_ssao_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/probe_bake_from_cubemap_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/probe_convolve_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/probe_debug_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/probe_debug_frag_shader.glsl
 )
 
 

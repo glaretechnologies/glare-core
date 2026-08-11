@@ -67,6 +67,7 @@ class Query;
 class TimestampQuery;
 class BufferedTimeElapsedQuery;
 class GaussianSplatRenderer;
+class IrradianceProbes;
 namespace glare { class BestFitAllocator; }
 template <class V, class VTraits> class ImageMap;
 
@@ -483,7 +484,7 @@ public:
 
 	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), shadow_mapping_detail(ShadowMappingDetail_medium), compress_textures(false), render_to_offscreen_renderbuffers(true), screenspace_refl_and_refr(true), depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
 		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
-		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false), ssao_support(true), ssao(false) {}
+		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false), ssao_support(true), ssao(false), irradiance_probes_support(false) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -509,6 +510,12 @@ public:
 
 	bool ssao_support; // Should shaders be compiled with SSAO support?
 	bool ssao; // Should SSAO be enabled? Can be toggled at runtime.
+
+	// Should the irradiance probe system be built at all?  Off by default while the system is still in development.
+	// When off, no probe atlas or capture targets are allocated, the probe programs are not built, and the probe
+	// code is compiled out of the material shaders, so the runtime probe flags below have no effect.
+	// Cannot be toggled at runtime, since it changes how the shaders are compiled.
+	bool irradiance_probes_support;
 };
 
 
@@ -933,6 +940,9 @@ struct MaterialCommonUniforms
 	float padding_a2;
 
 	Matrix4f frag_shadow_texture_matrix[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
+
+	Vec4f probe_grid_origin; // xyz = world space position of grid probe (0, 0, 0).  w = probe spacing.
+	int probe_grid_dims[4];  // xyz = number of probes along each axis.  w = atlas index of grid probe (0, 0, 0).
 };
 
 
@@ -1317,6 +1327,34 @@ public:
 	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
 	bool openglDriverVendorIsATI() const; // Works after opengl_vendor is set in initialise().
 	bool show_ssao;
+
+	//---------- Irradiance probe runtime toggles ----------
+	// All of these do nothing unless OpenGLEngineSettings::irradiance_probes_support was set before initialise().
+
+	// Read sky irradiance from the probe atlas rather than from cosine_env_tex.  While the probes hold a resampled
+	// copy of cosine_env_tex the two should be indistinguishable, so this is for A/B comparison.
+	bool use_probe_irradiance;
+
+	// With use_probe_irradiance: sample the probe grid rather than just the global sky probe.  Turning this off
+	// gives spatially uniform sky irradiance, which should match cosine_env_tex.
+	bool use_probe_grid;
+
+	// With use_probe_grid: weight the 8 probes by the Chebyshev visibility test, which is what stops light
+	// leaking through walls.  Off gives plain trilinear interpolation.
+	bool use_probe_visibility;
+
+	// Recapture stale probes as the camera moves.  Off leaves the atlas as it is, for inspecting a capture.
+	bool probe_updates_enabled;
+
+	// Per-frame capture budget.  Each probe is 6 face renders, so this trades convergence speed against frame time.
+	int max_probe_captures_per_frame;
+
+	// Draw a small sphere at each grid probe, shaded by its own irradiance.
+	bool draw_probe_debug_spheres;
+
+	bool irradianceProbesEnabled() const { return irradiance_probes.nonNull(); }
+	//-----------------------------------------------------
+
 	void toggleShowTexDebug(int index);
 
 	bool shouldUseSharedTextures() const; // For sharing D3D11 textures with OpenGL
@@ -1380,6 +1418,26 @@ private:
 	void buildFogPostProcessProg();
 	OpenGLProgramRef buildAuroraProgram();
 	OpenGLProgramRef buildComputeSSAOProg();
+	OpenGLProgramRef buildProbeBakeFromCubeMapProg();
+	OpenGLProgramRef buildProbeCaptureEnvProgram();
+	OpenGLProgramRef buildProbeConvolveProg();
+	void bakeGlobalSkyProbe();
+	void setProbeGridUniforms(MaterialCommonUniforms& common_uniforms);
+	OpenGLProgramRef buildProbeDebugProg();
+	void drawProbeDebugSpheres(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+public:
+	// Render the 6 cube faces around probe_pos into the capture texture.  capture_radius bounds how far out
+	// geometry is gathered.
+	void captureProbe(const Vec4f& probe_pos, float capture_radius = 30.f);
+	void convolveProbeCaptureToTile(int probe_index); // Convolve that capture into a probe tile in the irradiance atlas.
+	void captureProbeGrid(const Vec4f& grid_centre); // Capture and convolve every grid probe.  Blocking; debug only.
+	void updateProbes(); // Recentre the probe window on the camera and recapture a few stale probes.  Once per frame.
+#if !defined(EMSCRIPTEN)
+	void debugDumpFloatFrameBuffer(FrameBuffer& framebuffer, int w, int h, const std::string& path); // Write as EXR plus a normalised PNG.
+	void debugDumpProbeCapture(const std::string& path); // Write the 6 captured cube faces, side by side.
+	void debugDumpProbeAtlas(const std::string& path);   // Write the whole irradiance atlas.
+#endif
+private:
 	OpenGLProgramRef buildBlurSSAOProg();
 	OpenGLProgramRef buildFinalImagingProg();
 public:
@@ -1486,10 +1544,6 @@ private:
 	std::vector<OpenGLProgram*> building_progs;
 
 	Reference<OpenGLProgram> env_prog;
-	int env_diffuse_colour_location;
-	int env_have_texture_location;
-	int env_texture_matrix_location;
-	int env_campos_ws_location;
 
 	ImageMapFloatRef fbm_imagemap;
 	Reference<OpenGLTexture> fbm_tex;
@@ -1503,6 +1557,23 @@ private:
 	Reference<OpenGLTexture> cosine_env_tex;
 	Reference<OpenGLTexture> specular_env_tex;
 	//Reference<OpenGLTexture> snow_ice_normal_map;
+
+	Reference<IrradianceProbes> irradiance_probes;
+	Reference<OpenGLProgram> probe_bake_from_cubemap_prog;
+	Reference<OpenGLProgram> probe_capture_env_prog;
+	Reference<OpenGLProgram> probe_convolve_prog;
+	int probe_convolve_capture_tex_location;
+	int probe_convolve_capture_depth_tex_location;
+	int probe_convolve_tile_origin_location;
+	int probe_convolve_depth_mode_location;
+	int probe_convolve_near_clip_location;
+	int probe_convolve_max_dist_location;
+	Reference<OpenGLProgram> probe_debug_prog;
+	int probe_debug_sphere_pos_radius_location;
+	int probe_debug_probe_index_location;
+	int probe_bake_source_cube_tex_location;
+	int probe_bake_tile_origin_location;
+	bool global_sky_probe_needs_bake; // Set when cosine_env_tex changes; the bake happens at the start of the next draw().
 
 	std::vector<Reference<OpenGLTexture>> water_caustics_textures;
 

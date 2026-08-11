@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "OpenGLShader.h"
 #include "RenderBuffer.h"
 #include "ShadowMapping.h"
+#include "IrradianceProbes.h"
 #include "OpenGLExtensions.h"
 #include "GLMeshBuilding.h"
 #include "MeshPrimitiveBuilding.h"
@@ -28,6 +29,7 @@ Copyright Glare Technologies Limited 2023 -
 //#include "../utils/IncludeHalf.h"
 #ifndef NO_EXR_SUPPORT
 #include "../graphics/EXRDecoder.h"
+#include "../graphics/PNGDecoder.h"
 #endif
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/CompressedImage.h"
@@ -103,6 +105,9 @@ Copyright Glare Technologies Limited 2023 -
 #define CLOUD_SHADOWS_FLAG					1
 #define DO_SSAO_FLAG						2
 #define DOING_SSAO_PREPASS_FLAG				4
+#define USE_PROBE_IRRADIANCE_FLAG			8
+#define USE_PROBE_GRID_FLAG					16
+#define USE_PROBE_VISIBILITY_FLAG			32
 
 
 #define OVERLAY_HAVE_TEXTURE_FLAG			1
@@ -136,6 +141,7 @@ enum TextureUnitIndices
 	STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX,
 
 	COSINE_ENV_TEXTURE_UNIT_INDEX,
+	PROBE_IRRADIANCE_TEXTURE_UNIT_INDEX,
 	SPECULAR_ENV_TEXTURE_UNIT_INDEX,
 	BLUE_NOISE_TEXTURE_UNIT_INDEX,
 	FBM_TEXTURE_UNIT_INDEX,
@@ -500,6 +506,23 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	use_ob_and_mat_data_gpu_resident(false),
 	use_reverse_z(true),
 	use_scatter_shader(false),
+	use_probe_irradiance(true),
+	use_probe_grid(true),
+	use_probe_visibility(true),
+	probe_updates_enabled(true),
+	max_probe_captures_per_frame(2),
+	draw_probe_debug_spheres(false),
+	probe_debug_sphere_pos_radius_location(-1),
+	probe_debug_probe_index_location(-1),
+	probe_bake_source_cube_tex_location(-1),
+	probe_bake_tile_origin_location(-1),
+	probe_convolve_capture_tex_location(-1),
+	probe_convolve_capture_depth_tex_location(-1),
+	probe_convolve_tile_origin_location(-1),
+	probe_convolve_depth_mode_location(-1),
+	probe_convolve_near_clip_location(-1),
+	probe_convolve_max_dist_location(-1),
+	global_sky_probe_needs_bake(false),
 	//object_pool_allocator(sizeof(GLObject), /*alignment=*/16, /*block capacity=*/1024),
 	running_in_renderdoc(false),
 	add_debug_obs(false),
@@ -1413,6 +1436,8 @@ void OpenGLEngine::loadMapsForSunDir()
 
 	current_scene->loaded_maps_for_sun_dir = true;
 
+	global_sky_probe_needs_bake = true; // cosine_env_tex has changed, so the global sky probe is stale.
+
 	conPrint("OpenGLEngine::loadMapsForSunDir took " + timer.elapsedStringNSigFigs(5));
 }
 
@@ -1512,6 +1537,12 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.normal_map_location				= prog->getUniformLocation("normal_map");
 	prog->uniform_locations.combined_array_tex_location		= prog->getUniformLocation("combined_array_tex");
 	prog->uniform_locations.cosine_env_tex_location			= prog->getUniformLocation("cosine_env_tex");
+	prog->uniform_locations.probe_irradiance_tex_location	= prog->getUniformLocation("probe_irradiance_tex");
+
+	prog->uniform_locations.env_diffuse_colour_location		= prog->getUniformLocation("diffuse_colour");
+	prog->uniform_locations.env_have_texture_location		= prog->getUniformLocation("have_texture");
+	prog->uniform_locations.env_texture_matrix_location		= prog->getUniformLocation("texture_matrix");
+	prog->uniform_locations.env_campos_ws_location			= prog->getUniformLocation("env_campos_ws");
 	prog->uniform_locations.specular_env_tex_location		= prog->getUniformLocation("specular_env_tex");
 	prog->uniform_locations.lightmap_tex_location			= prog->getUniformLocation("lightmap_tex");
 	prog->uniform_locations.fbm_tex_location				= prog->getUniformLocation("fbm_tex");
@@ -1759,6 +1790,11 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		// See "Porting Source to Linux: Valve's Lessons Learned": https://developer.nvidia.com/sites/default/files/akamai/gamedev/docs/Porting%20Source%20to%20Linux.pdf
 		glDebugMessageCallback(myMessageCallback, this); 
 		glEnable(GL_DEBUG_OUTPUT);
+
+		// Disable glPushDebugGroup/glPopDebugGroup notifications.
+		glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_PUSH_GROUP, GL_DONT_CARE, 0, NULL, GL_FALSE);
+		glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_POP_GROUP,  GL_DONT_CARE, 0, NULL, GL_FALSE);
+
 		// glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // When this is enabled the offending gl call will be on the call stack when the message callback is called.
 #endif
 	}
@@ -2129,6 +2165,16 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 		preprocessor_defines += "#define SSAO_SUPPORT " + (settings.ssao_support ? std::string("1") : std::string("0")) + "\n";
 
+		preprocessor_defines += "#define IRRADIANCE_PROBES_SUPPORT " + (settings.irradiance_probes_support ? std::string("1") : std::string("0")) + "\n";
+
+		if(settings.irradiance_probes_support)
+		{
+			// Create the probe atlas before the defines are finalised: frag_utils.glsl does tile addressing with
+			// PROBE_* defines, so the atlas layout has to be known at shader build time.
+			this->irradiance_probes = new IrradianceProbes(/*grid dims=*/16, 16, 8, /*grid spacing (m)=*/1.f);
+			this->irradiance_probes->allocateGLResources(this);
+			preprocessor_defines += irradiance_probes->getShaderPreprocessorDefines();
+		}
 
 		if(use_bindless_textures)
 			preprocessor_defines += "#extension GL_ARB_bindless_texture : require\n";
@@ -2725,7 +2771,17 @@ void OpenGLEngine::buildPrograms()
 		compute_ssao_prog = buildComputeSSAOProg();
 		blur_ssao_prog = buildBlurSSAOProg();
 	}
-	
+
+	//------------------------------------------- Build irradiance probe progs -------------------------------------------
+	if(irradianceProbesEnabled())
+	{
+		probe_bake_from_cubemap_prog = buildProbeBakeFromCubeMapProg();
+		probe_capture_env_prog = buildProbeCaptureEnvProgram();
+		probe_convolve_prog = buildProbeConvolveProg();
+		probe_debug_prog = buildProbeDebugProg();
+		global_sky_probe_needs_bake = true;
+	}
+
 
 	if(settings.render_to_offscreen_renderbuffers)
 	{
@@ -2949,11 +3005,6 @@ OpenGLProgramRef OpenGLEngine::buildEnvProgram()
 	getUniformLocations(new_env_prog);
 	setStandardTextureUnitUniformsForProgram(*new_env_prog);
 
-	env_diffuse_colour_location		= new_env_prog->getUniformLocation("diffuse_colour");
-	env_have_texture_location		= new_env_prog->getUniformLocation("have_texture");
-	env_texture_matrix_location		= new_env_prog->getUniformLocation("texture_matrix");
-	env_campos_ws_location			= new_env_prog->getUniformLocation("env_campos_ws");
-
 	bindUniformBlockToProgram(new_env_prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 
 	return new_env_prog;
@@ -3058,6 +3109,27 @@ OpenGLProgramRef OpenGLEngine::buildAuroraProgram()
 
 	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
+
+	return prog;
+}
+
+
+OpenGLProgramRef OpenGLEngine::buildProbeBakeFromCubeMapProg()
+{
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_blur_ssao, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc. for frag_utils_glsl.
+
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"probe_bake_from_cubemap",
+		new OpenGLShader(shaders_dir + "/blur_ssao_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER), // Plain unit-quad-to-clip-space vertex shader.
+		new OpenGLShader(shaders_dir + "/probe_bake_from_cubemap_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	getUniformLocations(prog); // Make sure any unused uniforms have their locations set to -1.
+	addProgram(prog);
+
+	probe_bake_source_cube_tex_location = prog->getUniformLocation("source_cube_tex");
+	probe_bake_tile_origin_location     = prog->getUniformLocation("probe_tile_origin");
 
 	return prog;
 }
@@ -6758,6 +6830,533 @@ inline static void setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1)
 }
 
 
+// The env program used when capturing probes.  RENDER_SUN_AND_SKY is forced off, which strips the sun disc,
+// clouds and aurora from env_frag_shader.glsl, leaving just the sky map lookup.
+// The sun disc drawn for the background is deliberately not radiometric - see the sunscale fudge in
+// env_frag_shader.glsl - and in any case the sun subtends far less than one capture texel, so it has to be
+// excluded here and applied analytically per-fragment instead.
+OpenGLProgramRef OpenGLEngine::buildProbeCaptureEnvProgram()
+{
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_env, ProgramKeyArgs()));
+
+	// RENDER_SUN_AND_SKY is already in preprocessor_defines, so undefine it before redefining.
+	const std::string no_sun_defs = "\n#undef RENDER_SUN_AND_SKY\n#define RENDER_SUN_AND_SKY 0\n";
+
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"probe_capture_env",
+		new OpenGLShader(shaders_dir + "/env_vert_shader.glsl", version_directive, key_defs + preprocessor_defines + no_sun_defs, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/env_frag_shader.glsl", version_directive, key_defs + preprocessor_defines_with_common_frag_structs + no_sun_defs, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	addProgram(prog);
+
+	getUniformLocations(prog);
+	setStandardTextureUnitUniformsForProgram(*prog);
+
+	bindUniformBlockToProgram(prog, "MaterialCommonUniforms", MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+
+	return prog;
+}
+
+
+OpenGLProgramRef OpenGLEngine::buildProbeDebugProg()
+{
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_blur_ssao, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc. for frag_utils_glsl.
+
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"probe_debug",
+		new OpenGLShader(shaders_dir + "/probe_debug_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/probe_debug_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	getUniformLocations(prog);
+	addProgram(prog);
+
+	probe_debug_sphere_pos_radius_location = prog->getUniformLocation("probe_sphere_pos_radius");
+	probe_debug_probe_index_location       = prog->getUniformLocation("probe_index");
+
+	return prog;
+}
+
+
+// Draw a small sphere at each grid probe, shaded by looking that probe up in the direction of the sphere normal.
+// Called from draw() with the main render framebuffer bound, so the spheres get the scene's exposure.
+void OpenGLEngine::drawProbeDebugSpheres(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	DebugGroup debug_group("drawProbeDebugSpheres");
+
+	probe_debug_prog->useProgram();
+	setSharedUniformsForProg(*probe_debug_prog, view_matrix, proj_matrix);
+
+	bindTextureUnitToSampler(*irradiance_probes->irradiance_tex, PROBE_IRRADIANCE_TEXTURE_UNIT_INDEX,
+		probe_debug_prog->uniform_locations.probe_irradiance_tex_location);
+
+	// No face culling: makeSphereMesh() winds its triangles so that the outward-facing surface is the back face
+	// under the default GL_CCW front convention, and for a closed convex sphere with depth testing the near
+	// surface wins anyway, so there is nothing to gain from getting the cull direction right.
+	glDisable(GL_CULL_FACE);
+
+	bindMeshData(*sphere_meshdata);
+
+	const float radius = irradiance_probes->grid_spacing * 0.15f;
+
+	for(int z=0; z<irradiance_probes->grid_dims[2]; ++z)
+	for(int y=0; y<irradiance_probes->grid_dims[1]; ++y)
+	for(int x=0; x<irradiance_probes->grid_dims[0]; ++x)
+	{
+		const Vec4f pos = irradiance_probes->gridProbePos(x, y, z);
+
+		glUniform4f(probe_debug_sphere_pos_radius_location, pos[0], pos[1], pos[2], radius);
+		glUniform1i(probe_debug_probe_index_location, irradiance_probes->gridProbeIndex(x, y, z)); // Toroidal, so not a plain linear index.
+
+		drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)sphere_meshdata->batches[0].num_indices, sphere_meshdata->getIndexType(),
+			(void*)sphere_meshdata->getBatch0IndicesTotalBufferOffset(), sphere_meshdata->vbo_handle.base_vertex);
+	}
+
+	flushDrawCommandsAndUnbindPrograms();
+}
+
+
+// The probe members of MaterialCommonUniforms are present whether or not probes are enabled, so that the block
+// layout does not depend on the setting.  They are just left zeroed when there are no probes.
+void OpenGLEngine::setProbeGridUniforms(MaterialCommonUniforms& common_uniforms)
+{
+	if(irradianceProbesEnabled())
+	{
+		common_uniforms.probe_grid_origin = Vec4f(irradiance_probes->grid_origin[0], irradiance_probes->grid_origin[1], irradiance_probes->grid_origin[2],
+			irradiance_probes->grid_spacing);
+		common_uniforms.probe_grid_dims[0] = irradiance_probes->grid_dims[0];
+		common_uniforms.probe_grid_dims[1] = irradiance_probes->grid_dims[1];
+		common_uniforms.probe_grid_dims[2] = irradiance_probes->grid_dims[2];
+		common_uniforms.probe_grid_dims[3] = IrradianceProbes::FIRST_GRID_PROBE_INDEX;
+	}
+	else
+	{
+		common_uniforms.probe_grid_origin = Vec4f(0.f);
+		common_uniforms.probe_grid_dims[0] = common_uniforms.probe_grid_dims[1] = common_uniforms.probe_grid_dims[2] = common_uniforms.probe_grid_dims[3] = 0;
+	}
+}
+
+
+// Capture and convolve every grid probe in one go.  Blocking, so only for debugging - normal operation goes
+// through updateProbes().
+void OpenGLEngine::captureProbeGrid(const Vec4f& grid_centre)
+{
+	runtimeCheck(irradianceProbesEnabled());
+
+	DebugGroup debug_group("captureProbeGrid");
+
+	Timer timer;
+
+	irradiance_probes->setGridCentre(grid_centre);
+	irradiance_probes->markAllProbesForCapture();
+
+	for(int z=0; z<irradiance_probes->grid_dims[2]; ++z)
+	for(int y=0; y<irradiance_probes->grid_dims[1]; ++y)
+	for(int x=0; x<irradiance_probes->grid_dims[0]; ++x)
+	{
+		captureProbe(irradiance_probes->gridProbePos(x, y, z));
+		convolveProbeCaptureToTile(irradiance_probes->gridProbeIndex(x, y, z));
+		irradiance_probes->markProbeCaptured(x, y, z);
+	}
+
+	conPrint("captureProbeGrid: captured " + toString(irradiance_probes->numGridProbes()) + " probes in " + timer.elapsedStringNSigFigs(4));
+}
+
+
+// Recentre the probe window on the camera and recapture a few of the stale probes.  Called once per frame.
+//
+// Scrolling the window only invalidates the newly exposed slab, because atlas slots are assigned toroidally, so
+// steady movement costs a slab per cell crossed rather than the whole volume.
+void OpenGLEngine::updateProbes()
+{
+	if(!probe_updates_enabled || (max_probe_captures_per_frame <= 0))
+		return;
+
+	const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
+
+	irradiance_probes->setGridCentre(campos_ws);
+
+	if(!irradiance_probes->anyProbesNeedCapture())
+		return;
+
+	DebugGroup debug_group("updateProbes");
+
+	for(int i=0; i<max_probe_captures_per_frame; ++i)
+	{
+		int x, y, z;
+		if(irradiance_probes->nextProbeToCapture(campos_ws, x, y, z) < 0)
+			break;
+
+		captureProbe(irradiance_probes->gridProbePos(x, y, z));
+		convolveProbeCaptureToTile(irradiance_probes->gridProbeIndex(x, y, z));
+		irradiance_probes->markProbeCaptured(x, y, z);
+	}
+}
+
+
+OpenGLProgramRef OpenGLEngine::buildProbeConvolveProg()
+{
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_blur_ssao, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc. for frag_utils_glsl.
+
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"probe_convolve",
+		new OpenGLShader(shaders_dir + "/blur_ssao_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+		new OpenGLShader(shaders_dir + "/probe_convolve_frag_shader.glsl", version_directive, key_defs + preprocessor_defines + frag_utils_glsl, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	getUniformLocations(prog);
+	addProgram(prog);
+
+	probe_convolve_capture_tex_location       = prog->getUniformLocation("capture_tex");
+	probe_convolve_capture_depth_tex_location = prog->getUniformLocation("capture_depth_tex");
+	probe_convolve_tile_origin_location       = prog->getUniformLocation("probe_tile_origin");
+	probe_convolve_depth_mode_location        = prog->getUniformLocation("convolve_depth");
+	probe_convolve_near_clip_location         = prog->getUniformLocation("capture_near_clip_dist");
+	probe_convolve_max_dist_location          = prog->getUniformLocation("max_probe_distance");
+
+	// The face basis is fixed, so upload it once here.  IrradianceProbes is the single source of truth for it:
+	// the capture view matrices are built from the same function.
+	float basis[18 * 3];
+	for(int face=0; face<6; ++face)
+	{
+		Vec4f face_forward, face_right, face_up;
+		IrradianceProbes::getCaptureFaceBasis(face, face_forward, face_right, face_up);
+
+		const Vec4f axes[3] = { face_forward, face_right, face_up };
+		for(int a=0; a<3; ++a)
+			for(int c=0; c<3; ++c)
+				basis[(face*3 + a)*3 + c] = axes[a][c];
+	}
+
+	prog->useProgram();
+	glUniform3fv(prog->getUniformLocation("capture_face_basis"), /*count=*/18, basis);
+	OpenGLProgram::useNoPrograms();
+
+	return prog;
+}
+
+
+// Convolve the current probe capture into probe 'probe_index's irradiance and depth tiles.
+void OpenGLEngine::convolveProbeCaptureToTile(int probe_index)
+{
+	runtimeCheck(irradianceProbesEnabled());
+
+	DebugGroup debug_group("convolveProbeCaptureToTile");
+
+	irradiance_probes->irradiance_framebuffer->bindForDrawing();
+	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+
+	probe_convolve_prog->useProgram();
+
+	bindTextureUnitToSampler(*irradiance_probes->capture_tex,       /*texture_unit_index=*/0, /*sampler_uniform_location=*/probe_convolve_capture_tex_location);
+	bindTextureUnitToSampler(*irradiance_probes->capture_depth_tex, /*texture_unit_index=*/1, /*sampler_uniform_location=*/probe_convolve_capture_depth_tex_location);
+
+	glUniform1f(probe_convolve_near_clip_location, current_scene->near_draw_dist);
+
+	// Beyond this a surface is far enough away that it should not influence the visibility test.  1.5 probe
+	// spacings is enough to cover a neighbouring probe with margin.
+	glUniform1f(probe_convolve_max_dist_location, irradiance_probes->grid_spacing * 1.5f);
+
+	bindMeshData(*unit_quad_meshdata);
+
+	for(int depth_mode=0; depth_mode<2; ++depth_mode)
+	{
+		int tile_x, tile_y, tile_w, tile_h;
+		if(depth_mode != 0)
+			irradiance_probes->getDepthTileRect(probe_index, tile_x, tile_y, tile_w, tile_h);
+		else
+			irradiance_probes->getIrradianceTileRect(probe_index, tile_x, tile_y, tile_w, tile_h);
+
+		glViewport(tile_x, tile_y, tile_w, tile_h);
+
+		glUniform2f(probe_convolve_tile_origin_location, (float)tile_x, (float)tile_y);
+		glUniform1i(probe_convolve_depth_mode_location, depth_mode);
+
+		drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(),
+			(void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), unit_quad_meshdata->vbo_handle.base_vertex);
+	}
+
+	flushDrawCommandsAndUnbindPrograms();
+
+	glDepthMask(GL_TRUE);
+	glEnable(GL_DEPTH_TEST);
+
+	FrameBuffer::unbind();
+}
+
+
+// Render the 6 cube faces around probe_pos into the capture texture.
+// capture_radius bounds how far out geometry is gathered, so the cost scales with local scene complexity rather
+// than with the size of the world.
+void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
+{
+	runtimeCheck(irradianceProbesEnabled());
+
+	DebugGroup debug_group("captureProbe");
+	TracyGpuZone("captureProbe");
+
+	// setSharedUniformsForProg() asserts that the standard textures are bound to their standard texture units.
+	// That only holds during the object draw passes - by the time a frame has finished, post processing has bound
+	// its own textures over those units - so re-establish it here rather than requiring callers to run at a
+	// particular point in the frame.
+	bindStandardTexturesToTextureUnits();
+
+	// drawBackgroundEnvMap() and the object draw passes choose their framebuffer from these, so point them at
+	// the capture target for the duration.  Same approach as drawToBufferAndReturnImageMap().
+	const bool old_render_to_main_framebuffer = current_scene->render_to_main_render_framebuffer;
+	const Reference<FrameBuffer> old_target_frame_buffer = this->target_frame_buffer;
+	current_scene->render_to_main_render_framebuffer = false;
+	this->target_frame_buffer = irradiance_probes->capture_framebuffer;
+
+	// Swap in the sun-less env program.
+	const Reference<OpenGLProgram> old_env_shader_prog = current_scene->env_ob->materials[0].shader_prog;
+	current_scene->env_ob->materials[0].shader_prog = probe_capture_env_prog;
+
+	// Gather geometry within capture_radius of the probe.  Culling is by the frustum AABB only, with no clip
+	// planes, so the same draw list serves all 6 faces and each face's own clipping is left to the rasteriser.
+	const int old_num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
+	const js::AABBox old_frustum_aabb = current_scene->frustum_aabb;
+	current_scene->num_frustum_clip_planes = 0;
+	current_scene->frustum_aabb = js::AABBox(probe_pos - Vec4f(capture_radius, capture_radius, capture_radius, 0),
+		                                     probe_pos + Vec4f(capture_radius, capture_radius, capture_radius, 0));
+
+	// 90 degree field of view, with the same depth convention as the main render so that geometry drawn here
+	// later depth-tests correctly.
+	const double z_near = current_scene->near_draw_dist;
+	const double z_far  = current_scene->max_draw_dist;
+	const Matrix4f proj_matrix = getReverseZMatrixOrIdentity() * frustumMatrix(-z_near, z_near, -z_near, z_near, z_near, z_far);
+
+	// This runs outside the normal frame flow, so establish the state it depends on rather than inheriting
+	// whatever the last pass left behind.  Matches what the main object passes assume.
+	glEnable(GL_SCISSOR_TEST); // Confine the per-face clear to that face's rect.
+	glDisable(GL_BLEND);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
+	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
+
+	// Reuse the main render's shadow texture matrices.  They are world space to shadow texture space and so don't
+	// depend on the capture's view matrix, but they are not really correct here: the cascades are fitted to the
+	// main camera's view frustum (see the sun_space_bounds computation from frustum_verts_ws), so geometry near
+	// the probe but outside that frustum falls outside the depth maps.  Worse, getShadowMappingSunVisFactor()
+	// picks a cascade from -pos_cs.z, which is now distance from the probe rather than from the camera, so the
+	// selection does not match the cascade the matrices were built for.
+	// Tolerable while probes sit near the camera; a probe volume placed away from it will need its own shadow
+	// render, or to use only the widest static cascade.
+	Matrix4f shadow_tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
+	if(current_scene->shadow_mapping)
+	{
+		for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES; ++i)
+			shadow_tex_matrices[i] = current_scene->shadow_mapping->dynamic_tex_matrix[i];
+		for(int i = 0; i < ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+			shadow_tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + i] =
+				current_scene->shadow_mapping->static_tex_matrix[current_scene->shadow_mapping->cur_static_depth_tex * ShadowMapping::NUM_STATIC_DEPTH_TEXTURES + i];
+	}
+	else
+		for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+			shadow_tex_matrices[i] = Matrix4f::identity();
+
+	for(int face=0; face<6; ++face)
+	{
+		int face_x, face_y, face_w, face_h;
+		IrradianceProbes::getCaptureFaceRect(face, face_x, face_y, face_w, face_h);
+
+		glViewport(face_x, face_y, face_w, face_h);
+		glScissor(face_x, face_y, face_w, face_h);
+
+		irradiance_probes->capture_framebuffer->bindForDrawing();
+		setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+		glClearColor(0.f, 0.f, 0.f, 0.f);
+		glClearDepthf(use_reverse_z ? 0.f : 1.f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		const Matrix4f face_view_matrix = IrradianceProbes::getCaptureFaceViewMatrix(face, probe_pos);
+
+		// The object vertex shaders take view_matrix and proj_matrix from SharedVertUniforms, not from per-program
+		// uniforms - see phong_vert_shader.glsl:220 - so this block has to be rewritten per face too.  (The env
+		// sphere is the exception: env_vert_shader.glsl declares them as plain uniforms, which is why the sky was
+		// correct per face while geometry was not.)
+		{
+			SharedVertUniforms vert_uniforms;
+			vert_uniforms.proj_matrix = proj_matrix;
+			vert_uniforms.view_matrix = face_view_matrix;
+			for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+				vert_uniforms.shadow_texture_matrix[i] = shadow_tex_matrices[i];
+			vert_uniforms.campos_ws = probe_pos;
+			vert_uniforms.vert_sundir_ws = current_scene->sun_dir;
+			vert_uniforms.grass_pusher_sphere_pos = current_scene->grass_pusher_sphere_pos;
+			vert_uniforms.vert_uniforms_time = current_time;
+			vert_uniforms.wind_strength = current_scene->wind_strength;
+			vert_uniforms.padding_0 = vert_uniforms.padding_1 = 0;
+
+			this->shared_vert_uniform_buf_ob->updateData(/*dest offset=*/0, &vert_uniforms, sizeof(SharedVertUniforms));
+		}
+
+		// The material shaders read the view matrix, camera position and flags from MaterialCommonUniforms, so
+		// rewrite it for this face.  Duplicated from draw() rather than shared, so no restore is needed: draw()
+		// rewrites both blocks unconditionally at the start of every frame.
+		{
+			MaterialCommonUniforms common_uniforms;
+			common_uniforms.frag_view_matrix = face_view_matrix;
+			common_uniforms.sundir_cs = face_view_matrix * current_scene->sun_dir;
+			common_uniforms.sundir_ws = current_scene->sun_dir;
+			common_uniforms.sun_spec_rad_times_solid_angle = current_scene->sun_spec_rad_times_solid_angle * 1.0e-9f;
+			common_uniforms.sky_av_spec_rad         = current_scene->sky_av_spec_rad         * 1.0e-9f;
+			common_uniforms.sun_and_sky_av_spec_rad = current_scene->sun_and_sky_av_spec_rad * 1.0e-9f;
+			common_uniforms.air_scattering_coeffs = current_scene->air_scattering_coeffs;
+			common_uniforms.mat_common_campos_ws = probe_pos;
+			common_uniforms.near_clip_dist = current_scene->near_draw_dist;
+			common_uniforms.far_clip_dist = current_scene->max_draw_dist;
+			common_uniforms.time = current_time;
+			common_uniforms.l_over_w = 0.5f; // 90 degree field of view: half-width 1 at distance 1.
+			common_uniforms.l_over_h = 0.5f;
+			common_uniforms.env_phi = current_scene->sun_phi;
+			common_uniforms.water_level_z = current_scene->water_level_z;
+			common_uniforms.camera_type = (int)OpenGLScene::CameraType_Perspective;
+
+			// DO_SSAO_FLAG is deliberately not set: the SSAO textures are sized for the main viewport and hold the
+			// main camera's view, so they are meaningless here.
+			// USE_PROBE_GRID_FLAG is deliberately not set: during a grid capture, probes are written one at a time,
+			// so sampling the grid would make each probe depend on which neighbours had already been recaptured
+			// this pass.  Sampling only the global sky probe keeps a capture independent of the order it runs in.
+			// Feeding the grid back into itself is multi-bounce GI, and wants proper hysteresis rather than this.
+			common_uniforms.mat_common_flags = (current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0);
+
+			common_uniforms.shadow_map_samples_xy_scale = current_scene->shadow_mapping ? (2048.f / current_scene->shadow_mapping->dynamic_w) : 1.f;
+			common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
+
+			for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+				common_uniforms.frag_shadow_texture_matrix[i] = shadow_tex_matrices[i];
+
+			setProbeGridUniforms(common_uniforms);
+
+			this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
+		}
+
+		drawBackgroundEnvMap(face_view_matrix, proj_matrix);
+
+		drawNonTransparentMaterialBatches(face_view_matrix, proj_matrix);
+	}
+
+	glDisable(GL_SCISSOR_TEST);
+	glDepthMask(GL_TRUE); // Leave the state the main passes expect to find.
+
+	current_scene->num_frustum_clip_planes = old_num_frustum_clip_planes;
+	current_scene->frustum_aabb = old_frustum_aabb;
+	current_scene->env_ob->materials[0].shader_prog = old_env_shader_prog;
+	this->target_frame_buffer = old_target_frame_buffer;
+	current_scene->render_to_main_render_framebuffer = old_render_to_main_framebuffer;
+
+	FrameBuffer::unbind();
+}
+
+
+#if !defined(EMSCRIPTEN)
+// Debug: read back a float framebuffer and write it as both an EXR and a normalised PNG.
+// glReadPixels with GL_FLOAT does the half-float conversion for us.
+void OpenGLEngine::debugDumpFloatFrameBuffer(FrameBuffer& framebuffer, int w, int h, const std::string& path)
+{
+	js::Vector<float, 16> read_pixels(w * h * 4, 0.f);
+
+	framebuffer.bindForReading();
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, read_pixels.data());
+	setReadFrameBufferToDefault();
+
+	// glReadPixels returns rows bottom-up; both image writers want top-down.  Flip once here so the EXR and the
+	// PNG agree with each other.
+	js::Vector<float, 16> pixels(w * h * 4, 0.f);
+	for(int y=0; y<h; ++y)
+		std::memcpy(&pixels[y * w * 4], &read_pixels[(h - 1 - y) * w * 4], w * 4 * sizeof(float));
+
+	EXRDecoder::saveImageToEXR(pixels.data(), w, h, /*num_channels_in_buffer=*/4, /*save_alpha_channel=*/true, path, /*layer_name=*/"", EXRDecoder::SaveOptions());
+
+	// Also write a normalised 8-bit PNG, since the EXR needs a viewer that handles float.  Auto-exposed to the
+	// brightest texel so it is legible whatever the absolute radiance scale is - this is for judging structure
+	// and orientation, not for reading values off.
+	//float max_component = 0.f;
+	//for(int i=0; i<w*h; ++i)
+	//	for(int c=0; c<3; ++c)
+	//		max_component = myMax(max_component, pixels[i*4 + c]);
+	//
+	//const float scale = (max_component > 0.f) ? (1.f / max_component) : 1.f;
+	const float scale = 2.f;
+
+	js::Vector<uint8, 16> png_pixels(w * h * 3, 0);
+	for(int i=0; i<w*h; ++i)
+		for(int c=0; c<3; ++c)
+			png_pixels[i*3 + c] = (uint8)(std::pow(myClamp(pixels[i*4 + c] * scale, 0.f, 1.f), 1.f / 2.2f) * 255.f + 0.5f);
+
+	const std::string png_path = ::eatExtension(path) + "png";
+	PNGDecoder::write(png_pixels.data(), (unsigned int)w, (unsigned int)h, /*N=*/3, /*bits_per_channel=*/8, png_path);
+
+	conPrint("Wrote " + path + " and " + png_path + ", scale: " + toString(scale));
+}
+
+
+void OpenGLEngine::debugDumpProbeCapture(const std::string& path)
+{
+	runtimeCheck(irradianceProbesEnabled());
+
+	debugDumpFloatFrameBuffer(*irradiance_probes->capture_framebuffer, IrradianceProbes::CAPTURE_FACE_RES * 6, IrradianceProbes::CAPTURE_FACE_RES, path);
+}
+
+
+void OpenGLEngine::debugDumpProbeAtlas(const std::string& path)
+{
+	runtimeCheck(irradianceProbesEnabled());
+
+	debugDumpFloatFrameBuffer(*irradiance_probes->irradiance_framebuffer, irradiance_probes->atlas_w, irradiance_probes->atlas_h, path);
+}
+#endif
+
+
+// Rewrite the global sky probe tile from cosine_env_tex.  Cheap: a single quad the size of one tile.
+void OpenGLEngine::bakeGlobalSkyProbe()
+{
+	DebugGroup debug_group("bakeGlobalSkyProbe");
+
+	int tile_x, tile_y, tile_w, tile_h;
+	irradiance_probes->getIrradianceTileRect(IrradianceProbes::GLOBAL_SKY_PROBE_INDEX, tile_x, tile_y, tile_w, tile_h);
+
+	irradiance_probes->irradiance_framebuffer->bindForDrawing();
+	setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+	glViewport(tile_x, tile_y, tile_w, tile_h);
+
+	glDepthMask(GL_FALSE);
+	glDisable(GL_DEPTH_TEST);
+
+	probe_bake_from_cubemap_prog->useProgram();
+
+	// The bake is self-contained, so use texture unit 0 (the scratch unit) rather than reserving a unit for a
+	// texture that is only read here.
+	bindTextureUnitToSampler(*this->cosine_env_tex, /*texture_unit_index=*/0, /*sampler_uniform_location=*/probe_bake_source_cube_tex_location);
+
+	glUniform2f(probe_bake_tile_origin_location, (float)tile_x, (float)tile_y);
+
+	bindMeshData(*unit_quad_meshdata);
+	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(),
+		(void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), unit_quad_meshdata->vbo_handle.base_vertex);
+
+	flushDrawCommandsAndUnbindPrograms();
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
+
+	FrameBuffer::unbind();
+}
+
+
 void OpenGLEngine::draw()
 {
 	ZoneScopedC(0x33FF33); // Tracy profiler.  Set green colour for zone.
@@ -7208,6 +7807,19 @@ void OpenGLEngine::draw()
 	this->last_num_animated_obs_processed = num_animated_obs_processed;
 	anim_update_duration = anim_profile_timer.elapsed();
 
+
+	if(global_sky_probe_needs_bake && probe_bake_from_cubemap_prog.nonNull() && cosine_env_tex.nonNull())
+	{
+		bakeGlobalSkyProbe();
+		global_sky_probe_needs_bake = false;
+	}
+
+	// Before the main render: probe capture rebinds framebuffers and rewrites the shared uniform blocks, and the
+	// blocks are written again below for this frame's camera.
+	if(irradianceProbesEnabled())
+		updateProbes();
+
+
 	//================= Compute view (world space to camera space) matrix =================
 	// Indigo/Substrata camera convention is z=up, y=forwards, x=right.
 	// OpenGL is y=up, x=right, -z=forwards.
@@ -7237,9 +7849,12 @@ void OpenGLEngine::draw()
 	common_uniforms.env_phi = cur_scene->sun_phi;
 	common_uniforms.water_level_z = cur_scene->water_level_z;
 	common_uniforms.camera_type = (int)cur_scene->camera_type;
-	common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (settings.ssao ? DO_SSAO_FLAG : 0);
+	common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (settings.ssao ? DO_SSAO_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) | (use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0);
 	common_uniforms.shadow_map_samples_xy_scale = cur_scene->shadow_mapping ? (2048.f / cur_scene->shadow_mapping->dynamic_w) : 1.f; // Shadow map sample pattern is scaled for 2048^2 textures.
 	common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
+
+	setProbeGridUniforms(common_uniforms);
+
 	this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 
@@ -7667,7 +8282,10 @@ void OpenGLEngine::draw()
 
 	if(settings.ssao)
 	{
-		common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | DOING_SSAO_PREPASS_FLAG; // Disable reading from SSAO output texture (DO_SSAO_FLAG) for the prepass, set DOING_SSAO_PREPASS_FLAG.
+		// Disable reading from SSAO output texture (DO_SSAO_FLAG) for the prepass, set DOING_SSAO_PREPASS_FLAG.
+		const int old_flags = common_uniforms.mat_common_flags;
+		common_uniforms.mat_common_flags = common_uniforms.mat_common_flags;
+		common_uniforms.mat_common_flags = BitUtils::getWithBitZeroed(common_uniforms.mat_common_flags, DO_SSAO_FLAG) | DOING_SSAO_PREPASS_FLAG;
 		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 		// drawDepthPrePass(view_matrix, proj_matrix);
@@ -7676,12 +8294,15 @@ void OpenGLEngine::draw()
 		computeSSAO(proj_matrix);
 
 		// Restore flags
-		common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | ((this->settings.ssao && show_ssao) ? DO_SSAO_FLAG : 0);
+		common_uniforms.mat_common_flags = old_flags;
 		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
 
 	//================= Draw non-transparent (opaque) batches from objects =================
 	drawNonTransparentMaterialBatches(view_matrix, proj_matrix);
+
+	if(draw_probe_debug_spheres && irradianceProbesEnabled())
+		drawProbeDebugSpheres(view_matrix, proj_matrix);
 
 	//================= Draw water objects =================
 	drawWaterObjects(view_matrix, proj_matrix);
@@ -8124,7 +8745,7 @@ void OpenGLEngine::doDOFBlur(OpenGLTexture* colour_tex_input)
 
 // Input: colour_tex_input
 // Output: fog_colour_texture
-void OpenGLEngine::doFogPostProcess(OpenGLTexture* colour_tex_input, const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+void OpenGLEngine::doFogPostProcess(OpenGLTexture* colour_tex_input, const Matrix4f& /*view_matrix*/, const Matrix4f& /*proj_matrix*/)
 {
 	DebugGroup debug_group("doFogPostProcess()");
 	TracyGpuZone("doFogPostProcess");
@@ -11613,6 +12234,7 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 	glUniform1i(program.uniform_locations.static_depth_tex_location, STATIC_DEPTH_TEX_TEXTURE_UNIT_INDEX);
 
 	glUniform1i(program.uniform_locations.cosine_env_tex_location, COSINE_ENV_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.probe_irradiance_tex_location, PROBE_IRRADIANCE_TEXTURE_UNIT_INDEX);
 	glUniform1i(program.uniform_locations.specular_env_tex_location, SPECULAR_ENV_TEXTURE_UNIT_INDEX);
 	glUniform1i(program.uniform_locations.blue_noise_tex_location, BLUE_NOISE_TEXTURE_UNIT_INDEX);
 	glUniform1i(program.uniform_locations.fbm_tex_location, FBM_TEXTURE_UNIT_INDEX);
@@ -11673,6 +12295,8 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 		bindTextureToTextureUnit(*this->cosine_env_tex,    /*texture_unit_index=*/COSINE_ENV_TEXTURE_UNIT_INDEX);
 		bindTextureToTextureUnit(*this->specular_env_tex,  /*texture_unit_index=*/SPECULAR_ENV_TEXTURE_UNIT_INDEX);
 	}
+	if(irradianceProbesEnabled() && irradiance_probes->irradiance_tex.nonNull())
+		bindTextureToTextureUnit(*irradiance_probes->irradiance_tex, /*texture_unit_index=*/PROBE_IRRADIANCE_TEXTURE_UNIT_INDEX);
 	bindTextureToTextureUnit(*this->blue_noise_tex,    /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
 	bindTextureToTextureUnit(*this->fbm_tex,           /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
 
@@ -11735,7 +12359,7 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 
 
 
-void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const
+void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, [[maybe_unused]] const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const
 {
 	ZoneScoped; // Tracy profiler
 
@@ -11971,12 +12595,14 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 		if(!use_bindless_textures)
 			bindTexturesForPhongProg(opengl_mat);
 	}
-	else if(shader_prog == this->env_prog.getPointer())
+	// Either the normal env program, or the sun-less variant used when capturing probes.  The uniform locations
+	// are read from shader_prog rather than from members on the engine, since they differ between the two.
+	else if((shader_prog == this->env_prog.getPointer()) || (shader_prog == this->probe_capture_env_prog.getPointer()))
 	{
-		glUniform4f(this->env_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, 1.f);
-		glUniform1i(this->env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
+		glUniform4f(shader_prog->uniform_locations.env_diffuse_colour_location, opengl_mat.albedo_linear_rgb.r, opengl_mat.albedo_linear_rgb.g, opengl_mat.albedo_linear_rgb.b, 1.f);
+		glUniform1i(shader_prog->uniform_locations.env_have_texture_location, opengl_mat.albedo_texture.nonNull() ? 1 : 0);
 		const Vec4f campos_ws = current_scene->cam_to_world.getColumn(3);
-		glUniform3fv(this->env_campos_ws_location, 1, campos_ws.x);
+		glUniform3fv(shader_prog->uniform_locations.env_campos_ws_location, 1, campos_ws.x);
 		if(shader_prog->time_loc >= 0)
 			glUniform1f(shader_prog->time_loc, this->current_time);
 
@@ -11987,23 +12613,27 @@ void OpenGLEngine::drawBatch(const GLObject& ob, const OpenGLMaterial& opengl_ma
 				opengl_mat.tex_matrix.e[1], opengl_mat.tex_matrix.e[3], 0,
 				opengl_mat.tex_translation.x, opengl_mat.tex_translation.y, 1
 			};
-			glUniformMatrix3fv(this->env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
+			glUniformMatrix3fv(shader_prog->uniform_locations.env_texture_matrix_location, /*count=*/1, /*transpose=*/false, tex_elems);
 
 			bindTextureToTextureUnit(*opengl_mat.albedo_texture, DIFFUSE_TEXTURE_UNIT_INDEX);
 		}
 
 		// There seems to be an Emscripten bug where sometimes the uniform values gets changed.  Just set it every frame as a workaround.
 #if EMSCRIPTEN
-		doSetStandardTextureUnitUniformsForBoundProgram(*this->env_prog);
+		doSetStandardTextureUnitUniformsForBoundProgram(*shader_prog);
 #endif
 
-		//assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.blue_noise_tex_location) == BLUE_NOISE_TEXTURE_UNIT_INDEX);
-		assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.diffuse_tex_location) == DIFFUSE_TEXTURE_UNIT_INDEX);
-		if(settings.render_sun_and_clouds)
+		// The probe capture variant has the sun and cloud code compiled out, so it has no fbm or cirrus samplers.
+		if(shader_prog == this->env_prog.getPointer())
 		{
-			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
-			if(this->cirrus_tex.nonNull())
-				assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+			//assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.blue_noise_tex_location) == BLUE_NOISE_TEXTURE_UNIT_INDEX);
+			assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.diffuse_tex_location) == DIFFUSE_TEXTURE_UNIT_INDEX);
+			if(settings.render_sun_and_clouds)
+			{
+				assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.fbm_tex_location) == FBM_TEXTURE_UNIT_INDEX);
+				if(this->cirrus_tex.nonNull())
+					assert(getIntUniformVal(*env_prog, this->env_prog->uniform_locations.cirrus_tex_location) == CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+			}
 		}
 
 		assert(getBoundTexture2D(BLUE_NOISE_TEXTURE_UNIT_INDEX) == blue_noise_tex->texture_handle);

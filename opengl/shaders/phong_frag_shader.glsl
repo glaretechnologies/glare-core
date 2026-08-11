@@ -65,6 +65,9 @@ uniform sampler2DArray combined_array_tex;
 uniform sampler2DShadow dynamic_depth_tex;
 uniform sampler2DShadow static_depth_tex;
 uniform samplerCube cosine_env_tex;
+#if IRRADIANCE_PROBES_SUPPORT
+uniform sampler2D probe_irradiance_tex;
+#endif
 uniform sampler2D specular_env_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
@@ -772,6 +775,8 @@ void main()
 	sky_irradiance = texture(LIGHTMAP_TEX, vec2(lightmap_coords.x, -lightmap_coords.y)).xyz;
 #else
 	// cosine_env_tex assumes the sun is in the +x direction, so we need to rotate unit_normal_ws accordingly.
+	// The global sky probe is baked directly from cosine_env_tex, so it lives in the same rotated frame and
+	// takes the same rot_norm.
 	{
 		float neg_env_phi = -env_phi;
 		vec3 rot_norm = vec3(
@@ -779,10 +784,38 @@ void main()
 			sin(neg_env_phi) * unit_normal_ws.x + cos(neg_env_phi) * unit_normal_ws.y,
 			unit_normal_ws.z
 		);
-		sky_irradiance = texture(cosine_env_tex, rot_norm).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
-	#if FANCY_DOUBLE_SIDED
-		transmission_sky_irradiance = texture(cosine_env_tex, -rot_norm).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
-	#endif
+
+#if IRRADIANCE_PROBES_SUPPORT
+		// Three sources, switchable at runtime for comparison: the probe grid, the global sky probe on its own,
+		// or cosine_env_tex directly.  The latter two should look the same, since the global sky probe is just a
+		// resampled copy of cosine_env_tex.
+		if((mat_common_flags & USE_PROBE_IRRADIANCE_FLAG) != 0)
+		{
+			if((mat_common_flags & USE_PROBE_GRID_FLAG) != 0)
+			{
+				// Grid probes are captured in world space, so they take the unrotated normal.
+				sky_irradiance = sampleProbeGridIrradiance(pos_ws, unit_normal_ws, probe_grid_origin, probe_grid_dims, (mat_common_flags & USE_PROBE_VISIBILITY_FLAG) != 0, probe_irradiance_tex); // integral over hemisphere of cosine * incoming radiance * 1.0e-9
+			#if FANCY_DOUBLE_SIDED
+				transmission_sky_irradiance = sampleProbeGridIrradiance(pos_ws, -unit_normal_ws, probe_grid_origin, probe_grid_dims, (mat_common_flags & USE_PROBE_VISIBILITY_FLAG) != 0, probe_irradiance_tex);
+			#endif
+			}
+			else
+			{
+				// The global sky probe was resampled from cosine_env_tex, so it is in the env-rotated frame.
+				sky_irradiance = sampleProbeIrradiance(GLOBAL_SKY_PROBE_INDEX, rot_norm, probe_irradiance_tex);
+			#if FANCY_DOUBLE_SIDED
+				transmission_sky_irradiance = sampleProbeIrradiance(GLOBAL_SKY_PROBE_INDEX, -rot_norm, probe_irradiance_tex);
+			#endif
+			}
+		}
+		else
+#endif // IRRADIANCE_PROBES_SUPPORT
+		{
+			sky_irradiance = texture(cosine_env_tex, rot_norm).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
+		#if FANCY_DOUBLE_SIDED
+			transmission_sky_irradiance = texture(cosine_env_tex, -rot_norm).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
+		#endif
+		}
 	}
 #endif
 

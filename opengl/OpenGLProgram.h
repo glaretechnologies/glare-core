@@ -26,6 +26,7 @@ struct UniformLocations
 	int normal_map_location;
 	int combined_array_tex_location;
 	int cosine_env_tex_location;
+	int probe_irradiance_tex_location;
 	int specular_env_tex_location;
 	int lightmap_tex_location;
 	int fbm_tex_location;
@@ -55,6 +56,13 @@ struct UniformLocations
 
 	int num_blob_positions_location;
 	int blob_positions_location;
+
+	// Env-sphere uniforms.  Held per program rather than on OpenGLEngine so that more than one program built
+	// from env_frag_shader.glsl can be drawn with - see buildProbeCaptureEnvProgram().
+	int env_diffuse_colour_location;
+	int env_have_texture_location;
+	int env_texture_matrix_location;
+	int env_campos_ws_location;
 };
 
 
