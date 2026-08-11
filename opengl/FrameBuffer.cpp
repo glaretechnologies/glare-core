@@ -85,6 +85,13 @@ void FrameBuffer::unbind()
 }
 
 
+void FrameBuffer::unbindFromDrawing()
+{
+	// Unbind buffer
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}
+
+
 void FrameBuffer::attachTexture(OpenGLTexture& tex, GLenum attachment_point)
 {
 #if CHECK_GL_CONTEXT
@@ -102,6 +109,70 @@ void FrameBuffer::attachTexture(OpenGLTexture& tex, GLenum attachment_point)
 		tex.getTextureTarget(),
 		tex.texture_handle, // texture
 		0); // mipmap level
+
+	unbindFromDrawing();
+}
+
+
+void FrameBuffer::attachTextures(OpenGLTexture& tex_0, GLenum attachment_point_0, OpenGLTexture& tex_1, GLenum attachment_point_1)
+{
+#if CHECK_GL_CONTEXT
+	assert(QGLContext::currentContext() == context);
+#endif
+
+	xres = tex_0.xRes();
+	yres = tex_0.yRes();
+
+	bindForDrawing(); // Bind this frame buffer
+
+	// Attach the texture.  glFramebufferTexture is only in OpenGL ES 3.2+, so use glFramebufferTexture2D.
+	glFramebufferTexture2D(GL_FRAMEBUFFER, // framebuffer target
+		attachment_point_0,
+		tex_0.getTextureTarget(),
+		tex_0.texture_handle, // texture
+		0); // mipmap level
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, // framebuffer target
+		attachment_point_1,
+		tex_1.getTextureTarget(),
+		tex_1.texture_handle, // texture
+		0); // mipmap level
+
+	unbindFromDrawing();
+}
+
+
+void FrameBuffer::attachTextures(OpenGLTexture& tex_0, GLenum attachment_point_0, OpenGLTexture& tex_1, GLenum attachment_point_1, OpenGLTexture& tex_2, GLenum attachment_point_2)
+{
+#if CHECK_GL_CONTEXT
+	assert(QGLContext::currentContext() == context);
+#endif
+
+	xres = tex_0.xRes();
+	yres = tex_0.yRes();
+
+	bindForDrawing(); // Bind this frame buffer
+
+	// Attach the texture.  glFramebufferTexture is only in OpenGL ES 3.2+, so use glFramebufferTexture2D.
+	glFramebufferTexture2D(GL_FRAMEBUFFER, // framebuffer target
+		attachment_point_0,
+		tex_0.getTextureTarget(),
+		tex_0.texture_handle, // texture
+		0); // mipmap level
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, // framebuffer target
+		attachment_point_1,
+		tex_1.getTextureTarget(),
+		tex_1.texture_handle, // texture
+		0); // mipmap level
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, // framebuffer target
+		attachment_point_2,
+		tex_2.getTextureTarget(),
+		tex_2.texture_handle, // texture
+		0); // mipmap level
+
+	unbindFromDrawing();
 }
 
 
@@ -115,7 +186,7 @@ void FrameBuffer::detachTexture(OpenGLTexture& tex, GLenum attachment_point)
 		0, // texture
 		0); // mipmap level
 
-	unbind();
+	unbindFromDrawing();
 }
 
 
@@ -131,6 +202,104 @@ void FrameBuffer::attachRenderBuffer(RenderBuffer& render_buffer, GLenum attachm
 		attachment_point,
 		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
 		render_buffer.buffer_name
+	);
+
+	unbindFromDrawing();
+}
+
+
+void FrameBuffer::attachRenderBuffers(RenderBuffer& render_buffer_0, GLenum attachment_point_0, RenderBuffer& render_buffer_1, GLenum attachment_point_1)
+{
+	xres = render_buffer_0.xRes();
+	yres = render_buffer_0.yRes();
+
+	bindForDrawing(); // Bind this frame buffer
+
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER, // target (NOTE: could be just GL_READ_FRAMEBUFFER or GL_DRAW_FRAMEBUFFER)
+		attachment_point_0,
+		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
+		render_buffer_0.buffer_name
+	);
+
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER, // target
+		attachment_point_1,
+		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
+		render_buffer_1.buffer_name
+	);
+
+	unbindFromDrawing();
+}
+
+
+void FrameBuffer::attachRenderBuffers(RenderBuffer& render_buffer_0, GLenum attachment_point_0, RenderBuffer& render_buffer_1, GLenum attachment_point_1, RenderBuffer& render_buffer_2, GLenum attachment_point_2)
+{
+	xres = render_buffer_0.xRes();
+	yres = render_buffer_0.yRes();
+
+	bindForDrawing(); // Bind this frame buffer
+
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER, // target (NOTE: could be just GL_READ_FRAMEBUFFER or GL_DRAW_FRAMEBUFFER)
+		attachment_point_0,
+		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
+		render_buffer_0.buffer_name
+	);
+
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER, // target
+		attachment_point_1,
+		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
+		render_buffer_1.buffer_name
+	);
+
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER, // target
+		attachment_point_2,
+		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
+		render_buffer_2.buffer_name
+	);
+
+	unbindFromDrawing();
+}
+
+
+void FrameBuffer::attachRenderBufferAndBindForDrawing(RenderBuffer& render_buffer, GLenum attachment_point)
+{
+	xres = render_buffer.xRes();
+	yres = render_buffer.yRes();
+
+	bindForDrawing(); // Bind this frame buffer
+
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER, // target (NOTE: could be just GL_READ_FRAMEBUFFER or GL_DRAW_FRAMEBUFFER)
+		attachment_point,
+		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
+		render_buffer.buffer_name
+	);
+}
+
+
+void FrameBuffer::attachRenderBuffersAndBindForDrawing(RenderBuffer& render_buffer_0, GLenum attachment_point_0, RenderBuffer& render_buffer_1, GLenum attachment_point_1)
+{
+	xres = render_buffer_0.xRes();
+	yres = render_buffer_0.yRes();
+
+	bindForDrawing(); // Bind this frame buffer
+
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER, // target (NOTE: could be just GL_READ_FRAMEBUFFER or GL_DRAW_FRAMEBUFFER)
+		attachment_point_0,
+		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
+		render_buffer_0.buffer_name
+	);
+
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER, // target
+		attachment_point_1,
+		GL_RENDERBUFFER, // render buffer target, must be GL_RENDERBUFFER
+		render_buffer_1.buffer_name
 	);
 }
 
@@ -175,6 +344,63 @@ GLuint FrameBuffer::getAttachedTextureName(GLenum attachment_point)
 }
 
 
+void FrameBuffer::setSingleDrawBuffer(GLenum buffer)
+{ 
+	assert(getCurrentlyBoundDrawFrameBuffer() == buffer_name);
+
+	// glDrawBuffer does not seem to be in OpenGL ES, so use glDrawBuffers.
+	const GLenum buffers[1] = { buffer };
+	glDrawBuffers(1, buffers);
+}
+
+
+void FrameBuffer::setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1)
+{
+	assert(getCurrentlyBoundDrawFrameBuffer() == buffer_name);
+
+	const GLenum draw_buffers[] = { buffer_0, buffer_1 };
+	glDrawBuffers(/*num=*/2, draw_buffers);
+}
+
+
+void FrameBuffer::clearFloatColourBuffer(int draw_buffer, const Colour3f& rgb, float alpha)
+{
+	assert(getCurrentlyBoundDrawFrameBuffer() == buffer_name);
+
+	const float clear_val[4] = { rgb.r, rgb.g, rgb.b, alpha};
+	glClearBufferfv(GL_COLOR, /*draw_buffer=*/draw_buffer, clear_val);
+}
+
+
+void FrameBuffer::clearCurrentlyBoundFloatColourBuffer(int draw_buffer, const Colour3f& rgb, float alpha)
+{
+	const float clear_val[4] = { rgb.r, rgb.g, rgb.b, alpha};
+	glClearBufferfv(GL_COLOR, /*draw_buffer=*/draw_buffer, clear_val);
+}
+
+
+void FrameBuffer::clearUIntColourBuffer(int draw_buffer, GLuint r, GLuint g, GLuint b, GLuint a)
+{
+	assert(getCurrentlyBoundDrawFrameBuffer() == buffer_name);
+
+	const GLuint clear_val[] = { r, g, b, a };
+	glClearBufferuiv(GL_COLOR, /*draw_buffer=*/draw_buffer, clear_val);
+}
+
+
+void FrameBuffer::clearCurrentlyBoundDepthBuffer(float depth)
+{
+	// Check depth writes are enabled.
+#ifndef NDEBUG
+	GLboolean depth_mask = GL_FALSE;
+	glGetBooleanv(GL_DEPTH_WRITEMASK, &depth_mask);
+	assert(depth_mask); // A depth clear is silently a no-op when depth writes are masked off.
+#endif
+
+	glClearBufferfv(GL_DEPTH, /*must be 0 for GL_DEPTH=*/0, &depth);
+}
+
+
 GLuint FrameBuffer::getCurrentlyBoundDrawFrameBuffer()
 {
 	GLuint name = 0;
@@ -185,8 +411,14 @@ GLuint FrameBuffer::getCurrentlyBoundDrawFrameBuffer()
 
 GLenum FrameBuffer::checkCompletenessStatus()
 {
+	const GLuint prev_binding = getCurrentlyBoundDrawFrameBuffer();
 	bindForDrawing(); // Bind this frame buffer
-	return glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+	const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prev_binding); // Restore previous binding
+
+	return status;
 }
 
 

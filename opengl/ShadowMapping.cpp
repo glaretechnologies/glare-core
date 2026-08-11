@@ -102,8 +102,9 @@ void ShadowMapping::init(OpenGLEngine* opengl_engine)
 		if(is_complete != GL_FRAMEBUFFER_COMPLETE)
 			throw glare::Exception("Error: static ShadowMapping framebuffer is not complete: " + toHexString(is_complete));
 
+		
 		// Because the static depth textures will take a few frames to be fully filled, and will be used for rendering for a few frames first, clear them so as not to show garbage.
-		// Clear texture while it is bound to a framebuffer
+		static_frame_buffer[i]->bindForDrawing();
 		glClearDepthf(1.f);
 		glClear(GL_DEPTH_BUFFER_BIT); // NOTE: not affected by current viewport dimensions.
 	}

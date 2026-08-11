@@ -63,6 +63,7 @@ void IrradianceProbes::allocateGLResources(OpenGLEngine* opengl_engine)
 
 	irradiance_framebuffer = new FrameBuffer();
 	irradiance_framebuffer->attachTexture(*irradiance_tex, GL_COLOR_ATTACHMENT0);
+	irradiance_framebuffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 
 	//------------------------------------- Capture target -------------------------------------
 	capture_tex = new OpenGLTexture(CAPTURE_FACE_RES * 6, CAPTURE_FACE_RES, opengl_engine, /*data=*/ArrayRef<uint8>(),
@@ -78,11 +79,9 @@ void IrradianceProbes::allocateGLResources(OpenGLEngine* opengl_engine)
 	capture_depth_tex->setDebugName("probe_capture_depth_tex");
 
 	capture_framebuffer = new FrameBuffer();
-	capture_framebuffer->attachTexture(*capture_tex, GL_COLOR_ATTACHMENT0);
-	capture_framebuffer->attachTexture(*capture_depth_tex, GL_DEPTH_ATTACHMENT);
+	capture_framebuffer->attachTextures(*capture_tex,       GL_COLOR_ATTACHMENT0,
+	                                    *capture_depth_tex, GL_DEPTH_ATTACHMENT);
 	assert(capture_framebuffer->isComplete());
-
-	FrameBuffer::unbind();
 }
 
 

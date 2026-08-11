@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "BasicOpenGLTypes.h"
 #include "OpenGLTexture.h"
+#include "../graphics/colour3.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../utils/ArrayRef.h"
@@ -35,21 +36,59 @@ public:
 	void bindForDrawing();
 
 	static void unbind();
+	static void unbindFromDrawing();
 
 	// attachment_point is GL_DEPTH_ATTACHMENT, GL_COLOR_ATTACHMENT0 etc..
-	void attachTexture(OpenGLTexture& tex, GLenum attachment_point);
-	void detachTexture(OpenGLTexture& tex, GLenum attachment_point); // detach the attached texture
+	void attachTexture(OpenGLTexture& tex, GLenum attachment_point);  // Unbinds the framebuffer at end of function.
+	void attachTextures(
+		OpenGLTexture& tex_0, GLenum attachment_point_0,
+		OpenGLTexture& tex_1, GLenum attachment_point_1);  // Unbinds the framebuffer at end of function.
+	void attachTextures(
+		OpenGLTexture& tex_0, GLenum attachment_point_0,
+		OpenGLTexture& tex_1, GLenum attachment_point_1,
+		OpenGLTexture& tex_2, GLenum attachment_point_2); // Unbinds the framebuffer at end of function.
 
-	void attachRenderBuffer(RenderBuffer& render_buffer, GLenum attachment_point);
+	void detachTexture(OpenGLTexture& tex, GLenum attachment_point); // detach the attached texture.  Unbinds the framebuffer at end of function.
+
+	void attachRenderBuffer(RenderBuffer& render_buffer, GLenum attachment_point); // Unbinds the framebuffer at end of function.
+	void attachRenderBuffers(
+		RenderBuffer& render_buffer_0, GLenum attachment_point_0,
+		RenderBuffer& render_buffer_1, GLenum attachment_point_1); // Unbinds the framebuffer at end of function.
+	void attachRenderBuffers(
+		RenderBuffer& render_buffer_0, GLenum attachment_point_0,
+		RenderBuffer& render_buffer_1, GLenum attachment_point_1,
+		RenderBuffer& render_buffer_2, GLenum attachment_point_2); // Unbinds the framebuffer at end of function.
+
+	void attachRenderBufferAndBindForDrawing(RenderBuffer& render_buffer, GLenum attachment_point);
+	void attachRenderBuffersAndBindForDrawing(
+		RenderBuffer& render_buffer_0, GLenum attachment_point_0, 
+		RenderBuffer& render_buffer_1, GLenum attachment_point_1);
 
 	GLuint getAttachedRenderBufferName(GLenum attachment_point);
 
 	GLuint getAttachedTextureName(GLenum attachment_point);
 
+
+
+	void setSingleDrawBuffer(GLenum buffer); // NOTE: requires that this frame buffer is bound already.
+	void setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1); // NOTE: requires that this frame buffer is bound already.
+
+
+	// draw_buffer is the index into the colour buffers bound with setSingleDrawBuffer() or setTwoDrawBuffers().
+	void clearFloatColourBuffer(int draw_buffer, const Colour3f& rgb, float alpha); // NOTE: requires that this frame buffer is bound already.
+
+	static void clearCurrentlyBoundFloatColourBuffer(int draw_buffer, const Colour3f& rgb, float alpha); // Applies to the currently bound framebuffer. (which may be framebuffer 0, i.e. not correspond to a FrameBuffer object)
+
+	// draw_buffer is the index into the colour buffers bound with setSingleDrawBuffer() or setTwoDrawBuffers().
+	void clearUIntColourBuffer(int draw_buffer, GLuint r, GLuint g, GLuint b, GLuint a); // NOTE: requires that this frame buffer is bound already.
+
+	static void clearCurrentlyBoundDepthBuffer(float depth); // Applies to the currently bound framebuffer. (which may be framebuffer 0, i.e. not correspond to a FrameBuffer object)
+
+
 	static GLuint getCurrentlyBoundDrawFrameBuffer();
 	
-	GLenum checkCompletenessStatus();
-	bool isComplete();
+	GLenum checkCompletenessStatus(); // Returns GL_FRAMEBUFFER_COMPLETE or some other OpenGL enum.  Does not modify bound framebuffer. (e.g. restores old binding at end of function)
+	bool isComplete(); // Does not modify bound framebuffer. (e.g. restores old binding at end of function)
 
 	void discardContents(ArrayRef<GLenum> attachments);
 	void discardContents(GLenum attachment_a);
