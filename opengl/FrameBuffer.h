@@ -121,4 +121,6 @@ typedef Reference<FrameBuffer> FrameBufferRef;
 // num_buffers_to_copy can be 1 or 2.
 // copy_buf0_colour: copy the colour buffer of buffer 0.
 // copy_buf0_depth: copy the depth buffer of buffer 0.
+// 
+// NOTE: leaves dest_framebuffer bound for drawing upon completion.
 void blitFrameBuffer(FrameBuffer& src_framebuffer, FrameBuffer& dest_framebuffer, int num_buffers_to_copy, bool copy_buf0_colour, bool copy_buf0_depth);

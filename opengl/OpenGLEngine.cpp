@@ -13416,6 +13416,8 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits>> OpenGLEngine::drawToBuffer
 	glReadBuffer(GL_COLOR_ATTACHMENT0);
 	ImageMapUInt8Ref image = getRenderedColourBuffer(xres, yres, /*buffer has alpha=*/numChannels(col_buffer_format) == 4); // Capture the framebuffer
 
+	FrameBuffer::unbind(); // Unbind render_copy_framebuffer for drawing, unbind render_copy_framebuffer for reading.
+
 	// Free the framebuffers we just made
 	render_framebuffer = nullptr;
 	render_copy_framebuffer = nullptr;
