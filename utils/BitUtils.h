@@ -60,6 +60,9 @@ namespace BitUtils
 	template <class T> 
 	inline void setBit(T& x, const T bitflag);
 
+	template <class T> 
+	inline T getWithBitSet(const T x, const T bitflag);
+
 	// Sets the bit to 0, in place.
 	template <class T> 
 	inline void zeroBit(T& x, const T bitflag);
@@ -180,6 +183,13 @@ namespace BitUtils
 	void setBit(T& x, const T bitflag)
 	{
 		x = x | bitflag;
+	}
+
+
+	template <class T> 
+	void getWithBitSet(T& x, const T bitflag)
+	{
+		return x | bitflag;
 	}
 
 
