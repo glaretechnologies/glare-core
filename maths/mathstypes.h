@@ -525,6 +525,14 @@ GLARE_STRONG_INLINE T roundUpToMultiple(T x, T N)
 }
 
 
+// Returns the largest multiple of N that is <= x, for floats or doubles x and N.
+template <class T>
+GLARE_STRONG_INLINE T roundDownToMultipleFloating(T x, T N)
+{
+	return std::floor(x / N) * N;
+}
+
+
 // Returns the smallest multiple of N that is >= x, for floats or doubles x and N.
 template <class T>
 GLARE_STRONG_INLINE T roundUpToMultipleFloating(T x, T N)

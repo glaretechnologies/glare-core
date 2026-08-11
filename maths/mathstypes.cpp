@@ -578,6 +578,16 @@ void Maths::test()
 	testAssert(roundUpToMultiple(16, 5) == 20);
 
 
+	//======================================= roundDownToMultipleFloating() ==============================================
+	// single precision
+	testEpsEqual(roundDownToMultipleFloating(500.f, 200.0f), 400.f);
+	testEpsEqual(roundDownToMultipleFloating(-500.f, 200.0f), -600.f);
+
+	// double precision
+	testEpsEqual(roundDownToMultipleFloating(500.0, 200.0), 400.0);
+	testEpsEqual(roundDownToMultipleFloating(-500.0, 200.0), -600.0);
+
+
 	//======================================= roundUpToMultipleFloating() ==============================================
 	// single precision
 	testEpsEqual(roundUpToMultipleFloating(500.f, 200.0f), 600.f);
