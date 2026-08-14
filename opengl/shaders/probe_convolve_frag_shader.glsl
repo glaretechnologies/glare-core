@@ -33,9 +33,12 @@ void main()
 {
 	vec2 tile_texel = gl_FragCoord.xy - probe_tile_origin;
 
+	// The two bands have different border widths: the irradiance tiles carry 2 texels so they can be sampled with
+	// a cubic B-spline, the depth tiles 1, since they are sampled bilinearly.
 	int interior_res = (convolve_depth != 0) ? PROBE_DEPTH_TILE_INTERIOR_RES : PROBE_TILE_INTERIOR_RES;
+	int border       = (convolve_depth != 0) ? PROBE_DEPTH_TILE_BORDER       : PROBE_TILE_BORDER;
 
-	vec2 oct_uv = (tile_texel - vec2(float(PROBE_TILE_BORDER))) * (1.0 / float(interior_res));
+	vec2 oct_uv = (tile_texel - vec2(float(border))) * (1.0 / float(interior_res));
 	vec3 N = oct_to_float32x3(wrapOctCoord(oct_uv * 2.0 - vec2(1.0)));
 
 	// Face coordinates span [-1, 1], so a texel is this wide on a face at distance 1.

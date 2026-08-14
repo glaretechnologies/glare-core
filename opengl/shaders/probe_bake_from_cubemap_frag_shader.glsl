@@ -1,7 +1,7 @@
 
 // Bakes one irradiance probe tile by resampling a cube map.  Used to fill the global sky probe (probe 0) from
-// cosine_env_tex, which already holds cosine-convolved sky irradiance, so this is a pure change of storage
-// layout from cube map to octahedral tile.
+// cosine_env_tex, which already holds cosine-convolved sky irradiance, so this is a change of storage layout
+// from cube map to octahedral tile, plus a rotation out of the env frame into world space (see env_phi below).
 //
 // The whole tile is rendered, border ring included: border texels have octahedral coordinates outside
 // [-1, 1]^2, which wrapOctCoord() folds back onto the octahedron.  That gives them the direction of the
@@ -12,6 +12,12 @@
 
 uniform samplerCube source_cube_tex;
 uniform vec2 probe_tile_origin; // Atlas texel coordinates of the lower left corner of the tile being written.
+
+// Environment rotation, i.e. the sun's azimuth.  cosine_env_tex assumes the sun lies in +x, so a world space
+// direction has to be rotated by -env_phi to sample it.  Applying that here, once per tile texel at bake time,
+// leaves probe 0 indexed by world direction like every other tile, so nothing downstream has to know this one
+// tile came from a rotated source.
+uniform float env_phi;
 
 out vec4 colour_out;
 
@@ -24,7 +30,14 @@ void main()
 	vec2 oct_uv = (tile_texel - vec2(float(PROBE_TILE_BORDER))) * (1.0 / float(PROBE_TILE_INTERIOR_RES));
 	vec2 p = wrapOctCoord(oct_uv * 2.0 - vec2(1.0));
 
-	vec3 dir = oct_to_float32x3(p);
+	vec3 dir = oct_to_float32x3(p); // World space.
 
-	colour_out = vec4(texture(source_cube_tex, dir).xyz, 1.0);
+	float neg_env_phi = -env_phi;
+	vec3 rot_dir = vec3(
+		cos(neg_env_phi) * dir.x - sin(neg_env_phi) * dir.y,
+		sin(neg_env_phi) * dir.x + cos(neg_env_phi) * dir.y,
+		dir.z
+	);
+
+	colour_out = vec4(texture(source_cube_tex, rot_dir).xyz, 1.0);
 }

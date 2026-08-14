@@ -108,6 +108,7 @@ Copyright Glare Technologies Limited 2023 -
 #define USE_PROBE_IRRADIANCE_FLAG			8
 #define USE_PROBE_GRID_FLAG					16
 #define USE_PROBE_VISIBILITY_FLAG			32
+#define DOING_PROBE_CAPTURE_FLAG			64
 
 
 #define OVERLAY_HAVE_TEXTURE_FLAG			1
@@ -516,6 +517,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	probe_debug_probe_index_location(-1),
 	probe_bake_source_cube_tex_location(-1),
 	probe_bake_tile_origin_location(-1),
+	probe_bake_env_phi_location(-1),
 	probe_convolve_capture_tex_location(-1),
 	probe_convolve_capture_depth_tex_location(-1),
 	probe_convolve_tile_origin_location(-1),
@@ -2779,7 +2781,8 @@ void OpenGLEngine::buildPrograms()
 		probe_capture_env_prog = buildProbeCaptureEnvProgram();
 		probe_convolve_prog = buildProbeConvolveProg();
 		probe_debug_prog = buildProbeDebugProg();
-		global_sky_probe_needs_bake = true;
+
+		clearProbeIrradianceAtlas(); // Also sets global_sky_probe_needs_bake.
 	}
 
 
@@ -3130,6 +3133,7 @@ OpenGLProgramRef OpenGLEngine::buildProbeBakeFromCubeMapProg()
 
 	probe_bake_source_cube_tex_location = prog->getUniformLocation("source_cube_tex");
 	probe_bake_tile_origin_location     = prog->getUniformLocation("probe_tile_origin");
+	probe_bake_env_phi_location         = prog->getUniformLocation("env_phi");
 
 	return prog;
 }
@@ -4590,6 +4594,79 @@ static inline OpenGLProgram* getBuiltDepthDrawProgForMat(OpenGLMaterial& mat)
 }
 
 
+// If the material is drawn during a probe capture, and its shader program has finished building, return the
+// program, otherwise NULL.  The set of materials matches the flag test drawNonTransparentMaterialBatches() does.
+static inline OpenGLProgram* getBuiltProbeCaptureProgForMat(const OpenGLMaterial& mat)
+{
+	if(mat.shader_prog.nonNull() && mat.shader_prog->isBuilt() &&
+		!mat.transparent && !mat.water && !mat.decal && !mat.alpha_blend && !mat.participating_media)
+		return mat.shader_prog.ptr();
+	else
+		return NULL;
+}
+
+
+// Build the batch list used when rendering probe capture cube faces.
+//
+// It exists to get face culling switched off.  A probe sitting inside solid geometry has that geometry's front
+// faces pointing away from it, so with culling on the geometry is not drawn at all and the probe sees straight
+// through the wall.  That is bad twice over: the irradiance tile collects sky, and the depth tile records the
+// distance to whatever lies beyond the wall rather than to the wall, which disarms the Chebyshev test in
+// sampleProbeGridIrradiance() that exists to stop such a probe leaking into everything around it.
+//
+// Zeroing the culling bits in the key is enough - setFaceCulling() already reads zero as 'disabled', so the
+// existing per-batch state machine does the rest and the draw loops need no special case.
+//
+// Note that batches are not merged the way rebuildObjectDepthDrawBatches() merges them.  There, two contiguous
+// batches sharing a program can be collapsed because the depth-draw shaders that allow it read no material
+// textures.  These are the full material shaders, so two batches with the same program still sample different
+// textures, and merging them would draw one material's geometry with another's textures.  Merging becomes
+// worthwhile once there is a stripped capture-specific permutation to build this list against.
+void OpenGLEngine::rebuildObjectProbeCaptureBatches(GLObject& object)
+{
+	const ArrayRef<OpenGLBatch> use_src_batches = object.getUsedBatches();
+
+	// Count first: materials that a capture does not draw get no batch at all, so this is not just the source
+	// batch count.
+	size_t num_batches_required = 0;
+	for(size_t i=0; i<use_src_batches.size(); ++i)
+		if(getBuiltProbeCaptureProgForMat(object.materials[use_src_batches[i].material_index]))
+			num_batches_required++;
+
+	object.probe_capture_batches.resize(num_batches_required);
+
+	size_t dest_batch_i = 0;
+	for(size_t i=0; i<use_src_batches.size(); ++i)
+	{
+		const uint32 mat_index = use_src_batches[i].material_index;
+		const OpenGLMaterial& mat = object.materials[mat_index];
+
+		const OpenGLProgram* prog = getBuiltProbeCaptureProgForMat(mat);
+		if(prog == NULL)
+			continue;
+
+		GLObjectBatchDrawInfo& info = object.probe_capture_batches[dest_batch_i++];
+
+		// Face culling bits deliberately left zero.  The material category bits (transparent, water, decal,
+		// alpha blend) are left out as well: everything that reaches this list is drawn, so there is nothing
+		// left for the draw loop to test them for.
+		info.program_index_and_flags = prog->program_index |
+			(prog->supports_gpu_resident ? PROG_SUPPORTS_GPU_RESIDENT_BITFLAG : 0) |
+			PROGRAM_FINISHED_BUILDING_BITFLAG;
+
+		assert((mat.material_data_index != -1) || !use_ob_and_mat_data_gpu_resident);
+		if(use_ob_and_mat_data_gpu_resident && prog->supports_gpu_resident)
+			info.material_data_or_mat_index = mat.material_data_index;
+		else
+			info.material_data_or_mat_index = mat_index;
+
+		info.prim_start_offset_B = use_src_batches[i].prim_start_offset_B;
+		info.num_indices         = use_src_batches[i].num_indices;
+	}
+	assert(dest_batch_i == num_batches_required);
+}
+
+
 void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 {
 	// Compute shadow mapping depth-draw batches.  We can merge multiple index batches into one if they are contiguous, if they share the same depth-draw shader, and the depth-draw shader does not do alpha testing.
@@ -4709,6 +4786,12 @@ void OpenGLEngine::rebuildObjectDepthDrawBatches(GLObject& object)
 
 		// conPrint("Collapsed " + toString(object.getUsedBatches().size()) + " batches to " + toString(object.depth_draw_batches.size()) + " depth-draw batches");
 	}
+
+	// Built here rather than from the five places that call this, so that a new call site cannot forget it and
+	// leave captures drawing with stale programs.  Outside the shadow_mapping test above: probe captures do not
+	// depend on that setting.
+	if(irradianceProbesEnabled())
+		rebuildObjectProbeCaptureBatches(object);
 }
 
 
@@ -6920,6 +7003,12 @@ void OpenGLEngine::setProbeGridUniforms(MaterialCommonUniforms& common_uniforms)
 
 // Capture and convolve every grid probe in one go.  Blocking, so only for debugging - normal operation goes
 // through updateProbes().
+//
+// Now that captures shade from the grid, one call is one bounce iteration, not a finished result: from a cleared
+// atlas it gives directly visible sky plus directly sunlit surfaces, and each further call adds a bounce.
+// Enclosed spaces need several - the fraction of converged indirect after n calls is roughly 1 - albedo^n, so a
+// room at albedo 0.7 is still only two thirds of the way there after 3.  Call clearProbeIrradianceAtlas() first
+// to restart the sequence rather than continuing it.
 void OpenGLEngine::captureProbeGrid(const Vec4f& grid_centre)
 {
 	runtimeCheck(irradianceProbesEnabled());
@@ -7115,19 +7204,25 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 	// whatever the last pass left behind.  Matches what the main object passes assume.
 	glEnable(GL_SCISSOR_TEST); // Confine the per-face clear to that face's rect.
 	glDisable(GL_BLEND);
-	glDisable(GL_CULL_FACE);
+	glDisable(GL_CULL_FACE); // Off for the whole capture - see rebuildObjectProbeCaptureBatches().  drawProbeCaptureBatches() re-establishes this after drawBackgroundEnvMap().
 	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_TRUE);
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
 
-	// Reuse the main render's shadow texture matrices.  They are world space to shadow texture space and so don't
-	// depend on the capture's view matrix, but they are not really correct here: the cascades are fitted to the
-	// main camera's view frustum (see the sun_space_bounds computation from frustum_verts_ws), so geometry near
-	// the probe but outside that frustum falls outside the depth maps.  Worse, getShadowMappingSunVisFactor()
-	// picks a cascade from -pos_cs.z, which is now distance from the probe rather than from the camera, so the
-	// selection does not match the cascade the matrices were built for.
-	// Tolerable while probes sit near the camera; a probe volume placed away from it will need its own shadow
-	// render, or to use only the widest static cascade.
+	// Reuse the main render's shadow texture matrices.  They map world space to shadow texture space, so they do
+	// not depend on the capture's view matrix and carry over unchanged.
+	//
+	// What does not carry over is the cascade selection: getShadowMappingSunVisFactor() picks a cascade from
+	// -pos_cs.z, which here is distance from the probe rather than from the camera, so it would choose a cascade
+	// whose depth map covers somewhere else entirely.  The dynamic cascades make that fatal, being fitted to the
+	// main camera's view frustum.  So during a capture the shaders take getProbeCaptureSunVisFactor() instead,
+	// which always reads static cascade 0 - an axis-aligned box centred on the camera, large enough to contain
+	// the whole probe grid in any direction.  This matters more than it looks: with captures now shading from the
+	// grid, a sunlit patch of floor is the dominant indirect source for an enclosed space, so getting its
+	// shadowing wrong throws off the whole room.
+	//
+	// The cost is that only static geometry casts shadows into the grid.  A probe volume placed far from the
+	// camera would still need its own shadow render.
 	Matrix4f shadow_tex_matrices[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
 	if(current_scene->shadow_mapping)
 	{
@@ -7201,11 +7296,20 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 
 			// DO_SSAO_FLAG is deliberately not set: the SSAO textures are sized for the main viewport and hold the
 			// main camera's view, so they are meaningless here.
-			// USE_PROBE_GRID_FLAG is deliberately not set: during a grid capture, probes are written one at a time,
-			// so sampling the grid would make each probe depend on which neighbours had already been recaptured
-			// this pass.  Sampling only the global sky probe keeps a capture independent of the order it runs in.
-			// Feeding the grid back into itself is multi-bounce GI, and wants proper hysteresis rather than this.
-			common_uniforms.mat_common_flags = (current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0);
+			//
+			// USE_PROBE_GRID_FLAG is set, so fragments shade with the grid as it currently stands.  That makes each
+			// capture one iteration of a bounce: with the atlas zeroed, the first capture of a probe sees only
+			// directly visible sky plus directly sunlit surfaces, the next adds a bounce off what those lit, and so
+			// on.  Sampling the global sky probe instead - which is what this did before - shades every interior
+			// surface with full unoccluded sky irradiance, which is why a room with a small opening captured to
+			// uniformly light grey walls.
+			//
+			// The grid is both read and written here, one probe at a time, so this is Gauss-Seidel rather than
+			// Jacobi: a probe's result depends on which of its neighbours were recaptured before it.  That is
+			// deliberate - it converges faster than double buffering the atlas, and the fixed point is the same.
+			// The transient asymmetry is what the convolve blend is for.
+			common_uniforms.mat_common_flags = (current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) |
+				(use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) | DOING_PROBE_CAPTURE_FLAG;
 
 			common_uniforms.shadow_map_samples_xy_scale = current_scene->shadow_mapping ? (2048.f / current_scene->shadow_mapping->dynamic_w) : 1.f;
 			common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
@@ -7220,7 +7324,7 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 
 		drawBackgroundEnvMap(face_view_matrix, proj_matrix);
 
-		drawNonTransparentMaterialBatches(face_view_matrix, proj_matrix);
+		drawProbeCaptureBatches(face_view_matrix, proj_matrix);
 	}
 
 	glDisable(GL_SCISSOR_TEST);
@@ -7296,6 +7400,33 @@ void OpenGLEngine::debugDumpProbeAtlas(const std::string& path)
 #endif
 
 
+// Zero every tile in the irradiance atlas.
+// Since captures now shade from the grid, an uncaptured tile is not just missing data, it is an input to the
+// next capture that reads it: the texture is allocated with no data, so without this the first captures of a
+// scene would bounce undefined values around the grid.  Zero is the right starting point - the grid then
+// converges upwards, one bounce per round of captures, rather than starting too bright and having to decay.
+// Wipes the global sky probe tile as well, hence the re-bake request; it is regenerated in draw().
+void OpenGLEngine::clearProbeIrradianceAtlas()
+{
+	runtimeCheck(irradianceProbesEnabled());
+
+	DebugGroup debug_group("clearProbeIrradianceAtlas");
+
+	irradiance_probes->irradiance_framebuffer->bindForDrawing();
+
+	// glClear is bounded by the scissor rect, not the viewport, so the scissor is the only state that matters
+	// here - a rect left set by another pass would spare part of the atlas.
+	glDisable(GL_SCISSOR_TEST);
+
+	glClearColor(0.f, 0.f, 0.f, 0.f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	FrameBuffer::unbind();
+
+	global_sky_probe_needs_bake = true;
+}
+
+
 // Rewrite the global sky probe tile from cosine_env_tex.  Cheap: a single quad the size of one tile.
 void OpenGLEngine::bakeGlobalSkyProbe()
 {
@@ -7318,6 +7449,11 @@ void OpenGLEngine::bakeGlobalSkyProbe()
 	bindTextureUnitToSampler(*this->cosine_env_tex, /*texture_unit_index=*/0, /*sampler_uniform_location=*/probe_bake_source_cube_tex_location);
 
 	glUniform2f(probe_bake_tile_origin_location, (float)tile_x, (float)tile_y);
+
+	// Baked into the tile so the lookups take a world space direction.  Any change to sun_phi goes through
+	// setSunDir(), which clears loaded_maps_for_sun_dir and so routes through loadMapsForSunDir(), which sets
+	// global_sky_probe_needs_bake - so the tile cannot be left holding a stale rotation.
+	glUniform1f(probe_bake_env_phi_location, current_scene->sun_phi);
 
 	bindMeshData(*unit_quad_meshdata);
 	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(),
@@ -7358,6 +7494,7 @@ void OpenGLEngine::draw()
 	glActiveTexture(GL_TEXTURE0);
 	glUseProgram(0);
 	VAO::unbind();
+	current_bound_VAO = NULL;
 	assertCurrentProgramIsZero();
 
 	cur_scene->frame_num++;
@@ -7525,6 +7662,15 @@ void OpenGLEngine::draw()
 		catch(glare::Exception& e)
 		{
 			conPrint("Error while reloading fog prog: " + e.what());
+		}
+
+		try
+		{
+			probe_debug_prog = buildProbeDebugProg();
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading downsize and blur progs: " + e.what());
 		}
 
 		// Try and reload draw-aurora shader
@@ -8506,6 +8652,7 @@ void OpenGLEngine::draw()
 
 
 	VAO::unbind(); // Unbind any bound VAO, so that its vertex and index buffers don't get accidentally overridden.
+	current_bound_VAO = NULL;
 	glActiveTexture(GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit), while loading data into textures or creating new textures, outside of this draw() call.
 
 	if(query_profiling_enabled && cur_scene->collect_stats)
@@ -10479,6 +10626,103 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 
 
 // Draw non-transparent (opaque) batches from objects
+// Draw the scene into a probe capture cube face, from each object's probe_capture_batches.
+//
+// Separate from drawNonTransparentMaterialBatches() rather than sharing it, following how the shadow passes
+// iterate depth_draw_batches in their own loop.  The material category filtering that function does was already
+// applied when this list was built, so all that is left here is frustum culling, sorting and submission.
+//
+// Face culling stays off throughout: every key in this list has zero culling bits, so setFaceCulling() is never
+// asked to enable it.  See rebuildObjectProbeCaptureBatches() for why that matters.
+void OpenGLEngine::drawProbeCaptureBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	DebugGroup debug_group("drawProbeCaptureBatches");
+
+	temp_batch_draw_info.reserve(current_scene->objects.size());
+	temp_batch_draw_info.resize(0);
+
+	{
+		const Planef* const frustum_clip_planes = current_scene->frustum_clip_planes;
+		const int num_frustum_clip_planes       = current_scene->num_frustum_clip_planes;
+		const js::AABBox frustum_aabb           = current_scene->frustum_aabb;
+
+		const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
+		const size_t current_scene_obs_size        = current_scene->objects.vector.size();
+		for(size_t i=0; i<current_scene_obs_size; ++i)
+		{
+			if(i + 16 < current_scene_obs_size)
+			{
+				_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws), _MM_HINT_T0);
+				_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
+			}
+
+			const GLObject* const ob = current_scene_obs[i].ptr();
+			if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
+			{
+				const size_t ob_batches_size                  = ob->probe_capture_batches.size();
+				const GLObjectBatchDrawInfo* const ob_batches = ob->probe_capture_batches.data();
+				for(uint32 z = 0; z < ob_batches_size; ++z)
+				{
+					const uint32 prog_index_and_face_culling = ob_batches[z].getProgramIndexAndFaceCulling();
+					assert((prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK) == 0); // Culling must be off for captures.
+
+					BatchDrawInfo info(
+						prog_index_and_face_culling,
+						ob->vao_and_vbo_key,
+						ob, // object ptr
+						z // batch_i
+					);
+					temp_batch_draw_info.push_back(info);
+				}
+			}
+		}
+	}
+
+	sortBatchDrawInfos();
+
+	// A program index no real program will have, so the first batch always takes the branch and binds.  The other
+	// draw loops or this with SHIFTED_CULL_BACKFACE_BITS to match the culling state they establish; not needed
+	// here, since nothing below reads the culling bits.
+	uint32 current_prog_index_and_face_culling = 1000000;
+
+	glDisable(GL_CULL_FACE); // Stays off for the whole pass - drawBackgroundEnvMap() may have enabled it.
+
+	const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
+	const size_t batch_draw_info_size               = temp_batch_draw_info.size();
+	for(size_t z=0; z<batch_draw_info_size; ++z)
+	{
+		const BatchDrawInfo& info = batch_draw_info_data[z];
+		const GLObjectBatchDrawInfo& batch = info.ob->probe_capture_batches[info.batch_i];
+		const uint32 prog_index_and_face_culling = batch.getProgramIndexAndFaceCulling();
+		if(prog_index_and_face_culling != current_prog_index_and_face_culling)
+		{
+			if(use_multi_draw_indirect)
+				submitBufferedDrawCommands(); // Flush existing draw commands
+
+			// No face culling handling: every key here has zero culling bits, asserted above.
+			const uint32 prog_index = prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK;
+			if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK))
+			{
+				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+				prog->useProgram();
+				current_bound_prog = prog;
+				current_bound_prog_index = prog_index;
+				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+			}
+
+			current_prog_index_and_face_culling = prog_index_and_face_culling;
+		}
+
+		bindMeshData(*info.ob);
+
+		drawBatchWithDenormalisedData(*info.ob, batch, info.batch_i);
+	}
+
+	flushDrawCommandsAndUnbindPrograms();
+}
+
+
 void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
 {
 	ZoneScopedN("Draw opaque obs"); // Tracy profiler
@@ -12817,7 +13061,7 @@ void OpenGLEngine::drawBatchWithDenormalisedData(const GLObject& ob, const GLObj
 			const OpenGLProgram* const prog = this->prog_vector[batch.getProgramIndex()].ptr();
 			if(prog->uses_phong_uniforms)
 			{
-				assert(batch.material_data_or_mat_index == ob.getUsedBatches()[batch_index].material_index);
+				//assert(batch.material_data_or_mat_index == ob.getUsedBatches()[batch_index].material_index);
 				const OpenGLMaterial& opengl_mat = ob.materials[batch.material_data_or_mat_index]; // This is the non-MDI case, so material_data_or_mat_index is the index into ob.materials
 
 #if UNIFORM_BUF_PER_MAT_SUPPORT
@@ -13845,6 +14089,7 @@ void OpenGLEngine::renderMaskMap(OpenGLTexture& mask_map_texture, const Vec2f& b
 
 
 	VAO::unbind(); // Unbind any bound VAO, so that it's vertex and index buffers don't get accidentally overridden.
+	current_bound_VAO = NULL;
 	OpenGLProgram::useNoPrograms();
 
 	glDepthMask(GL_TRUE); // Restore writing to z-buffer.

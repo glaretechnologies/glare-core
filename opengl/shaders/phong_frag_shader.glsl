@@ -752,7 +752,16 @@ void main()
 #endif
 
 	if(sun_light_cos_theta_factor != 0.0) // Avoid doing shadow map lookups for faces facing away from sun.
-		sun_vis_factor = getShadowMappingSunVisFactor(final_shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, shadow_map_samples_xy_scale, sun_light_cos_theta_factor);
+	{
+#if IRRADIANCE_PROBES_SUPPORT
+		// A capture's pos_cs is relative to the probe, which breaks the usual cascade selection.  See
+		// getProbeCaptureSunVisFactor().
+		if((mat_common_flags & DOING_PROBE_CAPTURE_FLAG) != 0)
+			sun_vis_factor = getProbeCaptureSunVisFactor(final_shadow_tex_coords, static_depth_tex, pixel_hash, shadow_map_samples_xy_scale, sun_light_cos_theta_factor);
+		else
+#endif
+			sun_vis_factor = getShadowMappingSunVisFactor(final_shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, shadow_map_samples_xy_scale, sun_light_cos_theta_factor);
+	}
 
 #else // else if !SHADOW_MAPPING:
 	sun_vis_factor = 1.0;
@@ -774,43 +783,46 @@ void main()
 	// glTexImage2D expects the start of the texture data to be the lower left of the image, whereas it is actually the upper left.  So flip y coord to compensate.
 	sky_irradiance = texture(LIGHTMAP_TEX, vec2(lightmap_coords.x, -lightmap_coords.y)).xyz;
 #else
-	// cosine_env_tex assumes the sun is in the +x direction, so we need to rotate unit_normal_ws accordingly.
-	// The global sky probe is baked directly from cosine_env_tex, so it lives in the same rotated frame and
-	// takes the same rot_norm.
 	{
-		float neg_env_phi = -env_phi;
-		vec3 rot_norm = vec3(
-			cos(neg_env_phi) * unit_normal_ws.x - sin(neg_env_phi) * unit_normal_ws.y,
-			sin(neg_env_phi) * unit_normal_ws.x + cos(neg_env_phi) * unit_normal_ws.y,
-			unit_normal_ws.z
-		);
-
 #if IRRADIANCE_PROBES_SUPPORT
 		// Three sources, switchable at runtime for comparison: the probe grid, the global sky probe on its own,
 		// or cosine_env_tex directly.  The latter two should look the same, since the global sky probe is just a
 		// resampled copy of cosine_env_tex.
+		//
+		// Every probe tile is indexed by a world space direction: the grid probes because they are captured in
+		// world space, the global sky probe because the bake rotates it out of cosine_env_tex's sun-aligned
+		// frame.  So only the cosine_env_tex branch below needs the rotated normal.
 		if((mat_common_flags & USE_PROBE_IRRADIANCE_FLAG) != 0)
 		{
 			if((mat_common_flags & USE_PROBE_GRID_FLAG) != 0)
 			{
-				// Grid probes are captured in world space, so they take the unrotated normal.
-				sky_irradiance = sampleProbeGridIrradiance(pos_ws, unit_normal_ws, probe_grid_origin, probe_grid_dims, (mat_common_flags & USE_PROBE_VISIBILITY_FLAG) != 0, probe_irradiance_tex); // integral over hemisphere of cosine * incoming radiance * 1.0e-9
+				// Outside the probe volume the lookup falls back to the global sky probe - except during a
+				// capture, where that fallback would be unoccluded sky feeding back into the grid.
+				bool sky_fallback = (mat_common_flags & DOING_PROBE_CAPTURE_FLAG) == 0;
+				sky_irradiance = sampleProbeGridIrradiance(pos_ws, unit_normal_ws, probe_grid_origin, probe_grid_dims, (mat_common_flags & USE_PROBE_VISIBILITY_FLAG) != 0, sky_fallback, probe_irradiance_tex); // integral over hemisphere of cosine * incoming radiance * 1.0e-9
 			#if FANCY_DOUBLE_SIDED
-				transmission_sky_irradiance = sampleProbeGridIrradiance(pos_ws, -unit_normal_ws, probe_grid_origin, probe_grid_dims, (mat_common_flags & USE_PROBE_VISIBILITY_FLAG) != 0, probe_irradiance_tex);
+				transmission_sky_irradiance = sampleProbeGridIrradiance(pos_ws, -unit_normal_ws, probe_grid_origin, probe_grid_dims, (mat_common_flags & USE_PROBE_VISIBILITY_FLAG) != 0, sky_fallback, probe_irradiance_tex);
 			#endif
 			}
 			else
 			{
-				// The global sky probe was resampled from cosine_env_tex, so it is in the env-rotated frame.
-				sky_irradiance = sampleProbeIrradiance(GLOBAL_SKY_PROBE_INDEX, rot_norm, probe_irradiance_tex);
+				sky_irradiance = sampleProbeIrradiance(GLOBAL_SKY_PROBE_INDEX, unit_normal_ws, probe_irradiance_tex);
 			#if FANCY_DOUBLE_SIDED
-				transmission_sky_irradiance = sampleProbeIrradiance(GLOBAL_SKY_PROBE_INDEX, -rot_norm, probe_irradiance_tex);
+				transmission_sky_irradiance = sampleProbeIrradiance(GLOBAL_SKY_PROBE_INDEX, -unit_normal_ws, probe_irradiance_tex);
 			#endif
 			}
 		}
 		else
 #endif // IRRADIANCE_PROBES_SUPPORT
 		{
+			// cosine_env_tex assumes the sun is in the +x direction, so rotate unit_normal_ws accordingly.
+			float neg_env_phi = -env_phi;
+			vec3 rot_norm = vec3(
+				cos(neg_env_phi) * unit_normal_ws.x - sin(neg_env_phi) * unit_normal_ws.y,
+				sin(neg_env_phi) * unit_normal_ws.x + cos(neg_env_phi) * unit_normal_ws.y,
+				unit_normal_ws.z
+			);
+
 			sky_irradiance = texture(cosine_env_tex, rot_norm).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
 		#if FANCY_DOUBLE_SIDED
 			transmission_sky_irradiance = texture(cosine_env_tex, -rot_norm).xyz; // integral over hemisphere of cosine * incoming radiance from sky * 1.0e-9
@@ -931,7 +943,13 @@ void main()
 	}
 #endif // end if SSAO_SUPPORT
 
-	if(((mat_common_flags & DO_SSAO_FLAG) == 0) || (frag_depth > 80.0))
+	// During a probe capture this lookup is the last unoccluded-sky term left: it reads specular_env_tex directly,
+	// which the probe grid does not gate, so an interior wall would keep a fresnel-weighted slice of full sky
+	// however enclosed it is.  Left in, that puts a floor under how dark the grid can converge to.  Dropped rather
+	// than redirected at the grid, since the capture is convolved to diffuse irradiance regardless.
+	// spec_refl_light stays at its vec3(0.0) initialiser: the SSAO branch above cannot have run, DO_SSAO_FLAG is
+	// never set during a capture.
+	if(((mat_common_flags & DOING_PROBE_CAPTURE_FLAG) == 0) && (((mat_common_flags & DO_SSAO_FLAG) == 0) || (frag_depth > 80.0)))
 	{
 		//========================= Do specular reflection of environment, weighted by fresnel factor ============================
 	
@@ -1029,6 +1047,35 @@ void main()
 
 #if FANCY_DOUBLE_SIDED
 	col += transmission_sky_irradiance * trans_diffuse_col * (1.0 / PI);
+#endif
+
+#if IRRADIANCE_PROBES_SUPPORT && !FANCY_DOUBLE_SIDED
+	// A probe capture draws with face culling off, so a probe inside solid geometry sees that geometry's interior.
+	// Those fragments pick up direct sun they should not have.  The normal is flipped towards the viewer further
+	// down ("Flip normal into hemisphere camera is in"), but light_cos_theta above was computed before that, from
+	// the unflipped normal - so the back of a wall's outer skin tests against a normal pointing outwards towards
+	// the sun, passes max(0, light_cos_theta), and is reported lit by the shadow map, since that surface really is
+	// sunlit on its far side.  sky_irradiance is sampled after the flip and so comes out near zero; it is the sun
+	// term alone that leaks, and it leaks at full strength.
+	//
+	// frag_to_cam_dot_normal < 0 is the same front/back test the FANCY_DOUBLE_SIDED path uses above; here the
+	// camera is the probe, so it reads as "the probe is behind this surface".  It has to be the value computed
+	// before the flip - afterwards the dot product is non-negative by construction and this could never fire.
+	// Preferred over gl_FrontFacing, which is winding-based and would need correcting for mirrored objects -
+	// normally handled by culling front faces instead of back, a correction the capture batches throw away when
+	// they zero the culling bits.
+	//
+	// Black rather than discard: the fragment still has to write depth, since the capture depth buffer is what
+	// the convolution turns into the probe's Chebyshev visibility tile.
+	//
+	// Genuinely two-sided materials are excluded: they have no inside, and their backfaces were being drawn long
+	// before probe captures existed.
+	if(((mat_common_flags & DOING_PROBE_CAPTURE_FLAG) != 0) &&
+		(frag_to_cam_dot_normal < 0.0) &&
+		((MAT_UNIFORM.flags & SIMPLE_DOUBLE_SIDED_FLAG) == 0))
+	{
+		col = vec3(0.0);
+	}
 #endif
 
 	if((mat_common_flags & DO_SSAO_FLAG) == 0)

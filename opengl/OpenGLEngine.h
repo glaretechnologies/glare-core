@@ -361,8 +361,13 @@ struct GLObject
 	uint32 indices_vbo_handle_offset;
 	uint32 vbo_handle_base_vertex;
 	
-	SmallArray<GLObjectBatchDrawInfo, 1> depth_draw_batches; // Index batches, use for depth buffer drawing for shadow mapping.  
+	SmallArray<GLObjectBatchDrawInfo, 1> depth_draw_batches; // Index batches, use for depth buffer drawing for shadow mapping.
 	// We will use a SmallArray for this with N = 1, since the most likely number of batches is 1.
+
+	// Index batches used when rendering irradiance probe capture cube faces.  Same reasoning for N = 1.  Holds
+	// only the materials a capture draws, and always with the face culling bits zeroed - see
+	// rebuildObjectProbeCaptureBatches().
+	SmallArray<GLObjectBatchDrawInfo, 1> probe_capture_batches;
 
 	Reference<OpenGLMeshRenderData> mesh_data;
 
@@ -1371,7 +1376,8 @@ private:
 	void loadMapsForSunDir();
 	void buildObjectData(const Reference<GLObject>& object);
 	void rebuildDenormalisedDrawData(GLObject& ob);
-	void rebuildObjectDepthDrawBatches(GLObject& ob);
+	void rebuildObjectDepthDrawBatches(GLObject& ob); // Also rebuilds the probe capture batches.
+	void rebuildObjectProbeCaptureBatches(GLObject& ob);
 	void updateMaterialDataOnGPU(const GLObject& ob, size_t mat_index);
 	void calcCamFrustumVerts(float near_dist, float far_dist, Vec4f* verts_out) const;
 	void assignLightsToObject(GLObject& ob);
@@ -1432,6 +1438,11 @@ public:
 	void convolveProbeCaptureToTile(int probe_index); // Convolve that capture into a probe tile in the irradiance atlas.
 	void captureProbeGrid(const Vec4f& grid_centre); // Capture and convolve every grid probe.  Blocking; debug only.
 	void updateProbes(); // Recentre the probe window on the camera and recapture a few stale probes.  Once per frame.
+
+	// Zero the irradiance atlas, so the next captures restart the bounce sequence from black instead of
+	// continuing it.  Captures shade from the grid, so a capture into a non-zero atlas adds a bounce to what is
+	// already there - call this first when you want a clean rebake rather than another iteration.
+	void clearProbeIrradianceAtlas();
 #if !defined(EMSCRIPTEN)
 	void debugDumpFloatFrameBuffer(FrameBuffer& framebuffer, int w, int h, const std::string& path); // Write as EXR plus a normalised PNG.
 	void debugDumpProbeCapture(const std::string& path); // Write the 6 captured cube faces, side by side.
@@ -1486,6 +1497,7 @@ private:
 	void drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void computeSSAO(const Matrix4f& proj_matrix);
 	void drawNonTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawProbeCaptureBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
@@ -1573,6 +1585,7 @@ private:
 	int probe_debug_probe_index_location;
 	int probe_bake_source_cube_tex_location;
 	int probe_bake_tile_origin_location;
+	int probe_bake_env_phi_location;
 	bool global_sky_probe_needs_bake; // Set when cosine_env_tex changes; the bake happens at the start of the next draw().
 
 	std::vector<Reference<OpenGLTexture>> water_caustics_textures;

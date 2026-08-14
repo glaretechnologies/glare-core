@@ -63,7 +63,6 @@ void IrradianceProbes::allocateGLResources(OpenGLEngine* opengl_engine)
 
 	irradiance_framebuffer = new FrameBuffer();
 	irradiance_framebuffer->attachTexture(*irradiance_tex, GL_COLOR_ATTACHMENT0);
-	irradiance_framebuffer->setSingleDrawBuffer(GL_COLOR_ATTACHMENT0);
 
 	//------------------------------------- Capture target -------------------------------------
 	capture_tex = new OpenGLTexture(CAPTURE_FACE_RES * 6, CAPTURE_FACE_RES, opengl_engine, /*data=*/ArrayRef<uint8>(),
@@ -269,7 +268,8 @@ std::string IrradianceProbes::getShaderPreprocessorDefines() const
 {
 	std::string s;
 	s += "#define PROBE_TILE_INTERIOR_RES "    + toString(IRRADIANCE_TILE_INTERIOR_RES) + "\n";
-	s += "#define PROBE_TILE_BORDER "          + toString(TILE_BORDER) + "\n";
+	s += "#define PROBE_TILE_BORDER "          + toString(IRRADIANCE_TILE_BORDER) + "\n";
+	s += "#define PROBE_DEPTH_TILE_BORDER "    + toString(DEPTH_TILE_BORDER) + "\n";
 	s += "#define PROBE_TILE_RES "             + toString(IRRADIANCE_TILE_RES) + "\n";
 	s += "#define PROBE_DEPTH_TILE_INTERIOR_RES " + toString(DEPTH_TILE_INTERIOR_RES) + "\n";
 	s += "#define PROBE_DEPTH_TILE_RES "       + toString(DEPTH_TILE_RES) + "\n";

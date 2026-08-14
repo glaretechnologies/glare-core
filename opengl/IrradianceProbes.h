@@ -26,10 +26,12 @@ Storage for a set of irradiance probes.  Each probe holds the cosine-weighted ir
 every direction, stored as an octahedral map in a tile of a shared 2D atlas texture.
 
 Tile layout: an interior of IRRADIANCE_TILE_INTERIOR_RES^2 texels holding the octahedral map, surrounded by a
-TILE_BORDER-texel ring holding wrapped-around copies of interior texels.  Without the border, a bilinear tap
-taken near a tile edge would blend in texels belonging to a neighbouring probe.  The border is written by the
-same pass that writes the interior (see probe_bake_from_cubemap_frag_shader.glsl), rather than by a separate
-copy pass, by folding out-of-range octahedral coordinates back onto the octahedron.
+border ring holding wrapped-around copies of interior texels.  Without the border, a tap taken near a tile edge
+would blend in texels belonging to a neighbouring probe, so the ring has to be as wide as the filter's reach:
+IRRADIANCE_TILE_BORDER = 2 for the B-spline used on irradiance, DEPTH_TILE_BORDER = 1 for the bilinear tap used
+on depth.  The border is written by the same pass that writes the interior (see
+probe_bake_from_cubemap_frag_shader.glsl), rather than by a separate copy pass, by folding out-of-range
+octahedral coordinates back onto the octahedron.
 
 Probe 0 is reserved as the global sky probe: it holds what cosine_env_tex used to hold, and is used for
 shading points that fall outside the probe volume.  It is baked by resampling the cosine env cube map, so
@@ -76,15 +78,27 @@ public:
 	static void getCaptureFaceRect(int face, int& x_out, int& y_out, int& w_out, int& h_out);
 
 
-	static const int TILE_BORDER = 1;
+	// The irradiance tiles are sampled with a cubic B-spline (see sampleProbeIrradiance() in frag_utils.glsl),
+	// which reaches two texels either side of the sample point, so they carry a 2-texel border.  The depth tiles
+	// are sampled bilinearly and only need one; widening them too would add ~23% to the convolve's output texels
+	// for no benefit.  The wider border is harmless when the B-spline is toggled off - bilinear just never
+	// reaches the outer ring.
+	static const int IRRADIANCE_TILE_BORDER = 2;
+	static const int DEPTH_TILE_BORDER = 1;
 
-	static const int IRRADIANCE_TILE_INTERIOR_RES = 8; // Cosine convolution removes everything higher-frequency than this.
-	static const int IRRADIANCE_TILE_RES = IRRADIANCE_TILE_INTERIOR_RES + TILE_BORDER * 2;
+	// Odd on purpose.  The octahedral parameterisation has a ridge along p = 0 (the x=0 and y=0 octahedron edges),
+	// and with cell-centred sampling an even resolution puts p = 0 on a texel *boundary*, so the ridge is never
+	// stored and reconstruction can only chord across it.  An odd resolution puts a texel centre exactly on it -
+	// here texel 6, since oct_uv = 0.5 gives tile texel 2 + 4.5 = 6.5.  The trade is that nothing then lands on
+	// the diamond |p.x| + |p.y| = 1, so the z=0 edge loses the sample it used to have; that one was less visible.
+	// Cosine convolution removes everything higher-frequency than this anyway.
+	static const int IRRADIANCE_TILE_INTERIOR_RES = 9;
+	static const int IRRADIANCE_TILE_RES = IRRADIANCE_TILE_INTERIOR_RES + IRRADIANCE_TILE_BORDER * 2;
 
 	// Visibility needs sharper angular detail than irradiance, so the depth tiles are larger.  They hold mean
 	// distance and mean squared distance, for the Chebyshev test.
 	static const int DEPTH_TILE_INTERIOR_RES = 16;
-	static const int DEPTH_TILE_RES = DEPTH_TILE_INTERIOR_RES + TILE_BORDER * 2;
+	static const int DEPTH_TILE_RES = DEPTH_TILE_INTERIOR_RES + DEPTH_TILE_BORDER * 2;
 
 	// Both tile types live in one texture so they cost one texture unit rather than two.  The irradiance tiles
 	// occupy a band across the top, the depth tiles a band below it.  Columns are pitched at DEPTH_TILE_RES in
