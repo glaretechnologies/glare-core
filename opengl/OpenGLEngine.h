@@ -1327,11 +1327,11 @@ public:
 	//----------------------------------- Settings ----------------------------------------
 	//void setMSAAEnabled(bool enabled);
 
-	void setSSAOEnabled(bool ssao_enabled);
+	void setSSAOEnabled(bool ssao_enabled); // is SSR and SSGI enabled?
+	bool isSSAOEnabled() const; // is SSR and SSGI enabled?
 
 	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
 	bool openglDriverVendorIsATI() const; // Works after opengl_vendor is set in initialise().
-	bool show_ssao;
 
 	//---------- Irradiance probe runtime toggles ----------
 	// All of these do nothing unless OpenGLEngineSettings::irradiance_probes_support was set before initialise().
@@ -1360,7 +1360,11 @@ public:
 	bool irradianceProbesEnabled() const { return irradiance_probes.nonNull(); }
 	//-----------------------------------------------------
 
-	void toggleShowTexDebug(int index);
+	// Returns pass names in an array of C strings.
+	const char** getDebugPassViewNames() const;
+	size_t getDebugPassViewNamesSize() const;
+	void setCurDebugTexIndex(int index); // Set the current pass to show as a fullscreen quad coverting the main render.  index 0 = none/disable.
+
 
 	bool shouldUseSharedTextures() const; // For sharing D3D11 textures with OpenGL
 	//----------------------------------------------------------------------------------------

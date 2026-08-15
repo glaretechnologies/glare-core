@@ -530,7 +530,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	add_debug_obs(false),
 	async_texture_loader(NULL),
 	current_bound_phong_uniform_buf_ob_index(0),
-	show_ssao(true),
 	num_draw_commands(0),
 	reload_shaders_callback(nullptr)
 {
@@ -13881,6 +13880,12 @@ void OpenGLEngine::setSSAOEnabled(bool ssao_enabled)
 }
 
 
+bool OpenGLEngine::isSSAOEnabled() const
+{
+	return settings.ssao;
+}
+
+
 bool OpenGLEngine::openglDriverVendorIsIntel() const
 {
 	return StringUtils::containsString(::toLowerCase(opengl_vendor), "intel");
@@ -13893,54 +13898,84 @@ bool OpenGLEngine::openglDriverVendorIsATI() const
 }
 
 
-void OpenGLEngine::toggleShowTexDebug(int index)
+// Matches index handling in setCurDebugTexIndex() below.
+static const char* debug_pass_view_names[] = { 
+	"none",
+	"AO (sky irradiance fraction)", 
+	"blurred AO", 
+	"prepass colour", 
+	"indirect illum",
+	"blurred indirect illum", 
+	"specular", 
+	"specular refl roughness * trace dist"
+};
+
+const char** OpenGLEngine::getDebugPassViewNames() const
 {
-	if(large_debug_overlay_ob)
+	return debug_pass_view_names;
+}
+
+
+size_t OpenGLEngine::getDebugPassViewNamesSize() const
+{
+	return staticArrayNumElems(debug_pass_view_names);
+}
+
+
+void OpenGLEngine::setCurDebugTexIndex(int index)
+{
+	large_debug_overlay_ob->material.overlay_show_just_tex_rgb = false;
+	large_debug_overlay_ob->material.overlay_show_just_tex_w   = false;
+
+	if(index == 0)
 	{
-		large_debug_overlay_ob->draw = !large_debug_overlay_ob->draw;
+		// none - disable pass overlay drawing.
+		large_debug_overlay_ob->draw = false;
+	}
+	else
+	{
+		large_debug_overlay_ob->draw = true;
 
-		large_debug_overlay_ob->material.overlay_show_just_tex_rgb = false;
-		large_debug_overlay_ob->material.overlay_show_just_tex_w = false;
-
-		if(index == 0)
+		if(index == 1)
 		{
-			// AO
-			conPrint("Showing AO");
+			// AO ((sky irradiance fraction))
 			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_texture;
-			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
-		}
-		else if(index == 1)
-		{
-			// blurred AO
-			conPrint("Showing blurred AO");
-			large_debug_overlay_ob->material.albedo_texture = current_scene->blurred_ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
 		}
 		else if(index == 2)
 		{
-			// indirect illum
-			conPrint("Showing indirect illum");
-			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_texture;
-			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+			// blurred AO
+			large_debug_overlay_ob->material.albedo_texture = current_scene->blurred_ssao_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
 		}
 		else if(index == 3)
 		{
-			// blurred indirect illum
-			conPrint("Showing blurred indirect illum");
-			large_debug_overlay_ob->material.albedo_texture = current_scene->blurred_ssao_texture;
+			// prepass colour
+			large_debug_overlay_ob->material.albedo_texture = current_scene->prepass_colour_copy_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+			large_debug_overlay_ob->material.overlay_show_just_tex_w = false;
 		}
 		else if(index == 4)
 		{
-			// specular refl
-			conPrint("Showing specular");
-			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_specular_texture;
+			// indirect illum
+			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 		else if(index == 5)
 		{
+			// blurred indirect illum
+			large_debug_overlay_ob->material.albedo_texture = current_scene->blurred_ssao_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+		}
+		else if(index == 6)
+		{
+			// specular refl
+			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_specular_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+		}
+		else if(index == 7)
+		{
 			// specular refl roughness * trace dist
-			conPrint("showing refl roughness * trace dist");
 			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_specular_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
 
