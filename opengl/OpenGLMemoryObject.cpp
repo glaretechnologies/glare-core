@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2025 -
 
 #include "OpenGLExtensions.h"
 #include "IncludeOpenGL.h"
+#include <tracy/Tracy.hpp>
 
 
 #if !EMSCRIPTEN && !defined(__APPLE__)
@@ -34,6 +35,8 @@ OpenGLMemoryObject::~OpenGLMemoryObject()
 
 void OpenGLMemoryObject::importD3D11ImageFromHandle(void* shared_handle)
 {
+	ZoneScoped; // Tracy profiler
+
 #ifdef _WIN32
 	// NOTE: KMT, not GL_HANDLE_TYPE_D3D11_IMAGE_EXT: Direct3DUtils::getSharedHandleForTexture() returns a legacy shared handle.  See the comment in
 	// Direct3DUtils::copyTextureToNewShareableTexture() for why we don't share with NT handles.
