@@ -176,9 +176,9 @@ enum TextureUnitIndices
 
 	SSAO_TEXTURE_UNIT_INDEX,
 	SSAO_SPECULAR_TEXTURE_UNIT_INDEX,
-	PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX,
-	PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX,
-	PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX
+	PREPASS_COLOUR_TEXTURE_UNIT_INDEX,
+	PREPASS_NORMAL_TEXTURE_UNIT_INDEX,
+	PREPASS_DEPTH_TEXTURE_UNIT_INDEX
 };
 
 
@@ -2549,7 +2549,6 @@ void OpenGLEngine::checkCreateProfilingQueries()
 		this->col_and_depth_pre_pass_gpu_timer = new Query();
 		this->compute_ssao_gpu_timer = new Query();
 		this->blur_ssao_gpu_timer = new Query();
-		this->copy_prepass_buffers_gpu_timer = new Query();
 		this->decal_copy_buffers_timer = new Query();
 		this->draw_overlays_gpu_timer = new Query();
 		this->bloom_gpu_timer = new Query();
@@ -3705,43 +3704,35 @@ void OpenGLScene::createSSAOTextures(OpenGLEngine* engine, bool normal_texture_i
 
 	const int prepass_xres = xres / 2;
 	const int prepass_yres = yres / 2;
-	const int prepass_msaa_samples = 1;
+	// Prepass textures will use MSAA samples=1
 
 
 	conPrint("Allocating SSAO buffers and textures with width " + toString(prepass_xres) + " and height " + toString(prepass_yres));
 
-#if 0
-	prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, col_buffer_format);
-	prepass_depth_renderbuffer  = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, depth_format);
-	prepass_framebuffer = new FrameBuffer();
-	prepass_framebuffer->attachRenderBuffer(*prepass_colour_renderbuffer, GL_COLOR_ATTACHMENT0);
-	prepass_framebuffer->attachRenderBuffer(*prepass_normal_renderbuffer, GL_COLOR_ATTACHMENT1);
-	prepass_framebuffer->attachRenderBuffer(*prepass_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
-#else
+
 	// We will store roughness in colour w.
 	const OpenGLTextureFormat prepass_col_buffer_format = OpenGLTextureFormat::Format_RGBA_Linear_Half;
 
 	const OpenGLTextureFormat normal_buffer_format = normal_texture_is_uint ? OpenGLTextureFormat::Format_RGBA_Integer_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
 	const OpenGLTextureFormat depth_format = OpenGLTextureFormat::Format_Depth_Float;
 
-	prepass_colour_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, prepass_col_buffer_format);
-	prepass_normal_renderbuffer = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, normal_buffer_format);
-	prepass_depth_renderbuffer  = new RenderBuffer(prepass_xres, prepass_yres, prepass_msaa_samples, depth_format);
 	prepass_framebuffer = new FrameBuffer();
-	prepass_framebuffer->attachRenderBuffers(*prepass_colour_renderbuffer, GL_COLOR_ATTACHMENT0,
-	                                         *prepass_normal_renderbuffer, GL_COLOR_ATTACHMENT1,
-	                                         *prepass_depth_renderbuffer, GL_DEPTH_ATTACHMENT);
+	
+	prepass_colour_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), prepass_col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	prepass_colour_texture->setDebugName("prepass_colour_texture");
+	prepass_normal_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), normal_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	prepass_normal_texture->setDebugName("prepass_normal_texture");
+	prepass_depth_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), depth_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	prepass_depth_texture->setDebugName("prepass_depth_texture");
 
-	prepass_colour_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), prepass_col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
-	prepass_colour_copy_texture->setDebugName("prepass_colour_copy_texture");
-	prepass_normal_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), normal_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
-	prepass_normal_copy_texture->setDebugName("prepass_normal_copy_texture");
-	prepass_depth_copy_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), depth_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
-	prepass_depth_copy_texture->setDebugName("prepass_depth_copy_texture");
-	prepass_copy_framebuffer = new FrameBuffer();
-	prepass_copy_framebuffer->attachTextures(*prepass_colour_copy_texture, GL_COLOR_ATTACHMENT0,
-	                                         *prepass_normal_copy_texture, GL_COLOR_ATTACHMENT1,
-	                                         *prepass_depth_copy_texture, GL_DEPTH_ATTACHMENT);
+	prepass_framebuffer->attachTextures(*prepass_colour_texture, GL_COLOR_ATTACHMENT0,
+	                                    *prepass_normal_texture, GL_COLOR_ATTACHMENT1,
+	                                    *prepass_depth_texture,  GL_DEPTH_ATTACHMENT);
+	prepass_framebuffer->bindForDrawing();
+	prepass_framebuffer->setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Draw to colour and normal buffer
+	prepass_framebuffer->unbindFromDrawing();
+
+
 
 	ssao_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), 
 		OpenGLTextureFormat::Format_RGBA_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
@@ -3776,30 +3767,6 @@ void OpenGLScene::createSSAOTextures(OpenGLEngine* engine, bool normal_texture_i
 
 	blurred_ssao_framebuffer_x = new FrameBuffer();
 	blurred_ssao_framebuffer_x->attachTexture(*blurred_ssao_texture_x, GL_COLOR_ATTACHMENT0);
-#endif
-
-	//TEMP:
-//	if(texture_debug_preview_overlay_obs.size() >= 4)
-//	{
-//		texture_debug_preview_overlay_obs[0]->material.albedo_texture = prepass_colour_copy_texture;
-//
-//		texture_debug_preview_overlay_obs[1]->material.albedo_texture = ssao_specular_texture;//prepass_normal_copy_texture;
-//		texture_debug_preview_overlay_obs[1]->material.overlay_show_just_tex_rgb = true;
-//
-//		texture_debug_preview_overlay_obs[2]->material.albedo_texture = ssao_texture;
-//		texture_debug_preview_overlay_obs[2]->material.overlay_show_just_tex_rgb = true;
-//
-//		texture_debug_preview_overlay_obs[3]->material.albedo_texture = ssao_texture;
-//		texture_debug_preview_overlay_obs[3]->material.overlay_show_just_tex_w = true;
-//
-//		//texture_debug_preview_overlay_obs[5]->material.albedo_texture = blurred_ssao_texture;
-//		//texture_debug_preview_overlay_obs[5]->material.overlay_show_just_tex_w = true;
-//
-//		//large_debug_overlay_ob->material.albedo_texture = blurred_ssao_texture;
-//		//large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
-//
-//		//large_debug_overlay_ob2->material.albedo_texture = blurred_ssao_specular_texture;
-//	}
 }
 
 
@@ -8676,7 +8643,6 @@ void OpenGLEngine::draw()
 		col_and_depth_pre_pass_gpu_timer->checkResultAndStore();
 		compute_ssao_gpu_timer->checkResultAndStore();
 		blur_ssao_gpu_timer->checkResultAndStore();
-		copy_prepass_buffers_gpu_timer->checkResultAndStore();
 		decal_copy_buffers_timer->checkResultAndStore();
 		draw_overlays_gpu_timer->checkResultAndStore();
 		bloom_gpu_timer->checkResultAndStore();
@@ -11108,18 +11074,27 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 
 		assertCurrentProgramIsZero();
 
-		current_scene->prepass_framebuffer->bindForDrawing();
-		assert(current_scene->prepass_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == current_scene->prepass_colour_renderbuffer->buffer_name);
-		assert(current_scene->prepass_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == current_scene->prepass_normal_renderbuffer->buffer_name);
-		assert(current_scene->prepass_framebuffer->getAttachedRenderBufferName(GL_DEPTH_ATTACHMENT)  == current_scene->prepass_depth_renderbuffer->buffer_name);
-		current_scene->prepass_framebuffer->setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Draw to colour and normal buffer
+		// We will be drawing into these textures (prepass_colour_texture, prepass_normal_texture, prepass_depth_texture), so unbind them from texture units.
+		unbindTextureFromTextureUnit(GL_TEXTURE_2D, PREPASS_COLOUR_TEXTURE_UNIT_INDEX);
+		unbindTextureFromTextureUnit(GL_TEXTURE_2D, PREPASS_NORMAL_TEXTURE_UNIT_INDEX);
+		unbindTextureFromTextureUnit(GL_TEXTURE_2D, PREPASS_DEPTH_TEXTURE_UNIT_INDEX);
 
+
+		current_scene->prepass_framebuffer->bindForDrawing();
 
 		glViewport(0, 0, (GLsizei)current_scene->prepass_framebuffer->xRes(), (GLsizei)current_scene->prepass_framebuffer->yRes());
-		glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
-		//glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
-		glClearDepthf(use_reverse_z ? 0.000001f :0.999999f); // For reversed-z, the 'far' z value is 0, instead of 1.
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// Clear colour buffer
+		current_scene->prepass_framebuffer->clearFloatColourBuffer(/*draw_buffer=*/0, current_scene->background_colour, /*alpha=*/1.f);
+
+		// Clear normal buffer.  Note that we have to use the uint version for clearing the normal buffer if it's an uint format.
+		if(normal_texture_is_uint)
+			current_scene->prepass_framebuffer->clearUIntColourBuffer(/*draw_buffer=*/1, /*r=*/0, 0, 0, 0);
+		else
+			current_scene->prepass_framebuffer->clearFloatColourBuffer(/*draw_buffer=*/1, Colour3f(0.f), /*alpha=*/0.f);
+
+		// Clear depth buffer
+		FrameBuffer::clearCurrentlyBoundDepthBuffer(use_reverse_z ? 0.000001f : 0.999999f); // For reversed-z, the 'far' z value is 0, instead of 1.
 
 
 
@@ -11306,19 +11281,6 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 			DebugGroup debug_group("computeSSAO");
 		
 			
-			//---------------------- Blit from prepass_framebuffer to prepass_copy_framebuffer ----------------------
-			if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && copy_prepass_buffers_gpu_timer->isIdle())
-				copy_prepass_buffers_gpu_timer->beginTimerQuery();
-
-			blitFrameBuffer(/*src_framebuffer=*/*current_scene->prepass_framebuffer, /*dest_framebuffer=*/*current_scene->prepass_copy_framebuffer, 
-				/*num_buffers_to_copy=*/2, // Copy both colour/depth and normal buffer
-				/*copy_buf0_colour=*/true, /*copy_buf0_depth=*/true);
-
-			if(query_profiling_enabled && copy_prepass_buffers_gpu_timer->isRunning())
-				copy_prepass_buffers_gpu_timer->endTimerQuery();
-			//-----------------------------------------------------------------------------------------------------
-
-
 			if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && compute_ssao_gpu_timer->isIdle())
 				compute_ssao_gpu_timer->beginTimerQuery();
 
@@ -11343,9 +11305,9 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 				glUniformMatrix4fv(compute_ssao_prog->model_matrix_loc, 1, false, /*ob->*/ob_to_world_matrix.e);
 
-				bindTextureUnitToSampler(*current_scene->prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, compute_ssao_prog->uniform_locations.diffuse_tex_location);
-				bindTextureUnitToSampler(*current_scene->prepass_normal_copy_texture, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, compute_ssao_normal_tex_location);
-				bindTextureUnitToSampler(*current_scene->prepass_depth_copy_texture,  PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX,  compute_ssao_depth_tex_location);
+				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, PREPASS_COLOUR_TEXTURE_UNIT_INDEX, compute_ssao_prog->uniform_locations.diffuse_tex_location);
+				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, PREPASS_NORMAL_TEXTURE_UNIT_INDEX, compute_ssao_normal_tex_location);
+				bindTextureUnitToSampler(*current_scene->prepass_depth_texture,  PREPASS_DEPTH_TEXTURE_UNIT_INDEX,  compute_ssao_depth_tex_location);
 
 				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)mesh_data.getBatch0IndicesTotalBufferOffset(), mesh_data.vbo_handle.base_vertex);
 			}
@@ -11381,9 +11343,9 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 				bindTextureUnitToSampler(*current_scene->ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
 				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
-				bindTextureUnitToSampler(*current_scene->prepass_depth_copy_texture,  /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX,  /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_colour_copy_texture, /*texture_unit_index=*/PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_depth_texture,  /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX,  /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
 				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/1); // set is_ssao_blur = 1
 				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/1); // set blur_x = 1
@@ -11402,9 +11364,9 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				bindTextureUnitToSampler(*current_scene->blurred_ssao_texture_x, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
 
 				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
-				bindTextureUnitToSampler(*current_scene->prepass_depth_copy_texture,  /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_colour_copy_texture, /*texture_unit_index=*/PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_depth_texture,  /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
 				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/1); // set is_ssao_blur = 1
 				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/0); // set blur_x = 0
@@ -11425,9 +11387,9 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 				bindTextureUnitToSampler(*current_scene->ssao_specular_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
 				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
-				bindTextureUnitToSampler(*current_scene->prepass_depth_copy_texture, /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_colour_copy_texture, /*texture_unit_index=*/PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_depth_texture, /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
 				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/0); // set is_ssao_blur = 0
 				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/1); // set blur_x = 1
@@ -11445,9 +11407,9 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 				bindTextureUnitToSampler(*current_scene->blurred_ssao_texture_x, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
 				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
-				bindTextureUnitToSampler(*current_scene->prepass_depth_copy_texture, /*texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_normal_copy_texture, /*texture_unit_index=*/PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_colour_copy_texture, /*texture_unit_index=*/PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_depth_texture, /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
 				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/0); // set is_ssao_blur = 0
 				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/0); // set blur_x = 0
@@ -11462,10 +11424,14 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 
 			// unbind textures that aren't used by standard materials.
-			unbindTextureFromTextureUnit(*current_scene->prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX);
+			unbindTextureFromTextureUnit(*current_scene->prepass_colour_texture, PREPASS_COLOUR_TEXTURE_UNIT_INDEX);
 
 			// restore bindings
 			bindTextureToTextureUnit(*current_scene->blurred_ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX);
+
+			bindTextureToTextureUnit(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX);
+			bindTextureToTextureUnit(*current_scene->prepass_depth_texture,  /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX);
+
 
 			flushDrawCommandsAndUnbindPrograms();
 		}
@@ -12249,8 +12215,8 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 	glUniform1i(program.uniform_locations.ssao_tex_location, SSAO_TEXTURE_UNIT_INDEX);
 	glUniform1i(program.uniform_locations.ssao_specular_tex_location, SSAO_SPECULAR_TEXTURE_UNIT_INDEX);
 
-	glUniform1i(program.uniform_locations.prepass_depth_tex_location, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
-	glUniform1i(program.uniform_locations.prepass_normal_tex_location, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.prepass_depth_tex_location,  PREPASS_DEPTH_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.prepass_normal_tex_location, PREPASS_NORMAL_TEXTURE_UNIT_INDEX);
 
 	//glUniform1i(program.uniform_locations.snow_ice_normal_map_location, SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 }
@@ -12323,17 +12289,17 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 	bindTextureToTextureUnit(current_scene->blurred_ssao_texture ? *current_scene->blurred_ssao_texture : *dummy_black_tex, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX);
 	bindTextureToTextureUnit(current_scene->blurred_ssao_specular_texture ? *current_scene->blurred_ssao_specular_texture : *dummy_black_tex, /*texture_unit_index=*/SSAO_SPECULAR_TEXTURE_UNIT_INDEX);
 
-	//if(prepass_colour_copy_texture)
-	//	bindTextureToTextureUnit(*prepass_colour_copy_texture, PREPASS_COLOUR_COPY_TEXTURE_UNIT_INDEX);
-	if(current_scene->prepass_normal_copy_texture)
-		bindTextureToTextureUnit(*current_scene->prepass_normal_copy_texture, PREPASS_NORMAL_COPY_TEXTURE_UNIT_INDEX);
-	if(current_scene->prepass_depth_copy_texture)
-		bindTextureToTextureUnit(*current_scene->prepass_depth_copy_texture, PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+	// Prepass colour is read via blurred_ssao_texture on SSAO_TEXTURE_UNIT_INDEX.
+
+	if(current_scene->prepass_normal_texture)
+		bindTextureToTextureUnit(*current_scene->prepass_normal_texture, PREPASS_NORMAL_TEXTURE_UNIT_INDEX);
+	if(current_scene->prepass_depth_texture)
+		bindTextureToTextureUnit(*current_scene->prepass_depth_texture, PREPASS_DEPTH_TEXTURE_UNIT_INDEX);
 
 	//if(snow_ice_normal_map.nonNull())
 	//	bindTextureToTextureUnit(*snow_ice_normal_map, /*texture_unit_index=*/SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 
-	//const int num_bound = getNumBoundTextures(/*max_texture_unit_index=*/PREPASS_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+	//const int num_bound = getNumBoundTextures(/*max_texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX);
 	//printVar(num_bound);
 }
 
@@ -13394,7 +13360,10 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits>> OpenGLEngine::drawToBuffer
 
 	const int xres = myMax(16, current_scene->viewport_w);
 	const int yres = myMax(16, current_scene->viewport_h);
-	const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
+	// MSAA on these renderbuffers is only useful if draw() renders the scene directly into target_frame_buffer.  If we are rendering to offscreen renderbuffers,
+	// the scene is drawn and MSAA-resolved into main_render_framebuffer, so all that is rasterised into these buffers is the final imaging fullscreen quad and
+	// the UI overlay objects.  We accept a little aliasing on the UI in exchange for a smaller buffer and one less resolve.
+	const int msaa_samples = (settings.render_to_offscreen_renderbuffers || (settings.msaa_samples <= 1)) ? -1 : settings.msaa_samples;
 
 	// Allocate renderbuffers.  Note that these must have the same format as the textures, otherwise the glBlitFramebuffer copies will fail in WebGL.
 	RenderBufferRef colour_renderbuffer = new RenderBuffer(xres, yres, msaa_samples, col_buffer_format);
@@ -13690,9 +13659,10 @@ bool OpenGLEngine::openglDriverVendorIsATI() const
 // Matches index handling in setCurDebugTexIndex() below.
 static const char* debug_pass_view_names[] = { 
 	"none",
+	"prepass colour", 
+	"prepass normals", 
 	"AO (sky irradiance fraction)", 
 	"blurred AO", 
-	"prepass colour", 
 	"indirect illum",
 	"blurred indirect illum", 
 	"specular", 
@@ -13727,42 +13697,49 @@ void OpenGLEngine::setCurDebugTexIndex(int index)
 
 		if(index == 1)
 		{
-			// AO ((sky irradiance fraction))
+			// prepass colour
+			large_debug_overlay_ob->material.albedo_texture = current_scene->prepass_colour_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+			large_debug_overlay_ob->material.overlay_show_just_tex_w = false;
+		}
+		else if(index == 2)
+		{
+			// prepass normals
+			large_debug_overlay_ob->material.albedo_texture = current_scene->prepass_normal_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+			large_debug_overlay_ob->material.overlay_show_just_tex_w = false;
+		}
+		else if(index == 3)
+		{
+			// AO (sky irradiance fraction)
 			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
 		}
-		else if(index == 2)
+		else if(index == 4)
 		{
 			// blurred AO
 			large_debug_overlay_ob->material.albedo_texture = current_scene->blurred_ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
 		}
-		else if(index == 3)
-		{
-			// prepass colour
-			large_debug_overlay_ob->material.albedo_texture = current_scene->prepass_colour_copy_texture;
-			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
-			large_debug_overlay_ob->material.overlay_show_just_tex_w = false;
-		}
-		else if(index == 4)
+		else if(index == 5)
 		{
 			// indirect illum
 			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
-		else if(index == 5)
+		else if(index == 6)
 		{
 			// blurred indirect illum
 			large_debug_overlay_ob->material.albedo_texture = current_scene->blurred_ssao_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
-		else if(index == 6)
+		else if(index == 7)
 		{
 			// specular refl
 			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_specular_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
-		else if(index == 7)
+		else if(index == 8)
 		{
 			// specular refl roughness * trace dist
 			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_specular_texture;
@@ -14011,7 +13988,6 @@ std::string OpenGLEngine::getDiagnostics() const
 		s += "dynamic depth draw: " + doubleToStringNSigFigs(dynamic_depth_draw_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "static depth draw : " + doubleToStringNSigFigs(static_depth_draw_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "pre-pass          : " + doubleToStringNSigFigs(col_and_depth_pre_pass_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
-		s += "copy pre-pass bufs: " + doubleToStringNSigFigs(copy_prepass_buffers_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "compute SSAO      : " + doubleToStringNSigFigs(compute_ssao_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "blur SSAO         : " + doubleToStringNSigFigs(blur_ssao_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "draw opaque obs   : " + doubleToStringNSigFigs(draw_opaque_obs_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";

@@ -706,18 +706,12 @@ public:
 	OpenGLTextureRef post_dof_colour_texture;
 
 
-	// Prepass will render to prepass_framebuffer, prepass_colour_renderbuffer, prepass_depth_renderbuffer.
-	// Then blit to prepass_copy_framebuffer, prepass_colour_copy_texture, prepass_colour_depth_texture
-	// Then SSAO is computed, reading from prepass_copy_framebuffer and writing to compute_ssao_output_framebuffer.
+	// Prepass will render to prepass_framebuffer, prepass_colour_texture, prepass_normal_texture, prepass_depth_texture.
+	// Then SSAO is computed, reading from prepass_framebuffer.
 	Reference<FrameBuffer> prepass_framebuffer;
-	Reference<RenderBuffer> prepass_colour_renderbuffer;
-	Reference<RenderBuffer> prepass_normal_renderbuffer;
-	Reference<RenderBuffer> prepass_depth_renderbuffer;
-
-	Reference<FrameBuffer> prepass_copy_framebuffer;
-	OpenGLTextureRef prepass_colour_copy_texture;
-	OpenGLTextureRef prepass_normal_copy_texture;
-	OpenGLTextureRef prepass_depth_copy_texture;
+	OpenGLTextureRef prepass_colour_texture;
+	OpenGLTextureRef prepass_normal_texture;
+	OpenGLTextureRef prepass_depth_texture;
 
 	Reference<FrameBuffer> compute_ssao_framebuffer;
 	OpenGLTextureRef ssao_texture;
@@ -1770,7 +1764,6 @@ private:
 	Reference<Query> col_and_depth_pre_pass_gpu_timer;
 	Reference<Query> compute_ssao_gpu_timer;
 	Reference<Query> blur_ssao_gpu_timer;
-	Reference<Query> copy_prepass_buffers_gpu_timer;
 	Reference<Query> decal_copy_buffers_timer;
 	Reference<Query> draw_overlays_gpu_timer;
 	Reference<Query> bloom_gpu_timer;
