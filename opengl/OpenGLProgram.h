@@ -120,8 +120,37 @@ struct ProgramKey
 		ProgramName_blur_ssao,
 		ProgramName_final_imaging,
 		ProgramName_splat,
-		ProgramName_splat_resolve
+		ProgramName_splat_resolve,
+
+		ProgramName_unknown // Default value
 	};
+
+	ProgramKey()
+	:	program_name(ProgramName_unknown)
+	{
+		alpha_test					= false;
+		vert_colours				= false;
+		instance_matrices			= false;
+		lightmapping				= false;
+		gen_planar_uvs				= false;
+		draw_planar_uv_grid			= false;
+		skinning					= false;
+		imposter					= false;
+		imposterable				= false;
+		use_wind_vert_shader		= false;
+		materialise_effect			= false;
+		geomorphing					= false;
+		terrain						= false;
+		decal						= false;
+		participating_media			= false;
+		vert_tangents				= false;
+		sdf_text					= false;
+		fancy_double_sided			= false;
+		combined					= false;
+		position_w_is_oct16_normal	= false;
+
+		rebuildKeyVal();
+	}
 
 	ProgramKey(ProgramName program_name_, const ProgramKeyArgs& args)
 	:	program_name(program_name_)
@@ -192,6 +221,11 @@ struct OpenGLProgramExtraArgs
 		int index;
 	};
 	std::vector<AttributeBinding> input_vert_attribute_bindings; // Additional vertex attribute bindings
+
+	// Names of the vertex shader outputs to capture with transform feedback, in the order they should be written.
+	// If non-empty, the program is linked with GL_INTERLEAVED_ATTRIBS, so the captures are packed tightly into a single
+	// buffer in this order.  Has to be set before linking, which is why it lives here - see ParticleRenderer.
+	std::vector<std::string> transform_feedback_varyings;
 };
 
 
@@ -255,6 +289,8 @@ public:
 	bool supports_gpu_resident; // Can the shader read from per_object_data[] array and material_data[] arrays resident on the GPU?
 	bool uses_vert_uniform_buf_obs; // Does the vertex shader use a PerObjectVertUniforms uniform block?
 	bool uses_skinning;
+
+	ProgramKey key;
 
 	UniformLocations uniform_locations;
 

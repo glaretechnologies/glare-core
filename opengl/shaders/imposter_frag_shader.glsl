@@ -193,9 +193,11 @@ void main()
 	if(pixel_hash > dist_alpha_factor)
 	 	discard;
 
-#if ALPHA_TEST
-	if(diffuse_col.a < 0.5f)
-		discard;
+#if ALPHA_TEST 
+	// When using alpha-to-coverage, we don't discard, but rather output an alpha value that is used for MSAA coverage.
+	if((mat_common_flags & ALPHA_TO_COVERAGE_ENABLED_FLAG) == 0) // If alpha-to-coverage is disabled:
+		if(diffuse_col.a < 0.5f)
+			discard;
 #endif
 
 	// Shadow mapping
@@ -242,7 +244,16 @@ void main()
 #else
 	colour_out = vec4(toneMapToNonLinear(col.xyz), 1.0);
 #endif
-	colour_out.w = 1.0; // Imposters aren't rendered with alpha blending, so just use alpha=1.
+
+	#if ALPHA_TEST
+		if((mat_common_flags & ALPHA_TO_COVERAGE_ENABLED_FLAG) == 0) // If alpha-to-coverage is disabled:
+			colour_out.w = 1.0; // Imposters aren't rendered with alpha blending, so just use alpha=1.
+		else
+			colour_out.w = diffuse_col.a; // Output texture alpha to use for coverage.
+	#else
+		colour_out.w = 1.0; // Imposters aren't rendered with alpha blending, so just use alpha=1.
+	#endif
+
 
 	// TODO: use normal_ws and snorm12x2_to_unorm8x3 etc.
 #if NORMAL_TEXTURE_IS_UINT

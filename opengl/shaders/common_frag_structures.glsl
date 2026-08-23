@@ -42,6 +42,7 @@ layout (std140) uniform MaterialCommonUniforms
 #define USE_PROBE_VISIBILITY_FLAG			32 // With the above: weight probes by the Chebyshev visibility test.
 #define DOING_PROBE_CAPTURE_FLAG			64 // This draw is rendering a cube face for a probe capture, not the main view.
                                                // Suppresses the terms that would feed unoccluded sky back into the grid.
+#define ALPHA_TO_COVERAGE_ENABLED_FLAG		128
 
 
 // MaterialData flag values

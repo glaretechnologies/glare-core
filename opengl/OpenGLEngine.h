@@ -277,25 +277,31 @@ struct GlInstanceInfo
 // Bit 28: material is water
 // Bit 27: material is a decal
 // Bit 26: material is alpha blended
-// Bits 24-25: face culling type (0 = none, 1 = cull backface, 2 = cull frontface).  (has to go last)
-// Bits 0-23: program index
+// Bit 25: material is alpha tested (foliage etc..)
+// Bits 23-24: face culling type (0 = none, 1 = cull backface, 2 = cull frontface).  (has to go last)
+// Bits 0-22: program index
 #define PROGRAM_FINISHED_BUILDING_BITFLAG				(1u << 31)
 #define PROG_SUPPORTS_GPU_RESIDENT_BITFLAG				(1u << 30)
 #define MATERIAL_TRANSPARENT_BITFLAG					(1u << 29)
 #define MATERIAL_WATER_BITFLAG							(1u << 28)
 #define MATERIAL_DECAL_BITFLAG							(1u << 27)
 #define MATERIAL_ALPHA_BLEND_BITFLAG					(1u << 26)
+#define MATERIAL_ALPHA_TEST_BITFLAG						(1u << 25)
 
-#define MATERIAL_FACE_CULLING_BIT_INDEX					24u
-#define ISOLATE_FACE_CULLING_MASK						((1u << 24u) | (1u << 25u))
-#define ISOLATE_PROG_INDEX_MASK							0x00FFFFFF // Zero out top 8 bits
-#define ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK		0x03FFFFFF // Zero out top 6 bits
+#define MATERIAL_FACE_CULLING_BIT_INDEX					23u
+#define ISOLATE_FACE_CULLING_MASK						((1u << 23u) | (1u << 24u))
+#define ISOLATE_PROG_INDEX_MASK							0x007FFFFF // Zero out top 9 bits
+#define ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK		0x01FFFFFF // Zero out top 7 bits
 
 #define CULL_BACKFACE_BITS								1u
 #define CULL_FRONTFACE_BITS								2u
 
 #define SHIFTED_CULL_BACKFACE_BITS						(CULL_BACKFACE_BITS  << MATERIAL_FACE_CULLING_BIT_INDEX)
 #define SHIFTED_CULL_FRONTFACE_BITS						(CULL_FRONTFACE_BITS << MATERIAL_FACE_CULLING_BIT_INDEX)
+
+
+static_assert((0xFFFFFFFFu >> 9) == ISOLATE_PROG_INDEX_MASK, "(0xFFFFFFFFu >> 9) == ISOLATE_PROG_INDEX_MASK");
+static_assert((0xFFFFFFFFu >> 7) == ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK, "(0xFFFFFFFFu >> 7) == ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK");
 
 
 struct GLObjectBatchDrawInfo
@@ -798,53 +804,62 @@ Index type is in here so we can group together more calls for multi-draw-indirec
 If the actual ID exceeds the allocated number of bits, rendering will still be correct, we just will do more state changes than strictly needed.
 
              bits allocated    bit index (0 = least significant bit)
-program_index:     8 bits      24
-face_culling:      2 bits      22
-VAO id:	           8 bits      14
-vert VBO id:       6 bits      8
-index VBO id:      6 bits      2
+alpha test:        1 bit       31
+program_index:     8 bits      23
+face_culling:      2 bits      21
+VAO id:	           9 bits      12
+vert VBO id:       5 bits      7
+index VBO id:      5 bits      2
 index type bits:   2 bits      0
 */
 
+#define BATCHDRAWINFO_ALPHA_TEST_BIT_INDEX     31
+#define BATCHDRAWINFO_PROGRAM_INDEX_BIT_INDEX  23
+#define BATCHDRAWINFO_FACE_CULLING_BIT_INDEX   21
+#define BATCHDRAWINFO_VAO_ID_BIT_INDEX         12
+#define BATCHDRAWINFO_VERT_VBO_ID_BIT_INDEX    7
+#define BATCHDRAWINFO_INDEX_VBO_ID_BIT_INDEX   2
+
+// Make the VAO id, vert VBO id, index VBO id, and index type bits part of the key (lower 4 fields)
 inline uint32 makeVAOAndVBOKey(uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits)
 {
-	return ((vao_id & 255u) << 14) | ((vert_vbo_id & 63u) << 8) | ((idx_vbo_id & 63u) << 2) | index_type_bits;
+	return ((vao_id & 511u) << BATCHDRAWINFO_VAO_ID_BIT_INDEX) | ((vert_vbo_id & 31u) << BATCHDRAWINFO_VERT_VBO_ID_BIT_INDEX) | ((idx_vbo_id & 31u) << BATCHDRAWINFO_INDEX_VBO_ID_BIT_INDEX) | index_type_bits;
 }
 
 struct BatchDrawInfo
 {
-	// To form prog_vao_key:
+	// To form key:
 	// prog_index_and_face_culling_bits is laid out as documented in 'program_index_and_flags' section above.
-	// Get lower 8 buts of program index (which is at bit 0), shift left to bit position 24.
-	// Get 2 face culling bits (which are at bits 24 and 25), shift right from bit 24 to 22.
+	// Get lower 8 buts of program index (which is at bit 0), shift left to bit position 23 (BATCHDRAWINFO_PROGRAM_INDEX_BIT_INDEX).
+	// Get 2 face culling bits (which are at bits 23 and 24 (ISOLATE_FACE_CULLING_MASK)), shift right from bit 23 to 21.
 
 	BatchDrawInfo() {}
 	BatchDrawInfo(uint32 prog_index_and_face_culling_bits, uint32 vao_and_vbo_key, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> (MATERIAL_FACE_CULLING_BIT_INDEX - 22)) | vao_and_vbo_key),
+	:	key(((prog_index_and_face_culling_bits & 255u) << BATCHDRAWINFO_PROGRAM_INDEX_BIT_INDEX) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> (MATERIAL_FACE_CULLING_BIT_INDEX - BATCHDRAWINFO_FACE_CULLING_BIT_INDEX)) | vao_and_vbo_key),
 		batch_i(batch_i_), ob(ob_)
 	{}
 
 	BatchDrawInfo(uint32 prog_index_and_face_culling_bits, uint32 vao_id, uint32 vert_vbo_id, uint32 idx_vbo_id, uint32 index_type_bits, const GLObject* ob_, uint32 batch_i_) 
-	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> (MATERIAL_FACE_CULLING_BIT_INDEX - 22)) | makeVAOAndVBOKey(vao_id, vert_vbo_id, idx_vbo_id, index_type_bits)),
+	:	key(((prog_index_and_face_culling_bits & 255u) << BATCHDRAWINFO_PROGRAM_INDEX_BIT_INDEX) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> (MATERIAL_FACE_CULLING_BIT_INDEX - BATCHDRAWINFO_FACE_CULLING_BIT_INDEX)) | makeVAOAndVBOKey(vao_id, vert_vbo_id, idx_vbo_id, index_type_bits)),
 		batch_i(batch_i_), ob(ob_)
 	{
 		assert(index_type_bits <= 2);
 	}
 	std::string keyDescription() const;
 
-	uint32 prog_vao_key;
+	uint32 key; // for sorting
 	uint32 batch_i;
 	const GLObject* ob;
 	
-	bool operator < (const BatchDrawInfo& other) const
+	/*bool operator < (const BatchDrawInfo& other) const
 	{
-		if(prog_vao_key < other.prog_vao_key)
+		if(key < other.key)
 			return true;
-		else if(prog_vao_key > other.prog_vao_key)
+		else if(key > other.key)
 			return false;
 		else
 			return ob->mesh_data.ptr() < other.ob->mesh_data.ptr();
-	}
+	}*/
 };
 
 // Similar to BatchDrawInfo, but with a distance field, so we can sort from far to near.
@@ -853,7 +868,7 @@ struct BatchDrawInfoWithDist
 {
 	BatchDrawInfoWithDist() {}
 	BatchDrawInfoWithDist(uint32 prog_index_and_face_culling_bits, uint32 vao_and_vbo_key, uint32 dist_, const GLObject* ob_)
-	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << 24) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> (MATERIAL_FACE_CULLING_BIT_INDEX - 22)) | vao_and_vbo_key),
+	:	prog_vao_key(((prog_index_and_face_culling_bits & 255u) << BATCHDRAWINFO_PROGRAM_INDEX_BIT_INDEX) | ((prog_index_and_face_culling_bits & ISOLATE_FACE_CULLING_MASK) >> (MATERIAL_FACE_CULLING_BIT_INDEX - BATCHDRAWINFO_FACE_CULLING_BIT_INDEX)) | vao_and_vbo_key),
 		dist(dist_),
 		ob(ob_)
 	{}
@@ -1325,7 +1340,8 @@ public:
 	//----------------------------------------------------------------------------------------
 
 	//----------------------------------- Settings ----------------------------------------
-	//void setMSAAEnabled(bool enabled);
+	void setMSAASamples(int samples); // -1 to disable MSAA.
+	int getMSAASamples() const { return settings.msaa_samples; }
 
 	void setSSAOEnabled(bool ssao_enabled); // is SSR and SSGI enabled?
 	bool isSSAOEnabled() const; // is SSR and SSGI enabled?
@@ -1721,6 +1737,7 @@ private:
 	PCG32 rng;
 
 	uint64 last_num_obs_in_frustum;
+	uint64 last_num_alpha_test_batches;
 
 	js::Vector<BatchDrawInfo, 16> temp_batch_draw_info;
 	js::Vector<BatchDrawInfo, 16> temp2_batch_draw_info; // Used for temporary working space while sorting temp_batch_draw_info

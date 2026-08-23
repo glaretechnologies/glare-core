@@ -109,6 +109,7 @@ Copyright Glare Technologies Limited 2023 -
 #define USE_PROBE_GRID_FLAG					16
 #define USE_PROBE_VISIBILITY_FLAG			32
 #define DOING_PROBE_CAPTURE_FLAG			64
+#define ALPHA_TO_COVERAGE_ENABLED_FLAG		128
 
 
 #define OVERLAY_HAVE_TEXTURE_FLAG			1
@@ -390,12 +391,13 @@ OpenGLScene::~OpenGLScene()
 }
 
 
+// For debugging
 std::string BatchDrawInfo::keyDescription() const
 {
-	// NOTE: out of date
-	return "prog: " + toString(prog_vao_key >> 18) + 
-		", vao: " + toString((prog_vao_key >> 2) & 0xFFFF) + 
-		", index_type_bits: " + toString((prog_vao_key >> 0) & 0x3)
+	return 
+		"prog: "              + toString((key >> BATCHDRAWINFO_PROGRAM_INDEX_BIT_INDEX) & 255u) + 
+		", vao: "             + toString((key >> BATCHDRAWINFO_VAO_ID_BIT_INDEX) & 511u) + 
+		", index_type_bits: " + toString((key >> 0) & 0x3)
 		;
 }
 
@@ -462,6 +464,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	outline_colour(0.43f, 0.72f, 0.95f, 1.0),
 	outline_width_px(3.0f),
 	last_num_obs_in_frustum(0),
+	last_num_alpha_test_batches(0),
 	last_num_splat_clouds_drawn(0),
 	last_num_splats_drawn(0),
 	print_output(NULL),
@@ -3251,6 +3254,7 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 			/*wait for build to complete=*/!parallel_shader_compile_support
 		);
 		addProgram(phong_prog);
+		phong_prog->key = key;
 		phong_prog->uses_phong_uniforms = true;
 		phong_prog->uses_vert_uniform_buf_obs = true;
 		phong_prog->supports_gpu_resident = true;
@@ -3335,6 +3339,7 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 			/*wait for build to complete=*/!parallel_shader_compile_support
 		);
 		addProgram(prog);
+		prog->key = key;
 		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
 		prog->supports_gpu_resident = true;
@@ -3427,6 +3432,7 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix
 			/*wait for build to complete=*/true
 		);
 		addProgram(prog);
+		prog->key = key;
 		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
 		prog->supports_gpu_resident = true;
@@ -3489,6 +3495,7 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 			/*wait for build to complete=*/true
 		);
 		addProgram(prog);
+		prog->key = key;
 		prog->uses_phong_uniforms = true;
 		prog->uses_vert_uniform_buf_obs = true;
 
@@ -3551,6 +3558,7 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 			/*wait for build to complete=*/!parallel_shader_compile_support
 		);
 		addProgram(prog);
+		prog->key = key;
 		prog->is_depth_draw = true;
 		prog->is_depth_draw_with_alpha_test = key.alpha_test;
 		prog->uses_vert_uniform_buf_obs = true;
@@ -4550,13 +4558,14 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
 			(mat.shader_prog->supports_gpu_resident  ? PROG_SUPPORTS_GPU_RESIDENT_BITFLAG : 0) |
-			(mat.transparent                ? MATERIAL_TRANSPARENT_BITFLAG      : 0) |
-			(mat.water                      ? MATERIAL_WATER_BITFLAG            : 0) |
-			(mat.decal                      ? MATERIAL_DECAL_BITFLAG            : 0) |
-			(mat.participating_media        ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
-			(mat.alpha_blend                ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
-			(face_culling_bits             << MATERIAL_FACE_CULLING_BIT_INDEX)       |
-			(mat.shader_prog->isBuilt()     ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
+			(mat.transparent                 ? MATERIAL_TRANSPARENT_BITFLAG      : 0) |
+			(mat.water                       ? MATERIAL_WATER_BITFLAG            : 0) |
+			(mat.decal                       ? MATERIAL_DECAL_BITFLAG            : 0) |
+			(mat.participating_media         ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
+			(mat.alpha_blend                 ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
+			(mat.shader_prog->key.alpha_test ? MATERIAL_ALPHA_TEST_BITFLAG       : 0) |
+			(face_culling_bits              << MATERIAL_FACE_CULLING_BIT_INDEX)       |
+			(mat.shader_prog->isBuilt()      ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
 		//assert(mat.material_data_index != -1);
 		if(use_ob_and_mat_data_gpu_resident && mat.shader_prog->supports_gpu_resident)
@@ -5940,7 +5949,7 @@ struct OverlayObjectZComparator
 
 struct BatchDrawInfoGetKey
 {
-	inline uint32 operator () (const BatchDrawInfo& info) const { return info.prog_vao_key; }
+	inline uint32 operator () (const BatchDrawInfo& info) const { return info.key; }
 };
 
 
@@ -7665,7 +7674,8 @@ void OpenGLEngine::draw()
 
 		try
 		{
-			probe_debug_prog = buildProbeDebugProg();
+			if(settings.irradiance_probes_support)
+				probe_debug_prog = buildProbeDebugProg();
 		}
 		catch(glare::Exception& e)
 		{
@@ -7969,7 +7979,8 @@ void OpenGLEngine::draw()
 	common_uniforms.env_phi = cur_scene->sun_phi;
 	common_uniforms.water_level_z = cur_scene->water_level_z;
 	common_uniforms.camera_type = (int)cur_scene->camera_type;
-	common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (settings.ssao ? DO_SSAO_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) | (use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0);
+	common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (settings.ssao ? DO_SSAO_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) | (use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) |
+		(settings.msaa_samples >= 2 ? ALPHA_TO_COVERAGE_ENABLED_FLAG : 0);
 	common_uniforms.shadow_map_samples_xy_scale = cur_scene->shadow_mapping ? (2048.f / cur_scene->shadow_mapping->dynamic_w) : 1.f; // Shadow map sample pattern is scaled for 2048^2 textures.
 	common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
 
@@ -8015,14 +8026,18 @@ void OpenGLEngine::draw()
 	{
 		const int xres = myMax(16, cur_scene->viewport_w);
 		const int yres = myMax(16, cur_scene->viewport_h);
+		const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
 
 		bool main_texture_size_changed = false;
 
 		// If buffer textures are the incorrect resolution, free them, we will allocate larger ones below.
 		// Free any allocated textures first, to reduce max mem usage.
-		if(cur_scene->main_colour_copy_texture &&
+		if((cur_scene->main_colour_copy_texture &&
 			(((int)cur_scene->main_colour_copy_texture->xRes() != xres) ||
 			((int)cur_scene->main_colour_copy_texture->yRes() != yres)))
+			||
+			(cur_scene->main_colour_renderbuffer && (cur_scene->main_colour_renderbuffer->MSAASamples() != msaa_samples))
+			)
 		{
 			// Free textures and render buffers before the framebuffers that they may be attached to.
 			cur_scene->main_colour_copy_texture = NULL;
@@ -8047,8 +8062,6 @@ void OpenGLEngine::draw()
 
 		if(cur_scene->main_colour_copy_texture.isNull())
 		{
-			const int msaa_samples = (settings.msaa_samples <= 1) ? -1 : settings.msaa_samples;
-
 			const OpenGLTextureFormat normal_buffer_format = normal_texture_is_uint ? OpenGLTextureFormat::Format_RGBA_Integer_Uint8 : OpenGLTextureFormat::Format_RGBA_Linear_Uint8;
 
 			conPrint("Allocating main render buffers and textures with width " + toString(xres) + " and height " + toString(yres));
@@ -8389,10 +8402,9 @@ void OpenGLEngine::draw()
 
 	if(settings.ssao)
 	{
-		// Disable reading from SSAO output texture (DO_SSAO_FLAG) for the prepass, set DOING_SSAO_PREPASS_FLAG.
+		// Disable reading from SSAO output texture (DO_SSAO_FLAG) for the prepass, set DOING_SSAO_PREPASS_FLAG.  Also disable ALPHA_TO_COVERAGE_ENABLED_FLAG since we are drawing to a MSAA samples=1 buffer.
 		const int old_flags = common_uniforms.mat_common_flags;
-		common_uniforms.mat_common_flags = common_uniforms.mat_common_flags;
-		common_uniforms.mat_common_flags = BitUtils::getWithBitZeroed(common_uniforms.mat_common_flags, DO_SSAO_FLAG) | DOING_SSAO_PREPASS_FLAG;
+		common_uniforms.mat_common_flags = BitUtils::getWithBitZeroed(common_uniforms.mat_common_flags, DO_SSAO_FLAG | ALPHA_TO_COVERAGE_ENABLED_FLAG) | DOING_SSAO_PREPASS_FLAG;
 		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 
 		// drawDepthPrePass(view_matrix, proj_matrix);
@@ -10733,10 +10745,6 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 	//conPrint("-----------------------------------------------drawNonTransparentMaterialBatches--------------------------------------");
 
-	//glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-	//glEnable(GL_BLEND);
-	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 	assertCurrentProgramIsZero();
 
 	if(current_scene->render_to_main_render_framebuffer)
@@ -10813,7 +10821,12 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 							ob, // object ptr
 							(uint32)z // batch_i
 						);
-						assert(((info.prog_vao_key << 10) >> 10) == ob->vao_and_vbo_key);
+
+						// Set the high bit if this batch is doing alpha-testing, we want to draw these batches last.
+						if(prog_index_and_flags & MATERIAL_ALPHA_TEST_BITFLAG)
+							info.key |= (1u << BATCHDRAWINFO_ALPHA_TEST_BIT_INDEX);
+
+						assert(((info.key << (32 - BATCHDRAWINFO_FACE_CULLING_BIT_INDEX)) >> (32 - BATCHDRAWINFO_FACE_CULLING_BIT_INDEX)) == ob->vao_and_vbo_key); // Zero out top 11 bits, should be equal to ob->vao_and_vbo_key.
 						temp_batch_draw_info.push_back(info);
 					}
 				}
@@ -10821,9 +10834,6 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 			else
 				num_frustum_culled++;
 		} // End for each object in scene
-
-		if(current_scene->collect_stats)
-			this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 	}
 	//conPrint("Draw opaque make batch loop took " + timer.elapsedStringMSWIthNSigFigs(4) + " for " + toString(current_scene->objects.vector.size()) + " objects");
 
@@ -10831,17 +10841,18 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 	// Draw sorted batches
 	num_prog_changes = 0;
-	uint32 num_batches_bound = 0;
 	num_vao_binds = 0;
 	num_vbo_binds = 0;
 	num_index_buf_binds = 0;
 	uint32 num_face_culling_changes = 0;
+	uint32 num_alpha_test_batches = 0;
 
 	assertCurrentProgramIsZero();
 
 	uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
+	uint32 cur_alpha_testing = 0;
 
 #if !defined(EMSCRIPTEN)
 	if(draw_wireframes)
@@ -10860,7 +10871,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 		const GLObjectBatchDrawInfo& batch = info.ob->batch_draw_info[info.batch_i];
 		const uint32 prog_index_and_face_culling = batch.getProgramIndexAndFaceCulling();
 
-		[[maybe_unused]] const uint32 info_culling_bits = (info.prog_vao_key & ((1 << 22u) | (1 << 23u))) >> 22u;
+		[[maybe_unused]] const uint32 info_culling_bits = (info.key >> BATCHDRAWINFO_FACE_CULLING_BIT_INDEX) & 0x3; // Face culling bits from BatchDrawInfo info.
 		[[maybe_unused]] const uint32 batch_culling_bits = (prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK) >> MATERIAL_FACE_CULLING_BIT_INDEX;
 		assert(info_culling_bits == batch_culling_bits);
 
@@ -10897,16 +10908,32 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 			current_prog_index_and_face_culling = prog_index_and_face_culling;
 		}
 
+		// See if alpha testing became enabled, in which case enable alpha-to-coverage.
+		// Note that beacuse BATCHDRAWINFO_ALPHA_TEST_BIT_INDEX = 31, which is the most significant bit, this transition only happens once, e.g. all objects with the alpha test bit set are drawn last.
+		const uint32 alpha_testing = (info.key & (1u << BATCHDRAWINFO_ALPHA_TEST_BIT_INDEX));
+		if(alpha_testing != cur_alpha_testing)
+		{
+			assert(alpha_testing);
+			//conPrint("-----Changed to alpha_testing " + toString(alpha_testing) + " at i=" + toString(i) + "/" + toString(batch_draw_info_size) + "-----");
+			cur_alpha_testing = alpha_testing;
+			if(alpha_testing)
+			{
+				glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+				num_alpha_test_batches = (uint32)(batch_draw_info_size - i); // All remaining batches should be alpha-tested.
+			}
+		}
+
 		bindMeshData(*info.ob);
-		num_batches_bound++;
 
 		drawBatchWithDenormalisedData(*info.ob, batch, info.batch_i);
 	}
 
 	if(current_scene->collect_stats)
 	{
+		last_num_alpha_test_batches = num_alpha_test_batches;
+		last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
 		last_num_prog_changes = num_prog_changes;
-		last_num_batches_bound = num_batches_bound;
+		last_num_batches_bound = (uint32)batch_draw_info_size;
 		last_num_vao_binds = num_vao_binds;
 		last_num_vbo_binds = num_vbo_binds;
 		last_num_index_buf_binds = num_index_buf_binds;
@@ -10917,7 +10944,9 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 	flushDrawCommandsAndUnbindPrograms();
 
-	glDisable(GL_CULL_FACE); // Restore
+	// Restore state
+	glDisable(GL_CULL_FACE); 
+	glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
 #if !defined(EMSCRIPTEN)
 	if(draw_wireframes)
@@ -13859,13 +13888,17 @@ void OpenGLEngine::setCurrentScene(const Reference<OpenGLScene>& scene)
 }
 
 
-//void OpenGLEngine::setMSAAEnabled(bool enabled)
-//{
-//	if(enabled)
-//		glEnable(GL_MULTISAMPLE);
-//	else
-//		glDisable(GL_MULTISAMPLE);
-//}
+void OpenGLEngine::setMSAASamples(int samples)
+{
+	settings.msaa_samples = samples;
+
+#if !defined(EMSCRIPTEN) // WebGL doesn't have multisample toggling.
+	if(settings.msaa_samples <= 1)
+		glDisable(GL_MULTISAMPLE); // The initial value for GL_MULTISAMPLE is GL_TRUE.
+	else
+		glEnable(GL_MULTISAMPLE);
+#endif
+}
 
 
 void OpenGLEngine::setSSAOEnabled(bool ssao_enabled)
@@ -14195,7 +14228,8 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "Num VBO binds: " + toString(last_num_vbo_binds) + "\n";
 	s += "Num face culling changes: " + toString(last_num_face_culling_changes) + "\n";
 	s += "Num index buf binds: " + toString(last_num_index_buf_binds) + "\n";
-	s += "Num batches bound: " + toString(last_num_batches_bound) + "\n";
+	s += "Num batches drawn: " + toString(last_num_batches_bound) + "\n";
+	s += "Num alpha test batches drawn: " + toString(last_num_alpha_test_batches) + "\n";
 	s += "tris drawn: " + uInt32ToStringCommaSeparated(last_num_indices_drawn / 3) + "\n";
 	s += "\n";
 	s += "Num multi-draw-indirect calls: " + toString(num_multi_draw_indirect_calls) + "\n";
@@ -14204,7 +14238,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "depth draw num face culling changes: " + toString(depth_draw_last_num_face_culling_changes) + "\n";
 	s += "depth draw num VAO binds: " + toString(depth_draw_last_num_vao_binds) + "\n";
 	s += "depth draw num VBO binds: " + toString(depth_draw_last_num_vbo_binds) + "\n";
-	s += "depth draw num batches bound: " + toString(depth_draw_last_num_batches_bound) + "\n";
+	s += "depth draw num batches drawn: " + toString(depth_draw_last_num_batches_bound) + "\n";
 	s += "depth draw tris drawn: " + uInt32ToStringCommaSeparated(depth_draw_last_num_indices_drawn / 3) + "\n";
 	s += "\n";
 	s += "decal batches drawn: " + toString(last_num_decal_batches_drawn) + "\n";

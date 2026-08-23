@@ -620,9 +620,11 @@ void main()
 		discard;
 #endif
 
-#if ALPHA_TEST
-	if(refl_diffuse_col.a < 0.5f)
-		discard;
+#if ALPHA_TEST 
+	//When using alpha-to-coverage, we don't discard, but rather output an alpha value that is used for MSAA coverage.
+	if((mat_common_flags & ALPHA_TO_COVERAGE_ENABLED_FLAG) == 0) // If alpha-to-coverage is disabled:
+		if(refl_diffuse_col.a < 0.5f)
+			discard;
 #endif
 
 #if DRAW_PLANAR_UV_GRID
@@ -1161,7 +1163,16 @@ void main()
 	float dist_field_tex_val = texture(TRANSMISSION_TEX, use_texture_coords).w;
 	float alpha = smoothstep(0.5f - half_w, 0.5f + half_w, dist_field_tex_val);
 #else
-	float alpha = use_diffuse_colour.w; // Use alpha of material constant colour, for alpha cutout techniques.
+
+	float alpha;
+	#if ALPHA_TEST
+		if((mat_common_flags & ALPHA_TO_COVERAGE_ENABLED_FLAG) == 0) // If alpha-to-coverage is disabled:
+			alpha = use_diffuse_colour.w; // Use alpha of material constant colour, for alpha cutout techniques.
+		else
+			alpha = refl_diffuse_col.w; // Output texture alpha to use for coverage.
+	#else
+		alpha = use_diffuse_colour.w; // Use alpha of material constant colour, for alpha cutout techniques.
+	#endif
 #endif
 	
 #if DO_POST_PROCESSING
