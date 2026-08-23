@@ -621,6 +621,9 @@ void main()
 #endif
 
 #if ALPHA_TEST 
+	if(refl_diffuse_col.a < 0.01f)
+		discard; // Zero coverage regardless of technique - bail before the expensive shading below.
+
 	//When using alpha-to-coverage, we don't discard, but rather output an alpha value that is used for MSAA coverage.
 	if((mat_common_flags & ALPHA_TO_COVERAGE_ENABLED_FLAG) == 0) // If alpha-to-coverage is disabled:
 		if(refl_diffuse_col.a < 0.5f)
