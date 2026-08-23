@@ -70,6 +70,7 @@ public:
 
 
 
+	void setZeroDrawBuffers(); // NOTE: requires that this frame buffer is bound already.
 	void setSingleDrawBuffer(GLenum buffer); // NOTE: requires that this frame buffer is bound already.
 	void setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1); // NOTE: requires that this frame buffer is bound already.
 

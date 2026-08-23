@@ -344,6 +344,12 @@ GLuint FrameBuffer::getAttachedTextureName(GLenum attachment_point)
 }
 
 
+void FrameBuffer::setZeroDrawBuffers()
+{
+	glDrawBuffers(/*num=*/0, nullptr); // Don't draw to any colour buffers.
+}
+
+
 void FrameBuffer::setSingleDrawBuffer(GLenum buffer)
 { 
 	assert(getCurrentlyBoundDrawFrameBuffer() == buffer_name);
