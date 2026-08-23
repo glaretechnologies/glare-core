@@ -1795,19 +1795,6 @@ private:
 public:
 	double last_total_draw_GPU_time;
 private:
-	double last_dynamic_depth_draw_GPU_time;
-	double last_static_depth_draw_GPU_time;
-	double last_draw_opaque_obs_GPU_time;
-	double last_col_and_depth_pre_pass_GPU_time;
-	double last_compute_ssao_GPU_time;
-	double last_blur_ssao_GPU_time;
-	double last_copy_prepass_buffers_GPU_time;
-	double last_decal_copy_buffers_GPU_time;
-	double last_draw_overlay_obs_GPU_time;
-	double last_bloom_GPU_time;
-	double last_final_imaging_GPU_time;
-	double last_fog_post_process_GPU_time;
-
 	uint32 last_num_animated_obs_processed;
 
 	uint32 last_num_decal_batches_drawn;

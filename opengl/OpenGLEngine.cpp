@@ -490,18 +490,6 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	depth_draw_last_num_vbo_binds(0),
 	depth_draw_last_num_indices_drawn(0),
 	last_total_draw_GPU_time(0),
-	last_dynamic_depth_draw_GPU_time(0),
-	last_static_depth_draw_GPU_time(0),
-	last_draw_opaque_obs_GPU_time(0),
-	last_col_and_depth_pre_pass_GPU_time(0),
-	last_compute_ssao_GPU_time(0),
-	last_blur_ssao_GPU_time(0),
-	last_copy_prepass_buffers_GPU_time(0),
-	last_decal_copy_buffers_GPU_time(0),
-	last_draw_overlay_obs_GPU_time(0),
-	last_bloom_GPU_time(0),
-	last_final_imaging_GPU_time(0),
-	last_fog_post_process_GPU_time(0),
 	last_num_animated_obs_processed(0),
 	last_num_decal_batches_drawn(0),
 	next_program_index(0),
@@ -8682,41 +8670,18 @@ void OpenGLEngine::draw()
 		last_total_draw_GPU_time = end_query->getLastTimestamp() - start_query->getLastTimestamp();
 #endif
 
-		if(dynamic_depth_draw_gpu_timer->waitingForResult() && dynamic_depth_draw_gpu_timer->checkResultAvailable())
-			last_dynamic_depth_draw_GPU_time = dynamic_depth_draw_gpu_timer->getTimeElapsed();
-
-		if(static_depth_draw_gpu_timer->waitingForResult() && static_depth_draw_gpu_timer->checkResultAvailable())
-			last_static_depth_draw_GPU_time = static_depth_draw_gpu_timer->getTimeElapsed();
-
-		if(draw_opaque_obs_gpu_timer->waitingForResult() && draw_opaque_obs_gpu_timer->checkResultAvailable())
-			last_draw_opaque_obs_GPU_time = draw_opaque_obs_gpu_timer->getTimeElapsed();
-
-		if(col_and_depth_pre_pass_gpu_timer->waitingForResult() && col_and_depth_pre_pass_gpu_timer->checkResultAvailable())
-			last_col_and_depth_pre_pass_GPU_time = col_and_depth_pre_pass_gpu_timer->getTimeElapsed();
-		
-		if(compute_ssao_gpu_timer->waitingForResult() && compute_ssao_gpu_timer->checkResultAvailable())
-			last_compute_ssao_GPU_time = compute_ssao_gpu_timer->getTimeElapsed();
-
-		if(blur_ssao_gpu_timer->waitingForResult() && blur_ssao_gpu_timer->checkResultAvailable())
-			last_blur_ssao_GPU_time = blur_ssao_gpu_timer->getTimeElapsed();
-
-		if(copy_prepass_buffers_gpu_timer->waitingForResult() && copy_prepass_buffers_gpu_timer->checkResultAvailable())
-			last_copy_prepass_buffers_GPU_time = copy_prepass_buffers_gpu_timer->getTimeElapsed();
-
-		if(decal_copy_buffers_timer->waitingForResult() && decal_copy_buffers_timer->checkResultAvailable())
-			last_decal_copy_buffers_GPU_time = decal_copy_buffers_timer->getTimeElapsed();
-
-		if(draw_overlays_gpu_timer->waitingForResult() && draw_overlays_gpu_timer->checkResultAvailable())
-			last_draw_overlay_obs_GPU_time = draw_overlays_gpu_timer->getTimeElapsed();
-
-		if(bloom_gpu_timer->waitingForResult() && bloom_gpu_timer->checkResultAvailable())
-			last_bloom_GPU_time = bloom_gpu_timer->getTimeElapsed();
-
-		if(final_imaging_gpu_timer->waitingForResult() && final_imaging_gpu_timer->checkResultAvailable())
-			last_final_imaging_GPU_time = final_imaging_gpu_timer->getTimeElapsed();
-
-		if(fog_post_process_gpu_timer->waitingForResult() && fog_post_process_gpu_timer->checkResultAvailable())
-			last_fog_post_process_GPU_time = fog_post_process_gpu_timer->getTimeElapsed();
+		dynamic_depth_draw_gpu_timer->checkResultAndStore();
+		static_depth_draw_gpu_timer->checkResultAndStore();
+		draw_opaque_obs_gpu_timer->checkResultAndStore();
+		col_and_depth_pre_pass_gpu_timer->checkResultAndStore();
+		compute_ssao_gpu_timer->checkResultAndStore();
+		blur_ssao_gpu_timer->checkResultAndStore();
+		copy_prepass_buffers_gpu_timer->checkResultAndStore();
+		decal_copy_buffers_timer->checkResultAndStore();
+		draw_overlays_gpu_timer->checkResultAndStore();
+		bloom_gpu_timer->checkResultAndStore();
+		final_imaging_gpu_timer->checkResultAndStore();
+		fog_post_process_gpu_timer->checkResultAndStore();
 	}
 
 	if(cur_scene->collect_stats)
@@ -14041,19 +14006,24 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "draw_CPU_time: " + doubleToStringNSigFigs(last_draw_CPU_time * 1.0e3, 4) + " ms\n"; 
 	s += "\n";
 	s += "----GPU times----\n";
-	s += "dynamic depth draw: " + doubleToStringNSigFigs(last_dynamic_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "static depth draw : " + doubleToStringNSigFigs(last_static_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "pre-pass          : " + doubleToStringNSigFigs(last_col_and_depth_pre_pass_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "copy pre-pass bufs: " + doubleToStringNSigFigs(last_copy_prepass_buffers_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "compute SSAO      : " + doubleToStringNSigFigs(last_compute_ssao_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "blur SSAO         : " + doubleToStringNSigFigs(last_blur_ssao_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "draw opaque obs   : " + doubleToStringNSigFigs(last_draw_opaque_obs_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "decal copy buffers: " + doubleToStringNSigFigs(last_decal_copy_buffers_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "bloom             : " + doubleToStringNSigFigs(last_bloom_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "fog post-process  : " + doubleToStringNSigFigs(last_fog_post_process_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "final imaging     : " + doubleToStringNSigFigs(last_final_imaging_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "overlay obs       : " + doubleToStringNSigFigs(last_draw_overlay_obs_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "total             : " + doubleToStringNSigFigs(last_total_draw_GPU_time * 1.0e3, 4) + " ms\n";
+	if(dynamic_depth_draw_gpu_timer)
+	{
+		s += "dynamic depth draw: " + doubleToStringNSigFigs(dynamic_depth_draw_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "static depth draw : " + doubleToStringNSigFigs(static_depth_draw_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "pre-pass          : " + doubleToStringNSigFigs(col_and_depth_pre_pass_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "copy pre-pass bufs: " + doubleToStringNSigFigs(copy_prepass_buffers_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "compute SSAO      : " + doubleToStringNSigFigs(compute_ssao_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "blur SSAO         : " + doubleToStringNSigFigs(blur_ssao_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "draw opaque obs   : " + doubleToStringNSigFigs(draw_opaque_obs_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "decal copy buffers: " + doubleToStringNSigFigs(decal_copy_buffers_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "bloom             : " + doubleToStringNSigFigs(bloom_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "fog post-process  : " + doubleToStringNSigFigs(fog_post_process_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "final imaging     : " + doubleToStringNSigFigs(final_imaging_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "overlay obs       : " + doubleToStringNSigFigs(draw_overlays_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "total             : " + doubleToStringNSigFigs(last_total_draw_GPU_time * 1.0e3, 4) + " ms\n";
+	}
+	else
+		s += "GPU timers not created.\n";
 	s += "\n";
 
 	s += "Total GPU mem usage: " + getMBSizeString(this->getTotalGPUMemAllocated()) + "\n";

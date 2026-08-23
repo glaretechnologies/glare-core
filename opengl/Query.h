@@ -39,13 +39,20 @@ public:
 
 	bool checkResultAvailable();
 
-	double getTimeElapsed(); // Blocks until result is ready.
+	double getTimeElapsed(); // Blocks until result is ready.  Does not store in last_time_elapsed.
+
+
+	void checkResultAndStore(); // Check if result is available, if so gets with getTimeElapsed() and stores in last_time_elapsed.
+
+	double getLastTimeElapsed() const { return last_time_elapsed; }
 
 private:
 	GLARE_DISABLE_COPY(Query)
 
 	GLuint query_id;
 	State state;
+
+	double last_time_elapsed;
 };
 
 

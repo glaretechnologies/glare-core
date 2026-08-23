@@ -23,7 +23,8 @@ Copyright Glare Technologies Limited 2024 -
 
 
 Query::Query()
-:	state(State_Idle)
+:	state(State_Idle),
+	last_time_elapsed(-1)
 {
 #if QUERIES_SUPPORTED
 	glGenQueries(1, &query_id);
@@ -83,4 +84,13 @@ double Query::getTimeElapsed()
 #else
 	return 0.0;
 #endif
+}
+
+
+void Query::checkResultAndStore() // Check if result is available, store in last_time_elapsed
+{
+	if(waitingForResult() && checkResultAvailable())
+	{
+		this->last_time_elapsed = getTimeElapsed();
+	}
 }
