@@ -1514,7 +1514,6 @@ private:
 	void drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawColourAndDepthPrePass(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
-	void drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void computeSSAO(const Matrix4f& proj_matrix);
 	void drawNonTransparentMaterialBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawProbeCaptureBatches(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
@@ -1768,7 +1767,7 @@ private:
 	Reference<Query> dynamic_depth_draw_gpu_timer;
 	Reference<Query> static_depth_draw_gpu_timer;
 	Reference<Query> draw_opaque_obs_gpu_timer;
-	Reference<Query> depth_pre_pass_gpu_timer;
+	Reference<Query> col_and_depth_pre_pass_gpu_timer;
 	Reference<Query> compute_ssao_gpu_timer;
 	Reference<Query> blur_ssao_gpu_timer;
 	Reference<Query> copy_prepass_buffers_gpu_timer;
@@ -1799,7 +1798,7 @@ private:
 	double last_dynamic_depth_draw_GPU_time;
 	double last_static_depth_draw_GPU_time;
 	double last_draw_opaque_obs_GPU_time;
-	double last_depth_pre_pass_GPU_time;
+	double last_col_and_depth_pre_pass_GPU_time;
 	double last_compute_ssao_GPU_time;
 	double last_blur_ssao_GPU_time;
 	double last_copy_prepass_buffers_GPU_time;

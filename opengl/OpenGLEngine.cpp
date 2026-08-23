@@ -493,7 +493,7 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	last_dynamic_depth_draw_GPU_time(0),
 	last_static_depth_draw_GPU_time(0),
 	last_draw_opaque_obs_GPU_time(0),
-	last_depth_pre_pass_GPU_time(0),
+	last_col_and_depth_pre_pass_GPU_time(0),
 	last_compute_ssao_GPU_time(0),
 	last_blur_ssao_GPU_time(0),
 	last_copy_prepass_buffers_GPU_time(0),
@@ -2558,7 +2558,7 @@ void OpenGLEngine::checkCreateProfilingQueries()
 		this->dynamic_depth_draw_gpu_timer = new Query();
 		this->static_depth_draw_gpu_timer = new Query();
 		this->draw_opaque_obs_gpu_timer = new Query();
-		this->depth_pre_pass_gpu_timer = new Query();
+		this->col_and_depth_pre_pass_gpu_timer = new Query();
 		this->compute_ssao_gpu_timer = new Query();
 		this->blur_ssao_gpu_timer = new Query();
 		this->copy_prepass_buffers_gpu_timer = new Query();
@@ -8212,7 +8212,6 @@ void OpenGLEngine::draw()
 #endif
 	
 	glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS);
-	//glDepthFunc(use_reverse_z ? GL_GEQUAL : GL_LEQUAL);
 
 	if(cur_scene->render_to_main_render_framebuffer)
 	{
@@ -8692,8 +8691,8 @@ void OpenGLEngine::draw()
 		if(draw_opaque_obs_gpu_timer->waitingForResult() && draw_opaque_obs_gpu_timer->checkResultAvailable())
 			last_draw_opaque_obs_GPU_time = draw_opaque_obs_gpu_timer->getTimeElapsed();
 
-		if(depth_pre_pass_gpu_timer->waitingForResult() && depth_pre_pass_gpu_timer->checkResultAvailable())
-			last_depth_pre_pass_GPU_time = depth_pre_pass_gpu_timer->getTimeElapsed();
+		if(col_and_depth_pre_pass_gpu_timer->waitingForResult() && col_and_depth_pre_pass_gpu_timer->checkResultAvailable())
+			last_col_and_depth_pre_pass_GPU_time = col_and_depth_pre_pass_gpu_timer->getTimeElapsed();
 		
 		if(compute_ssao_gpu_timer->waitingForResult() && compute_ssao_gpu_timer->checkResultAvailable())
 			last_compute_ssao_GPU_time = compute_ssao_gpu_timer->getTimeElapsed();
@@ -11139,8 +11138,8 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 		DebugGroup debug_group("colour and depth pre-pass");
 		TracyGpuZone("colour and depth pre-pass");
 
-		if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && depth_pre_pass_gpu_timer->isIdle())
-			depth_pre_pass_gpu_timer->beginTimerQuery();
+		if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && col_and_depth_pre_pass_gpu_timer->isIdle())
+			col_and_depth_pre_pass_gpu_timer->beginTimerQuery();
 
 		assertCurrentProgramIsZero();
 
@@ -11319,219 +11318,11 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
 	#endif
 
-		if(query_profiling_enabled && depth_pre_pass_gpu_timer->isRunning())
-			depth_pre_pass_gpu_timer->endTimerQuery();
+		if(query_profiling_enabled && col_and_depth_pre_pass_gpu_timer->isRunning())
+			col_and_depth_pre_pass_gpu_timer->endTimerQuery();
 
 		// Restore viewport
 		glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h);
-	}
-}
-
-
-void OpenGLEngine::drawDepthPrePass(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
-{
-	ZoneScopedN("Depth pre-pass"); // Tracy profiler
-	DebugGroup debug_group("Depth pre-pass");
-	TracyGpuZone("Depth pre-pass");
-
-	if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && depth_pre_pass_gpu_timer->isIdle())
-		depth_pre_pass_gpu_timer->beginTimerQuery();
-
-	assertCurrentProgramIsZero();
-
-/*	if(current_scene->render_to_main_render_framebuffer)
-	{
-		main_render_framebuffer->bindForDrawing();
-		//assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == main_colour_renderbuffer->buffer_name); // Check main colour renderbuffer is attached at GL_COLOR_ATTACHMENT0.
-		//assert(main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT1) == main_normal_renderbuffer->buffer_name); // Check main normal renderbuffer is attached at GL_COLOR_ATTACHMENT1.
-		//setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Draw to colour and normal buffers.
-	}
-	else
-	{
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->target_frame_buffer.nonNull() ? this->target_frame_buffer->buffer_name : 0);
-		//setSingleDrawBuffer(this->target_frame_buffer.nonNull() ? GL_COLOR_ATTACHMENT0 : GL_BACK); // Just draw to colour buffer, not normal buffer. GL_BACK is required for targetting default framebuffer
-	}*/
-
-	current_scene->prepass_framebuffer->bindForDrawing();
-
-	glDrawBuffers(/*num=*/0, NULL); // Don't draw to any colour buffers. (there are none attached to the frame buffer anyway)
-
-	glViewport(0, 0, (GLsizei)current_scene->prepass_framebuffer->xRes(), (GLsizei)current_scene->prepass_framebuffer->yRes());
-	
-	glClearColor(current_scene->background_colour.r, current_scene->background_colour.g, current_scene->background_colour.b, 1.f);
-	glClearDepthf(use_reverse_z ? 0.0f : 1.f); // For reversed-z, the 'far' z value is 0, instead of 1.
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	//Timer timer;
-	temp_batch_draw_info.reserve(current_scene->objects.size());
-	temp_batch_draw_info.resize(0);
-
-	const Vec4f campos_ws = this->getCameraPositionWS();
-
-	uint64 num_frustum_culled = 0;
-	{
-		ZoneScopedN("frustum culling"); // Tracy profiler
-
-		const Planef* frustum_clip_planes = current_scene->frustum_clip_planes;
-		const int num_frustum_clip_planes = current_scene->num_frustum_clip_planes;
-		const js::AABBox frustum_aabb = current_scene->frustum_aabb;
-		const GLObjectRef* const current_scene_obs = current_scene->objects.vector.data();
-		const size_t current_scene_obs_size        = current_scene->objects.vector.size();
-		for(size_t i=0; i<current_scene_obs_size; ++i)
-		{
-			// Prefetch cachelines containing the variables we need for objects N places ahead in the array.
-			if(i + 16 < current_scene_obs_size)
-			{	
-				_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws), _MM_HINT_T0);
-				_mm_prefetch((const char*)(&current_scene_obs[i + 16]->aabb_ws) + 64, _MM_HINT_T0);
-			}
-
-			const GLObject* const ob = current_scene_obs[i].ptr();
-			if(AABBIntersectsFrustum(frustum_clip_planes, num_frustum_clip_planes, frustum_aabb, ob->aabb_ws))
-			{
-				if(ob->aabb_ws.distanceToPoint(campos_ws) > 80.f)
-					continue;
-
-				const size_t ob_batch_draw_info_size                  = ob->depth_draw_batches/*batch_draw_info*/.size();
-				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->depth_draw_batches/*batch_draw_info*/.data();
-				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
-				{
-					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
-					const uint32 prog_index_and_face_culling_flag = prog_index_and_flags & ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK;
-
-#ifndef NDEBUG
-					//const bool face_culling = !ob->materials[ob->depth_draw_batches[z].material_data_or_mat_index].simple_double_sided && !ob->materials[ob->depth_draw_batches[z].material_data_or_mat_index].fancy_double_sided;
-					//assert(prog_index_and_face_culling_flag == (ob->materials[ob->getUsedBatches()[z].material_index].shader_prog->program_index | (face_culling ? BACKFACE_CULLING_BITFLAG : 0)));
-					//assert(BitUtils::isBitSet(prog_index_and_flags, MATERIAL_TRANSPARENT_BITFLAG) == ob->materials[ob->getUsedBatches()[z].material_index].transparent);
-
-					// Check the denormalised vao_and_vbo_key is correct
-					const uint32 vao_id = ob->mesh_data->vao_data_index;
-					const uint32 vbo_id = (uint32)ob->mesh_data->vbo_handle.vbo_id;
-					const uint32 indices_vbo_id = (uint32)ob->mesh_data->indices_vbo_handle.vbo_id;
-					const uint32 index_type_bits = ob->mesh_data->index_type_bits;
-					assert(ob->vao_and_vbo_key == makeVAOAndVBOKey(vao_id, vbo_id, indices_vbo_id, index_type_bits));
-#endif
-					// Draw primitives for the given material
-					// If transparent bit is not set, and water bit is not set, and decal bit is not set, and the program has finished building:
-					if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_ALPHA_BLEND_BITFLAG)) == PROGRAM_FINISHED_BUILDING_BITFLAG)
-					{
-						BatchDrawInfo info(
-							prog_index_and_face_culling_flag,
-							ob->vao_and_vbo_key,
-							ob, // object ptr
-							(uint32)z // batch_i
-						);
-						temp_batch_draw_info.push_back(info);
-					}
-				}
-			}
-			else
-				num_frustum_culled++;
-		} // End for each object in scene
-
-		if(current_scene->collect_stats)
-			this->last_num_obs_in_frustum = current_scene->objects.size() - num_frustum_culled;
-	}
-	//conPrint("Draw opaque make batch loop took " + timer.elapsedStringNSigFigs(4));
-
-	sortBatchDrawInfos();
-
-	// Draw sorted batches
-	num_prog_changes = 0;
-	uint32 num_batches_bound = 0;
-	num_vao_binds = 0;
-	num_vbo_binds = 0;
-	num_index_buf_binds = 0;
-	uint32 num_face_culling_changes = 0;
-
-	assertCurrentProgramIsZero();
-
-	uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
-
-#if !defined(EMSCRIPTEN)
-	if(draw_wireframes)
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-#endif
-
-	//Timer timer3;
-	const BatchDrawInfo* const batch_draw_info_data = temp_batch_draw_info.data();
-	const size_t batch_draw_info_size = temp_batch_draw_info.size();
-	for(size_t i=0; i<batch_draw_info_size; ++i)
-	{
-		const BatchDrawInfo& info = batch_draw_info_data[i];
-		const GLObjectBatchDrawInfo& batch = info.ob->depth_draw_batches/*batch_draw_info*/[info.batch_i];
-		const uint32 prog_index_and_face_culling = batch.getProgramIndexAndFaceCulling();
-		if(prog_index_and_face_culling != current_prog_index_and_face_culling)
-		{
-			ZoneScopedN("changing prog"); // Tracy profiler
-
-			if(use_multi_draw_indirect)
-				submitBufferedDrawCommands(); // Flush existing draw commands
-
-			const uint32 face_culling      = prog_index_and_face_culling         & ISOLATE_FACE_CULLING_MASK;
-			const uint32 prev_face_culling = current_prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK;
-			if(face_culling != prev_face_culling)
-			{
-				setFaceCulling(face_culling);
-				num_face_culling_changes++;
-			}
-
-			const uint32 prog_index = prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK;
-			if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK)) // If prog index changed:
-			{
-				const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
-				//conPrint("---- Changed to program " + prog->prog_name + " (index " + toString(prog_index) + ") ----");
-				prog->useProgram();
-				current_bound_prog = prog;
-				current_bound_prog_index = prog_index;
-				current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
-				setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
-				num_prog_changes++;
-			}
-
-			current_prog_index_and_face_culling = prog_index_and_face_culling;
-		}
-
-		bindMeshData(*info.ob);
-		num_batches_bound++;
-
-		drawBatchWithDenormalisedData(*info.ob, batch, info.batch_i);
-	}
-
-	//printVar(num_face_culling_changes);
-	//printVar(num_prog_changes);
-	/*if(current_scene->collect_stats)
-	{
-		last_num_prog_changes = num_prog_changes;
-		last_num_batches_bound = num_batches_bound;
-		last_num_vao_binds = num_vao_binds;
-		last_num_vbo_binds = num_vbo_binds;
-		last_num_index_buf_binds = num_index_buf_binds;
-		last_num_indices_drawn = this->num_indices_submitted;
-		last_num_face_culling_changes = num_face_culling_changes;
-	}
-	this->num_indices_submitted = 0;*/
-
-	flushDrawCommandsAndUnbindPrograms();
-
-	glDisable(GL_CULL_FACE); // Restore
-
-#if !defined(EMSCRIPTEN)
-	if(draw_wireframes)
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
-#endif
-
-	if(query_profiling_enabled && depth_pre_pass_gpu_timer->isRunning())
-		depth_pre_pass_gpu_timer->endTimerQuery();
-
-
-	// Copy depth buffer from main render framebuffer to render copy framebuffer.
-	if(current_scene->render_to_main_render_framebuffer)
-	{
-		blitFrameBuffer(/*src_framebuffer=*/*current_scene->main_render_framebuffer, /*dest_framebuffer=*/*current_scene->main_render_copy_framebuffer, 
-				/*num_buffers_to_copy=*/1, /*copy_buf0_colour=*/false, /*copy_buf0_depth=*/true);
 	}
 }
 
@@ -14252,7 +14043,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "----GPU times----\n";
 	s += "dynamic depth draw: " + doubleToStringNSigFigs(last_dynamic_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "static depth draw : " + doubleToStringNSigFigs(last_static_depth_draw_GPU_time * 1.0e3, 4) + " ms\n";
-	s += "pre-pass          : " + doubleToStringNSigFigs(last_depth_pre_pass_GPU_time * 1.0e3, 4) + " ms\n";
+	s += "pre-pass          : " + doubleToStringNSigFigs(last_col_and_depth_pre_pass_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "copy pre-pass bufs: " + doubleToStringNSigFigs(last_copy_prepass_buffers_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "compute SSAO      : " + doubleToStringNSigFigs(last_compute_ssao_GPU_time * 1.0e3, 4) + " ms\n";
 	s += "blur SSAO         : " + doubleToStringNSigFigs(last_blur_ssao_GPU_time * 1.0e3, 4) + " ms\n";
