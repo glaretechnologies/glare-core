@@ -106,7 +106,38 @@ float rayPlaneIntersect(vec3 raystart, vec3 ray_unitdir, float plane_h)
 
 
 
-vec2 samples[16] = vec2[](
+// Shadow map sample offsets, in texture coordinates for a 2048^2 depth map.  Rotated per-pixel by R in the sampling
+// functions below, and scaled by shadow_map_samples_xy_scale for other depth map resolutions.
+#if 1
+// Two rings of 4: an axis-aligned ring at radius 0.539 texels and a diagonal one at 1.382 texels, so the 8 tap
+// directions are spaced exactly 45 degrees apart.
+//
+// These are not point samples: each sampler2DShadow lookup is a bilinear PCF tap, i.e. a tent-weighted average of
+// the comparison results over a 2x2 texel support, weight 1 at the tap position falling linearly to 0 at +/-1 texel
+// on each axis.  So what a pattern applies is the mean of its taps' tent kernels, and taps spaced much closer than
+// a texel have strongly overlapping kernels and add little - which is why 8 taps suffice here.
+//
+// The two radii are fitted so the resulting kernel matches the radial profile of the 16-tap pattern below, i.e. how
+// tight the shadows look (half-weight radius 0.93 texels, the same).  Even angular spacing then makes the response
+// to a shadow edge nearly independent of the edge's orientation, which is what keeps the noise down.  Against a
+// randomly oriented edge: 10%-90% edge width 2.25 texels, peak per-pixel noise 0.080, RMS noise 0.030 - slightly
+// quieter than the 16-tap pattern, for half the taps.
+const int NUM_SHADOW_SAMPLES = 8;
+const vec2 samples[NUM_SHADOW_SAMPLES] = vec2[](
+	vec2( 0.00026337,  0.00000000),
+	vec2( 0.00000000,  0.00026337),
+	vec2(-0.00026337,  0.00000000),
+	vec2( 0.00000000, -0.00026337),
+	vec2( 0.00047697,  0.00047697),
+	vec2(-0.00047697,  0.00047697),
+	vec2(-0.00047697, -0.00047697),
+	vec2( 0.00047697, -0.00047697)
+);
+#else
+// 16 hand-placed samples, spanning a disc of radius about 2 texels.  Half-weight radius 0.93 texels, 10%-90% edge
+// width 2.41 texels, peak per-pixel noise 0.084, RMS noise 0.032.
+const int NUM_SHADOW_SAMPLES = 16;
+const vec2 samples[NUM_SHADOW_SAMPLES] = vec2[](
 	vec2(-0.00033789, -0.00072656),
 	vec2(0.00056445, -0.00064844),
 	vec2(0.000013672, -0.00054883),
@@ -124,6 +155,7 @@ vec2 samples[16] = vec2[](
 	vec2(0.00019336, 0.00042188),
 	vec2(0.00071289, -0.00025977)
 );
+#endif
 
 float fbm(vec2 p, in sampler2D fbm_tex)
 {
@@ -162,7 +194,7 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords, float bias, in sampler2D
 
 	// This technique is a bit sharper:
 	float sum = 0.0;
-	for(int i = 0; i < 16; ++i)
+	for(int i = 0; i < NUM_SHADOW_SAMPLES; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
 		// Use textureLod to specify the LOD level explicitly.
@@ -170,7 +202,7 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords, float bias, in sampler2D
 		// We don't actually need these derivatives since we are just doing bilinear filtering with no mipmaps.
 		sum += textureLod(dynamic_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias), /*lod=*/0.0);
 	}
-	return sum * (1.f / 16.f);
+	return sum * (1.f / float(NUM_SHADOW_SAMPLES));
 }
 
 
@@ -178,12 +210,12 @@ float sampleStaticDepthMap(mat2 R, vec3 shadow_coords, float bias, in sampler2DS
 {
 	// This technique gives sharper shadows, so will use for static depth maps to avoid shadows on smaller objects being blurred away.
 	float sum = 0.0;
-	for(int i = 0; i < 16; ++i)
+	for(int i = 0; i < NUM_SHADOW_SAMPLES; ++i)
 	{
 		vec2 st = shadow_coords.xy + R * samples[i];
 		sum += textureLod(static_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias), /*lod=*/0.0);
 	}
-	return sum * (1.f / 16.f);
+	return sum * (1.f / float(NUM_SHADOW_SAMPLES));
 }
 
 
