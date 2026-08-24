@@ -2146,9 +2146,6 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		const bool do_screenspace_refl_and_refr = settings.screenspace_refl_and_refr && settings.render_to_offscreen_renderbuffers; // Screenspace reflections require rendering to offscreen buffers.
 		preprocessor_defines += "#define WATER_DO_SCREENSPACE_REFL_AND_REFR " + (do_screenspace_refl_and_refr ? std::string("1") : std::string("0")) + "\n";
 
-		preprocessor_defines += "#define MAIN_BUFFER_MSAA_SAMPLES 1\n"; // Since we are using render buffers currently, we will resolve them down to a non-MSAA texture using blitBuffer.  So 
-		// So the shaders can just consider the main buffer source textures to not have MSAA.
-
 		preprocessor_defines += "#define USE_REVERSE_Z " + (use_reverse_z ? std::string("1") : std::string("0")) + "\n";
 
 		preprocessor_defines += "#define ORDER_INDEPENDENT_TRANSPARENCY " + (use_order_indep_transparency ? std::string("1") : std::string("0")) + "\n";

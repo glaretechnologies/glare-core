@@ -191,6 +191,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/probe_bake_from_cubemap_frag_shader.g
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/probe_convolve_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/probe_debug_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/probe_debug_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/OIT_composite_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/OIT_composite_frag_shader.glsl
 )
 
 
