@@ -290,6 +290,6 @@ std::string VertexBufferAllocator::getDiagnostics() const
 	s += "VAOs: " + toString(vao_data.size()) + "\n";
 	s += "use_VBO_size: " + getNiceByteSize(use_VBO_size_B) + "\n";
 	s += "Vert VBOs: " + toString(vert_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * vert_vbos.size()) + ")\n";
-	s += "Index VBOs: " + toString(vert_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * vert_vbos.size()) + ")\n";
+	s += "Index VBOs: " + toString(index_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * index_vbos.size()) + ")\n";
 	return s;
 }
