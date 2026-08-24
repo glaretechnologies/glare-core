@@ -29,7 +29,7 @@ Copyright Glare Technologies Limited 2026 -
 // just the declarations, which link against the definitions PNGDecoder.cpp's translation unit already provides - the
 // usual declare-in-many-places, define-in-one-place split, done with a macro because Wuffs ships as a single .c file.
 #if !WUFFS_SUPPORT
-#error WUFFS_SUPPORT should be defined in preprocessor defs.  SOGDecoder needs Wuffs' DEFLATE decoder, whose definitions come from PNGDecoder.cpp.
+#error "WUFFS_SUPPORT should be defined in preprocessor defs.  SOGDecoder needs Wuffs' DEFLATE decoder, whose definitions come from PNGDecoder.cpp."
 #endif
 #define WUFFS_CONFIG__MODULES
 #define WUFFS_CONFIG__MODULE__BASE
