@@ -59,7 +59,15 @@ public:
 	// Shadow texture matrices to be set as uniforms in shaders
 	Matrix4f dynamic_tex_matrix[NUM_DYNAMIC_DEPTH_TEXTURES];
 	Matrix4f static_tex_matrix[NUM_STATIC_DEPTH_TEXTURES * 2];
-	
+
+	// Depth bias scale for each cascade: (world size of a depth map texel) / (depth range of the cascade's ortho
+	// volume), so that multiplying by tan(theta) gives the normalised depth change over one texel of the receiver
+	// plane, which is what the shader biases by.  Both quantities change every frame as the ortho volumes are
+	// refitted to the sun direction and view frustum, so these can't be constants in the shader.
+	// Kept in step with the tex matrices above: the static ones are double buffered the same way.
+	float dynamic_cascade_bias_scale[NUM_DYNAMIC_DEPTH_TEXTURES];
+	float static_cascade_bias_scale[NUM_STATIC_DEPTH_TEXTURES * 2];
+
 	int dynamic_w, dynamic_h;
 	int static_w, static_h;
 	Reference<FrameBuffer> dynamic_frame_buffer;

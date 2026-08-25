@@ -13,6 +13,12 @@ Copyright Glare Technologies Limited 2016 -
 ShadowMapping::ShadowMapping()
 :	cur_static_depth_tex(0)
 {
+	// Zero until the first renderToShadowMapDepthBuffer() call fills them in, which happens before anything is drawn
+	// with them.
+	for(int i=0; i<NUM_DYNAMIC_DEPTH_TEXTURES; ++i)
+		dynamic_cascade_bias_scale[i] = 0;
+	for(int i=0; i<NUM_STATIC_DEPTH_TEXTURES * 2; ++i)
+		static_cascade_bias_scale[i] = 0;
 }
 
 

@@ -7119,6 +7119,24 @@ void OpenGLEngine::convolveProbeCaptureToTile(int probe_index)
 }
 
 
+// Copy the per-cascade depth bias scales into the uniform struct.  Selects the static depth texture with
+// cur_static_depth_tex, the same way the static tex matrices are selected, so a cascade's bias and its matrix always
+// come from the same volume fit.
+// shadow_mapping may be null, in which case the scales are zeroed - nothing samples a depth map then anyway.
+static void setShadowCascadeBiasScaleUniforms(MaterialCommonUniforms& uniforms, const ShadowMapping* shadow_mapping)
+{
+	uniforms.dynamic_cascade_bias_scales = Vec4f(0.f);
+	uniforms.static_cascade_bias_scales  = Vec4f(0.f);
+	if(shadow_mapping)
+	{
+		for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES; ++i)
+			uniforms.dynamic_cascade_bias_scales[i] = shadow_mapping->dynamic_cascade_bias_scale[i];
+		for(int i = 0; i < ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
+			uniforms.static_cascade_bias_scales[i] = shadow_mapping->static_cascade_bias_scale[shadow_mapping->cur_static_depth_tex * ShadowMapping::NUM_STATIC_DEPTH_TEXTURES + i];
+	}
+}
+
+
 // Render the 6 cube faces around probe_pos into the capture texture.
 // capture_radius bounds how far out geometry is gathered, so the cost scales with local scene complexity rather
 // than with the size of the world.
@@ -7271,8 +7289,9 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 			common_uniforms.mat_common_flags = (current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) |
 				(use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) | DOING_PROBE_CAPTURE_FLAG;
 
-			common_uniforms.shadow_map_samples_xy_scale = current_scene->shadow_mapping ? (2048.f / current_scene->shadow_mapping->dynamic_w) : 1.f;
-			common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
+			common_uniforms.padding_a0 = common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
+
+			setShadowCascadeBiasScaleUniforms(common_uniforms, current_scene->shadow_mapping.ptr());
 
 			for(int i = 0; i < ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES; ++i)
 				common_uniforms.frag_shadow_texture_matrix[i] = shadow_tex_matrices[i];
@@ -7933,8 +7952,11 @@ void OpenGLEngine::draw()
 	common_uniforms.camera_type = (int)cur_scene->camera_type;
 	common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (settings.ssao ? DO_SSAO_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) | (use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) |
 		(settings.msaa_samples >= 2 ? ALPHA_TO_COVERAGE_ENABLED_FLAG : 0);
-	common_uniforms.shadow_map_samples_xy_scale = cur_scene->shadow_mapping ? (2048.f / cur_scene->shadow_mapping->dynamic_w) : 1.f; // Shadow map sample pattern is scaled for 2048^2 textures.
-	common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
+	common_uniforms.padding_a0 = common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
+
+	// Set from last frame's shadow map build for now, so we're not uploading uninitialised data.  The shadow maps
+	// for this frame are rendered below, after which the current values are uploaded over the top.
+	setShadowCascadeBiasScaleUniforms(common_uniforms, cur_scene->shadow_mapping.ptr());
 
 	setProbeGridUniforms(common_uniforms);
 
@@ -7953,7 +7975,18 @@ void OpenGLEngine::draw()
 
 	//=============== Render to shadow map depth buffer if needed ===============
 	if(cur_scene->shadow_mapping)
+	{
 		renderToShadowMapDepthBuffer();
+
+		// renderToShadowMapDepthBuffer() refits the cascade ortho volumes, which changes their bias scales, and it
+		// runs after the material common uniforms were uploaded above.  Upload just those two fields again so the
+		// biases match the shadow tex matrices the rest of the frame uses (those are read after this point, at the
+		// shared vert uniforms update below).
+		static_assert(offsetof(MaterialCommonUniforms, static_cascade_bias_scales) == offsetof(MaterialCommonUniforms, dynamic_cascade_bias_scales) + sizeof(Vec4f));
+		setShadowCascadeBiasScaleUniforms(common_uniforms, cur_scene->shadow_mapping.ptr());
+		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/offsetof(MaterialCommonUniforms, dynamic_cascade_bias_scales),
+			&common_uniforms.dynamic_cascade_bias_scales, sizeof(Vec4f) * 2);
+	}
 
 
 	bindStandardShadowMappingDepthTextures(); // Rebind now that the shadow maps have been redrawn, and hence cur_static_depth_tex has changed.
@@ -9033,6 +9066,8 @@ void OpenGLEngine::doFinalImaging(OpenGLTexture* colour_tex_input)
 }
 
 
+// As well as rendering the depth maps, this computes each cascade's depth bias scale for
+// getShadowMappingSunVisFactor() in frag_utils.glsl, since the ortho volumes it needs are built here.
 void OpenGLEngine::renderToShadowMapDepthBuffer()
 {
 	assertCurrentProgramIsZero();
@@ -9114,6 +9149,19 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 				sun_space_bounds.min_[1], sun_space_bounds.max_[1], // bottom, top
 				near_signed_dist, far_signed_dist // near, far
 			);
+
+			// Work out the depth bias scale for this cascade: the normalised depth change over one texel of the
+			// receiver plane, per unit of tan(theta).  The tile is square in pixels but the ortho volume is the AABB
+			// of the frustum in sun space, so the two axes generally have different world texel sizes - take the
+			// larger, since the bias has to cover the worst tap direction.
+			{
+				const int tile_h = current_scene->shadow_mapping->dynamic_h / current_scene->shadow_mapping->numDynamicDepthTextures();
+				const float texel_w = (sun_space_bounds.max_[0] - sun_space_bounds.min_[0]) / current_scene->shadow_mapping->dynamic_w;
+				const float texel_h = (sun_space_bounds.max_[1] - sun_space_bounds.min_[1]) / tile_h;
+				current_scene->shadow_mapping->dynamic_cascade_bias_scale[ti] = myMax(texel_w, texel_h) / (far_signed_dist - near_signed_dist);
+
+				// conPrint("Setting dynamic_cascade_bias_scale[" + toString(ti) + "] to " + toString(current_scene->shadow_mapping->dynamic_cascade_bias_scale[ti]));
+			}
 
 			Planef clip_planes[18]; // Usually there should be <= 12 clip planes, 18 is the max possible based on the code flow in computeShadowFrustumClipPlanes.
 			const int num_clip_planes_used = computeShadowFrustumClipPlanes(frustum_verts_ws, current_scene->sun_dir, max_shadowing_dist, clip_planes);
@@ -9436,7 +9484,17 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 
 				// Save shadow_tex_matrix that the shaders like phong will use.
 				if(ob_set == 0)
+				{
 					current_scene->shadow_mapping->static_tex_matrix[ShadowMapping::NUM_STATIC_DEPTH_TEXTURES * other_index + ti] = cascade_selection_matrix * texcoord_bias * proj_matrix * view_matrix;
+
+					// Depth bias scale for this cascade - see the equivalent code in the dynamic cascade loop above.
+					const float texel_w = (sun_space_bounds.max_[0] - sun_space_bounds.min_[0]) / current_scene->shadow_mapping->static_w;
+					const float texel_h = (sun_space_bounds.max_[1] - sun_space_bounds.min_[1]) / static_per_map_h;
+					current_scene->shadow_mapping->static_cascade_bias_scale[ShadowMapping::NUM_STATIC_DEPTH_TEXTURES * other_index + ti] =
+						myMax(texel_w, texel_h) / (far_signed_dist - near_signed_dist);
+
+					// conPrint("Setting static_cascade_bias_scale[" + toString(ti) + "] to " + toString(current_scene->shadow_mapping->static_cascade_bias_scale[ShadowMapping::NUM_STATIC_DEPTH_TEXTURES * other_index + ti]));
+				}
 
 				// Draw fully opaque batches - batches with a material that is not transparent and doesn't use alpha testing.
 				Timer timer3;

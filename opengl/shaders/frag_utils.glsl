@@ -106,8 +106,8 @@ float rayPlaneIntersect(vec3 raystart, vec3 ray_unitdir, float plane_h)
 
 
 
-// Shadow map sample offsets, in texture coordinates for a 2048^2 depth map.  Rotated per-pixel by R in the sampling
-// functions below, and scaled by shadow_map_samples_xy_scale for other depth map resolutions.
+// Shadow map sample offsets, in texture pixel coordinates.  Rotated per-pixel by R in the sampling
+// functions below.
 #if 1
 // Two rings of 4: an axis-aligned ring at radius 0.539 texels and a diagonal one at 1.382 texels, so the 8 tap
 // directions are spaced exactly 45 degrees apart.
@@ -124,36 +124,36 @@ float rayPlaneIntersect(vec3 raystart, vec3 ray_unitdir, float plane_h)
 // quieter than the 16-tap pattern, for half the taps.
 const int NUM_SHADOW_SAMPLES = 8;
 const vec2 samples[NUM_SHADOW_SAMPLES] = vec2[](
-	vec2( 0.00026337,  0.00000000),
-	vec2( 0.00000000,  0.00026337),
-	vec2(-0.00026337,  0.00000000),
-	vec2( 0.00000000, -0.00026337),
-	vec2( 0.00047697,  0.00047697),
-	vec2(-0.00047697,  0.00047697),
-	vec2(-0.00047697, -0.00047697),
-	vec2( 0.00047697, -0.00047697)
+	vec2( 0.53938176,  0.00000000),
+	vec2( 0.00000000,  0.53938176),
+	vec2(-0.53938176,  0.00000000),
+	vec2( 0.00000000, -0.53938176),
+	vec2( 0.97683456,  0.97683456),
+	vec2(-0.97683456,  0.97683456),
+	vec2(-0.97683456, -0.97683456),
+	vec2( 0.97683456, -0.97683456)
 );
 #else
 // 16 hand-placed samples, spanning a disc of radius about 2 texels.  Half-weight radius 0.93 texels, 10%-90% edge
 // width 2.41 texels, peak per-pixel noise 0.084, RMS noise 0.032.
 const int NUM_SHADOW_SAMPLES = 16;
 const vec2 samples[NUM_SHADOW_SAMPLES] = vec2[](
-	vec2(-0.00033789, -0.00072656),
-	vec2(0.00056445, -0.00064844),
-	vec2(0.000013672, -0.00054883),
-	vec2(-0.00058594, -0.00011914),
-	vec2(-0.00017773, -0.00021094),
-	vec2(0.00019336, -0.00019336),
-	vec2(-0.000019531, -0.000058594),
-	vec2(-0.00022070, 0.00014453),
-	vec2(0.000089844, 0.000068359),
-	vec2(0.00036328, 0.000058594),
-	vec2(0.00061328, 0.000087891),
-	vec2(-0.0000078125, 0.00028906),
-	vec2(-0.00089453, 0.00043750),
-	vec2(-0.00022852, 0.00058984),
-	vec2(0.00019336, 0.00042188),
-	vec2(0.00071289, -0.00025977)
+	vec2(-0.691999, -1.487995),
+	vec2( 1.155994, -1.328005),
+	vec2( 0.028000, -1.124004),
+	vec2(-1.200005, -0.243999),
+	vec2(-0.363991, -0.432005),
+	vec2( 0.396001, -0.396001),
+	vec2(-0.039999, -0.120001),
+	vec2(-0.451994,  0.295997),
+	vec2( 0.184001,  0.139999),
+	vec2( 0.743997,  0.120001),
+	vec2( 1.255997,  0.180001),
+	vec2(-0.016000,  0.591995),
+	vec2(-1.831997,  0.896000),
+	vec2(-0.468009,  1.207992),
+	vec2( 0.396001,  0.864010),
+	vec2( 1.459999, -0.532009)
 );
 #endif
 
@@ -192,11 +192,14 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords, float bias, in sampler2D
 		}
 	return sum * (1.f / 16);*/
 
+	ivec2 tex_res = textureSize(dynamic_depth_tex, /*mip level*/0);
+	vec2 xy_scale = vec2(1.0 / float(tex_res.x), 1.0 / float(tex_res.y));
+
 	// This technique is a bit sharper:
 	float sum = 0.0;
 	for(int i = 0; i < NUM_SHADOW_SAMPLES; ++i)
 	{
-		vec2 st = shadow_coords.xy + R * samples[i];
+		vec2 st = shadow_coords.xy + R * samples[i] * xy_scale;
 		// Use textureLod to specify the LOD level explicitly.
 		// Without this, the ANGLE D3D11 backend will flatten the branches and execute all depth map lookups, so that it can calculate derivatives.
 		// We don't actually need these derivatives since we are just doing bilinear filtering with no mipmaps.
@@ -208,11 +211,14 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords, float bias, in sampler2D
 
 float sampleStaticDepthMap(mat2 R, vec3 shadow_coords, float bias, in sampler2DShadow static_depth_tex)
 {
+	ivec2 tex_res = textureSize(static_depth_tex, /*mip level*/0);
+	vec2 xy_scale = vec2(1.0 / float(tex_res.x), 1.0 / float(tex_res.y));
+
 	// This technique gives sharper shadows, so will use for static depth maps to avoid shadows on smaller objects being blurred away.
 	float sum = 0.0;
 	for(int i = 0; i < NUM_SHADOW_SAMPLES; ++i)
 	{
-		vec2 st = shadow_coords.xy + R * samples[i];
+		vec2 st = shadow_coords.xy + R * samples[i] * xy_scale;
 		sum += textureLod(static_depth_tex, vec3(st.x, st.y, shadow_coords.z - bias), /*lod=*/0.0);
 	}
 	return sum * (1.f / float(NUM_SHADOW_SAMPLES));
@@ -290,21 +296,35 @@ float hexFracToEdge(in vec2 p)
 #if SHADOW_MAPPING
 
 
+// The shadow map bias is expressed as this many texels of the receiver plane's depth slope.  A tap is placed up to
+// ~1.4 texels from the fragment and reads a 2x2 texel neighbourhood around itself, so the depth the comparison wants
+// can be a couple of texels of slope from the fragment's own depth.  Measured against the 8 tap pattern above: at 1.0
+// a lit self-shadowing plane reads 0.87 instead of 1.0, at 2.2 it is fully lit.
+//
+// The conversion from texels of slope to normalised depth is the per-cascade bias scale uniform, which is
+// (world size of a depth map texel) / (depth range of that cascade's ortho volume) - see
+// ShadowMapping::dynamic_cascade_bias_scale.  Both factors change every frame, as the ortho volumes are refitted to
+// the sun direction and view frustum, and the texel size also depends on the shadow map resolution, which varies
+// with the shadow mapping detail setting and with max_texture_size.  So this is the only constant needed here, and
+// unlike the per-cascade constants it replaces, it is a property of the sample pattern rather than of the scene.
+const float SHADOW_BIAS_TEXELS = 2.2;
+
+
 float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEXTURES], in sampler2DShadow dynamic_depth_tex, in sampler2DShadow static_depth_tex,
-	float pixel_hash, vec3 pos_cs, float shadow_map_samples_xy_scale_, float to_light_dot_n)
+	float pixel_hash, vec3 pos_cs, float to_light_dot_n, vec4 dynamic_bias_scales, vec4 static_bias_scales)
 {
 	float pattern_theta = pixel_hash * 6.283185307179586f;
-	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta)) * shadow_map_samples_xy_scale_;
+	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
 
 	float sun_vis_factor = 0.0;
 
-	// These values are eyeballed to be approximately the smallest values without striping artifacts.
-	float light_angle_factor = 1.0f / max(to_light_dot_n, 0.3);
-	float depth_map_0_bias        = 5.0e-5f  * light_angle_factor;
-	float depth_map_1_bias        = 12.0e-5f * light_angle_factor;
-	float static_depth_map_0_bias = 5.0e-4f  * light_angle_factor;
-	float static_depth_map_1_bias = 10.0e-4f * light_angle_factor;
-	float static_depth_map_2_bias = 15.0e-4f * light_angle_factor;
+	float cos_theta = clamp(to_light_dot_n, 0.01, 1.0);
+	float light_angle_factor = sqrt(1.0 - cos_theta*cos_theta) / cos_theta; // = tan(theta)
+	float depth_map_0_bias        = SHADOW_BIAS_TEXELS * light_angle_factor * dynamic_bias_scales[0];
+	float depth_map_1_bias        = SHADOW_BIAS_TEXELS * light_angle_factor * dynamic_bias_scales[1];
+	float static_depth_map_0_bias = SHADOW_BIAS_TEXELS * light_angle_factor * static_bias_scales[0];
+	float static_depth_map_1_bias = SHADOW_BIAS_TEXELS * light_angle_factor * static_bias_scales[1];
+	float static_depth_map_2_bias = SHADOW_BIAS_TEXELS * light_angle_factor * static_bias_scales[2];
 
 	float dist = -pos_cs.z;
 	if(dist < DEPTH_TEXTURE_SCALE_MULT*DEPTH_TEXTURE_SCALE_MULT)
@@ -423,19 +443,21 @@ float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEX
 // Static only, so dynamic objects cast no shadows into the grid.  Acceptable here: the bounce is dominated by
 // static geometry, and the result is convolved down to an 8x8 irradiance tile regardless.
 float getProbeCaptureSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEXTURES], in sampler2DShadow static_depth_tex,
-	float pixel_hash, float shadow_map_samples_xy_scale_, float to_light_dot_n)
+	float pixel_hash, float to_light_dot_n, vec4 static_bias_scales)
 {
 	float pattern_theta = pixel_hash * 6.283185307179586f;
-	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta)) * shadow_map_samples_xy_scale_;
+	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
 
-	float bias = 5.0e-4f / max(to_light_dot_n, 0.3); // Same as static_depth_map_0_bias in getShadowMappingSunVisFactor().
+	// Same as static_depth_map_0_bias in getShadowMappingSunVisFactor(), since this samples static cascade 0 too.
+	float cos_theta = clamp(to_light_dot_n, MIN_SHADOW_BIAS_COS, 1.0);
+	float bias = SHADOW_BIAS_TEXELS * (sqrt(1.0 - cos_theta*cos_theta) / cos_theta) * static_bias_scales[0];
 
 	return sampleStaticDepthMap(R, final_shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES], bias, static_depth_tex);
 }
 
 
 float getShadowMappingSunVisFactorFast(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEXTURES], in sampler2DShadow dynamic_depth_tex, in sampler2DShadow static_depth_tex,
-	vec3 pos_cs, float shadow_map_samples_xy_scale_)
+	vec3 pos_cs)
 {
 	float sun_vis_factor = 0.0;
 

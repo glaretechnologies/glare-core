@@ -949,7 +949,7 @@ struct MaterialCommonUniforms
 	int camera_type; // OpenGLScene::CameraType
 
 	int mat_common_flags;
-	float shadow_map_samples_xy_scale;
+	float padding_a0;
 	float padding_a1;
 	float padding_a2;
 
@@ -957,6 +957,11 @@ struct MaterialCommonUniforms
 
 	Vec4f probe_grid_origin; // xyz = world space position of grid probe (0, 0, 0).  w = probe spacing.
 	int probe_grid_dims[4];  // xyz = number of probes along each axis.  w = atlas index of grid probe (0, 0, 0).
+
+	// See ShadowMapping::dynamic_cascade_bias_scale.  Only the first NUM_DYNAMIC_DEPTH_TEXTURES and
+	// NUM_STATIC_DEPTH_TEXTURES components respectively are used.
+	Vec4f dynamic_cascade_bias_scales;
+	Vec4f static_cascade_bias_scales;
 };
 
 

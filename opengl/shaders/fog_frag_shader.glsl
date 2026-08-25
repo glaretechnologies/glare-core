@@ -43,7 +43,7 @@ float shadowMapSunFactorAtPoint(vec3 pos_cs, vec3 pos_ws)
 	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
 		shadow_tex_coords[i] = (frag_shadow_texture_matrix[i] * vec4(pos_ws, 1.0)).xyz;
 	
-	return getShadowMappingSunVisFactorFast(shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pos_cs, shadow_map_samples_xy_scale);
+	return getShadowMappingSunVisFactorFast(shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pos_cs);
 #else
 	return 1.f;
 #endif

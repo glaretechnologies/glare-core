@@ -762,10 +762,11 @@ void main()
 		// A capture's pos_cs is relative to the probe, which breaks the usual cascade selection.  See
 		// getProbeCaptureSunVisFactor().
 		if((mat_common_flags & DOING_PROBE_CAPTURE_FLAG) != 0)
-			sun_vis_factor = getProbeCaptureSunVisFactor(final_shadow_tex_coords, static_depth_tex, pixel_hash, shadow_map_samples_xy_scale, sun_light_cos_theta_factor);
+			sun_vis_factor = getProbeCaptureSunVisFactor(final_shadow_tex_coords, static_depth_tex, pixel_hash, sun_light_cos_theta_factor, static_cascade_bias_scales);
 		else
 #endif
-			sun_vis_factor = getShadowMappingSunVisFactor(final_shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, shadow_map_samples_xy_scale, sun_light_cos_theta_factor);
+			sun_vis_factor = getShadowMappingSunVisFactor(final_shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, sun_light_cos_theta_factor,
+				dynamic_cascade_bias_scales, static_cascade_bias_scales);
 	}
 
 #else // else if !SHADOW_MAPPING:
