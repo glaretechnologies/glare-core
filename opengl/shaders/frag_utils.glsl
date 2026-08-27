@@ -193,7 +193,7 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords, float bias, in sampler2D
 	return sum * (1.f / 16);*/
 
 	ivec2 tex_res = textureSize(dynamic_depth_tex, /*mip level*/0);
-	vec2 xy_scale = vec2(1.0 / float(tex_res.x), 1.0 / float(tex_res.y));
+	vec2 xy_scale = vec2(1.0 / float(tex_res.x), 1.0 / float(tex_res.y)) * 1.44;
 
 	// This technique is a bit sharper:
 	float sum = 0.0;
@@ -212,7 +212,7 @@ float sampleDynamicDepthMap(mat2 R, vec3 shadow_coords, float bias, in sampler2D
 float sampleStaticDepthMap(mat2 R, vec3 shadow_coords, float bias, in sampler2DShadow static_depth_tex)
 {
 	ivec2 tex_res = textureSize(static_depth_tex, /*mip level*/0);
-	vec2 xy_scale = vec2(1.0 / float(tex_res.x), 1.0 / float(tex_res.y));
+	vec2 xy_scale = vec2(1.0 / float(tex_res.x), 1.0 / float(tex_res.y)) * 1.44;
 
 	// This technique gives sharper shadows, so will use for static depth maps to avoid shadows on smaller objects being blurred away.
 	float sum = 0.0;
@@ -307,7 +307,7 @@ float hexFracToEdge(in vec2 p)
 // the sun direction and view frustum, and the texel size also depends on the shadow map resolution, which varies
 // with the shadow mapping detail setting and with max_texture_size.  So this is the only constant needed here, and
 // unlike the per-cascade constants it replaces, it is a property of the sample pattern rather than of the scene.
-const float SHADOW_BIAS_TEXELS = 2.2;
+const float SHADOW_BIAS_TEXELS = 2.2 * 1.44;
 
 
 float getShadowMappingSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEXTURES], in sampler2DShadow dynamic_depth_tex, in sampler2DShadow static_depth_tex,
@@ -449,7 +449,7 @@ float getProbeCaptureSunVisFactor(in vec3 final_shadow_tex_coords[NUM_DEPTH_TEXT
 	mat2 R = mat2(cos(pattern_theta), sin(pattern_theta), -sin(pattern_theta), cos(pattern_theta));
 
 	// Same as static_depth_map_0_bias in getShadowMappingSunVisFactor(), since this samples static cascade 0 too.
-	float cos_theta = clamp(to_light_dot_n, MIN_SHADOW_BIAS_COS, 1.0);
+	float cos_theta = clamp(to_light_dot_n, 0.01, 1.0);
 	float bias = SHADOW_BIAS_TEXELS * (sqrt(1.0 - cos_theta*cos_theta) / cos_theta) * static_bias_scales[0];
 
 	return sampleStaticDepthMap(R, final_shadow_tex_coords[NUM_DYNAMIC_DEPTH_TEXTURES], bias, static_depth_tex);
