@@ -400,9 +400,19 @@ void main()
 	float use_roughness     = MAT_UNIFORM.roughness;
 #endif
 
+	// Cosine of angle between surface normal and sun direction, before normal-mapping is applied.
+	float pre_normal_map_sun_cos_theta;
+
 	// Get normal from normal map if we have one
 	if((use_flags & HAVE_NORMAL_MAP_FLAG) != 0)
 	{
+		// The shadow map bias is the depth change over the receiver plane, and that plane is the triangle the depth
+		// map was rasterised from, not the shading normal.  So take cos(theta) against the sun here, before the
+		// normal map perturbs the normal: perturbing it tilts the assumed plane as well, which overstates the slope
+		// on a surface that really faces the sun, and understates it on one that does not.
+		// abs() since only the tilt matters, and shadow casters are rendered with culling disabled.
+		pre_normal_map_sun_cos_theta = abs(dot(normalize(unit_normal_ws), sundir_ws.xyz));
+
 		vec2 st = main_tex_coords;
 		vec3 norm_map_v = texture(NORMAL_MAP, st).xyz;
 		norm_map_v = norm_map_v * 2.0 - vec3(1.0);
@@ -450,7 +460,10 @@ void main()
 #endif
 	}
 	else
+	{
 		unit_normal_ws = normalize(unit_normal_ws);
+		pre_normal_map_sun_cos_theta = abs(dot(unit_normal_ws, sundir_ws.xyz));
+	}
 
 	// float snow_frac = smoothstep(0.56, 0.6, normalize(unit_normal_ws).z);
 	// if(pos_ws.z < water_level_z - 3.0)
@@ -762,10 +775,10 @@ void main()
 		// A capture's pos_cs is relative to the probe, which breaks the usual cascade selection.  See
 		// getProbeCaptureSunVisFactor().
 		if((mat_common_flags & DOING_PROBE_CAPTURE_FLAG) != 0)
-			sun_vis_factor = getProbeCaptureSunVisFactor(final_shadow_tex_coords, static_depth_tex, pixel_hash, sun_light_cos_theta_factor, static_cascade_bias_scales);
+			sun_vis_factor = getProbeCaptureSunVisFactor(final_shadow_tex_coords, static_depth_tex, pixel_hash, pre_normal_map_sun_cos_theta, static_cascade_bias_scales);
 		else
 #endif
-			sun_vis_factor = getShadowMappingSunVisFactor(final_shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, sun_light_cos_theta_factor,
+			sun_vis_factor = getShadowMappingSunVisFactor(final_shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pixel_hash, pos_cs, pre_normal_map_sun_cos_theta,
 				dynamic_cascade_bias_scales, static_cascade_bias_scales);
 	}
 
