@@ -9144,24 +9144,41 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 			const float near_signed_dist = -use_max_k; // k is towards sun so negate
 			const float far_signed_dist  = -sun_space_bounds.min_[2]; // k is towards sun so negate
 
+			const int tile_h = current_scene->shadow_mapping->dynamic_h / current_scene->shadow_mapping->numDynamicDepthTextures();
+			const float xw_ws = sun_space_bounds.max_[0] - sun_space_bounds.min_[0];
+			const float yw_ws = sun_space_bounds.max_[1] - sun_space_bounds.min_[1];
+			// Divide the AABB by (res - 1) rather than res, so the volume ends up one texel wider than the AABB.
+			// The snap below moves its origin down by up to a texel, and this is what keeps its far side from
+			// falling short of the AABB as a result.
+			const float texel_w = xw_ws / (current_scene->shadow_mapping->dynamic_w - 1);
+			const float texel_h = yw_ws / (tile_h - 1);
+
+			// The volume is fitted to the frustum's sun-space AABB, so it slides continuously as the camera moves.
+			// That re-rasterises the depth map onto a different texel grid every frame: a given world point falls in
+			// a different texel each frame, and its shadow edge crawls.  Snapping the volume's origin down to a
+			// whole number of texels means it can only translate in whole texel steps, so a world point keeps
+			// landing in the same texel and edges hold still.
+			//
+			// NOTE: this only stabilises translation.  Turning the camera still resizes the AABB, which changes the
+			// texel size and so the grid itself, and the map re-rasterises.  Fixing that too means the volume can't
+			// be allowed to resize continuously - either quantise the extents so they change in discrete steps, or
+			// size it from something rotation invariant.
+			const float left   = Maths::roundDownToMultipleFloating(sun_space_bounds.min_[0], texel_w);
+			const float bottom = Maths::roundDownToMultipleFloating(sun_space_bounds.min_[1], texel_h);
+
 			const Matrix4f proj_matrix = orthoMatrix(
-				sun_space_bounds.min_[0], sun_space_bounds.max_[0], // left, right
-				sun_space_bounds.min_[1], sun_space_bounds.max_[1], // bottom, top
+				left,   left   + texel_w * current_scene->shadow_mapping->dynamic_w, // left, right
+				bottom, bottom + texel_h * tile_h, // bottom, top
 				near_signed_dist, far_signed_dist // near, far
 			);
 
-			// Work out the depth bias scale for this cascade: the normalised depth change over one texel of the
-			// receiver plane, per unit of tan(theta).  The tile is square in pixels but the ortho volume is the AABB
-			// of the frustum in sun space, so the two axes generally have different world texel sizes - take the
-			// larger, since the bias has to cover the worst tap direction.
-			{
-				const int tile_h = current_scene->shadow_mapping->dynamic_h / current_scene->shadow_mapping->numDynamicDepthTextures();
-				const float texel_w = (sun_space_bounds.max_[0] - sun_space_bounds.min_[0]) / current_scene->shadow_mapping->dynamic_w;
-				const float texel_h = (sun_space_bounds.max_[1] - sun_space_bounds.min_[1]) / tile_h;
-				current_scene->shadow_mapping->dynamic_cascade_bias_scale[ti] = myMax(texel_w, texel_h) / (far_signed_dist - near_signed_dist);
+			// Depth bias scale for this cascade: the normalised depth change over one texel of the receiver plane,
+			// per unit of tan(theta).  The tile is square in pixels but the ortho volume is the AABB of the frustum
+			// in sun space, so the two axes generally have different world texel sizes - take the larger, since the
+			// bias has to cover the worst tap direction.
+			current_scene->shadow_mapping->dynamic_cascade_bias_scale[ti] = myMax(texel_w, texel_h) / (far_signed_dist - near_signed_dist);
 
-				// conPrint("Setting dynamic_cascade_bias_scale[" + toString(ti) + "] to " + toString(current_scene->shadow_mapping->dynamic_cascade_bias_scale[ti]));
-			}
+			// conPrint("Setting dynamic_cascade_bias_scale[" + toString(ti) + "] to " + toString(current_scene->shadow_mapping->dynamic_cascade_bias_scale[ti]));
 
 			Planef clip_planes[18]; // Usually there should be <= 12 clip planes, 18 is the max possible based on the code flow in computeShadowFrustumClipPlanes.
 			const int num_clip_planes_used = computeShadowFrustumClipPlanes(frustum_verts_ws, current_scene->sun_dir, max_shadowing_dist, clip_planes);
@@ -9448,9 +9465,26 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 				const float near_signed_dist = -use_max_k; // k is towards sun so negate
 				const float far_signed_dist  = -sun_space_bounds.min_[2]; // k is towards sun so negate
 
+				const float xw_ws = sun_space_bounds.max_[0] - sun_space_bounds.min_[0];
+				const float yw_ws = sun_space_bounds.max_[1] - sun_space_bounds.min_[1];
+				// (res - 1) rather than res, for the same reason as in the dynamic cascade loop above.
+				const float texel_w = xw_ws / (current_scene->shadow_mapping->static_w - 1);
+				const float texel_h = yw_ws / (static_per_map_h - 1);
+
+				// Snap the volume's origin to the texel grid, as for the dynamic cascades above - see the comment
+				// there.  vol_centre is already quantised, but to 10 m along the world axes, which is not a whole
+				// number of texels in sun space, so every time the camera crosses a quantisation boundary the map
+				// still re-rasterises onto a shifted grid.
+				//
+				// These volumes are boxes of a fixed size centred on the camera, not fitted to the view frustum, so
+				// their sun-space extents depend only on the sun direction.  Turning the camera doesn't resize them,
+				// which means snapping alone fully stabilises them until the sun moves.
+				const float left   = Maths::roundDownToMultipleFloating(sun_space_bounds.min_[0], texel_w);
+				const float bottom = Maths::roundDownToMultipleFloating(sun_space_bounds.min_[1], texel_h);
+
 				const Matrix4f proj_matrix = orthoMatrix(
-					sun_space_bounds.min_[0], sun_space_bounds.max_[0], // left, right
-					sun_space_bounds.min_[1], sun_space_bounds.max_[1], // bottom, top
+					left,   left   + texel_w * current_scene->shadow_mapping->static_w, // left, right
+					bottom, bottom + texel_h * static_per_map_h, // bottom, top
 					near_signed_dist, far_signed_dist // near, far
 				);
 
@@ -9488,8 +9522,6 @@ void OpenGLEngine::renderToShadowMapDepthBuffer()
 					current_scene->shadow_mapping->static_tex_matrix[ShadowMapping::NUM_STATIC_DEPTH_TEXTURES * other_index + ti] = cascade_selection_matrix * texcoord_bias * proj_matrix * view_matrix;
 
 					// Depth bias scale for this cascade - see the equivalent code in the dynamic cascade loop above.
-					const float texel_w = (sun_space_bounds.max_[0] - sun_space_bounds.min_[0]) / current_scene->shadow_mapping->static_w;
-					const float texel_h = (sun_space_bounds.max_[1] - sun_space_bounds.min_[1]) / static_per_map_h;
 					current_scene->shadow_mapping->static_cascade_bias_scale[ShadowMapping::NUM_STATIC_DEPTH_TEXTURES * other_index + ti] =
 						myMax(texel_w, texel_h) / (far_signed_dist - near_signed_dist);
 
