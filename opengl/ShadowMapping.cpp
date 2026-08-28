@@ -37,6 +37,8 @@ void ShadowMapping::init(OpenGLEngine* opengl_engine)
 	else if(opengl_engine->settings.shadow_mapping_detail == OpenGLEngineSettings::ShadowMappingDetail_medium)
 		initial_base_res = 2048;
 	else if(opengl_engine->settings.shadow_mapping_detail == OpenGLEngineSettings::ShadowMappingDetail_high)
+		initial_base_res = 4096;
+	else if(opengl_engine->settings.shadow_mapping_detail == OpenGLEngineSettings::ShadowMappingDetail_ultra)
 		initial_base_res = 8192;
 	else
 	{

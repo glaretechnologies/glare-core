@@ -45,8 +45,7 @@ struct UniformLocations
 	int main_colour_texture_location;
 	int main_normal_texture_location;
 	int main_depth_texture_location;
-	int caustic_tex_a_location;
-	int caustic_tex_b_location;
+	int caustic_tex_location;
 	int water_colour_texture_location;
 	int snow_ice_normal_map_location;
 	

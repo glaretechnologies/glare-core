@@ -80,8 +80,7 @@ uniform sampler2D detail_tex_2; // vegetation
 //uniform sampler2D detail_heightmap_0; // rock
 #endif // end #if TERRAIN
 
-uniform sampler2D caustic_tex_a;
-uniform sampler2D caustic_tex_b;
+uniform sampler2DArray caustic_tex; // One layer per caustic animation frame.
 
 #if SSAO_SUPPORT
 uniform sampler2D ssao_tex;
@@ -1138,10 +1137,24 @@ void main()
 		float water_to_ground_sun_d = max(0.0, (water_level_z - pos_ws.z) / sundir_ws.z); // TEMP HACK Assuming water surface height
 
 		float caustic_depth_factor = 0.03 + 0.9 * (smoothstep(0.1, 2.0, water_to_ground_sun_d) - 0.8 *smoothstep(2.0, 8.0, water_to_ground_sun_d)); // Caustics should not be visible just under the surface.
-		float caustic_frac = fract(time * 24.0); // Get fraction through frame, assuming 24 fps.
 		float scale_factor = 1.0; // Controls width of caustic pattern in world space.
-		// Interpolate between caustic animation frames
-		vec3 caustic_val = mix(texture(caustic_tex_a, hitpos_sunbasis * scale_factor),  texture(caustic_tex_b, hitpos_sunbasis * scale_factor), caustic_frac).xyz;
+
+		// Work out which two animation frames to blend between, assuming 24 fps.  caustic_tex is an array texture with
+		// one layer per frame, so this is all done here rather than by binding two textures on the CPU side.
+		// NOTE: wrap the time before scaling it up, not after.  time is a monotonically increasing float, so time*24.0
+		// loses fractional precision as the session goes on: after a few hours the blend between frames would quantise
+		// into visible steps and eventually stop advancing altogether.
+		float num_caustic_frames = float(textureSize(caustic_tex, 0).z);
+		float caustic_t = fract(time * (24.0 / num_caustic_frames)) * num_caustic_frames; // In [0, num_caustic_frames)
+		float caustic_frame = floor(caustic_t);
+		float caustic_frac = caustic_t - caustic_frame; // Get fraction through frame.
+
+		// Interpolate between caustic animation frames.  NOTE: the layer coordinate of an array texture is not
+		// filtered between layers, so the two layers have to be fetched and blended explicitly.
+		vec3 caustic_val = mix(
+			texture(caustic_tex, vec3(hitpos_sunbasis * scale_factor, caustic_frame)),
+			texture(caustic_tex, vec3(hitpos_sunbasis * scale_factor, mod(caustic_frame + 1.0, num_caustic_frames))),
+			caustic_frac).xyz;
 
 		// Since the caustic is focused light, we should dim the src texture slightly between the focused caustic light areas.
 		src_col *= mix(vec3(1.0), vec3(0.3, 0.5, 0.7) + vec3(3.0, 1.0, 0.8) * caustic_val * 7.0, caustic_depth_factor * sun_lambert_factor);

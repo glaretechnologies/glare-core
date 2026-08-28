@@ -489,7 +489,8 @@ public:
 	{
 		ShadowMappingDetail_low, // for mobile
 		ShadowMappingDetail_medium, // standard desktop
-		ShadowMappingDetail_high // high-spec desktop
+		ShadowMappingDetail_high, // high-spec desktop
+		ShadowMappingDetail_ultra// high-spec desktop
 	};
 
 
@@ -1348,6 +1349,8 @@ public:
 	bool openglDriverVendorIsIntel() const; // Works after opengl_vendor is set in initialise().
 	bool openglDriverVendorIsATI() const; // Works after opengl_vendor is set in initialise().
 
+	void setShadowMappingDetail(OpenGLEngineSettings::ShadowMappingDetail level);
+
 	//---------- Irradiance probe runtime toggles ----------
 	// All of these do nothing unless OpenGLEngineSettings::irradiance_probes_support was set before initialise().
 
@@ -1606,7 +1609,7 @@ private:
 	int probe_bake_env_phi_location;
 	bool global_sky_probe_needs_bake; // Set when cosine_env_tex changes; the bake happens at the start of the next draw().
 
-	std::vector<Reference<OpenGLTexture>> water_caustics_textures;
+	Reference<OpenGLTexture> water_caustics_texture; // GL_TEXTURE_2D_ARRAY, one layer per caustic animation frame.
 
 	Reference<OpenGLProgram> overlay_prog;
 	int overlay_diffuse_colour_location;

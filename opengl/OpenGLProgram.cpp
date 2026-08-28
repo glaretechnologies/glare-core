@@ -36,7 +36,7 @@ static const std::string getLog(GLuint program)
 
 
 UniformLocations::UniformLocations() 
-:	caustic_tex_a_location(-1), caustic_tex_b_location(-1), snow_ice_normal_map_location(-1)
+:	caustic_tex_location(-1), snow_ice_normal_map_location(-1)
 {}
 
 

@@ -162,8 +162,7 @@ enum TextureUnitIndices
 	MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX,
 
 	CIRRUS_TEX_TEXTURE_UNIT_INDEX,
-	CAUSTIC_A_TEXTURE_UNIT_INDEX,
-	CAUSTIC_B_TEXTURE_UNIT_INDEX,
+	CAUSTIC_TEXTURE_UNIT_INDEX, // A GL_TEXTURE_2D_ARRAY holding all the caustic animation frames.
 
 	DETAIL_0_TEXTURE_UNIT_INDEX,
 	DETAIL_1_TEXTURE_UNIT_INDEX,
@@ -580,7 +579,7 @@ OpenGLEngine::~OpenGLEngine()
 	aurora_tex = NULL;
 	//snow_ice_normal_map = NULL;
 
-	water_caustics_textures.clear();
+	water_caustics_texture = NULL;
 
 	for(size_t i=0; i<debug_draw_obs.size(); ++i)
 		removeObject(debug_draw_obs[i]);
@@ -1542,8 +1541,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.main_colour_texture_location	= prog->getUniformLocation("main_colour_texture");
 	prog->uniform_locations.main_normal_texture_location	= prog->getUniformLocation("main_normal_texture");
 	prog->uniform_locations.main_depth_texture_location		= prog->getUniformLocation("main_depth_texture");
-	prog->uniform_locations.caustic_tex_a_location			= prog->getUniformLocation("caustic_tex_a");
-	prog->uniform_locations.caustic_tex_b_location			= prog->getUniformLocation("caustic_tex_b");
+	prog->uniform_locations.caustic_tex_location				= prog->getUniformLocation("caustic_tex");
 	prog->uniform_locations.detail_tex_0_location			= prog->getUniformLocation("detail_tex_0");
 	prog->uniform_locations.detail_tex_1_location			= prog->getUniformLocation("detail_tex_1");
 	prog->uniform_locations.detail_tex_2_location			= prog->getUniformLocation("detail_tex_2");
@@ -2569,19 +2567,10 @@ void OpenGLEngine::startAsyncLoadingData(AsyncTextureLoader* async_texture_loade
 
 	async_texture_loader = async_texture_loader_;
 
-	// Load water caustic textures
+	// Load water caustic texture.  This is a single array texture with one layer per animation frame.
 	if(settings.render_water_caustics)
 	{
-		//Timer timer;
-		
-		water_caustics_textures.resize(32);
-		for(int i=0; i<32; ++i)
-		{
-			const std::string filename = "save." + ::leftPad(toString(1 + i), '0', 2) + ".basis";
-			loading_handles.push_back(async_texture_loader->startLoadingTexture(/*local path=*/"/gl_data/caustics/" + filename, /*handler=*/this, TextureParams())); // TODO: hold onto result loading handle and cancel
-		}
-		
-		//conPrint("Load caustics took " + timer.elapsedString());
+		loading_handles.push_back(async_texture_loader->startLoadingTexture(/*local path=*/"/gl_data/caustics/caustics.basis", /*handler=*/this, TextureParams())); // TODO: hold onto result loading handle and cancel
 	}
 }
 
@@ -2590,19 +2579,12 @@ void OpenGLEngine::textureLoaded(Reference<OpenGLTexture> texture, const std::st
 {
 	// conPrint("OpenGLEngine::textureLoaded: " + local_filename);
 
-	if(hasPrefix(local_filename, "/gl_data/caustics/save."))
+	if(local_filename == "/gl_data/caustics/caustics.basis")
 	{
-		const std::string index_str = local_filename.substr(std::string("/gl_data/caustics/save.").size(), 2); // TODO: do without alloc
-		try
-		{
-			const int index = stringToInt(index_str) - 1; // parse, convert to 0-based index
-			runtimeCheck(index >= 0 && index < (int)water_caustics_textures.size());
-			water_caustics_textures[index] = texture;
-		}
-		catch(glare::Exception& e)
-		{
-			conPrint("Error parsing caustic tex index: " + e.what());
-		}
+		if(texture->getTextureTarget() != GL_TEXTURE_2D_ARRAY)
+			conPrint("Caustic texture is not an array texture, caustics will be disabled.  It must be authored as a cBASISTexType2DArray basis file.");
+		else
+			water_caustics_texture = texture;
 	}
 	else
 	{
@@ -12287,8 +12269,7 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 
 	glUniform1i(program.uniform_locations.cirrus_tex_location, CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
-	glUniform1i(program.uniform_locations.caustic_tex_a_location, CAUSTIC_A_TEXTURE_UNIT_INDEX);
-	glUniform1i(program.uniform_locations.caustic_tex_b_location, CAUSTIC_B_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.caustic_tex_location, CAUSTIC_TEXTURE_UNIT_INDEX);
 
 	glUniform1i(program.uniform_locations.detail_tex_0_location, DETAIL_0_TEXTURE_UNIT_INDEX);
 	glUniform1i(program.uniform_locations.detail_tex_1_location, DETAIL_1_TEXTURE_UNIT_INDEX);
@@ -12344,16 +12325,8 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 	if(cirrus_tex)
 		bindTextureToTextureUnit(*this->cirrus_tex, /*texture_unit_index=*/CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
-	if(settings.render_water_caustics && !water_caustics_textures.empty())
-	{
-		const int current_caustic_index   = Maths::intMod((int)(this->current_time * 24.0f)    , (int)water_caustics_textures.size());
-		const int current_caustic_index_1 = Maths::intMod((int)(this->current_time * 24.0f) + 1, (int)water_caustics_textures.size());
-
-		if(water_caustics_textures[current_caustic_index  ].nonNull())
-			bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index  ], /*texture_unit_index=*/CAUSTIC_A_TEXTURE_UNIT_INDEX);
-		if(water_caustics_textures[current_caustic_index_1  ].nonNull())
-			bindTextureToTextureUnit(*water_caustics_textures[current_caustic_index_1], /*texture_unit_index=*/CAUSTIC_B_TEXTURE_UNIT_INDEX);
-	}
+	if(water_caustics_texture.nonNull())
+		bindTextureToTextureUnit(*water_caustics_texture, /*texture_unit_index=*/CAUSTIC_TEXTURE_UNIT_INDEX);
 
 
 	//if(this->detail_tex[0])
@@ -13740,6 +13713,21 @@ bool OpenGLEngine::openglDriverVendorIsIntel() const
 bool OpenGLEngine::openglDriverVendorIsATI() const
 {
 	return StringUtils::containsString(opengl_vendor, "ATI");
+}
+
+
+void OpenGLEngine::setShadowMappingDetail(OpenGLEngineSettings::ShadowMappingDetail level)
+{
+	this->settings.shadow_mapping_detail = level;
+
+	if(this->settings.shadow_mapping)
+	{
+		getCurrentScene()->shadow_mapping = nullptr;
+		getCurrentScene()->shadow_mapping = new ShadowMapping();
+		getCurrentScene()->shadow_mapping->init(this);
+		
+		getCurrentScene()->shadow_mapping_frame_num = 0;
+	}
 }
 
 

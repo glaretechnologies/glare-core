@@ -16,10 +16,6 @@ uniform sampler2D cirrus_tex;
 uniform sampler2D aurora_tex;
 
 
-uniform sampler2D caustic_tex_a;
-uniform sampler2D caustic_tex_b;
-
-
 uniform sampler2D main_colour_texture; // source texture
 uniform sampler2D main_normal_texture;
 uniform sampler2D main_depth_texture;
