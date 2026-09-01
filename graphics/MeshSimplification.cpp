@@ -780,6 +780,8 @@ BatchedMeshRef removeSmallComponents(const BatchedMeshRef mesh_, float target_er
 
 		simplified_mesh->animation_data = mesh.animation_data;
 
+		simplified_mesh->aabb_os = simplified_mesh->computeAABB(); // Recompute AABB as it may be smaller now.
+
 		if(false)
 		{
 			conPrint("-------------- removeSmallComponents ------------");
