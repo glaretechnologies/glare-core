@@ -57,7 +57,50 @@ void discardUnusedVertices(const BatchedMesh* mesh, js::Vector<uint32, 16>& simp
 }
 
 
-// target_error represents the error relative to mesh extents that can be tolerated, e.g. 0.01 = 1% deformation
+// meshoptimizer needs float vertex positions.  If the mesh has quantised (uint16) positions, dequantise them into dequantised_pos_out.
+// Returns a pointer to the vertex position data to pass to meshoptimizer, and sets pos_stride_B_out to the stride of that data.
+// See also the dequantisation code in PhysicsWorld::createJoltShapeForBatchedMesh().
+static const float* getFloatVertPositions(const BatchedMesh& mesh, const BatchedMesh::VertAttribute& pos_attr, js::Vector<float, 16>& dequantised_pos_out, size_t& pos_stride_B_out)
+{
+	if(pos_attr.component_type == BatchedMesh::ComponentType_Float)
+	{
+		pos_stride_B_out = mesh.vertexSize();
+		return (const float*)(mesh.vertex_data.data() + pos_attr.offset_B);
+	}
+	else
+	{
+		assert(pos_attr.component_type == BatchedMesh::ComponentType_UInt16);
+
+		const size_t num_verts = mesh.numVerts();
+		const size_t vert_size_B = mesh.vertexSize();
+		runtimeCheck((num_verts == 0) || ((num_verts - 1) * vert_size_B + pos_attr.offset_B + sizeof(uint16) * 3 <= mesh.vertex_data.size()));
+
+		const Vec4f dequantisation_scale = div(mesh.aabb_os.span(), Vec4f(65535.f));
+		const Vec4f aabb_min = mesh.aabb_os.min_;
+
+		dequantised_pos_out.resizeNoCopy(num_verts * 3);
+		const uint8* const src_vertex_data = mesh.vertex_data.data();
+		for(size_t i=0; i<num_verts; ++i)
+		{
+			uint16 vals[3];
+			std::memcpy(vals, src_vertex_data + pos_attr.offset_B + i * vert_size_B, sizeof(uint16) * 3);
+			const Vec4f vert_pos = aabb_min + dequantisation_scale * Vec4f((float)vals[0], (float)vals[1], (float)vals[2], 0);
+
+			dequantised_pos_out[i*3 + 0] = vert_pos[0];
+			dequantised_pos_out[i*3 + 1] = vert_pos[1];
+			dequantised_pos_out[i*3 + 2] = vert_pos[2];
+		}
+
+		pos_stride_B_out = sizeof(float) * 3;
+		return dequantised_pos_out.data();
+	}
+}
+
+
+// The units of target_error depend on sloppy:
+// If sloppy is false, target_error is an absolute error in object-space units, e.g. 0.02 = 2 cm of deformation.  (meshopt_SimplifyErrorAbsolute is passed to meshoptimizer)
+// If sloppy is true, target_error is the error relative to mesh extents (the longest side of the mesh AABB), e.g. 0.01 = 1% deformation.  (meshopt_simplifySloppy has no absolute error option)
+// Simplification stops as soon as either target_reduction_ratio or target_error is reached.
 BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reduction_ratio, float target_error, bool sloppy)
 {
 	assert(target_reduction_ratio >= 1);
@@ -66,7 +109,9 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 
 	BatchedMeshRef simplified_mesh = new BatchedMesh();
 	simplified_mesh->vert_attributes = mesh.vert_attributes;
-	simplified_mesh->aabb_os = mesh.aabb_os;
+	simplified_mesh->aabb_os = mesh.aabb_os; // NOTE: needs to be the same as the source mesh aabb_os, as quantised vertex positions are copied unchanged from the source mesh.
+	simplified_mesh->uv0_scale = mesh.uv0_scale;
+	simplified_mesh->uv1_scale = mesh.uv1_scale;
 
 	const size_t vertex_size = mesh.vertexSize(); // In bytes
 	const size_t num_verts = mesh.numVerts();
@@ -157,8 +202,12 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	std::vector<BatchedMesh::IndicesBatch> new_batches;
 
 	const BatchedMesh::VertAttribute& pos_attr = mesh.getAttribute(BatchedMesh::VertAttribute_Position);
-	if(pos_attr.component_type != BatchedMesh::ComponentType_Float)
-		throw glare::Exception("Mesh simplification needs float position type.");
+	if(!(pos_attr.component_type == BatchedMesh::ComponentType_Float || pos_attr.component_type == BatchedMesh::ComponentType_UInt16))
+		throw glare::Exception("Mesh simplification needs float or uint16 position type.");
+
+	js::Vector<float, 16> dequantised_positions;
+	size_t pos_stride_B;
+	const float* const vert_positions = getFloatVertPositions(mesh, pos_attr, dequantised_positions, pos_stride_B);
 
 	const size_t num_indices = mesh.numIndices();
 
@@ -191,11 +240,11 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	size_t res_num_indices;
 	if(sloppy)
 	{
-		res_num_indices = meshopt_simplifySloppy(/*destination=*/simplified_indices.data(), 
+		res_num_indices = meshopt_simplifySloppy(/*destination=*/simplified_indices.data(),
 			temp_indices.data(), temp_indices.size(),
-			(const float*)&mesh.vertex_data[pos_attr.offset_B], // vert positions
+			vert_positions, // vert positions
 			mesh.numVerts(), // vert count
-			mesh.vertexSize(), // vert stride
+			pos_stride_B, // vert positions stride
 			target_index_count,
 			target_error,
 			&result_error
@@ -206,9 +255,9 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 		if(!use_attributes)
 		{
 			res_num_indices = meshopt_simplify(/*destination=*/simplified_indices.data(), temp_indices.data(), temp_indices.size(),
-				(const float*)&mesh.vertex_data[pos_attr.offset_B], // vert positions
+				vert_positions, // vert positions
 				mesh.numVerts(), // vert count
-				mesh.vertexSize(), // vert stride
+				pos_stride_B, // vert positions stride
 				target_index_count,
 				target_error,
 				/*meshopt_SimplifySparse | */meshopt_SimplifyErrorAbsolute, // options
@@ -217,11 +266,11 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 		}
 		else
 		{
-			res_num_indices = meshopt_simplifyWithAttributes(/*destination=*/simplified_indices.data(), 
+			res_num_indices = meshopt_simplifyWithAttributes(/*destination=*/simplified_indices.data(),
 				temp_indices.data(), temp_indices.size(),
-				(const float*)&mesh.vertex_data[pos_attr.offset_B], // vert positions
+				vert_positions, // vert positions
 				mesh.numVerts(), // vert count
-				mesh.vertexSize(), // vert stride
+				pos_stride_B, // vert positions stride
 				vertex_attributes.data(),
 				vert_data_num_attributes * sizeof(float), // vert attributes stride
 				attribute_weights,
@@ -337,8 +386,14 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 	std::vector<BatchedMesh::IndicesBatch> new_batches;
 
 	const BatchedMesh::VertAttribute& pos_attr = mesh.getAttribute(BatchedMesh::VertAttribute_Position);
-	if(pos_attr.component_type != BatchedMesh::ComponentType_Float)
-		throw glare::Exception("Mesh simplification needs float position type.");
+	if(!(pos_attr.component_type == BatchedMesh::ComponentType_Float || pos_attr.component_type == BatchedMesh::ComponentType_UInt16))
+		throw glare::Exception("Mesh simplification needs float or uint16 position type.");
+
+	// meshoptimizer needs float positions, so dequantise them if the mesh has quantised (uint16) positions.
+	// Note that the vertex data itself is copied unchanged to the simplified mesh, so it stays quantised.
+	js::Vector<float, 16> dequantised_positions;
+	size_t pos_stride_B;
+	const float* const vert_positions = getFloatVertPositions(mesh, pos_attr, dequantised_positions, pos_stride_B);
 
 	js::Vector<uint32, 16> temp_batch_indices;
 	js::Vector<uint32, 16> simplified_indices;
@@ -361,10 +416,10 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 		size_t res_num_indices;
 		if(sloppy)
 		{
-			res_num_indices = meshopt_simplifySloppy(/*destination=*/simplified_indices.data(), temp_batch_indices.data(), temp_batch_indices.size(),
-				(const float*)&mesh.vertex_data[pos_attr.offset_B], // vert positions
+			res_num_indices = meshopt_simplifySloppy(/*destination=*/simplified_indices.data(), /*indices=*/temp_batch_indices.data(), /*index count=*/temp_batch_indices.size(),
+				vert_positions, // vert positions
 				mesh.numVerts(), // vert count
-				mesh.vertexSize(), // vert stride
+				pos_stride_B, // vert positions stride
 				target_index_count,
 				target_error,
 				&result_error
@@ -372,16 +427,16 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 		}
 		else
 		{
-			unsigned int options = meshopt_SimplifyErrorAbsolute;
+			unsigned int options = meshopt_SimplifyErrorAbsolute | meshopt_SimplifyPrune;
 			if(mesh.batches.size() > 1)
 				options |= meshopt_SimplifySparse;
 
 			if(!use_attributes)
 			{
-				res_num_indices = meshopt_simplify(/*destination=*/simplified_indices.data(), temp_batch_indices.data(), temp_batch_indices.size(),
-					(const float*)&mesh.vertex_data[pos_attr.offset_B], // vert positions
+				res_num_indices = meshopt_simplify(/*destination=*/simplified_indices.data(), /*indices=*/temp_batch_indices.data(), /*index count=*/temp_batch_indices.size(),
+					vert_positions, // vert positions
 					mesh.numVerts(), // vert count
-					mesh.vertexSize(), // vert stride
+					pos_stride_B, // vert positions stride
 					target_index_count,
 					target_error,
 					options,
@@ -390,11 +445,11 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 			}
 			else
 			{
-				res_num_indices = meshopt_simplifyWithAttributes(/*destination=*/simplified_indices.data(), 
-					temp_batch_indices.data(), temp_batch_indices.size(),
-					(const float*)&mesh.vertex_data[pos_attr.offset_B], // vert positions
+				res_num_indices = meshopt_simplifyWithAttributes(/*destination=*/simplified_indices.data(),
+					/*indices=*/temp_batch_indices.data(), /*index count=*/temp_batch_indices.size(),
+					vert_positions, // vert positions
 					mesh.numVerts(), // vert count
-					mesh.vertexSize(), // vert stride
+					pos_stride_B, // vert positions stride
 					vertex_attributes.data(),
 					vert_data_num_attributes * sizeof(float), // vert attributes stride
 					attribute_weights,
@@ -1074,6 +1129,7 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, std::vector<u
 #include "../utils/PlatformUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
+#include <set>
 
 
 namespace MeshSimplification
@@ -1185,11 +1241,69 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #endif
 
 
+// A quantised (uint16) vertex position, used for checking which vertices of the source mesh made it into the simplified mesh.
+struct QuantisedPos
+{
+	uint16 v[3];
+
+	bool operator < (const QuantisedPos& other) const
+	{
+		for(int i=0; i<3; ++i)
+			if(v[i] != other.v[i])
+				return v[i] < other.v[i];
+		return false;
+	}
+};
+
+
 void test()
 {
-
-
 	glare::TaskManager task_manager;
+
+	// Test simplification of a mesh with quantised (uint16) vertex positions.
+	{
+		BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/chunk_128_0_2.bmesh", NULL);
+
+		BatchedMeshRef quantised_mesh = mesh->buildQuantisedMesh(BatchedMesh::QuantiseOptions());
+		testAssert(quantised_mesh->getAttribute(BatchedMesh::VertAttribute_Position).component_type == BatchedMesh::ComponentType_UInt16);
+
+		// Build the set of quantised vertex positions in the source mesh.
+		const size_t src_vert_size = quantised_mesh->vertexSize();
+		const size_t src_pos_offset = quantised_mesh->getAttribute(BatchedMesh::VertAttribute_Position).offset_B;
+		std::set<QuantisedPos> src_positions;
+		for(size_t i=0; i<quantised_mesh->numVerts(); ++i)
+		{
+			QuantisedPos pos;
+			std::memcpy(pos.v, &quantised_mesh->vertex_data[src_pos_offset + i * src_vert_size], sizeof(uint16) * 3);
+			src_positions.insert(pos);
+		}
+
+		for(int sloppy=0; sloppy<2; ++sloppy)
+		{
+			BatchedMeshRef simplified_mesh = buildSimplifiedMesh(*quantised_mesh, /*target_reduction_ratio=*/10.f, /*target error=*/0.4f, /*sloppy=*/sloppy != 0);
+
+			// The vertex data is copied unchanged from the source mesh, so the simplified mesh should still have quantised positions,
+			// and the same AABB, which the positions are quantised relative to.
+			testAssert(simplified_mesh->getAttribute(BatchedMesh::VertAttribute_Position).component_type == BatchedMesh::ComponentType_UInt16);
+			testAssert(simplified_mesh->vertexSize() == src_vert_size);
+			testAssert(simplified_mesh->aabb_os == quantised_mesh->aabb_os);
+			testAssert(simplified_mesh->uv0_scale == quantised_mesh->uv0_scale);
+			testAssert(simplified_mesh->uv1_scale == quantised_mesh->uv1_scale);
+			testAssert(simplified_mesh->numVerts()   <  quantised_mesh->numVerts());
+			testAssert(simplified_mesh->numIndices() <  quantised_mesh->numIndices());
+
+			simplified_mesh->checkValidAndSanitiseMesh(); // Checks vertex indices are in-bounds etc.
+
+			// Check each vertex of the simplified mesh is a vertex of the source mesh.
+			const size_t new_pos_offset = simplified_mesh->getAttribute(BatchedMesh::VertAttribute_Position).offset_B;
+			for(size_t i=0; i<simplified_mesh->numVerts(); ++i)
+			{
+				QuantisedPos pos;
+				std::memcpy(pos.v, &simplified_mesh->vertex_data[new_pos_offset + i * src_vert_size], sizeof(uint16) * 3);
+				testAssert(src_positions.count(pos) > 0);
+			}
+		}
+	}
 
 	{
 		BatchedMeshRef mesh = BatchedMesh::readFromFile(TestUtils::getTestReposDir() + "/testfiles/bmesh/Fox_glb_3500729461392160556.bmesh", NULL);
