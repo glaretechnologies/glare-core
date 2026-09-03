@@ -10836,7 +10836,9 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	}
 	//conPrint("Draw opaque make batch loop took " + timer.elapsedStringMSWIthNSigFigs(4) + " for " + toString(current_scene->objects.vector.size()) + " objects");
 
+	Timer sort_timer;
 	sortBatchDrawInfos();
+	sort_timer.pause();
 
 	// Draw sorted batches
 	num_prog_changes = 0;
@@ -10938,6 +10940,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 		last_num_index_buf_binds = num_index_buf_binds;
 		last_num_indices_drawn = this->num_indices_submitted;
 		last_num_face_culling_changes = num_face_culling_changes;
+		last_draw_opaque_sort_time = sort_timer.elapsed();
 	}
 	this->num_indices_submitted = 0;
 
@@ -14056,6 +14059,7 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += "last_anim_update_duration: " + doubleToStringNSigFigs(last_anim_update_duration * 1.0e3, 4) + " ms\n";
 	s += "Processed " + toString(last_num_animated_obs_processed) + " / " + toString(current_scene->animated_objects.size()) + " animated obs\n";
 	s += "draw_CPU_time: " + doubleToStringNSigFigs(last_draw_CPU_time * 1.0e3, 4) + " ms\n"; 
+	s += "last_draw_opaque_sort_time: " + doubleToStringNSigFigs(last_draw_opaque_sort_time * 1.0e3, 4) + " ms\n"; 
 	s += "\n";
 	s += "----GPU times----\n";
 	if(dynamic_depth_draw_gpu_timer)

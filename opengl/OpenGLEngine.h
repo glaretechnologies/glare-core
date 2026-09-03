@@ -1795,6 +1795,7 @@ private:
 	uint32 depth_draw_last_num_indices_drawn;
 public:
 	double last_total_draw_GPU_time;
+	double last_draw_opaque_sort_time;
 private:
 	uint32 last_num_animated_obs_processed;
 
