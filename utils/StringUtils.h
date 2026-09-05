@@ -146,7 +146,7 @@ const std::string stripTailWhitespace(const std::string& text);
 const std::string stripHeadAndTailWhitespace(const std::string& text);
 const std::string stripWhitespace(const std::string& s); // Strip all whitespace, included interior whitespace.
 const std::string collapseWhitespace(const std::string& s); // Convert runs of 1 or more whitespace characters to just the first whitespace char.
-bool isAllWhitespace(const std::string& s);
+bool isAllWhitespace(const string_view text);
 
 std::string toLowerCase(const string_view text);
 std::string toUpperCase(const string_view text);

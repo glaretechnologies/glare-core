@@ -812,7 +812,7 @@ const std::string collapseWhitespace(const std::string& s) // Convert runs of 1 
 }
 
 
-bool isAllWhitespace(const std::string& s)
+bool isAllWhitespace(const string_view s)
 {
 	for(size_t i=0; i<s.size(); ++i)
 		if(!::isWhitespace(s[i]))
