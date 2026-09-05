@@ -136,7 +136,7 @@ const RGBEHeaderData RGBEDecoder::parseHeaderString(const std::string& header) /
 			
 				if(!parser.parseNonWSToken(token))
 					throw ImFormatExcep("Failed to parse FORMAT");
-				header_data.format = token.to_string();
+				header_data.format = toString(token);
 
 				if(header_data.format != "32-bit_rle_rgbe")
 				{

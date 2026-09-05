@@ -101,6 +101,8 @@ public:
 
 	const uint64* getData() const { return data.data(); }
 
+	virtual ArrayRef<uint8> getDataArrayRef() const { return ArrayRef<uint8>((const uint8*)data.data(), data.dataSizeBytes()); }
+
 	void setAllocator(const Reference<glare::Allocator>& al) { data.setAllocator(al); }
 	Reference<glare::Allocator>& getAllocator() { return data.getAllocator(); }
 

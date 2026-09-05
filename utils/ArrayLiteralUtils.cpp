@@ -33,7 +33,7 @@ void loadCSVFile(const std::string& CSV_path, CSVData& data_out)
 
 	string_view line0;
 	parser.parseLine(line0);
-	const size_t num_cols = ::split(line0.to_string(), ',').size();
+	const size_t num_cols = ::split(toString(line0), ',').size();
 	parser.setCurrentPos(0);
 
 	size_t num_rows = 0;
@@ -41,7 +41,7 @@ void loadCSVFile(const std::string& CSV_path, CSVData& data_out)
 	{
 		string_view line;
 		parser.parseLine(line);
-		if(!(line.empty() || ::isAllWhitespace(line.to_string())))
+		if(!(line.empty() || ::isAllWhitespace(line)))
 			num_rows++;
 	}
 

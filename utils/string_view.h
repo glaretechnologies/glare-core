@@ -22,6 +22,9 @@ inline const std::string toString(const string_view& view)
 }
 
 
+void testStringView();
+
+
 #else // else if c++ version is < c++17:
 
 
@@ -62,6 +65,9 @@ public:
 	inline bool empty() const { return size_ == 0; }
 
 	inline const std::string to_string() const;
+
+	inline const char* begin() { return data_; }
+	inline const char* end()   { return data_ + size_; }
 
 	const char* data_;
 	size_t size_;
