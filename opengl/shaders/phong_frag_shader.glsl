@@ -1201,7 +1201,7 @@ void main()
 		else
 			alpha = refl_diffuse_col.w; // Output texture alpha to use for coverage.
 	#else
-		alpha = use_diffuse_colour.w; // Use alpha of material constant colour, for alpha cutout techniques.
+		alpha = use_diffuse_colour.w; // Use alpha of material constant colour, for alpha cutout/punch-through techniques (showing web view in iframe under the opengl frame in browser).
 	#endif
 #endif
 	

@@ -135,6 +135,7 @@ public:
 		terrain(false),
 		imposter_tex_has_multiple_angles(false),
 		decal(false),
+		alpha_punch_through(false),
 		participating_media(false),
 		alpha_blend(false),
 		splat_cloud(false),
@@ -179,6 +180,8 @@ public:
 	bool terrain;
 	bool imposter_tex_has_multiple_angles;
 	bool decal;
+	bool alpha_punch_through; // For WebGL: material writes alpha zero, to punch a hole in the canvas so an HTML element positioned under the canvas shows through.
+	// The material must not be alpha-tested, see drawAlphaPunchThroughObjects().
 	bool participating_media;
 	bool alpha_blend;
 	bool splat_cloud; // Gaussian splat cloud.  Drawn in drawSplatClouds(), which orders whole clouds back-to-front against each other; see GaussianSplatRenderer.
@@ -278,8 +281,9 @@ struct GlInstanceInfo
 // Bit 27: material is a decal
 // Bit 26: material is alpha blended
 // Bit 25: material is alpha tested (foliage etc..)
-// Bits 23-24: face culling type (0 = none, 1 = cull backface, 2 = cull frontface).  (has to go last)
-// Bits 0-22: program index
+// Bit 24: material is alpha-punching.  (Punches a hole in the canvas alpha)
+// Bits 22-23: face culling type (0 = none, 1 = cull backface, 2 = cull frontface).  (has to go last)
+// Bits 0-21: program index
 #define PROGRAM_FINISHED_BUILDING_BITFLAG				(1u << 31)
 #define PROG_SUPPORTS_GPU_RESIDENT_BITFLAG				(1u << 30)
 #define MATERIAL_TRANSPARENT_BITFLAG					(1u << 29)
@@ -287,11 +291,12 @@ struct GlInstanceInfo
 #define MATERIAL_DECAL_BITFLAG							(1u << 27)
 #define MATERIAL_ALPHA_BLEND_BITFLAG					(1u << 26)
 #define MATERIAL_ALPHA_TEST_BITFLAG						(1u << 25)
+#define MATERIAL_ALPHA_PUNCH_THROUGH_BITFLAG			(1u << 24)
 
-#define MATERIAL_FACE_CULLING_BIT_INDEX					23u
-#define ISOLATE_FACE_CULLING_MASK						((1u << 23u) | (1u << 24u))
-#define ISOLATE_PROG_INDEX_MASK							0x007FFFFF // Zero out top 9 bits
-#define ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK		0x01FFFFFF // Zero out top 7 bits
+#define MATERIAL_FACE_CULLING_BIT_INDEX					22u
+#define ISOLATE_FACE_CULLING_MASK						((1u << 22u) | (1u << 23u))
+#define ISOLATE_PROG_INDEX_MASK							0x003FFFFF // Zero out top 10 bits
+#define ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK		0x00FFFFFF // Zero out top 8 bits
 
 #define CULL_BACKFACE_BITS								1u
 #define CULL_FRONTFACE_BITS								2u
@@ -300,8 +305,9 @@ struct GlInstanceInfo
 #define SHIFTED_CULL_FRONTFACE_BITS						(CULL_FRONTFACE_BITS << MATERIAL_FACE_CULLING_BIT_INDEX)
 
 
-static_assert((0xFFFFFFFFu >> 9) == ISOLATE_PROG_INDEX_MASK, "(0xFFFFFFFFu >> 9) == ISOLATE_PROG_INDEX_MASK");
-static_assert((0xFFFFFFFFu >> 7) == ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK, "(0xFFFFFFFFu >> 7) == ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK");
+static_assert((0xFFFFFFFFu >> 10) == ISOLATE_PROG_INDEX_MASK, "(0xFFFFFFFFu >> 10) == ISOLATE_PROG_INDEX_MASK");
+static_assert((0xFFFFFFFFu >> 8) == ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK, "(0xFFFFFFFFu >> 8) == ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK");
+static_assert((ISOLATE_PROG_INDEX_AND_FACE_CULLING_MASK & MATERIAL_ALPHA_PUNCH_THROUGH_BITFLAG) == 0, "punch-through bit must be above the face culling bits");
 
 
 struct GLObjectBatchDrawInfo
@@ -662,6 +668,7 @@ public:
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> animated_objects; // Objects for which we need to update the animation data (bone matrices etc.) every frame.
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> transparent_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> alpha_blended_objects;
+	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> alpha_punch_through_objects; // For WebGL, objects that write alpha zero to punch wholes in the canvas to show video elements below.
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> splat_cloud_objects; // Gaussian splat clouds, drawn in their own pass before the alpha-blended objects.
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> water_objects;
 	glare::LinearIterSet<Reference<GLObject>, GLObjectHash> decal_objects;
@@ -1522,6 +1529,7 @@ private:
 	void drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void drawAlphaPunchThroughObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	void drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
 	bool allocSplatAccumBuffersIfNeeded(); // Allocates the buffers splat clouds blend into, matching the main colour buffer.  Returns false if they're unavailable.
 	void resolveSplatAccumBuffer(); // Composites the splat accumulation buffer onto the main colour buffer, undoing the engine's display transform once.

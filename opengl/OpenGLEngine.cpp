@@ -123,6 +123,14 @@ Copyright Glare Technologies Limited 2023 -
 #define OB_AND_MAT_INDICES_STRIDE			3
 
 
+// Alpha punch-through is only needed on web.
+#if EMSCRIPTEN
+#define ALPHA_PUNCH_THROUGH_SUPPORT			1
+#else
+#define ALPHA_PUNCH_THROUGH_SUPPORT			0
+#endif
+
+
 static const size_t max_num_joint_matrices_per_ob = 256; // Max num joint matrices per object.
 
 
@@ -325,6 +333,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	animated_objects(NULL),
 	transparent_objects(NULL),
 	alpha_blended_objects(NULL),
+	alpha_punch_through_objects(NULL),
 	splat_cloud_objects(NULL),
 	water_objects(NULL),
 	decal_objects(NULL),
@@ -3762,6 +3771,7 @@ void OpenGLScene::unloadAllData()
 	this->transparent_objects.clear();
 	this->decal_objects.clear();
 	this->alpha_blended_objects.clear();
+	this->alpha_punch_through_objects.clear();
 	this->splat_cloud_objects.clear();
 
 	this->env_ob->materials[0] = OpenGLMaterial();
@@ -4417,6 +4427,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 	bool have_alpha_blend_mat = false;
 	bool have_decal_mat = false;
 	bool have_splat_cloud_mat = false;
+	bool have_alpha_punch_mat = false;
 	for(size_t i=0; i<object->materials.size(); ++i)
 	{
 		const OpenGLMaterial& mat = object->materials[i];
@@ -4427,6 +4438,7 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 		have_alpha_blend_mat    = have_alpha_blend_mat    || mat.alpha_blend;
 		have_decal_mat          = have_decal_mat          || mat.decal;
 		have_splat_cloud_mat    = have_splat_cloud_mat    || mat.splat_cloud;
+		have_alpha_punch_mat    = have_alpha_punch_mat    || mat.alpha_punch_through;
 	}
 
 	if(have_transparent_mat)
@@ -4452,6 +4464,13 @@ void OpenGLEngine::addObject(const Reference<GLObject>& object)
 
 	if(have_decal_mat)
 		current_scene->decal_objects.insert(object);
+
+#if ALPHA_PUNCH_THROUGH_SUPPORT
+	if(have_alpha_punch_mat)
+		current_scene->alpha_punch_through_objects.insert(object);
+#else
+	assert(!have_alpha_punch_mat);
+#endif
 
 	const AnimationData& anim_data = object->mesh_data->animation_data;
 	if(!anim_data.animations.empty() || !anim_data.joint_nodes.empty())
@@ -4489,6 +4508,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 		const OpenGLMaterial& mat = object.materials[use_src_batches[i].material_index];
 
 		const uint32 face_culling_bits = faceCullBits(object, mat);
+		const uint32 alpha_punch_through_bits = (ALPHA_PUNCH_THROUGH_SUPPORT && mat.alpha_punch_through) ? MATERIAL_ALPHA_PUNCH_THROUGH_BITFLAG : 0;
 
 		object.batch_draw_info[i].program_index_and_flags = mat.shader_prog->program_index |
 			(mat.shader_prog->supports_gpu_resident  ? PROG_SUPPORTS_GPU_RESIDENT_BITFLAG : 0) |
@@ -4498,6 +4518,7 @@ void OpenGLEngine::rebuildDenormalisedDrawData(GLObject& object)
 			(mat.participating_media         ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
 			(mat.alpha_blend                 ? MATERIAL_ALPHA_BLEND_BITFLAG      : 0) |
 			(mat.shader_prog->key.alpha_test ? MATERIAL_ALPHA_TEST_BITFLAG       : 0) |
+			alpha_punch_through_bits                                                  |
 			(face_culling_bits              << MATERIAL_FACE_CULLING_BIT_INDEX)       |
 			(mat.shader_prog->isBuilt()      ? PROGRAM_FINISHED_BUILDING_BITFLAG : 0);
 
@@ -4956,6 +4977,9 @@ void OpenGLEngine::removeObject(const Reference<GLObject>& object)
 	current_scene->water_objects.erase(object);
 	current_scene->decal_objects.erase(object);
 	current_scene->alpha_blended_objects.erase(object);
+#if ALPHA_PUNCH_THROUGH_SUPPORT // Avoid hashmap lookups if punch-through not supported.
+	current_scene->alpha_punch_through_objects.erase(object);
+#endif
 	current_scene->splat_cloud_objects.erase(object);
 	selected_objects.erase(object.getPointer());
 
@@ -5020,14 +5044,16 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 
 	bool have_transparent_mat = false;
 	bool have_materialise_effect = false;
+	bool have_alpha_punch_through_mat = false;
 	for(size_t i=0; i<object.materials.size(); ++i)
 	{
 		OpenGLMaterial& mat = object.materials[i];
 
-		assignShaderProgToMaterial(mat, object.mesh_data->has_vert_colours, /*uses instancing=*/object.instance_matrix_vbo.nonNull(), object.mesh_data->usesSkinning(), object.mesh_data->has_vert_tangents, 
+		assignShaderProgToMaterial(mat, object.mesh_data->has_vert_colours, /*uses instancing=*/object.instance_matrix_vbo.nonNull(), object.mesh_data->usesSkinning(), object.mesh_data->has_vert_tangents,
 			object.mesh_data->position_w_is_oct16_normal);
 		have_transparent_mat = have_transparent_mat || mat.transparent;
 		have_materialise_effect = have_materialise_effect || mat.materialise_effect;
+		have_alpha_punch_through_mat = have_alpha_punch_through_mat || mat.alpha_punch_through;
 
 		mat.uniform_flags = computeUniformFlagsForMat(mat, *object.mesh_data);
 	}
@@ -5041,6 +5067,15 @@ void OpenGLEngine::objectMaterialsUpdated(GLObject& object)
 		current_scene->materialise_objects.insert(&object);
 	else
 		current_scene->materialise_objects.erase(&object); // Remove from materialise effect object list if it is currently in there.
+
+#if ALPHA_PUNCH_THROUGH_SUPPORT // Avoid hashmap lookups if punch-through not supported.
+	if(have_alpha_punch_through_mat)
+		current_scene->alpha_punch_through_objects.insert(&object);
+	else
+		current_scene->alpha_punch_through_objects.erase(&object);
+#else
+	assert(!have_alpha_punch_through_mat);
+#endif
 
 
 	// Update material data on GPU
@@ -8386,6 +8421,11 @@ void OpenGLEngine::draw()
 	//================= Draw non-transparent (opaque) batches from objects =================
 	drawNonTransparentMaterialBatches(view_matrix, proj_matrix);
 
+	//================= Draw alpha punch-through objects =================
+	// These are excluded from the batches above so that they are drawn after the alpha-tested materials.  Has to stay here, with
+	// the opaque geometry, so their depth is in the buffer before the passes below read it.
+	drawAlphaPunchThroughObjects(view_matrix, proj_matrix);
+
 	if(draw_probe_debug_spheres && irradianceProbesEnabled())
 		drawProbeDebugSpheres(view_matrix, proj_matrix);
 
@@ -10812,7 +10852,7 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 #endif
 					// Draw primitives for the given material
 					// If transparent bit is not set, and water bit is not set, and decal bit is not set, and the program has finished building:
-					if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_ALPHA_BLEND_BITFLAG)) == PROGRAM_FINISHED_BUILDING_BITFLAG)
+					if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_TRANSPARENT_BITFLAG | MATERIAL_WATER_BITFLAG | MATERIAL_DECAL_BITFLAG | MATERIAL_ALPHA_BLEND_BITFLAG | MATERIAL_ALPHA_PUNCH_THROUGH_BITFLAG)) == PROGRAM_FINISHED_BUILDING_BITFLAG)
 					{
 						BatchDrawInfo info(
 							prog_index_and_face_culling_flag,
@@ -10954,6 +10994,26 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	if(draw_wireframes)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
 #endif
+
+
+	//------------------ Set alpha channel to 1.0 -------------------
+	// On the web, alpha < 1 is used to punch holes through the webgl canvas to show elements below (web views).
+	// However we don't want objects with alpha such as foliage (which writes alpha for alpha-to-coverage) to punch through the webgl canvas.
+	// To get around that issue we will clear the alpha channel to 1.0 here.
+	// Objects that actually do punch-through will be drawn later in drawAlphaPunchThroughObjects().
+#if EMSCRIPTEN
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE); // Only write the alpha channel, leave the rendered image alone.
+
+	// ClearBuffer is affected by the colour write mask, so this only touches alpha, and the RGB values passed here are discarded.
+	if(current_scene->render_to_main_render_framebuffer)
+		current_scene->main_render_framebuffer->clearFloatColourBuffer(/*draw buffer=*/0, Colour3f(0.f, 0.f, 0.f), /*alpha=*/1.f);
+	else
+		FrameBuffer::clearCurrentlyBoundFloatColourBuffer(/*drawbuffer=*/0, Colour3f(0.f, 0.f, 0.f), /*alpha=*/1.f);
+
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // Restore colourmask
+#endif
+	//---------------------------------------------------------------
+
 
 	if(query_profiling_enabled && draw_opaque_obs_gpu_timer->isRunning())
 		draw_opaque_obs_gpu_timer->endTimerQuery();
@@ -11606,6 +11666,76 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 		}
 
 		flushDrawCommandsAndUnbindPrograms();
+	}
+}
+
+
+// Draws the batches with MATERIAL_ALPHA_PUNCH_THROUGH_BITFLAG set, which drawNonTransparentMaterialBatches() skipped.  These are
+// ordinary opaque batches, just drawn last, after the alpha-tested materials.  They write alpha zero, so that the WebGL canvas is
+// transparent where they are, and an HTML element positioned under the canvas shows through - see BrowserVidPlayer in Substrata.
+void OpenGLEngine::drawAlphaPunchThroughObjects(const Matrix4f& view_matrix, const Matrix4f& proj_matrix)
+{
+	if(!current_scene->alpha_punch_through_objects.empty())
+	{
+		assertCurrentProgramIsZero();
+		DebugGroup debug_group("drawAlphaPunchThroughObjects()");
+		TracyGpuZone("drawAlphaPunchThroughObjects");
+		ZoneScopedN("Draw alpha punch-through"); // Tracy profiler
+
+		uint32 current_prog_index_and_face_culling = SHIFTED_CULL_BACKFACE_BITS | 1000000;
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+
+		for(auto it = current_scene->alpha_punch_through_objects.begin(); it != current_scene->alpha_punch_through_objects.end(); ++it)
+		{
+			const GLObject* const ob = it->getPointer();
+			if(AABBIntersectsFrustum(current_scene->frustum_clip_planes, current_scene->num_frustum_clip_planes, current_scene->frustum_aabb, ob->aabb_ws))
+			{
+				const size_t ob_batch_draw_info_size                  = ob->batch_draw_info.size();
+				const GLObjectBatchDrawInfo* const ob_batch_draw_info = ob->batch_draw_info.data();
+
+				bindMeshData(*ob); // Bind the mesh data, which is the same for all batches.
+
+				for(uint32 z = 0; z < ob_batch_draw_info_size; ++z)
+				{
+					const uint32 prog_index_and_flags = ob_batch_draw_info[z].program_index_and_flags;
+
+					// An object can have a mix of materials, only draw the punch-through ones here.
+					if((prog_index_and_flags & (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_ALPHA_PUNCH_THROUGH_BITFLAG)) == (PROGRAM_FINISHED_BUILDING_BITFLAG | MATERIAL_ALPHA_PUNCH_THROUGH_BITFLAG))
+					{
+						const uint32 prog_index_and_face_culling = ob_batch_draw_info[z].getProgramIndexAndFaceCulling();
+						if(prog_index_and_face_culling != current_prog_index_and_face_culling)
+						{
+							if(use_multi_draw_indirect)
+								submitBufferedDrawCommands(); // Flush existing draw commands
+
+							const uint32 face_culling = prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK;
+							if(face_culling != (current_prog_index_and_face_culling & ISOLATE_FACE_CULLING_MASK))
+								setFaceCulling(face_culling);
+
+							const uint32 prog_index = prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK;
+							if(prog_index != (current_prog_index_and_face_culling & ISOLATE_PROG_INDEX_MASK))
+							{
+								const OpenGLProgram* prog = this->prog_vector[prog_index].ptr();
+								prog->useProgram();
+								current_bound_prog = prog;
+								current_bound_prog_index = prog_index;
+								current_uniforms_ob = NULL; // Program has changed, so we need to set object uniforms for the current program.
+								setSharedUniformsForProg(*prog, view_matrix, proj_matrix);
+							}
+
+							current_prog_index_and_face_culling = prog_index_and_face_culling;
+						}
+
+						drawBatchWithDenormalisedData(*ob, ob_batch_draw_info[z], z);
+					}
+				}
+			}
+		}
+
+		flushDrawCommandsAndUnbindPrograms();
+
+		glDisable(GL_CULL_FACE); // Restore
 	}
 }
 
