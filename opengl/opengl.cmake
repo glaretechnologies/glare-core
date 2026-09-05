@@ -85,8 +85,6 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBOAsyncTextureUploader.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBOAsyncTextureUploader.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncGeometryUploader.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncGeometryUploader.h
-${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderStatsWidget.cpp
-${GLARE_CORE_TRUNK_DIR_ENV}/opengl/RenderStatsWidget.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLUploadThread.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLUploadThread.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLMemoryObject.cpp
@@ -98,6 +96,7 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/TransformGizmo.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/GaussianSplatRenderer.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/GaussianSplatRenderer.h
 )
+# NOTE: RenderStatsWidget.cpp and .h are not included in the above because they use GLUI.
 
 
 set(opengl_ui
