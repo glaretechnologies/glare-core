@@ -158,7 +158,7 @@ public:
 	inline size_t numIndices() const; // Equal to num triangles * 3.
 	inline uint32 getIndexAsUInt32(size_t i) const; // Slow, for debugging
 
-	js::AABBox computeAABB() const;
+	[[nodiscard]] js::AABBox computeAABB() const;
 
 	// Find the attribute identified by 'attr_type'.  Returns NULL if not present.
 	const VertAttribute* findAttribute(VertAttributeType attr_type) const;
