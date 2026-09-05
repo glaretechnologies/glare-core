@@ -800,7 +800,11 @@ vec2 probeDepthAtlasTexCoords(int probe_index, vec3 dir)
 // Mean distance and mean squared distance stored for probe 'probe_index' in direction 'dir'.
 vec2 sampleProbeDepth(int probe_index, vec3 dir, in sampler2D probe_irradiance_tex)
 {
-	return texture(probe_irradiance_tex, probeDepthAtlasTexCoords(probe_index, dir)).xy;
+	// textureLod: the probe atlas is allocated with has_mipmaps = false (IrradianceProbes::allocateGLResources()), so
+	// lod 0 is the only level, and this is called from the 8-probe loop in sampleIrradianceProbes(), which has a
+	// 'continue' in it.  A gradient instruction in a loop that some lanes of the quad leave early has undefined
+	// derivatives (D3D warning X3595), and an explicit lod avoids asking for derivatives we have no use for.
+	return textureLod(probe_irradiance_tex, probeDepthAtlasTexCoords(probe_index, dir), /*lod=*/0.0).xy;
 }
 
 // Set to 0 to go back to plain bilinear, for comparison.
@@ -836,9 +840,11 @@ vec3 sampleTextureBSplineBicubic(in sampler2D tex, vec2 tex_coord, vec2 tex_size
 	vec2 t0 = (i - 1.0 + w1 / s0 + 0.5) / tex_size;
 	vec2 t1 = (i + 1.0 + w3 / s1 + 0.5) / tex_size;
 
+	// textureLod for the same reason as in sampleProbeDepth() above: the only caller is the probe atlas, which has no
+	// mip levels, and these fetches sit inside a loop with a 'continue'.
 	return
-		(texture(tex, vec2(t0.x, t0.y)).xyz * s0.x + texture(tex, vec2(t1.x, t0.y)).xyz * s1.x) * s0.y +
-		(texture(tex, vec2(t0.x, t1.y)).xyz * s0.x + texture(tex, vec2(t1.x, t1.y)).xyz * s1.x) * s1.y;
+		(textureLod(tex, vec2(t0.x, t0.y), /*lod=*/0.0).xyz * s0.x + textureLod(tex, vec2(t1.x, t0.y), /*lod=*/0.0).xyz * s1.x) * s0.y +
+		(textureLod(tex, vec2(t0.x, t1.y), /*lod=*/0.0).xyz * s0.x + textureLod(tex, vec2(t1.x, t1.y), /*lod=*/0.0).xyz * s1.x) * s1.y;
 }
 
 #endif // PROBE_IRRADIANCE_BICUBIC
@@ -858,7 +864,7 @@ vec3 sampleProbeIrradiance(int probe_index, vec3 dir, in sampler2D probe_irradia
 		probeAtlasTexCoords(probe_index, dir) * vec2(float(PROBE_ATLAS_W), float(PROBE_ATLAS_H)),
 		vec2(float(PROBE_ATLAS_W), float(PROBE_ATLAS_H)));
 #else
-	return texture(probe_irradiance_tex, probeAtlasTexCoords(probe_index, dir)).xyz;
+	return textureLod(probe_irradiance_tex, probeAtlasTexCoords(probe_index, dir), /*lod=*/0.0).xyz;
 #endif
 }
 

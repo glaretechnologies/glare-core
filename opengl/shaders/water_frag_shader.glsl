@@ -151,7 +151,10 @@ float hash( uvec2 q )
 // See 'Calculations for recovering depth values from depth buffer' in OpenGLEngine.cpp
 float getDepthFromDepthTextureOrthographic(float px, float py)
 {
-	float z_01 = texture(main_depth_texture, vec2(px, py)).x;
+	// Use textureLod: main_depth_texture has no mipmaps, so this samples exactly what texture() would, but without
+	// emitting a gradient instruction.  This is called from inside the ray-marching loops below, and a gradient
+	// instruction in a loop whose trip count varies over the quad has undefined derivatives (D3D warning X3595).
+	float z_01 = textureLod(main_depth_texture, vec2(px, py), /*lod=*/0.0).x;
 
 	float n = near_clip_dist;
 	float f = far_clip_dist;
@@ -163,7 +166,8 @@ float getDepthFromDepthTextureOrthographic(float px, float py)
 
 float getDepthFromDepthTexture(float px, float py)
 {
-	return getDepthFromDepthTextureValue(near_clip_dist, texture(main_depth_texture, vec2(px, py)).x);
+	// See comment in getDepthFromDepthTextureOrthographic() above for why textureLod is used here.
+	return getDepthFromDepthTextureValue(near_clip_dist, textureLod(main_depth_texture, vec2(px, py), /*lod=*/0.0).x);
 }
 
 
@@ -184,7 +188,7 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 	vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
 	vec3 scattering = vec3(0.4, 0.4, 0.1);
 
-	vec3 src_col = texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz; // Get colour value at refracted ground position.
+	vec3 src_col = textureLod(main_colour_texture, vec2(refracted_px, refracted_py), /*lod=*/0.0).xyz; // Get colour value at refracted ground position.  main_colour_texture has no mipmaps, so lod 0 is what texture() would sample anyway.
 //return src_col;
 	//vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
 	//vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
@@ -315,8 +319,10 @@ vec3 envReflectedRadiance(vec3 reflected_dir_ws, float roughness)
 	float refl_phi = fastApproxAtan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // -1.f is to rotate reflection so it aligns with env rotation.
 	vec2 refl_map_coords = vec2(refl_phi * (1.0 / PI), clamp(refl_theta * (1.0 / PI), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
 
-	vec3 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz;
-	vec3 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz;
+	// textureLod: specular_env_tex is created with use_mipmaps = false, so lod 0 is the only level there is, and this
+	// is called from the multisampling loop in main(), where a gradient instruction would have undefined derivatives.
+	vec3 spec_refl_light_lower  = textureLod(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)), /*lod=*/0.0).xyz;
+	vec3 spec_refl_light_higher = textureLod(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)), /*lod=*/0.0).xyz;
 	vec3 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
 
 	//-------------- sun ---------------------
@@ -474,7 +480,7 @@ bool traceScreenSpaceRefl(vec3 reflected_dir_ws, out vec3 hit_col_out)
 		// Take the final point as the midpoint (in screen space) of the interval in which the intersection lies
 		t = (lower_t + upper_t) * 0.5f;
 		vec2 cur_ss = o_ss + dir_ss * t;
-		hit_col_out = texture(main_colour_texture, cur_ss).xyz;
+		hit_col_out = textureLod(main_colour_texture, cur_ss, /*lod=*/0.0).xyz;
 	}
 
 	return hit_something;
@@ -669,7 +675,7 @@ void main()
 			float px = refracted_dir_cs.x / -refracted_dir_cs.z * l_over_w + 0.5;
 			float py = refracted_dir_cs.y / -refracted_dir_cs.z * l_over_h + 0.5;
 
-			vec3 src_col = texture(main_colour_texture, vec2(px, py)).xyz; // Get colour value at refracted ground position.
+			vec3 src_col = textureLod(main_colour_texture, vec2(px, py), /*lod=*/0.0).xyz; // Get colour value at refracted ground position.
 
 			col = src_col;
 		}
@@ -793,7 +799,7 @@ void main()
 					vec2 st = p_as.xy * 0.0001;
 					if(st.x > -1.0 && st.x <= 1.0 && st.y >= -1.0 && st.y <= 1.0)
 					{
-						vec4 aurora_val = texture(aurora_tex, st);
+						vec4 aurora_val = textureLod(aurora_tex, st, /*lod=*/0.0); // aurora_tex has no mipmaps, and this is inside a loop, so sample with an explicit lod.
 
 						float aurora_start_z = 1000.0 + aurora_val.y * 1000.0;
 						if(p_as.z >= aurora_start_z)
