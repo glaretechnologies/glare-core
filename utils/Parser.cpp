@@ -712,7 +712,7 @@ static void testParseFloat(const std::string& s, float target)
 	testAssert(x == target);
 }
 
-
+#ifdef _DEBUG
 static void testParseDouble(const std::string& s, double target)
 {
 	Parser p(s);
@@ -722,6 +722,7 @@ static void testParseDouble(const std::string& s, double target)
 	testAssert(p.currentPos() == s.length());
 	testEqual(x, target);
 }
+#endif
 
 
 void Parser::doUnitTests()
