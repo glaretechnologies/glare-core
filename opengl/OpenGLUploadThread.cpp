@@ -51,7 +51,6 @@ struct StagingBuffer
 void OpenGLUploadThread::doRun()
 {
 	PlatformUtils::setCurrentThreadName("OpenGLUploadThread");
-	ZoneScoped; // Tracy profiler
 
 	Timer overall_run_timer;
 
@@ -189,7 +188,7 @@ void OpenGLUploadThread::doRun()
 				//----------------------------- Block until PBO upload and copy to OpenGL texture have fully completed -----------------------------
 				{
 					ZoneScopedN("blocking upload"); // Tracy profiler
-					// const std::string txt = "size: " + toString(source_data.size()) + " B";
+					// const std::string txt = "key: " + toString(opengl_tex->key) + " size: " + toString(source_data.size()) + " B";
 					// ZoneText(txt.c_str(), txt.size());
 					
 					// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
