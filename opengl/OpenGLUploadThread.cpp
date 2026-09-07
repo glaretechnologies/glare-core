@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/KillThreadMessage.h>
 #include <utils/PlatformUtils.h>
 #include <tracy/Tracy.hpp>
+#include <array>
 
 
 OpenGLUploadThread::OpenGLUploadThread()
@@ -79,8 +80,8 @@ void OpenGLUploadThread::doRun()
 
 #if USE_STAGING_RING_BUFFERS
 	const int NUM_STAGING_BUFFERS = 4;
-	std::vector<StagingBuffer> staging_buffers(NUM_STAGING_BUFFERS);
-	for(size_t i=0; i<staging_buffers.size(); ++i)
+	std::array<StagingBuffer, 4> staging_buffers;
+	for(size_t i=0; i<NUM_STAGING_BUFFERS; ++i)
 	{
 		staging_buffers[i].vbo = new VBO(NULL, 8 * 1024 * 1024, GL_ARRAY_BUFFER, /*usage (not used)=*/GL_STREAM_DRAW, /*create_persistently_mapped_buffer=*/true);
 		staging_buffers[i].vbo->map();
@@ -324,7 +325,7 @@ void OpenGLUploadThread::doRun()
 				}
 
 				// Wait for any pending fences.  NOTE: we need to do this before we send a GeometryUploadedMessage to the main thread which starts rendering using the uploaded geometry.
-				for(size_t i=0; i<staging_buffers.size(); ++i)
+				for(size_t i=0; i<NUM_STAGING_BUFFERS; ++i)
 				{
 					StagingBuffer& staging_buffer = staging_buffers[i];
 					if(staging_buffer.fence_sync_ob != 0) // If the fence exists:
