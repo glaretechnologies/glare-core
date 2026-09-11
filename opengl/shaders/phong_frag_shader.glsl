@@ -1112,13 +1112,10 @@ void main()
 	col += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission); // Add in-scattered sky+sunlight
 #endif
 
-	//------------------------------- Apply underwater effects ---------------------------
+	//------------------------------- Apply underwater effects (caustics, attenuation and in-scattering) ---------------------------
 #if UNDERWATER_CAUSTICS
-	// campos_ws + cam_to_pos_ws = pos_ws
-	// campos_ws = pos_ws - cam_to_pos_ws;
-
-	float campos_z = pos_ws.z - cam_to_pos_ws.z;
-	if(/*(campos_z < -3.8) && */pos_ws.z < water_level_z)
+	float campos_z = mat_common_campos_ws.z;
+	if((pos_ws.z < water_level_z) || (campos_z < water_level_z))
 	{
 		vec3 src_col = col.xyz; // texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
 

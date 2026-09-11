@@ -213,7 +213,7 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 	// TODO: compute inscatter_radiance better.
 	// It should depend on the sun+sky colour, but also take into account attenuation through water giving a blue tint.
 	vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * vec3(0.004, 0.015, 0.03) * 3.0;
-	vec3 exp_optical_depth = exp(extinction * -final_refracted_water_ground_d/*100.f*/); // TEMP HACK IMPORTANT
+	vec3 exp_optical_depth = exp(extinction * -final_refracted_water_ground_d);
 	vec3 inscattering = inscatter_radiance_sigma_s_over_sigma_t * (vec3(1.0) - exp_optical_depth);
 
 	vec3 attentuated_col = src_col * exp_optical_depth;
@@ -561,17 +561,16 @@ void main()
 	//float width_over_height = float(tex_res.x) / float(tex_res.y);
 
 	vec3 col = vec3(0.0); // spectral radiance * 1.0e-9
-	vec3 spec_refl_light_already_fogged = vec3(0.0); // spectral radiance * 1.0e-9
-	vec3 spec_refl_light = vec3(0.0); // spectral radiance * 1.0e-9
 	float spec_refl_fresnel = 0.0; // Fresnel reflactance
 	bool hit_point_under_water = false;
-	if(unit_cam_to_pos_ws.z > 0.0) // If the camera is under the water (TEMP: assuming water is flat horizontal plane)
+
+	if(mat_common_campos_ws.z < water_level_z) // If the camera is under the water (TEMP: assuming water is flat horizontal plane)
 	{
 		vec3 I = unit_cam_to_pos_ws;
 		vec3 N = unit_normal_ws;
 		float eta = 1.3;
 		float k = 1.0 - eta * eta * (1.0 - square(dot(N, I)));
-		if (k < 0.0)
+		if(k < 0.0)
 		{
 			// Total internal reflection
 
@@ -582,8 +581,6 @@ void main()
 			float water_dist = -pos_cs.z;
 			float ground_dist = getDepthFromDepthTexture(px, py); // Get depth from depth buffer.
 
-			float depth = max(0.0, ground_dist - water_dist);
-
 			vec3 reflected_dir_ws = I - N * (2.0 * dot(N, I));
 
 			// Step through water, projecting back onto depth buffer, and looking for an intersection with the world surface, as defined by the depth buffer.
@@ -591,10 +588,10 @@ void main()
 			float step_d = 0.01; // Start with a small step distance, increase it slightly each step.
 			float cur_d = step_d;
 
-			float refracted_px = px; // Tex coords of point where refracted ray hits ground
+			float refracted_px = px; // Tex coords of point where refracted ray hits ground, starting at water surface
 			float refracted_py = py;
 			float prev_penetration_depth = 0.0;
-			vec3 refracted_hitpos_ws = pos_ws; // World space position where refracted ray hits ground
+			vec3 refracted_hitpos_ws = pos_ws; // World space position where refracted ray hits ground, starting at water surface
 			bool hit_ground = false;
 			for(int i=0; i<MAX_STEPS; ++i)
 			{
@@ -649,12 +646,14 @@ void main()
 				prev_penetration_depth = penetration_depth;
 			}
 
-			float final_ground_dist = ground_dist; // getDepthFromDepthTexture(refracted_px, refracted_py); // Get depth from depth buffer.
-
 			float use_ground_cam_depth = getDepthFromDepthTexture(refracted_px, refracted_py);
 			
 			// Distance from water surface to ground, along the refracted ray path.  Used for optical depth computation for water colour etc.
-			float final_refracted_water_ground_d = hit_ground ? max(0.0, use_ground_cam_depth - water_dist) : 1.0e10;
+			float final_refracted_water_ground_d = hit_ground ? distance(refracted_hitpos_ws, pos_ws) : 1.0e10;
+
+			// For the TIR case, the path length is from the camera to the water surface, then from the water
+			// surface to the seafloor.
+			float cam_to_ground_hit_dist = length(pos_cs) + final_refracted_water_ground_d;
 
 			// Distance from water surface to ground, along the sun direction.  Used for computing the caustic effect envelope.
 			float water_to_ground_sun_d = hit_ground ? ((pos_ws.z - refracted_hitpos_ws.z) / sundir_ws.z) : 1.0e10;
@@ -662,11 +661,9 @@ void main()
 			//vec3 src_col = texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
 			//col = src_col;
 
-			// vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, float refracted_py, float final_refracted_water_ground_d, float water_to_ground_sun_d)
-			col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, final_refracted_water_ground_d, water_to_ground_sun_d);
-			
+			col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, cam_to_ground_hit_dist, water_to_ground_sun_d);
 		}
-		else
+		else // else if not totally internally reflected:
 		{
 			vec3 refracted_dir_ws = eta * I - (eta * dot(N, I) + sqrt(k)) * N;
 
@@ -745,11 +742,11 @@ void main()
 
 		float inv_num_samples = 1.0 / float(num_samples);
 
-		spec_refl_light_already_fogged = ssr_refl_sum * inv_num_samples; // Already Fresnel weighted, see above.
+		vec3 spec_refl_light_already_fogged = ssr_refl_sum * inv_num_samples; // Already Fresnel weighted, see above.
 
 		spec_refl_fresnel = fresnel_sum * inv_num_samples;
 
-		spec_refl_light = env_refl_sum * inv_num_samples;               // (1/N) * sum of fresnel * env radiance.
+		vec3 spec_refl_light = env_refl_sum * inv_num_samples;               // (1/N) * sum of fresnel * env radiance.
 
 		//========================= Add aurora ============================
 		if(num_env_samples > 0.0)
@@ -996,21 +993,18 @@ void main()
 		col = underwater_col * (1.0 - spec_refl_fresnel) +
 			spec_refl_light;
 
-	} // End if cam is above water surface
-
-
 #if DEPTH_FOG
-	// Blend with background/fog colour
-	float dist_ = max(0.0, -pos_cs.z); // Max with 0 avoids bright artifacts on horizon.
-	vec3 transmission = exp(air_scattering_coeffs.xyz * -dist_);
+		// Blend with background/fog colour
+		float dist_ = max(0.0, -pos_cs.z); // Max with 0 avoids bright artifacts on horizon.
+		vec3 transmission = exp(air_scattering_coeffs.xyz * -dist_);
 
-	col.xyz *= transmission;
-	col.xyz += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission);
+		col.xyz *= transmission;
+		col.xyz += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission);
 #endif
+		col += spec_refl_light_already_fogged; // Already Fresnel weighted per sample, see the multisampling loop above.
 
-	col += spec_refl_light_already_fogged; // Already Fresnel weighted per sample, see the multisampling loop above.
 
-
+	} // End if cam is above water surface
 
 	//TEMP
 	//vec2 o_ss = cameraToScreenSpace(pos_cs); // Get current fragment screen space position
