@@ -8137,17 +8137,20 @@ void OpenGLEngine::draw()
 			assert(cur_scene->main_render_copy_framebuffer->isComplete());
 
 
-			// TODO: create as needed, not unconditionally.
-			cur_scene->pre_dof_colour_texture = new OpenGLTexture(xres, yres, this,
-				ArrayRef<uint8>(), // data
-				col_buffer_format,
-				OpenGLTexture::Filtering_Nearest,
-				OpenGLTexture::Wrapping_Clamp,
-				false, // has_mipmaps
-				/*MSAA_samples=*/1
-			);
-			cur_scene->pre_dof_framebuffer = new FrameBuffer();
-			cur_scene->pre_dof_framebuffer->attachTexture(*cur_scene->pre_dof_colour_texture, GL_COLOR_ATTACHMENT0);
+			// Only OIT compositing needs the pre-DOF colour buffer.
+			if(use_order_indep_transparency)
+			{
+				cur_scene->pre_dof_colour_texture = new OpenGLTexture(xres, yres, this,
+					ArrayRef<uint8>(), // data
+					col_buffer_format,
+					OpenGLTexture::Filtering_Nearest,
+					OpenGLTexture::Wrapping_Clamp,
+					false, // has_mipmaps
+					/*MSAA_samples=*/1
+				);
+				cur_scene->pre_dof_framebuffer = new FrameBuffer();
+				cur_scene->pre_dof_framebuffer->attachTexture(*cur_scene->pre_dof_colour_texture, GL_COLOR_ATTACHMENT0);
+			}
 
 			cur_scene->post_dof_colour_texture = new OpenGLTexture(xres, yres, this,
 				ArrayRef<uint8>(), // data
