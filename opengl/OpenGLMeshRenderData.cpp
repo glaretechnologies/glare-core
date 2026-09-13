@@ -156,3 +156,17 @@ void OpenGLMeshRenderData::clearAndFreeGeometryMem()
 		vert_index_buffer_uint8.clearAndFreeMem();
 	}
 }
+
+
+std::string OpenGLMeshRenderData::getDiagnosticsString() const
+{
+	return
+		"num tris:  " + uInt64ToStringCommaSeparated(getNumTris()) + " (" + getNiceByteSize(GPUIndicesMemUsage()) + ")\n" + 
+		"num verts: " + uInt64ToStringCommaSeparated(getNumVerts()) + " (" + getNiceByteSize(GPUVertMemUsage()) + ")\n" +
+		"index VBO: " + toString(indices_vbo_handle.vbo_id) + ", in-VBO offset: " + uInt64ToStringCommaSeparated(indices_vbo_handle.offset) + ", size: " + uInt64ToStringCommaSeparated(indices_vbo_handle.size) + " B\n" + 
+		"vert VBO:  " + toString(vbo_handle.vbo_id) +         ", in-VBO offset: " + uInt64ToStringCommaSeparated(vbo_handle.offset) +         ", size: " + uInt64ToStringCommaSeparated(vbo_handle.size) +         " B\n" + 
+		"num batches (draw calls): " + toString(batches.size()) + "\n" +
+		"shading normals: " + boolToString(has_shading_normals) + "\n" + 
+		"vert colours: " + boolToString(has_vert_colours) + "\n"
+		;
+}

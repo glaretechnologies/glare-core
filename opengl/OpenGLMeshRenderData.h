@@ -59,6 +59,8 @@ public:
 
 	void clearAndFreeGeometryMem();
 
+	std::string getDiagnosticsString() const;
+
 	js::AABBox aabb_os; // Should go first as is aligned.
 
 	glare::AllocatorVector<uint8, 16> vert_data;
