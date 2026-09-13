@@ -1494,7 +1494,13 @@ public:
 
 	GLuint allocTextureName();
 
+	// Remove all unused (cached) textures from opengl_textures.  Textures that are still in use, e.g. that are referenced by a material of an
+	// inserted object, are left alone.
+	void clearTextureCache();
+
 private:
+	void processBecameUnusedTexKeys();
+	bool removeLRUUnusedTexture(); // Remove the least-recently-used unused texture.  Returns false if there were no unused textures to remove.
 	void trimTextureUsage();
 	void bindMeshData(const OpenGLMeshRenderData& mesh_data);
 	void bindMeshData(const GLObject& ob);

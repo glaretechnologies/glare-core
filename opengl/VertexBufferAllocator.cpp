@@ -25,9 +25,21 @@ BlockHandle::~BlockHandle()
 }
 
 
+// The maximum number of frames worth of fences we keep around.  If the GPU gets further behind than this we do a
+// blocking wait on the oldest fence, rather than letting the quarantine (and the fence list) grow without bound.
+static const size_t MAX_IN_FLIGHT_FRAME_FENCES = 8;
+
+// Upper bound on how long we will block waiting for a fence, in nanoseconds.  We should never come close to this; it's
+// just here so that a lost or never-flushed fence degrades into (safe) blocks staying quarantined, rather than a hang.
+static const uint64 MAX_FENCE_WAIT_NS = 1000000000ull; // 1s
+
+
 VertexBufferAllocator::VertexBufferAllocator(bool use_grouped_vbo_allocator_)
-:	use_grouped_vbo_allocator(use_grouped_vbo_allocator_), 
-	use_VBO_size_B(64 * 1024 * 1024) // Default VBO size to use, will be overridden in OpenGLEngine::initialise() though.
+:	quarantined_size_B(0),
+	current_frame_num(1), // Start at 1 so that last_retired_frame_num = 0 means 'no frame has been retired yet'.
+	last_retired_frame_num(0),
+	use_VBO_size_B(64 * 1024 * 1024), // Default VBO size to use, will be overridden in OpenGLEngine::initialise() though.
+	use_grouped_vbo_allocator(use_grouped_vbo_allocator_)
 {
 	//conPrint("VertexBufferAllocator::VertexBufferAllocator()");
 }
@@ -36,6 +48,22 @@ VertexBufferAllocator::VertexBufferAllocator(bool use_grouped_vbo_allocator_)
 VertexBufferAllocator::~VertexBufferAllocator()
 {
 	//conPrint("VertexBufferAllocator::~VertexBufferAllocator()");
+
+	// Return any still-quarantined blocks to their allocators, so that ~BestFitAllocator doesn't consider them to still
+	// be in use.  Nothing is reading from the buffers any more at this point.
+	// NOTE: we deliberately don't call glDeleteSync() on the remaining fences here, since the OpenGL context may already
+	// be gone.  Destroying the context frees them.
+	while(pending_free_blocks.nonEmpty())
+	{
+		glare::BestFitAllocator::BlockInfo* block = pending_free_blocks.front().block;
+
+		glare::BestFitAllocator* allocator = block->allocator;
+		if(allocator)
+			allocator->free(block);
+
+		pending_free_blocks.pop_front();
+	}
+	quarantined_size_B = 0;
 }
 
 
@@ -58,10 +86,160 @@ void VertexBufferAllocator::freeBlock(glare::BestFitAllocator::BlockInfo* block)
 	ZoneScoped; // Tracy profiler
 	Lock lock(mutex);
 
-	glare::BestFitAllocator* allocator = block->allocator;
-	assert(allocator); // Should be non-null unless the BestFitAllocator has been destroyed (internal logic error)
-	if(allocator)
-		allocator->free(block);
+	assert(block->allocator); // Should be non-null unless the BestFitAllocator has been destroyed (internal logic error)
+
+	// Don't return the block to the allocator yet: the GPU may not have executed writes to, or reads from, this region
+	// yet.  See the comment in VertexBufferAllocator.h.
+	// NOTE: current_frame_num only ever increases, and is only changed in frameEnded() with the mutex held, so appending
+	// here keeps pending_free_blocks sorted by freed_in_frame.  releaseRetiredBlocks() relies on that.
+	assert(pending_free_blocks.empty() || (pending_free_blocks.back().freed_in_frame <= current_frame_num));
+
+	PendingFree pending_free;
+	pending_free.block = block;
+	pending_free.block_size = block->size;
+	pending_free.freed_in_frame = current_frame_num;
+	pending_free_blocks.push_back(pending_free);
+
+	quarantined_size_B += pending_free.block_size;
+}
+
+
+// pending_free_blocks is sorted by freed_in_frame (see freeBlock()), so the blocks we can release are always at the
+// front of the queue, and we can stop as soon as we reach one whose frame hasn't been retired yet.
+// mutex must be held.
+void VertexBufferAllocator::releaseRetiredBlocks()
+{
+	while(pending_free_blocks.nonEmpty() && (pending_free_blocks.front().freed_in_frame <= last_retired_frame_num))
+	{
+		const PendingFree pending_free = pending_free_blocks.front();
+
+		glare::BestFitAllocator* allocator = pending_free.block->allocator;
+		assert(allocator); // Should be non-null unless the BestFitAllocator has been destroyed (internal logic error)
+		if(allocator)
+			allocator->free(pending_free.block); // NOTE: may destroy the BlockInfo, so don't touch pending_free.block after this.
+
+		assert(quarantined_size_B >= pending_free.block_size);
+		quarantined_size_B -= pending_free.block_size;
+
+		pending_free_blocks.pop_front();
+	}
+}
+
+
+// Blocks until the oldest fence has signalled, then removes it, updating last_retired_frame_num.
+// mutex must be held.
+void VertexBufferAllocator::waitForAndRemoveOldestFrameFence()
+{
+	ZoneScoped; // Tracy profiler
+	assert(frame_fences.nonEmpty());
+
+	const FrameFence oldest = frame_fences.front();
+
+	const GLenum wait_ret = glClientWaitSync((GLsync)oldest.sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/MAX_FENCE_WAIT_NS);
+	if(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED)
+	{
+		last_retired_frame_num = oldest.frame_num;
+		glDeleteSync((GLsync)oldest.sync_ob);
+		frame_fences.pop_front();
+	}
+	// Else the wait timed out or failed: leave the fence in place and try again next frame.  The blocks it covers just
+	// stay quarantined for longer, which is safe.
+}
+
+
+// Sees how far the GPU has got, without blocking.  Fences signal in the order they were created, so we can stop at the
+// first one that hasn't signalled yet.
+// May be called from a thread whose OpenGL context is not the one the fences were created in - sync objects are shared
+// between contexts in a share group, so polling them from another context is fine.
+// mutex must be held.
+void VertexBufferAllocator::pollFrameFences()
+{
+	while(frame_fences.nonEmpty())
+	{
+		const FrameFence oldest = frame_fences.front();
+
+		const GLenum wait_ret = glClientWaitSync((GLsync)oldest.sync_ob, /*wait flags=*/0, /*waitDuration=*/0); // Just poll, don't block.
+		if(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED)
+		{
+			last_retired_frame_num = oldest.frame_num;
+			glDeleteSync((GLsync)oldest.sync_ob);
+			frame_fences.pop_front();
+		}
+		else
+			break;
+	}
+}
+
+
+void VertexBufferAllocator::frameEnded()
+{
+	ZoneScoped; // Tracy profiler
+	Lock lock(mutex);
+
+	pollFrameFences();
+
+	// If the GPU has fallen a long way behind, block rather than letting the quarantine grow without bound.
+	while(frame_fences.size() >= MAX_IN_FLIGHT_FRAME_FENCES)
+	{
+		const uint64 prev_retired_frame_num = last_retired_frame_num;
+
+		waitForAndRemoveOldestFrameFence();
+
+		if(last_retired_frame_num == prev_retired_frame_num) // If the wait timed out, don't spin.
+			break;
+	}
+
+	releaseRetiredBlocks();
+
+	// Insert a fence covering everything issued in this context during the frame that has just ended, including any
+	// writes to the blocks that were freed during it.
+	// There's no point doing this if nothing is quarantined.  Note that a block freed during a frame we skipped is still
+	// handled correctly: it just waits for the next fence we do create, which has a higher frame number and covers the
+	// earlier frame's commands as well.
+	if(pending_free_blocks.nonEmpty())
+	{
+		FrameFence new_fence;
+		new_fence.frame_num = current_frame_num;
+		new_fence.sync_ob = (void*)glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0); // Returns a non-zero name on success.
+		if(new_fence.sync_ob)
+			frame_fences.push_back(new_fence);
+	}
+
+	current_frame_num++;
+}
+
+
+void VertexBufferAllocator::waitForGPUAndReleaseAllPendingFrees()
+{
+	ZoneScoped; // Tracy profiler
+	Lock lock(mutex);
+
+	if(pending_free_blocks.empty())
+		return;
+
+	// Blocks freed during the current frame aren't covered by any fence yet, so insert one now.  Since we're on the main
+	// thread, this covers every command issued in the main context so far, including the writes to those blocks.
+	const GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0); // Returns a non-zero name on success.
+	if(sync_ob)
+	{
+		FrameFence new_fence;
+		new_fence.frame_num = current_frame_num; // frameEnded() hasn't run yet this frame, so existing fences are all older than this.
+		new_fence.sync_ob = (void*)sync_ob;
+		frame_fences.push_back(new_fence);
+	}
+
+	// Wait for all outstanding fences, oldest first.
+	while(frame_fences.nonEmpty())
+	{
+		const uint64 prev_retired_frame_num = last_retired_frame_num;
+
+		waitForAndRemoveOldestFrameFence();
+
+		if(last_retired_frame_num == prev_retired_frame_num) // If the wait timed out, give up rather than spinning.
+			break;
+	}
+
+	releaseRetiredBlocks();
 }
 
 
@@ -135,19 +313,38 @@ VertBufAllocationHandle VertexBufferAllocator::allocateVertexDataSpace(size_t ve
 	else
 	{
 		//----------------------------- Allocate from VBO -------------------------------
-		// Iterate over existing VBOs to see if we can allocate in that VBO
+		// Iterate over existing VBOs to see if we can allocate in that VBO.
+		// If that fails on the first attempt, reclaim any quarantined blocks the GPU has finished with and try again,
+		// before falling back to creating another large VBO.
 		VBORef used_vbo;
 		size_t used_vbo_id = 0;
 		glare::BestFitAllocator::BlockInfo* used_block = NULL;
-		for(size_t i=0; i<vert_vbos.size(); ++i)
+		for(int attempt=0; attempt<2; ++attempt)
 		{
-			glare::BestFitAllocator::BlockInfo* block = vert_vbos[i].allocator->alloc(size, vert_stride);
-			if(block)
+			for(size_t i=0; i<vert_vbos.size(); ++i)
 			{
-				used_vbo = vert_vbos[i].vbo;
-				used_vbo_id = i;
-				used_block = block;
+				glare::BestFitAllocator::BlockInfo* block = vert_vbos[i].allocator->alloc(size, vert_stride);
+				if(block)
+				{
+					used_vbo = vert_vbos[i].vbo;
+					used_vbo_id = i;
+					used_block = block;
+					break;
+				}
+			}
+
+			if(used_vbo.nonNull())
 				break;
+
+			// Reclaim any quarantined blocks the GPU has already finished with, and try once more before falling back to
+			// creating another large VBO.
+			// NOTE: this deliberately only polls - it must not block waiting for the GPU, since this can be running on the
+			// main thread, where a sync would show up as a stutter.  So blocks freed in the last frame or two just stay
+			// quarantined, and we allocate a new VBO rather than stalling, exactly as we did before the quarantine existed.
+			if(attempt == 0)
+			{
+				pollFrameFences();
+				releaseRetiredBlocks();
 			}
 		}
 
@@ -181,14 +378,15 @@ VertBufAllocationHandle VertexBufferAllocator::allocateVertexDataSpace(size_t ve
 			used_vbo->updateData(used_block->aligned_offset, vbo_data, size);
 
 
+		runtimeCheck(used_block->aligned_offset % vert_stride == 0);
 		const int base_vertex = (int)(used_block->aligned_offset / vert_stride);
+		runtimeCheck((int64)base_vertex * (int64)vert_stride == (int64)used_block->aligned_offset);
 
 		VertBufAllocationHandle handle;
 		handle.block_handle = new BlockHandle(this, used_block);
-		runtimeCheck(handle.block_handle->block->aligned_offset % vert_stride == 0);
 		handle.vbo = used_vbo;
 		handle.vbo_id = used_vbo_id;
-		handle.offset = handle.block_handle->block->aligned_offset;
+		handle.offset = used_block->aligned_offset;
 		handle.size = size;
 		handle.base_vertex = base_vertex;
 
@@ -226,19 +424,38 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexDataSpace(const voi
 	else
 	{
 		//----------------------------- Allocate from VBO -------------------------------
-		// Iterate over existing VBOs to see if we can allocate in that VBO
+		// Iterate over existing VBOs to see if we can allocate in that VBO.
+		// If that fails on the first attempt, reclaim any quarantined blocks the GPU has finished with and try again,
+		// before falling back to creating another large VBO.
 		VBORef used_vbo;
 		size_t used_vbo_id = 0;
 		glare::BestFitAllocator::BlockInfo* used_block = NULL;
-		for(size_t i=0; i<index_vbos.size(); ++i)
+		for(int attempt=0; attempt<2; ++attempt)
 		{
-			glare::BestFitAllocator::BlockInfo* block = index_vbos[i].allocator->alloc(size, 4);
-			if(block)
+			for(size_t i=0; i<index_vbos.size(); ++i)
 			{
-				used_vbo = index_vbos[i].vbo;
-				used_vbo_id = i;
-				used_block = block;
+				glare::BestFitAllocator::BlockInfo* block = index_vbos[i].allocator->alloc(size, 4);
+				if(block)
+				{
+					used_vbo = index_vbos[i].vbo;
+					used_vbo_id = i;
+					used_block = block;
+					break;
+				}
+			}
+
+			if(used_vbo.nonNull())
 				break;
+
+			// Reclaim any quarantined blocks the GPU has already finished with, and try once more before falling back to
+			// creating another large VBO.
+			// NOTE: this deliberately only polls - it must not block waiting for the GPU, since this can be running on the
+			// main thread, where a sync would show up as a stutter.  So blocks freed in the last frame or two just stay
+			// quarantined, and we allocate a new VBO rather than stalling, exactly as we did before the quarantine existed.
+			if(attempt == 0)
+			{
+				pollFrameFences();
+				releaseRetiredBlocks();
 			}
 		}
 
@@ -286,10 +503,15 @@ IndexBufAllocationHandle VertexBufferAllocator::allocateIndexDataSpace(const voi
 
 std::string VertexBufferAllocator::getDiagnostics() const
 {
+	Lock lock(mutex);
+
 	std::string s;
 	s += "VAOs: " + toString(vao_data.size()) + "\n";
 	s += "use_VBO_size: " + getNiceByteSize(use_VBO_size_B) + "\n";
 	s += "Vert VBOs: " + toString(vert_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * vert_vbos.size()) + ")\n";
 	s += "Index VBOs: " + toString(index_vbos.size()) + " (" + getNiceByteSize(use_VBO_size_B * index_vbos.size()) + ")\n";
+
+	s += "Quarantined blocks awaiting GPU: " + toString(pending_free_blocks.size()) + " (" + getNiceByteSize(quarantined_size_B) + "), frames in flight: " + toString(frame_fences.size()) + "\n";
+
 	return s;
 }

@@ -7495,6 +7495,11 @@ void OpenGLEngine::draw()
 
 	cur_scene->frame_num++;
 
+	// Insert a fence covering everything issued in this context during the previous frame, and return to the vertex/index
+	// buffer allocators any blocks that were freed in a frame the GPU has now finished with.  See VertexBufferAllocator.h.
+	if(vert_buf_allocator)
+		vert_buf_allocator->frameEnded();
+
 	// Applies any completed splat depth sorts and kicks off new ones.  Has to run after the frame's camera transform has
 	// been set, which it has by the time draw() is called, and before drawSplatClouds() reads the clouds' bounds.
 	splat_renderer->think();
@@ -7509,28 +7514,7 @@ void OpenGLEngine::draw()
 	}
 
 	//================= Process became_unused_tex_keys =================
-	// This is the list of texture keys for textures that became unused on another thread.
-	{
-		Lock lock(became_unused_tex_keys_mutex);
-		for(size_t i=0; i<became_unused_tex_keys.size(); ++i)
-		{
-			auto res = opengl_textures.find(became_unused_tex_keys[i]);
-			if(res != opengl_textures.end())
-			{
-				// If the only reference to the texture is from opengl_textures:  Note that we need to check here since another reference may have been added since the texture was added to became_unused_tex_keys.
-				if(res->second.value->getRefCount() == 1)
-				{
-					opengl_textures.itemBecameUnused(became_unused_tex_keys[i], res->second); // Add to unused list.
-
-#if !defined(OSX) && !defined(EMSCRIPTEN)
-					// Since this texture is not being used, we can make it non-resident.
-					res->second.value->makeNonResidentIfResident();
-#endif
-				}
-			}
-		}
-		became_unused_tex_keys.clear();
-	}
+	processBecameUnusedTexKeys();
 
 	//================= Check if any building programs are done. =================
 	for(auto it = building_progs.begin(); it != building_progs.end(); )
@@ -13760,6 +13744,52 @@ size_t OpenGLEngine::getTotalGPUMemAllocated()
 }
 
 
+// Process became_unused_tex_keys, the list of texture keys for textures that became unused on another thread.
+void OpenGLEngine::processBecameUnusedTexKeys()
+{
+	Lock lock(became_unused_tex_keys_mutex);
+	for(size_t i=0; i<became_unused_tex_keys.size(); ++i)
+	{
+		auto res = opengl_textures.find(became_unused_tex_keys[i]);
+		if(res != opengl_textures.end())
+		{
+			// If the only reference to the texture is from opengl_textures:  Note that we need to check here since another reference may have been added since the texture was added to became_unused_tex_keys.
+			if(res->second.value->getRefCount() == 1)
+			{
+				opengl_textures.itemBecameUnused(became_unused_tex_keys[i], res->second); // Add to unused list.
+
+#if !defined(OSX) && !defined(EMSCRIPTEN)
+				// Since this texture is not being used, we can make it non-resident.
+				res->second.value->makeNonResidentIfResident();
+#endif
+			}
+		}
+	}
+	became_unused_tex_keys.clear();
+}
+
+
+bool OpenGLEngine::removeLRUUnusedTexture()
+{
+	OpenGLTextureKey removed_key;
+	OpenGLTextureRef removed_tex;
+	if(!opengl_textures.removeLRUUnusedItem(removed_key, removed_tex))
+		return false;
+
+	if(removed_tex->texture_data.nonNull())
+	{
+		assert(this->tex_CPU_mem_usage >= removed_tex->texture_data->totalCPUMemUsage());
+		this->tex_CPU_mem_usage -= removed_tex->texture_data->totalCPUMemUsage();
+	}
+
+	assert(this->tex_GPU_mem_usage >= removed_tex->getTotalStorageSizeB());
+	this->tex_GPU_mem_usage -= removed_tex->getTotalStorageSizeB();
+
+	removed_tex->inserted_into_opengl_textures = false;
+	return true;
+}
+
+
 void OpenGLEngine::trimTextureUsage()
 {
 	ZoneScoped; // Tracy profiler
@@ -13767,24 +13797,22 @@ void OpenGLEngine::trimTextureUsage()
 	// Remove textures from unused texture list until we are using <= max_tex_mem_usage
 	while(((tex_CPU_mem_usage > max_tex_CPU_mem_usage) || (tex_GPU_mem_usage > max_tex_GPU_mem_usage)) && (opengl_textures.numUnusedItems() > 0))
 	{
-		OpenGLTextureKey removed_key;
-		OpenGLTextureRef removed_tex;
-		const bool removed = opengl_textures.removeLRUUnusedItem(removed_key, removed_tex);
+		const bool removed = removeLRUUnusedTexture();
 		assert(removed);
-		if(removed)
-		{
-			if(removed_tex->texture_data.nonNull())
-			{
-				assert(this->tex_CPU_mem_usage >= removed_tex->texture_data->totalCPUMemUsage());
-				this->tex_CPU_mem_usage -= removed_tex->texture_data->totalCPUMemUsage();
-			}
-
-			assert(this->tex_GPU_mem_usage >= removed_tex->getTotalStorageSizeB());
-			this->tex_GPU_mem_usage -= removed_tex->getTotalStorageSizeB();
-
-			removed_tex->inserted_into_opengl_textures = false;
-		}
+		if(!removed)
+			break;
 	}
+}
+
+
+void OpenGLEngine::clearTextureCache()
+{
+	// Textures may have become unused on another thread since the last draw() call, in which case they are still in opengl_textures but are
+	// not in the unused list yet.  Fold them into the unused list first so that they get removed as well.
+	processBecameUnusedTexKeys();
+
+	while(removeLRUUnusedTexture())
+	{}
 }
 
 

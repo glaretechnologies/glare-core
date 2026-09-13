@@ -280,6 +280,9 @@ void OpenGLUploadThread::doRun()
 				meshdata->vbo_handle         = opengl_engine->vert_buf_allocator->allocateVertexDataSpace(meshdata->vertex_spec.vertStride(), /*vert data=*/nullptr, vert_data.size());
 				meshdata->indices_vbo_handle = opengl_engine->vert_buf_allocator->allocateIndexDataSpace(/*index data=*/nullptr, index_data.size());
 
+				//conPrint("OpenGLUploadThread: uploading vert data to offset: " + toString(meshdata->vbo_handle.offset) + ", size: " + toString(meshdata->vbo_handle.size) + ", index data to " + 
+				//	toString(meshdata->indices_vbo_handle.offset) + ", size: " + toString(meshdata->indices_vbo_handle.size));
+
 				const ArrayRef<uint8> datas[2] = { vert_data, index_data };
 				for(int i=0; i<2; ++i)
 				{
