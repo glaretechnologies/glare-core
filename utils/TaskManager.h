@@ -16,6 +16,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <vector>
 #include <limits>
 #include <string>
+#include <functional>
 
 
 namespace glare
@@ -62,6 +63,8 @@ public:
 	// Warning: be careful with this method, as some code may be waiting with waitForTasksToComplete(), and may expect the removed
 	// tasks to have been completed.
 	void removeQueuedTasks();
+
+	void runFunctionOnQueuedTasks(const std::function<void(Task&)>& func); // Run a function on all queued tasks.  Threadsafe - locks mutex.
 
 	// Blocks until all tasks have finished being executed.
 	// NOTE: Prefer to use runTaskGroup, as waitForTasksToComplete waits for all tasks, from any (logical) task group.

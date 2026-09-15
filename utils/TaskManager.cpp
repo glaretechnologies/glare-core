@@ -319,6 +319,18 @@ void TaskManager::removeQueuedTasks()
 }
 
 
+void TaskManager::runFunctionOnQueuedTasks(const std::function<void(Task&)>& func)
+{
+	Lock lock(queue_mutex);
+	Task* cur = task_queue_head;
+	while(cur)
+	{
+		func(*cur);
+		cur = cur->next;
+	}
+}
+
+
 void TaskManager::cancelAndWaitForTasksToComplete()
 {
 	removeQueuedTasks();
