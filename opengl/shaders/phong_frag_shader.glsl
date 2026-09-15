@@ -1168,8 +1168,6 @@ void main()
 			vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
 			vec3 scattering = vec3(0.4, 0.4, 0.1);
 
-			float cam_to_pos_dist = length(cam_to_pos_ws);
-
 			// NOTE: this calculation is also in colourForUnderwaterPoint() in water_frag_shader.glsl and should be kept in sync.
 			vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * vec3(0.004, 0.015, 0.03) * 3.0;
 			vec3 exp_optical_depth = exp(extinction * -cam_to_pos_dist);
