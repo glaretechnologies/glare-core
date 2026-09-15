@@ -18,6 +18,8 @@ add_definitions(-DBUILD_TESTS=1)
 
 add_definitions(-DCMS_NO_REGISTER_KEYWORD=1)
 
+add_definitions(-DWUFFS_SUPPORT=1) # PNGDecoder.cpp provides the Wuffs DEFLATE definitions that SOGDecoder.cpp links against.
+
 if(EMSCRIPTEN)
 
 	add_definitions(-fwasm-exceptions)
@@ -38,7 +40,7 @@ endif()
 if(WIN32)
 	if(MSVC_VERSION GREATER_EQUAL 1920 AND MSVC_VERSION LESS 1930)
 		set(TESTBED_VS_VER 2019)
-	elseif(MSVC_VERSION GREATER_EQUAL 1930 AND MSVC_VERSION LESS 1940)
+	elseif(MSVC_VERSION GREATER_EQUAL 1930 AND MSVC_VERSION LESS 1950)
 		set(TESTBED_VS_VER 2022)
 	else()
 		message(FATAL_ERROR "Unhandled MSVC version")
@@ -72,6 +74,7 @@ set(pugixmldir	"${GLARE_CORE_TRUNK}/pugixml/src")
 set(pngdir		"${GLARE_CORE_TRUNK}/libpng")
 set(zstddir		"${GLARE_CORE_TRUNK}/zstd")
 set(imguidir 	"${GLARE_CORE_TRUNK}/imgui")
+set(libwebpdir	"${GLARE_CORE_TRUNK}/libwebp/src")
 
 
 if(WIN32)
@@ -106,6 +109,72 @@ include_directories(${libjpegturbodir})  # libjpegturbodir has jconfig.h
 include_directories(${pngdir})
 include_directories(${zlibdir})
 include_directories(${imguidir})
+include_directories("${GLARE_CORE_TRUNK}/libwebp/src") # For #include <webp/decode.h> etc.
+include_directories("${GLARE_CORE_TRUNK}/libwebp") # libwebp source files include their own headers like "src/dsp/dsp.h", so the libwebp root dir needs to be on the include path as well.
+
+
+
+#============== basis universal ==============
+set(basisu_dir ${GLARE_CORE_TRUNK}/basis_universal)
+set(basisu_files
+${basisu_dir}/encoder/basisu_backend.cpp
+${basisu_dir}/encoder/basisu_backend.h
+${basisu_dir}/encoder/basisu_basis_file.cpp
+${basisu_dir}/encoder/basisu_basis_file.h
+${basisu_dir}/encoder/basisu_bc7enc.cpp
+${basisu_dir}/encoder/basisu_bc7enc.h
+${basisu_dir}/encoder/basisu_comp.cpp
+${basisu_dir}/encoder/basisu_comp.h
+${basisu_dir}/encoder/basisu_enc.cpp
+${basisu_dir}/encoder/basisu_enc.h
+${basisu_dir}/encoder/basisu_etc.cpp
+${basisu_dir}/encoder/basisu_etc.h
+${basisu_dir}/encoder/basisu_frontend.cpp
+${basisu_dir}/encoder/basisu_frontend.h
+${basisu_dir}/encoder/basisu_gpu_texture.cpp
+${basisu_dir}/encoder/basisu_gpu_texture.h
+${basisu_dir}/encoder/basisu_kernels_imp.h
+${basisu_dir}/encoder/basisu_kernels_sse.cpp
+${basisu_dir}/encoder/basisu_miniz.h
+${basisu_dir}/encoder/basisu_opencl.cpp
+${basisu_dir}/encoder/basisu_opencl.h
+${basisu_dir}/encoder/basisu_pvrtc1_4.cpp
+${basisu_dir}/encoder/basisu_pvrtc1_4.h
+${basisu_dir}/encoder/basisu_resampler.cpp
+${basisu_dir}/encoder/basisu_resampler.h
+${basisu_dir}/encoder/basisu_resampler_filters.h
+${basisu_dir}/encoder/basisu_resample_filters.cpp
+${basisu_dir}/encoder/basisu_ssim.cpp
+${basisu_dir}/encoder/basisu_ssim.h
+${basisu_dir}/encoder/basisu_uastc_enc.cpp
+${basisu_dir}/encoder/basisu_uastc_enc.h
+
+${basisu_dir}/encoder/basisu_uastc_hdr_4x4_enc.cpp
+${basisu_dir}/encoder/basisu_uastc_hdr_4x4_enc.h
+${basisu_dir}/encoder/basisu_astc_hdr_6x6_enc.cpp
+${basisu_dir}/encoder/basisu_astc_hdr_common.cpp
+
+${basisu_dir}/encoder/3rdparty/android_astc_decomp.cpp
+
+${basisu_dir}/transcoder/basisu_transcoder.cpp
+)
+
+
+include_directories(${basisu_dir})
+
+if(TARGET_ARM64)
+else()
+	add_definitions(-DBASISU_SUPPORT_SSE=1)
+endif()
+# Disable some basis universal stuff we don't use
+# add_definitions(-DBASISD_SUPPORT_UASTC=0) # This would be nice but it doesn't compile with it defined.
+# add_definitions(-DBASISD_SUPPORT_BC7_MODE5=0)
+# add_definitions(-DBASISD_SUPPORT_PVRTC1=0)
+# add_definitions(-DBASISD_SUPPORT_ETC2_EAC_A8=0)
+# add_definitions(-DBASISD_SUPPORT_UASTC=0)
+# add_definitions(-DBASISD_SUPPORT_ASTC=0)
+
+add_definitions(-DBASIS_NO_IMAGE_READERS=1)
 
 
 
@@ -179,6 +248,102 @@ ${zlibdir}/zutil.h
 )
 
 
+#============== libwebp ==============
+# libwebp: the decoding parts only.  (The encoder, in libwebp/src/enc, additionally needs the sharpyuv dir, which glare-core doesn't have a copy of)
+# The MIPS and MSA (MIPS SIMD) files are omitted.  The SSE/AVX/NEON files are all listed; they compile to nothing on platforms that
+# don't support the instruction set, due to the WEBP_USE_XXX guards in them.
+set(libwebp
+${libwebpdir}/webp/decode.h
+${libwebpdir}/webp/demux.h
+${libwebpdir}/webp/format_constants.h
+${libwebpdir}/webp/mux_types.h
+${libwebpdir}/webp/types.h
+
+${libwebpdir}/dec/alpha_dec.c
+${libwebpdir}/dec/alphai_dec.h
+${libwebpdir}/dec/buffer_dec.c
+${libwebpdir}/dec/common_dec.h
+${libwebpdir}/dec/frame_dec.c
+${libwebpdir}/dec/idec_dec.c
+${libwebpdir}/dec/io_dec.c
+${libwebpdir}/dec/quant_dec.c
+${libwebpdir}/dec/tree_dec.c
+${libwebpdir}/dec/vp8_dec.c
+${libwebpdir}/dec/vp8_dec.h
+${libwebpdir}/dec/vp8i_dec.h
+${libwebpdir}/dec/vp8l_dec.c
+${libwebpdir}/dec/vp8li_dec.h
+${libwebpdir}/dec/webp_dec.c
+${libwebpdir}/dec/webpi_dec.h
+
+${libwebpdir}/demux/anim_decode.c
+${libwebpdir}/demux/demux.c
+
+${libwebpdir}/dsp/alpha_processing.c
+${libwebpdir}/dsp/alpha_processing_neon.c
+${libwebpdir}/dsp/alpha_processing_sse2.c
+${libwebpdir}/dsp/alpha_processing_sse41.c
+${libwebpdir}/dsp/common_sse2.h
+${libwebpdir}/dsp/common_sse41.h
+${libwebpdir}/dsp/cpu.c
+${libwebpdir}/dsp/cpu.h
+${libwebpdir}/dsp/dec.c
+${libwebpdir}/dsp/dec_clip_tables.c
+${libwebpdir}/dsp/dec_neon.c
+${libwebpdir}/dsp/dec_sse2.c
+${libwebpdir}/dsp/dec_sse41.c
+${libwebpdir}/dsp/dsp.h
+${libwebpdir}/dsp/filters.c
+${libwebpdir}/dsp/filters_neon.c
+${libwebpdir}/dsp/filters_sse2.c
+${libwebpdir}/dsp/lossless.c
+${libwebpdir}/dsp/lossless.h
+${libwebpdir}/dsp/lossless_avx2.c
+${libwebpdir}/dsp/lossless_common.h
+${libwebpdir}/dsp/lossless_neon.c
+${libwebpdir}/dsp/lossless_sse2.c
+${libwebpdir}/dsp/lossless_sse41.c
+${libwebpdir}/dsp/neon.h
+${libwebpdir}/dsp/quant.h
+${libwebpdir}/dsp/rescaler.c
+${libwebpdir}/dsp/rescaler_neon.c
+${libwebpdir}/dsp/rescaler_sse2.c
+${libwebpdir}/dsp/upsampling.c
+${libwebpdir}/dsp/upsampling_neon.c
+${libwebpdir}/dsp/upsampling_sse2.c
+${libwebpdir}/dsp/upsampling_sse41.c
+${libwebpdir}/dsp/yuv.c
+${libwebpdir}/dsp/yuv.h
+${libwebpdir}/dsp/yuv_neon.c
+${libwebpdir}/dsp/yuv_sse2.c
+${libwebpdir}/dsp/yuv_sse41.c
+
+${libwebpdir}/utils/bit_reader_inl_utils.h
+${libwebpdir}/utils/bit_reader_utils.c
+${libwebpdir}/utils/bit_reader_utils.h
+${libwebpdir}/utils/bounds_safety.h
+${libwebpdir}/utils/color_cache_utils.c
+${libwebpdir}/utils/color_cache_utils.h
+${libwebpdir}/utils/endian_inl_utils.h
+${libwebpdir}/utils/filters_utils.c
+${libwebpdir}/utils/filters_utils.h
+${libwebpdir}/utils/huffman_utils.c
+${libwebpdir}/utils/huffman_utils.h
+${libwebpdir}/utils/palette.c
+${libwebpdir}/utils/palette.h
+${libwebpdir}/utils/quant_levels_dec_utils.c
+${libwebpdir}/utils/quant_levels_dec_utils.h
+${libwebpdir}/utils/random_utils.c
+${libwebpdir}/utils/random_utils.h
+${libwebpdir}/utils/rescaler_utils.c
+${libwebpdir}/utils/rescaler_utils.h
+${libwebpdir}/utils/thread_utils.c
+${libwebpdir}/utils/thread_utils.h
+${libwebpdir}/utils/utils.c
+${libwebpdir}/utils/utils.h
+)
+
+
 #============== pugixml ==============
 set(pugixml
 ${pugixmldir}/pugixml.cpp
@@ -201,11 +366,13 @@ FILE(GLOB zstandard
 )
 
 SOURCE_GROUP(libpng FILES ${libpng})
+SOURCE_GROUP(libwebp FILES ${libwebp})
 SOURCE_GROUP(zlib FILES ${zlib})
 SOURCE_GROUP(pugixml FILES ${pugixml})
 SOURCE_GROUP(giflib FILES ${giflib})
 SOURCE_GROUP(little_cms FILES ${little_cms})
 SOURCE_GROUP(zstandard FILES ${zstandard})
+SOURCE_GROUP(basis_universal FILES ${basisu_files})
 
 
 #============== glare-core/indigo ==============
@@ -239,6 +406,11 @@ ${GLARE_CORE_TRUNK}/graphics/jpegdecoder.cpp
 ${GLARE_CORE_TRUNK}/graphics/jpegdecoder.h
 ${GLARE_CORE_TRUNK}/graphics/PNGDecoder.cpp
 ${GLARE_CORE_TRUNK}/graphics/PNGDecoder.h
+${GLARE_CORE_TRUNK}/graphics/WebPDecoder.cpp
+${GLARE_CORE_TRUNK}/graphics/WebPDecoder.h
+${GLARE_CORE_TRUNK}/graphics/SOGDecoder.cpp
+${GLARE_CORE_TRUNK}/graphics/SOGDecoder.h
+${GLARE_CORE_TRUNK}/graphics/GaussianSplatData.h
 ${GLARE_CORE_TRUNK}/graphics/tgadecoder.cpp
 ${GLARE_CORE_TRUNK}/graphics/tgadecoder.h
 ${GLARE_CORE_TRUNK}/graphics/bmpdecoder.cpp
@@ -253,6 +425,8 @@ ${GLARE_CORE_TRUNK}/graphics/DXTCompression.cpp
 ${GLARE_CORE_TRUNK}/graphics/DXTCompression.h
 ${GLARE_CORE_TRUNK}/graphics/KTXDecoder.cpp
 ${GLARE_CORE_TRUNK}/graphics/KTXDecoder.h
+${GLARE_CORE_TRUNK}/graphics/BasisDecoder.cpp
+${GLARE_CORE_TRUNK}/graphics/BasisDecoder.h
 ${GLARE_CORE_TRUNK}/graphics/CompressedImage.cpp
 ${GLARE_CORE_TRUNK}/graphics/CompressedImage.h
 ${GLARE_CORE_TRUNK}/graphics/PerlinNoise.cpp
@@ -263,6 +437,8 @@ ${GLARE_CORE_TRUNK}/graphics/GridNoise.cpp
 ${GLARE_CORE_TRUNK}/graphics/GridNoise.h
 ${GLARE_CORE_TRUNK}/graphics/TextureProcessing.cpp
 ${GLARE_CORE_TRUNK}/graphics/TextureProcessing.h
+${GLARE_CORE_TRUNK}/graphics/TextureData.cpp
+${GLARE_CORE_TRUNK}/graphics/TextureData.h
 ${GLARE_CORE_TRUNK}/graphics/SRGBUtils.cpp
 ${GLARE_CORE_TRUNK}/graphics/SRGBUtils.h
 ${GLARE_CORE_TRUNK}/graphics/Colour4f.cpp
@@ -279,6 +455,10 @@ ${GLARE_CORE_TRUNK}/graphics/MeshSimplification.cpp
 ${GLARE_CORE_TRUNK}/graphics/MeshSimplification.h
 ${GLARE_CORE_TRUNK}/graphics/TextRenderer.cpp
 ${GLARE_CORE_TRUNK}/graphics/TextRenderer.h
+${GLARE_CORE_TRUNK}/graphics/Drawing.cpp
+${GLARE_CORE_TRUNK}/graphics/Drawing.h
+${GLARE_CORE_TRUNK}/graphics/FormatDecoderSubVox.cpp
+${GLARE_CORE_TRUNK}/graphics/FormatDecoderSubVox.h
 )
 
 include(${GLARE_CORE_TRUNK}/opengl/opengl.cmake)
@@ -353,6 +533,8 @@ ${GLARE_CORE_TRUNK}/utils/GeneralMemAllocator.cpp
 ${GLARE_CORE_TRUNK}/utils/GeneralMemAllocator.h
 ${GLARE_CORE_TRUNK}/utils/PoolAllocator.cpp
 ${GLARE_CORE_TRUNK}/utils/PoolAllocator.h
+${GLARE_CORE_TRUNK}/utils/FastPoolAllocator.cpp
+${GLARE_CORE_TRUNK}/utils/FastPoolAllocator.h
 ${GLARE_CORE_TRUNK}/utils/KillThreadMessage.cpp
 ${GLARE_CORE_TRUNK}/utils/KillThreadMessage.h
 ${GLARE_CORE_TRUNK}/utils/ThreadMessage.cpp
@@ -363,6 +545,12 @@ ${GLARE_CORE_TRUNK}/utils/Base64.cpp
 ${GLARE_CORE_TRUNK}/utils/Base64.h
 ${GLARE_CORE_TRUNK}/utils/UTF8Utils.cpp
 ${GLARE_CORE_TRUNK}/utils/UTF8Utils.h
+${GLARE_CORE_TRUNK}/utils/GlareString.cpp
+${GLARE_CORE_TRUNK}/utils/GlareString.h
+${GLARE_CORE_TRUNK}/utils/StackAllocator.cpp
+${GLARE_CORE_TRUNK}/utils/StackAllocator.h
+${GLARE_CORE_TRUNK}/utils/ArenaAllocator.cpp
+${GLARE_CORE_TRUNK}/utils/ArenaAllocator.h
 )
 
 set(maths
@@ -370,11 +558,26 @@ ${GLARE_CORE_TRUNK}/maths/SSE.cpp
 ${GLARE_CORE_TRUNK}/maths/SSE.h
 ${GLARE_CORE_TRUNK}/maths/vec2.cpp
 ${GLARE_CORE_TRUNK}/maths/vec2.h
+${GLARE_CORE_TRUNK}/maths/vec3.cpp
+${GLARE_CORE_TRUNK}/maths/vec3.h
 ${GLARE_CORE_TRUNK}/maths/Vec4f.cpp
 ${GLARE_CORE_TRUNK}/maths/Vec4f.h
 ${GLARE_CORE_TRUNK}/maths/Matrix4f.cpp
 ${GLARE_CORE_TRUNK}/maths/Matrix4f.h
 )
+
+set(video
+${GLARE_CORE_TRUNK}/video/VideoReader.cpp
+${GLARE_CORE_TRUNK}/video/VideoReader.h
+${GLARE_CORE_TRUNK}/video/WMFVideoReader.cpp
+${GLARE_CORE_TRUNK}/video/WMFVideoReader.h
+${GLARE_CORE_TRUNK}/video/WMFVideoReaderCallback.cpp
+${GLARE_CORE_TRUNK}/video/WMFVideoReaderCallback.h
+
+${GLARE_CORE_TRUNK}/direct3d/Direct3DUtils.cpp
+${GLARE_CORE_TRUNK}/direct3d/Direct3DUtils.h
+)
+
 
 
 FILE(GLOB double_conversion "${GLARE_CORE_TRUNK}/double-conversion/*.cc" "${GLARE_CORE_TRUNK}/double-conversion/*.h")
@@ -389,17 +592,14 @@ ${MESHOPTIMIZER_DIR}/allocator.cpp
 ${MESHOPTIMIZER_DIR}/clusterizer.cpp
 ${MESHOPTIMIZER_DIR}/indexcodec.cpp
 ${MESHOPTIMIZER_DIR}/indexgenerator.cpp
-${MESHOPTIMIZER_DIR}/overdrawanalyzer.cpp
 ${MESHOPTIMIZER_DIR}/overdrawoptimizer.cpp
 ${MESHOPTIMIZER_DIR}/simplifier.cpp
 ${MESHOPTIMIZER_DIR}/spatialorder.cpp
 ${MESHOPTIMIZER_DIR}/stripifier.cpp
-${MESHOPTIMIZER_DIR}/vcacheanalyzer.cpp
 ${MESHOPTIMIZER_DIR}/vcacheoptimizer.cpp
 ${MESHOPTIMIZER_DIR}/vertexcodec.cpp
 ${MESHOPTIMIZER_DIR}/vertexfilter.cpp
-${MESHOPTIMIZER_DIR}/vfetchanalyzer.cpp
-${MESHOPTIMIZER_DIR}/vfetchoptimizer.cpp   
+${MESHOPTIMIZER_DIR}/vfetchoptimizer.cpp
 )
 
 set(jpegsrcdir		"${GLARE_CORE_LIBS}/libjpeg-turbo/libjpeg-turbo-3.0.0")
@@ -564,10 +764,21 @@ SOURCE_GROUP(meshoptimizer FILES ${meshoptimizer})
 SOURCE_GROUP(jpeg-turbo FILES ${jpeg_src})
 SOURCE_GROUP(opengl_ui FILES ${opengl_ui})
 SOURCE_GROUP(freetype FILES ${freetype})
+SOURCE_GROUP(video FILES ${video})
 
+
+# Use the same Jolt release as Substrata (scripts/get_libs.rb).
+set(TESTBED_JOLT_DIR "${GLARE_CORE_LIBS}/jolt/5.3.0" CACHE PATH "Jolt Physics source directory")
+set(OVERRIDE_CXX_FLAGS OFF CACHE BOOL "" FORCE)
+set(INTERPROCEDURAL_OPTIMIZATION OFF CACHE BOOL "" FORCE)
+set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "" FORCE)
+set(GENERATE_DEBUG_SYMBOLS ON CACHE BOOL "" FORCE)
+add_subdirectory("${TESTBED_JOLT_DIR}/Build" "jolt-build" EXCLUDE_FROM_ALL)
 
 add_executable(testbed
 testbed.cpp
+ClothFlags.cpp
+ClothFlags.h
 ${indigo}
 ${graphics}
 ${opengl}
@@ -578,6 +789,7 @@ ${double_conversion}
 ${openexr_all_files}
 ${libjpg}
 ${libpng}
+${libwebp}
 ${zlib}
 ${pugixml}
 ${giflib}
@@ -589,7 +801,10 @@ ${meshoptimizer}
 ${jpeg_src}
 ${opengl_ui}
 ${freetype}
+${basisu_files}
+${video}
 )
+target_link_libraries(testbed Jolt)
 
 
 #if(WIN32)
@@ -598,6 +813,8 @@ ${freetype}
 #	SET(TURBOJPEG_LIB ${libjpegturbodir}/libjpeg.a)
 #endif()
 
+add_definitions(/std:c++17) # Needed for basisu
+add_definitions(/Zc:__cplusplus) # Make the __cplusplus macro show the updated, actual C++ version.
 
 if(NOT EMSCRIPTEN)
 	target_link_libraries(testbed
@@ -608,6 +825,14 @@ if(NOT EMSCRIPTEN)
 		Opengl32.lib
 		debug     "${jpegdir}/lib/turbojpeg-static.lib" 
 		optimized "${jpegdir}/lib/turbojpeg-static.lib" 
+
+		# Media foundation video reading:
+		mfplat.lib 
+		mfreadwrite.lib 
+		mfuuid.lib
+		Mf.lib
+		d3d11.lib
+		DXGI.lib
 
 		#Advapi32.lib # For regristry funcs
 	)
