@@ -502,7 +502,7 @@ public:
 
 	OpenGLEngineSettings() : enable_debug_output(false), shadow_mapping(false), shadow_mapping_detail(ShadowMappingDetail_medium), compress_textures(false), render_to_offscreen_renderbuffers(true), screenspace_refl_and_refr(true), depth_fog(false), render_sun_and_clouds(true), render_water_caustics(true), 
 		max_tex_CPU_mem_usage(1024 * 1024 * 1024ull), max_tex_GPU_mem_usage(1024 * 1024 * 1024ull), use_grouped_vbo_allocator(true), msaa_samples(4), allow_bindless_textures(true), 
-		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false), ssao_support(true), ssao(false), irradiance_probes_support(false) {}
+		allow_multi_draw_indirect(true), use_multiple_phong_uniform_bufs(false), ssao_support(true), ssao(false), irradiance_probes_support(false), volumetric_clouds_support(false) {}
 
 	bool enable_debug_output;
 	bool shadow_mapping;
@@ -534,6 +534,14 @@ public:
 	// code is compiled out of the material shaders, so the runtime probe flags below have no effect.
 	// Cannot be toggled at runtime, since it changes how the shaders are compiled.
 	bool irradiance_probes_support;
+
+	// Should the volumetric cloud system be built at all?  Off by default.  When on, the 3D cloud noise volumes
+	// are generated at startup (a few hundred ms of CPU work and ~8 MB of GPU memory), the cloud programs are
+	// built, and the sky shader hands the cumulus layer over to the cloud pass.  When off, none of that happens
+	// and OpenGLScene::draw_volumetric_clouds has no effect.
+	// Cannot be toggled at runtime, since it changes how the shaders are compiled.
+	bool volumetric_clouds_support;
+
 };
 
 
@@ -572,6 +580,47 @@ struct FogGPUSettings
 	float layer_0_B;
 	float layer_1_A;
 	float layer_1_B;
+};
+
+
+// Should match CloudSettings in cloud_frag_shader.glsl.  See that file for what the raymarch does with these.
+struct CloudGPUSettings
+{
+	CloudGPUSettings()
+	:	bottom_z(1000.f), top_z(2200.f), coverage_bias(0.70f), density(0.05f),
+		shape_period(10000.f), detail_period(1200.f), wind_speed(20.f), max_march_dist(40000.f),
+		light_march_dist(1200.f), sun_factor(5.f), ambient_factor(1.f), detail_fade_dist(15000.f),
+		powder_dist(90.f), ground_albedo(0.06f), shape_vertical_scale(0.35f), padding2(0.f)
+	{}
+
+	float bottom_z;			// Altitude of the base of the cloud layer (m).  Matches the flat layer that cloud shadows are cast from.
+	float top_z;			// Altitude of the top of the cloud layer (m).
+	// Added to weather * 1.6 - 1 before clamping to [0, 1].  Lower for fewer clouds, higher for overcast.
+	// Biasing before the clamp preserves clear regions.  Coverage controls the shape threshold and cloud
+	// height; density above controls extinction independently, so small clouds can still have dense cores.
+	// NOTE: cloud shadows still use the unbiased coverage, so they under-cover the clouds that cast them.
+	float coverage_bias;
+	float density;			// Extinction coefficient at full density, per metre.
+
+	float shape_period;		// World-space period of the shape noise volume (m).
+	float detail_period;	// World-space period of the detail noise volume (m).
+	float wind_speed;		// Drift speed of the layer in +x (m/s).  20 matches the drift of cumulusCoverage() in frag_utils.glsl.
+	float max_march_dist;	// Cap on the distance marched along the view ray (m).
+
+	float light_march_dist;	// Distance marched towards the sun when computing self-shadowing (m).
+	float sun_factor;		// Scales the sunlight contribution.  See the note in cloud_frag_shader.glsl: the few
+							// scattering octaves the raymarch can afford don't add up to the brightness of a real
+							// cloud, which is lit almost entirely by light that has bounced many times.
+	float ambient_factor;	// Scales the sky light contribution.
+	float detail_fade_dist;	// Fine erosion fades to an average approximation over the last half of this distance (m).
+
+	float powder_dist;		// Depth scale of the dark-edge (powder) term (m).
+	float ground_albedo;	// Fraction of light the ground bounces back up onto the cloud bases.  Raise over snow or sea ice.
+	float shape_vertical_scale;	// Vertical period of the shape volume as a fraction of its horizontal period.  Below 1 for cumulus, which are wider than tall.
+
+	// std140 rounds a uniform block's size up to a multiple of 16 bytes, so pad to that here rather than
+	// binding a buffer smaller than the block the shader sees.
+	float padding2;
 };
 
 
@@ -623,6 +672,10 @@ public:
 
 	bool cloud_shadows; // True by default
 
+	// Raymarch volumetric cumulus?  True by default, but only has an effect if
+	// OpenGLEngineSettings::volumetric_clouds_support is set.
+	bool draw_volumetric_clouds;
+
 	float bloom_strength; // [0-1].  Strength 0 turns off bloom.  0 by default.
 
 	float wind_strength; // Default = 1.
@@ -633,6 +686,8 @@ public:
 	float dof_blur_focus_distance; // Default = 1.
 
 	FogGPUSettings fog_settings;
+
+	CloudGPUSettings cloud_settings;
 
 	float exposure_factor; // Default = 1
 
@@ -734,6 +789,15 @@ public:
 
 	Reference<FrameBuffer> fog_framebuffer;
 	OpenGLTextureRef fog_colour_texture;
+
+	// The volumetric cloud raymarch runs at half resolution into cloud_texture (rgb = in-scattered radiance,
+	// a = transmittance), which is then upsampled onto the scene colour in cloud_composite_colour_texture.
+	// Only allocated when OpenGLEngineSettings::volumetric_clouds_support is set.
+	Reference<FrameBuffer> cloud_framebuffer;
+	OpenGLTextureRef cloud_texture;
+
+	Reference<FrameBuffer> cloud_composite_framebuffer;
+	OpenGLTextureRef cloud_composite_colour_texture;
 
 
 	Reference<FrameBuffer> outline_solid_framebuffer;
@@ -957,7 +1021,7 @@ struct MaterialCommonUniforms
 	int camera_type; // OpenGLScene::CameraType
 
 	int mat_common_flags;
-	float padding_a0;
+	float cloud_layer_mid_z; // Altitude the cloud env map is parallax-corrected against.  See sampleCloudEnvMapWithParallax().
 	float padding_a1;
 	float padding_a2;
 
@@ -1385,6 +1449,14 @@ public:
 	bool irradianceProbesEnabled() const { return irradiance_probes.nonNull(); }
 	//-----------------------------------------------------
 
+	bool volumetricCloudsEnabled() const { return settings.volumetric_clouds_support && current_scene->draw_volumetric_clouds; }
+
+	// Debugging: fill the directional cloud map with a test pattern instead of clouds, to see what reflective
+	// materials' lookups do with it.  0 = off, 1 = one square per map texel, 2 = checkerboard in direction
+	// space, 3 = diagonal stripes, 4 = map coordinates as red/green.  See cloudEnvDebugPattern() in
+	// cloud_frag_shader.glsl.
+	int cloud_env_debug_pattern = 0;
+
 	// Returns pass names in an array of C strings.
 	const char** getDebugPassViewNames() const;
 	size_t getDebugPassViewNamesSize() const;
@@ -1451,6 +1523,7 @@ private:
 	OpenGLProgramRef buildEnvProgram();
 	void buildDownsizeAndBlurPrograms();
 	void buildFogPostProcessProg();
+	void buildVolumetricCloudProgs();
 	OpenGLProgramRef buildAuroraProgram();
 	OpenGLProgramRef buildComputeSSAOProg();
 	OpenGLProgramRef buildProbeBakeFromCubeMapProg();
@@ -1476,6 +1549,7 @@ public:
 	void debugDumpFloatFrameBuffer(FrameBuffer& framebuffer, int w, int h, const std::string& path); // Write as EXR plus a normalised PNG.
 	void debugDumpProbeCapture(const std::string& path); // Write the 6 captured cube faces, side by side.
 	void debugDumpProbeAtlas(const std::string& path);   // Write the whole irradiance atlas.
+	void debugDumpCloudEnvMap(const std::string& path);  // Write the directional cloud map used for reflections.
 #endif
 private:
 	OpenGLProgramRef buildBlurSSAOProg();
@@ -1521,6 +1595,8 @@ private:
 	void doOITCompositing();
 	void doDOFBlur(OpenGLTexture* colour_tex_input);
 	void doFogPostProcess(OpenGLTexture* colour_tex_input, const Matrix4f& view_matrix, const Matrix4f& proj_matrix);
+	void doVolumetricCloudPass(OpenGLTexture* colour_tex_input);
+	void drawCloudEnvMap();
 	void doBloomPostProcess(OpenGLTexture* colour_tex_input);
 	void doFinalImaging(OpenGLTexture* colour_tex_input);
 	void drawUIOverlayObjects(const Matrix4f& reverse_z_matrix);
@@ -1576,6 +1652,7 @@ public:
 	std::string preprocessor_defines;
 	std::string preprocessor_defines_with_common_vert_structs;
 	std::string preprocessor_defines_with_common_frag_structs;
+	std::string cloud_march_glsl; // Appended to the frag defines of programs that march clouds.  Empty unless volumetric clouds are supported.
 	std::string vert_utils_glsl;
 	std::string frag_utils_glsl;
 	std::string version_directive;
@@ -1600,6 +1677,17 @@ private:
 	Reference<OpenGLTexture> noise_tex;
 	Reference<OpenGLTexture> cirrus_tex; // May be NULL, set by setCirrusTexture().
 	Reference<OpenGLTexture> aurora_tex;
+
+	// Tiling 3D noise volumes the cloud raymarch shapes its clouds from.  See CloudNoise.h.
+	// NULL unless OpenGLEngineSettings::volumetric_clouds_support is set.
+	Reference<OpenGLTexture> cloud_shape_tex;
+	Reference<OpenGLTexture> cloud_detail_tex;
+
+	// Lat-long map of the clouds in each world-space direction, rebuilt each frame and read by reflective
+	// materials.  rgb = scattered radiance, a = transmittance.  See sampleCloudEnvMap() in frag_utils.glsl.
+	Reference<OpenGLTexture> cloud_env_texture;
+	Reference<FrameBuffer> cloud_env_framebuffer;
+
 	Reference<OpenGLTexture> dummy_black_tex;
 	Reference<OpenGLTexture> cosine_env_tex;
 	Reference<OpenGLTexture> specular_env_tex;
@@ -1668,6 +1756,22 @@ private:
 
 	Reference<OpenGLProgram> fog_post_prog;
 	int fog_post_depth_tex_loc = -1;
+
+	Reference<OpenGLProgram> cloud_prog; // Raymarches the cloud layer at half resolution.
+	int cloud_depth_tex_loc = -1;
+	int cloud_shape_tex_loc = -1;
+	int cloud_detail_tex_loc = -1;
+
+	// Raymarches the clouds into a lat-long map of directions, for reflective materials to look up.
+	Reference<OpenGLProgram> cloud_env_prog;
+	int cloud_env_depth_tex_loc = -1;
+	int cloud_env_debug_pattern_loc = -1;
+	int cloud_env_shape_tex_loc = -1;
+	int cloud_env_detail_tex_loc = -1;
+
+	Reference<OpenGLProgram> cloud_composite_prog; // Upsamples the cloud buffer onto the scene colour.
+	int cloud_composite_depth_tex_loc = -1;
+	int cloud_composite_cloud_tex_loc = -1;
 
 
 	//size_t vert_mem_used; // B
@@ -1847,6 +1951,7 @@ private:
 	UniformBufObRef joint_matrices_buf_ob;
 	UniformBufObRef ob_joint_and_mat_indices_uniform_buf_ob;
 	UniformBufObRef fog_settings_uniform_buf_ob;
+	UniformBufObRef cloud_settings_uniform_buf_ob;
 
 	// Some temporary vectors:
 	js::Vector<Matrix4f, 16> temp_matrices;

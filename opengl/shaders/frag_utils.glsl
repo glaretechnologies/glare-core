@@ -170,9 +170,19 @@ vec2 rot(vec2 p)
 
 float fbmMix(vec2 p, in sampler2D fbm_tex)
 {
-	return 
+	return
 		fbm(p, fbm_tex) +
 		fbm(rot(p * 2.0), fbm_tex) * 0.5;
+}
+
+
+// As fbmMix(), but with an explicit mip level.  Needed by callers that sample inside a loop, where the implicit
+// derivatives are not well defined.  The second octave is at twice the frequency, so it takes one mip level more.
+float fbmMixLod(vec2 p, in sampler2D fbm_tex, float lod)
+{
+	return
+		(textureLod(fbm_tex, p, lod).x - 0.5) * 2.f +
+		(textureLod(fbm_tex, rot(p * 2.0), lod + 1.0).x - 0.5) * 2.f * 0.5;
 }
 
 
@@ -671,46 +681,204 @@ float fastApproxAtan(float y, float x)
 }
 
 
+//========================= Cumulus cloud coverage =========================
+// The fraction of the sky covered by cumulus over a given world-space xy position.  This is the single source
+// of truth about where the clouds are: the flat cloud layer in the sky shader, the cloud shadows cast onto the
+// ground, and the volumetric cloud raymarch in cloud_frag_shader.glsl all shape their clouds from it, so that
+// all three agree.  The layer drifts in +x at 20 m/s.
+
+const float CUMULUS_COVERAGE_UV_PER_M = 1.0e-4f; // One wrap of fbm_tex spans 10 km of world.
+const float CUMULUS_TOP_UV_PER_M = 0.35e-4f;     // See cumulusTopHeightFrac().
+
+
+// Coordinates in the fbm texture corresponding to a world-space xy position.
+vec2 cumulusCoverageCoords(vec2 pos_xy, float time)
+{
+	vec2 p = pos_xy * CUMULUS_COVERAGE_UV_PER_M;
+	p.x += time * 0.002;
+
+	return vec2(p.x + 2.3453, p.y + 1.4354);
+}
+
+
+float cumulusCoverageFromFBMVal(float fbm_val)
+{
+	return clamp(fbm_val * 1.6 - 1.0f, 0.f, 1.f);
+}
+
+
+float cumulusCoverage(vec2 pos_xy, float time, in sampler2D fbm_tex)
+{
+	return cumulusCoverageFromFBMVal(fbmMix(cumulusCoverageCoords(pos_xy, time), fbm_tex));
+}
+
+
+const float FBM_TEX_RES = 1024.0; // Resolution fbm_tex is created at, see OpenGLEngine::buildTextures().
+
+
+// Mip level at which to sample fbm_tex, for a field that scales world coordinates by uv_per_metre and whose
+// caller takes samples sample_spacing_ws metres apart.  Keeps the field from carrying detail finer than the
+// caller can resolve, which would otherwise alias into blocky patches.
+float fbmLodForSampleSpacing(float uv_per_metre, float sample_spacing_ws)
+{
+	return max(0.0, log2(sample_spacing_ws * uv_per_metre * FBM_TEX_RES));
+}
+
+
+// Volumetric coverage with explicit LOD.  Apply the bias before clamping so that dry regions can
+// remain empty instead of all receiving the same positive minimum coverage.
+float cumulusCoverageLod(vec2 pos_xy, float time, in sampler2D fbm_tex, float sample_spacing_ws, float coverage_bias)
+{
+	float lod = fbmLodForSampleSpacing(CUMULUS_COVERAGE_UV_PER_M, sample_spacing_ws);
+
+	float weather = fbmMixLod(cumulusCoverageCoords(pos_xy, time), fbm_tex, lod);
+	return clamp(weather * 1.6 - 1.0 + coverage_bias, 0.0, 1.0);
+}
+
+
+// How tall the clouds over a given world-space xy position grow, as a fraction of the layer's thickness.
+// Read from a field several times lower in frequency than the coverage, so that a whole group of clouds towers
+// together and the next group along stays flat.  Without this every cloud tops out at exactly the same height,
+// and a cloud field seen from a distance reads as one flat slab rather than as clouds.
+float cumulusTopHeightFrac(vec2 pos_xy, float time, in sampler2D fbm_tex, float sample_spacing_ws)
+{
+	vec2 p = pos_xy * CUMULUS_TOP_UV_PER_M;
+	p.x += time * 0.0007; // Drifts with the layer, at the same 20 m/s.
+
+	float lod = fbmLodForSampleSpacing(CUMULUS_TOP_UV_PER_M, sample_spacing_ws);
+	float v = fbmMixLod(vec2(p.x + 8.1234, p.y + 5.6789), fbm_tex, lod);
+
+	return clamp(0.62 + v * 0.5, 0.25, 1.0);
+}
+
+
+//========================= Volumetric cloud directional map =========================
+// The volumetric clouds are raymarched once per frame into a lat-long map of world-space directions, so that
+// reflective surfaces can look them up without marching anything themselves.  Water evaluates its reflection
+// once per sub-sample, so a march there is out of the question.
+//
+// The map is captured from the camera, so every ray with a given direction gets the same clouds regardless of
+// where it started.  That treats the layer as far enough away for only direction to matter, which for clouds a
+// kilometre or more up and reflectors within a few hundred metres of the camera is a small error.
+
+// The theta axis is warped to put most of the map's rows near the horizon.  Spacing them evenly wastes nearly
+// all of them: water seen from a couple of metres up reflects a band only ten or twenty degrees wide just above
+// the horizon, so an evenly spaced 128-row map gives that band about a dozen rows, stretched over half the
+// screen - which is what turns reflected clouds into featureless vertical streaks.
+// 1.0 = evenly spaced.  Anything above 1 concentrates rows near the horizon, but note that the whole family is
+// singular there - dv/dtheta tends to infinity as theta approaches PI/2 - so a reflection off near-horizontal
+// water sweeps an unbounded number of rows per unit angle and breaks up into noise no matter how many rows the
+// map has.  Measured: raising the map from 512x256 to 4096x2048 changed the result not at all, while dropping
+// this from 3.0 to 1.0 removed most of the noise.  Use a warp with bounded derivative if concentrating rows
+// near the horizon turns out to be worth it.
+const float CLOUD_ENV_MAP_THETA_POWER = 1.0;
+
+
+float cloudEnvMapThetaForV(float v)
+{
+	float t = v * 2.0 - 1.0;                                  // [-1, 1], 0 at the horizon
+	float s = sign(t) * pow(abs(t), CLOUD_ENV_MAP_THETA_POWER);
+
+	return PI_2 + s * PI_2;
+}
+
+
+float cloudEnvMapVForTheta(float theta)
+{
+	float s = (theta - PI_2) * (1.0 / PI_2);                  // [-1, 1]
+	float t = sign(s) * pow(abs(s), 1.0 / CLOUD_ENV_MAP_THETA_POWER);
+
+	return t * 0.5 + 0.5;
+}
+
+
+// Must match the mapping cloud_frag_shader.glsl inverts when CLOUD_ENV_MAP is set.
+vec2 cloudEnvMapCoordsForDir(vec3 dir_ws)
+{
+	float phi   = fastApproxAtan(dir_ws.y, dir_ws.x); // [-PI, PI]
+	float theta = fastApproxACos(dir_ws.z);           // [0, PI]
+
+	return vec2(phi * (0.5 / PI) + 0.5, clamp(cloudEnvMapVForTheta(theta), 0.0, 1.0));
+}
+
+
+// rgb = radiance scattered towards the viewer, a = transmittance, as in the main cloud pass.
+// Composite over whatever lies behind with: light = light * result.a + result.rgb.
+vec4 sampleCloudEnvMap(vec3 dir_ws, in sampler2D cloud_env_tex)
+{
+	// Explicit LOD: this is called from the water shader's sub-sample loop, where derivatives are undefined.
+	return textureLod(cloud_env_tex, cloudEnvMapCoordsForDir(dir_ws), 0.0);
+}
+
+
+// Beyond this the parallax correction is negligible, and the intersection distances near the horizon grow
+// without bound, so the ray is treated as reaching the layer here.
+const float CLOUD_ENV_MAP_MAX_PARALLAX_DIST = 40000.0;
+
+
+// As sampleCloudEnvMap(), but corrected for the map having been captured from a single point.
+//
+// Looking the map up by direction alone treats the clouds as infinitely far away, so every point on a reflective
+// surface sees the same cloud in a given direction.  On water that reads as plainly wrong, and worst where it
+// shows most: the bright glints come from tilted wave facets, whose reflected rays are steep enough to reach the
+// layer within a couple of kilometres, so a facet a few hundred metres from the camera ends up showing whatever
+// is above the camera rather than what is above the facet.  (For a flat surface it barely matters - grazing rays
+// reach the layer tens of kilometres out, where the same offset is nothing.)
+//
+// So intersect the ray with the cloud layer and look up along the direction from the map's own origin to that
+// point.  Exact for a sheet of cloud at cloud_layer_mid_z; for a layer of real thickness its middle lines up and
+// the top and bottom are progressively less correct.
+// layer_z is passed in rather than read from MaterialCommonUniforms because this file is prepended to every
+// fragment shader, including ones that don't include that block.
+vec4 sampleCloudEnvMapWithParallax(vec3 pos_ws, vec3 dir_ws, vec3 map_origin_ws, float layer_z, in sampler2D cloud_env_tex)
+{
+	float t = rayPlaneIntersect(pos_ws, dir_ws, layer_z);
+	if(!(t > 0.0))
+		return sampleCloudEnvMap(dir_ws, cloud_env_tex); // Pointing away from the layer.
+
+	vec3 hit_pos = pos_ws + dir_ws * min(t, CLOUD_ENV_MAP_MAX_PARALLAX_DIST);
+
+	return sampleCloudEnvMap(normalize(hit_pos - map_origin_ws), cloud_env_tex);
+}
+
+
+float getCirrusCloudFrac(vec3 env_campos_ws, vec3 dir_ws, float time, in sampler2D fbm_tex, in sampler2D cirrus_tex)
+{
+	// Get position ray hits cloud plane
+	float ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 6000.0);
+	if(ray_t <= 0.0)
+		return 0.0;
+
+	vec3 hitpos = env_campos_ws + dir_ws * ray_t;
+	vec2 p = hitpos.xy * 0.0001;
+	p.x += time * 0.002;
+
+	vec2 coarse_noise_coords = vec2(p.x * 0.16, p.y * 0.20);
+	float course_detail = fbmMix(vec2(coarse_noise_coords), fbm_tex);
+
+	return max(course_detail * 0.9, 0.f) * texture(cirrus_tex, p).x * 1.5;
+}
+
+
 // return (cloud frac, cumulus_edge)
 vec2 getCloudFrac(vec3 env_campos_ws, vec3 dir_ws, float time, in sampler2D fbm_tex, in sampler2D cirrus_tex)
 {
-	// Get position ray hits cloud plane
-	float cirrus_cloudfrac = 0.0;
-	float cumulus_cloudfrac = 0.0;
-	float ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 6000.0);
-	//vec4 cumulus_col = vec4(0,0,0,0);
-	//float cumulus_alpha = 0;
-	float cumulus_edge = 0.0;
-	if(ray_t > 0.0)
-	{
-		vec3 hitpos = env_campos_ws + dir_ws * ray_t;
-		vec2 p = hitpos.xy * 0.0001;
-		p.x += time * 0.002;
-	
-		vec2 coarse_noise_coords = vec2(p.x * 0.16, p.y * 0.20);
-		float course_detail = fbmMix(vec2(coarse_noise_coords), fbm_tex);
+	float cirrus_cloudfrac = getCirrusCloudFrac(env_campos_ws, dir_ws, time, fbm_tex, cirrus_tex);
 
-		cirrus_cloudfrac = max(course_detail * 0.9, 0.f) * texture(cirrus_tex, p).x * 1.5;
-	}
-		
+	float cumulus_cloudfrac = 0.0;
+	float cumulus_edge = 0.0;
 	{
 		float cumulus_ray_t = rayPlaneIntersect(env_campos_ws, dir_ws, 1000.0);
 		if(cumulus_ray_t > 0.0)
 		{
 			vec3 hitpos = env_campos_ws + dir_ws * cumulus_ray_t;
-			vec2 p = hitpos.xy * 0.0001;
-			p.x += time * 0.002;
 
-			vec2 cumulus_coords = vec2(p.x * 1.0 + 2.3453, p.y * 1.0 + 1.4354);
-			
-			float cumulus_val = max(0.f, min(1.0, fbmMix(cumulus_coords, fbm_tex) * 1.6 - 1.0f));
-			//cumulus_alpha = max(0.f, cumulus_val - 0.7f);
+			float cumulus_val = cumulusCoverage(hitpos.xy, time, fbm_tex);
 
 			cumulus_edge = smoothstep(0.0001, 0.1, cumulus_val) - smoothstep(0.2, 0.6, cumulus_val) * 0.5;
 
 			float dist_factor = 1.f - smoothstep(20000.0, 40000.0, cumulus_ray_t);
 
-			//cumulus_col = vec4(cumulus_val, cumulus_val, cumulus_val, 1);
 			cumulus_cloudfrac = dist_factor * cumulus_val;
 		}
 	}
@@ -720,18 +888,13 @@ vec2 getCloudFrac(vec3 env_campos_ws, vec3 dir_ws, float time, in sampler2D fbm_
 }
 
 
-// return (cloud frac, cumulus_edge)
 float getCumulusTransparencyFactor(vec3 pos_ws, vec3 sundir_ws, float time, in sampler2D fbm_tex)
 {
 	// Compute position on cumulus cloud layer
 	vec3 cum_layer_pos = pos_ws + sundir_ws * (1000.f - pos_ws.z) / sundir_ws.z;
-	
-	vec2 cum_tex_coords = vec2(cum_layer_pos.x, cum_layer_pos.y) * 1.0e-4f;
-	cum_tex_coords.x += time * 0.002;
-	
-	vec2 cumulus_coords = vec2(cum_tex_coords.x * 1.0 + 2.3453, cum_tex_coords.y * 1.0 + 1.4354);
-	float cumulus_val = max(0.f, fbmMix(cumulus_coords, fbm_tex) * 1.6 - 1.0f);
-	
+
+	float cumulus_val = cumulusCoverage(cum_layer_pos.xy, time, fbm_tex);
+
 	float cumulus_trans = max(0.f, 1.f - cumulus_val * 1.4);
 	return cumulus_trans;
 }

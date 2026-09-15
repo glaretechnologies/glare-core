@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "RenderBuffer.h"
 #include "ShadowMapping.h"
 #include "IrradianceProbes.h"
+#include "CloudNoise.h"
 #include "OpenGLExtensions.h"
 #include "GLMeshBuilding.h"
 #include "MeshPrimitiveBuilding.h"
@@ -171,6 +172,11 @@ enum TextureUnitIndices
 
 	CIRRUS_TEX_TEXTURE_UNIT_INDEX,
 	CAUSTIC_TEXTURE_UNIT_INDEX, // A GL_TEXTURE_2D_ARRAY holding all the caustic animation frames.
+
+	CLOUD_SHAPE_TEXTURE_UNIT_INDEX,  // GL_TEXTURE_3D volumes, see CloudNoise.h.
+	CLOUD_DETAIL_TEXTURE_UNIT_INDEX,
+	CLOUD_TEXTURE_UNIT_INDEX,        // Half-res output of the cloud raymarch, read by the composite pass.
+	CLOUD_ENV_TEXTURE_UNIT_INDEX,    // Directional map of the clouds, read by reflective materials.
 
 	DETAIL_0_TEXTURE_UNIT_INDEX,
 	DETAIL_1_TEXTURE_UNIT_INDEX,
@@ -368,6 +374,7 @@ OpenGLScene::OpenGLScene(OpenGLEngine& engine)
 	draw_aurora = false;
 	render_to_main_render_framebuffer = engine.settings.render_to_offscreen_renderbuffers;
 	cloud_shadows = true;
+	draw_volumetric_clouds = true;
 
 	sun_dir = normalise(Vec4f(0.2f,0.2f,1,0));
 	sun_phi = std::atan2(sun_dir[1], sun_dir[0]);
@@ -1547,6 +1554,9 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.lightmap_tex_location			= prog->getUniformLocation("lightmap_tex");
 	prog->uniform_locations.fbm_tex_location				= prog->getUniformLocation("fbm_tex");
 	prog->uniform_locations.cirrus_tex_location				= prog->getUniformLocation("cirrus_tex");
+	prog->uniform_locations.cloud_env_tex_location			= prog->getUniformLocation("cloud_env_tex");
+	prog->uniform_locations.cloud_shape_tex_location		= prog->getUniformLocation("cloud_shape_tex");
+	prog->uniform_locations.cloud_detail_tex_location		= prog->getUniformLocation("cloud_detail_tex");
 	prog->uniform_locations.main_colour_texture_location	= prog->getUniformLocation("main_colour_texture");
 	prog->uniform_locations.main_normal_texture_location	= prog->getUniformLocation("main_normal_texture");
 	prog->uniform_locations.main_depth_texture_location		= prog->getUniformLocation("main_depth_texture");
@@ -1704,6 +1714,7 @@ static const int LIGHT_DATA_UBO_BINDING_POINT_INDEX = 5; // Just used on Mac
 static const int JOINT_MATRICES_UBO_BINDING_POINT_INDEX = 6;
 static const int OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX = 7;
 static const int FOG_SETTINGS_UBO_BINDING_POINT_INDEX = 8;
+static const int CLOUD_SETTINGS_UBO_BINDING_POINT_INDEX = 9;
 
 static const int LIGHT_DATA_SSBO_BINDING_POINT_INDEX = 0;
 static const int PER_OB_VERT_DATA_SSBO_BINDING_POINT_INDEX = 1;
@@ -2025,6 +2036,30 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			conPrint("fbm_tex creation took " + timer.elapsedString());
 		}
 
+		// Make the 3D noise volumes the volumetric cloud raymarch shapes its clouds from.
+		if(settings.volumetric_clouds_support)
+		{
+			this->cloud_shape_tex  = CloudNoise::buildShapeTexture (this, *this->main_task_manager);
+			this->cloud_detail_tex = CloudNoise::buildDetailTexture(this, *this->main_task_manager);
+
+			// Lat-long map of the clouds by direction, for reflections.  Its resolution is independent of the
+			// window size.  The theta axis is warped towards the horizon (see cloudEnvMapThetaForV()), which is
+			// the only part of it reflections off near-horizontal water ever read.
+			this->cloud_env_texture = new OpenGLTexture(512, 256, this,
+				ArrayRef<uint8>(), // data
+				OpenGLTextureFormat::Format_RGBA_Linear_Half,
+				OpenGLTexture::Filtering_Bilinear,
+				OpenGLTexture::Wrapping_Repeat, // Wraps in phi.
+				false, // has_mipmaps
+				/*MSAA_samples=*/1
+			);
+			this->cloud_env_texture->setTWrappingEnabled(false); // Clamp in theta, so the poles don't wrap onto each other.
+			this->cloud_env_texture->setDebugName("cloud env map");
+
+			this->cloud_env_framebuffer = new FrameBuffer();
+			this->cloud_env_framebuffer->attachTexture(*this->cloud_env_texture, GL_COLOR_ATTACHMENT0);
+		}
+
 		// Load blue noise texture
 		{
 			const std::string blue_noise_map_path = gl_data_dir + "/HDR_RGBA_0.png";
@@ -2163,6 +2198,10 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 		preprocessor_defines += "#define IRRADIANCE_PROBES_SUPPORT " + (settings.irradiance_probes_support ? std::string("1") : std::string("0")) + "\n";
 
+
+		// Tells the sky shader to leave the cumulus layer to the volumetric cloud pass, so the two don't both draw it.
+		preprocessor_defines += "#define VOLUMETRIC_CLOUDS " + (settings.volumetric_clouds_support ? std::string("1") : std::string("0")) + "\n";
+
 		if(settings.irradiance_probes_support)
 		{
 			// Create the probe atlas before the defines are finalised: frag_utils.glsl does tile addressing with
@@ -2264,6 +2303,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		fog_settings_uniform_buf_ob = new UniformBufOb();
 		fog_settings_uniform_buf_ob->allocate(sizeof(FogGPUSettings));
 
+		if(settings.volumetric_clouds_support)
+		{
+			cloud_settings_uniform_buf_ob = new UniformBufOb();
+			cloud_settings_uniform_buf_ob->allocate(sizeof(CloudGPUSettings));
+		}
+
 
 #if MULTIPLE_PHONG_UNIFORM_BUFS_SUPPORT
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/PHONG_UBO_BINDING_POINT_INDEX, this->phong_uniform_buf_obs[0]->handle);
@@ -2279,7 +2324,9 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/JOINT_MATRICES_UBO_BINDING_POINT_INDEX, this->joint_matrices_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/OB_JOINT_AND_MAT_INDICES_UBO_BINDING_POINT_INDEX, this->ob_joint_and_mat_indices_uniform_buf_ob->handle);
 		glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/FOG_SETTINGS_UBO_BINDING_POINT_INDEX, this->fog_settings_uniform_buf_ob->handle);
-		
+		if(cloud_settings_uniform_buf_ob.nonNull())
+			glBindBufferBase(GL_UNIFORM_BUFFER, /*binding point=*/CLOUD_SETTINGS_UBO_BINDING_POINT_INDEX, this->cloud_settings_uniform_buf_ob->handle);
+
 		if(light_buffer.nonNull())
 		{
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, /*binding point=*/LIGHT_DATA_SSBO_BINDING_POINT_INDEX, this->light_buffer->handle);
@@ -2642,6 +2689,9 @@ void OpenGLEngine::buildPrograms()
 	preprocessor_defines_with_common_vert_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_vert_structures.glsl");
 	preprocessor_defines_with_common_vert_structs += vert_utils_glsl;
 
+	if(settings.volumetric_clouds_support)
+		this->cloud_march_glsl = FileUtils::readEntireFileTextMode(use_shader_dir + "/cloud_march.glsl");
+
 	this->preprocessor_defines_with_common_frag_structs = preprocessor_defines;
 	preprocessor_defines_with_common_frag_structs += FileUtils::readEntireFileTextMode(use_shader_dir + "/common_frag_structures.glsl");
 	preprocessor_defines_with_common_frag_structs += frag_utils_glsl;
@@ -2816,6 +2866,9 @@ void OpenGLEngine::buildPrograms()
 		}
 
 		buildFogPostProcessProg();
+
+		if(settings.volumetric_clouds_support)
+			buildVolumetricCloudProgs();
 	}
 
 	//------------------------------------------- Build scatter prog for updating data on GPU -------------------------------------------
@@ -3066,6 +3119,78 @@ void OpenGLEngine::buildFogPostProcessProg()
 
 	bindUniformBlockToProgram(fog_post_prog, "MaterialCommonUniforms", MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 	bindUniformBlockToProgram(fog_post_prog, "FogSettings",	           FOG_SETTINGS_UBO_BINDING_POINT_INDEX);
+}
+
+
+void OpenGLEngine::buildVolumetricCloudProgs()
+{
+	{
+		const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_cloud, ProgramKeyArgs())); // Needed to define MATERIALISE_EFFECT to 0 etc.
+		cloud_prog = new OpenGLProgram(
+			"cloud",
+			new OpenGLShader(shaders_dir + "/dof_blur_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/cloud_frag_shader.glsl",    version_directive, key_defs + preprocessor_defines_with_common_frag_structs + cloud_march_glsl, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
+		);
+		addProgram(cloud_prog);
+
+		getUniformLocations(cloud_prog);
+		setStandardTextureUnitUniformsForProgram(*cloud_prog);
+
+		cloud_depth_tex_loc  = cloud_prog->getUniformLocation("depth_tex");         assert(cloud_depth_tex_loc  >= 0);
+		cloud_shape_tex_loc  = cloud_prog->getUniformLocation("cloud_shape_tex");   assert(cloud_shape_tex_loc  >= 0);
+		cloud_detail_tex_loc = cloud_prog->getUniformLocation("cloud_detail_tex");  assert(cloud_detail_tex_loc >= 0);
+
+		checkUniformBlockSize(cloud_prog, "CloudSettings", sizeof(CloudGPUSettings));
+
+		bindUniformBlockToProgram(cloud_prog, "MaterialCommonUniforms", MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+		bindUniformBlockToProgram(cloud_prog, "CloudSettings",          CLOUD_SETTINGS_UBO_BINDING_POINT_INDEX);
+	}
+
+	{
+		// Same shader, with the ray set up per direction rather than per screen pixel.
+		const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_cloud_env, ProgramKeyArgs())) + "#define CLOUD_ENV_MAP 1\n";
+		cloud_env_prog = new OpenGLProgram(
+			"cloud_env",
+			new OpenGLShader(shaders_dir + "/dof_blur_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/cloud_frag_shader.glsl",    version_directive, key_defs + preprocessor_defines_with_common_frag_structs + cloud_march_glsl, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
+		);
+		addProgram(cloud_env_prog);
+
+		getUniformLocations(cloud_env_prog);
+		setStandardTextureUnitUniformsForProgram(*cloud_env_prog);
+
+		cloud_env_depth_tex_loc  = cloud_env_prog->getUniformLocation("depth_tex");
+		cloud_env_debug_pattern_loc = cloud_env_prog->getUniformLocation("cloud_env_debug_pattern");  assert(cloud_env_debug_pattern_loc >= 0);
+		cloud_env_shape_tex_loc  = cloud_env_prog->getUniformLocation("cloud_shape_tex");   assert(cloud_env_shape_tex_loc  >= 0);
+		cloud_env_detail_tex_loc = cloud_env_prog->getUniformLocation("cloud_detail_tex");  assert(cloud_env_detail_tex_loc >= 0);
+
+		bindUniformBlockToProgram(cloud_env_prog, "MaterialCommonUniforms", MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+		bindUniformBlockToProgram(cloud_env_prog, "CloudSettings",          CLOUD_SETTINGS_UBO_BINDING_POINT_INDEX);
+	}
+
+	{
+		const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_cloud_composite, ProgramKeyArgs()));
+		cloud_composite_prog = new OpenGLProgram(
+			"cloud_composite",
+			new OpenGLShader(shaders_dir + "/dof_blur_vert_shader.glsl",         version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(shaders_dir + "/cloud_composite_frag_shader.glsl",  version_directive, key_defs + preprocessor_defines_with_common_frag_structs, GL_FRAGMENT_SHADER),
+			getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/true
+		);
+		addProgram(cloud_composite_prog);
+
+		getUniformLocations(cloud_composite_prog);
+		setStandardTextureUnitUniformsForProgram(*cloud_composite_prog);
+
+		cloud_composite_depth_tex_loc = cloud_composite_prog->getUniformLocation("depth_tex");      assert(cloud_composite_depth_tex_loc >= 0);
+		cloud_composite_cloud_tex_loc = cloud_composite_prog->getUniformLocation("cloud_texture");  assert(cloud_composite_cloud_tex_loc >= 0);
+
+		bindUniformBlockToProgram(cloud_composite_prog, "MaterialCommonUniforms", MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
+	}
 }
 
 
@@ -3396,8 +3521,20 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix
 		Timer timer;
 
 		const std::string key_defs = preprocessorDefsForKey(key);
-		const std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
-		const std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
+		std::string use_vert_defs = key_defs + preprocessor_defines_with_common_vert_structs;
+		std::string use_frag_defs = key_defs + preprocessor_defines_with_common_frag_structs;
+
+		if(shader_name_prefix == "water")
+		{
+			// The water vertex and fragment shaders each sum part of the wave spectrum - the vertex shader displaces
+			// the tessellated mesh by the components it is fine enough to carry, the fragment shader adds the finer
+			// ones to the shading normal - so they share a single definition of that spectrum.
+			const std::string water_wave_utils_glsl = FileUtils::readEntireFileTextMode(shaders_dir + "/water_wave_utils.glsl");
+			use_vert_defs += water_wave_utils_glsl;
+			use_frag_defs += water_wave_utils_glsl;
+
+			use_frag_defs += cloud_march_glsl; // Water marches the clouds itself.  Empty unless volumetric clouds are supported.
+		}
 
 		OpenGLProgramRef prog = new OpenGLProgram(
 			toString(shader_name_prefix),
@@ -3416,6 +3553,15 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix
 
 		getUniformLocations(prog);
 		setStandardTextureUnitUniformsForProgram(*prog);
+
+		// water_frag_shader.glsl only references CloudSettings when its WATER_RAYMARCH_CLOUDS define is on, so
+		// the block may have been optimised away.
+		if((shader_name_prefix == "water") && settings.volumetric_clouds_support &&
+			(glGetUniformBlockIndex(prog->program, "CloudSettings") != GL_INVALID_INDEX))
+		{
+			checkUniformBlockSize(prog, "CloudSettings", sizeof(CloudGPUSettings));
+			bindUniformBlockToProgram(prog, "CloudSettings", CLOUD_SETTINGS_UBO_BINDING_POINT_INDEX);
+		}
 
 		// Check we got the size of our uniform blocks on the CPU side correct.
 		if(!use_ob_and_mat_data_gpu_resident)
@@ -7306,7 +7452,8 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 			common_uniforms.mat_common_flags = (current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) |
 				(use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) | DOING_PROBE_CAPTURE_FLAG;
 
-			common_uniforms.padding_a0 = common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
+			common_uniforms.cloud_layer_mid_z = (current_scene->cloud_settings.bottom_z + current_scene->cloud_settings.top_z) * 0.5f;
+			common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
 
 			setShadowCascadeBiasScaleUniforms(common_uniforms, current_scene->shadow_mapping.ptr());
 
@@ -7384,6 +7531,17 @@ void OpenGLEngine::debugDumpProbeCapture(const std::string& path)
 	runtimeCheck(irradianceProbesEnabled());
 
 	debugDumpFloatFrameBuffer(*irradiance_probes->capture_framebuffer, IrradianceProbes::CAPTURE_FACE_RES * 6, IrradianceProbes::CAPTURE_FACE_RES, path);
+}
+
+
+// The lat-long map reflective materials read the clouds from.  Useful for telling whether a reflection that
+// doesn't match the sky is the map's fault or the lookup's.
+void OpenGLEngine::debugDumpCloudEnvMap(const std::string& path)
+{
+	if(cloud_env_framebuffer.isNull())
+		throw glare::Exception("No cloud env map: volumetric clouds are not enabled.");
+
+	debugDumpFloatFrameBuffer(*cloud_env_framebuffer, (int)cloud_env_texture->xRes(), (int)cloud_env_texture->yRes(), path);
 }
 
 
@@ -7642,6 +7800,16 @@ void OpenGLEngine::draw()
 		catch(glare::Exception& e)
 		{
 			conPrint("Error while reloading fog prog: " + e.what());
+		}
+
+		try
+		{
+			if(settings.volumetric_clouds_support)
+				buildVolumetricCloudProgs();
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while reloading volumetric cloud progs: " + e.what());
 		}
 
 		try
@@ -7953,7 +8121,8 @@ void OpenGLEngine::draw()
 	common_uniforms.camera_type = (int)cur_scene->camera_type;
 	common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (settings.ssao ? DO_SSAO_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) | (use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) |
 		(settings.msaa_samples >= 2 ? ALPHA_TO_COVERAGE_ENABLED_FLAG : 0);
-	common_uniforms.padding_a0 = common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
+	common_uniforms.cloud_layer_mid_z = (cur_scene->cloud_settings.bottom_z + cur_scene->cloud_settings.top_z) * 0.5f;
+	common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
 
 	// Set from last frame's shadow map build for now, so we're not uploading uninitialised data.  The shadow maps
 	// for this frame are rendered below, after which the current values are uploaded over the top.
@@ -7970,6 +8139,11 @@ void OpenGLEngine::draw()
 
 	if(draw_aurora && cur_scene->draw_aurora && (cur_scene->sun_dir[2] < 0.1))
 		drawAuroraTex();
+
+	// Must happen before the scene is drawn: water samples this while it is being rasterised, which is long
+	// before doVolumetricCloudPass() runs.
+	if(volumetricCloudsEnabled() && cloud_env_framebuffer.nonNull())
+		drawCloudEnvMap();
 
 
 	num_multi_draw_indirect_calls = 0;
@@ -8173,6 +8347,38 @@ void OpenGLEngine::draw()
 			);
 			cur_scene->fog_framebuffer = new FrameBuffer();
 			cur_scene->fog_framebuffer->attachTexture(*cur_scene->fog_colour_texture, GL_COLOR_ATTACHMENT0);
+
+			if(settings.volumetric_clouds_support)
+			{
+				// The raymarch runs at half resolution.  Round up, so that every full-res pixel has a half-res
+				// pixel covering it; cloud_composite_frag_shader.glsl indexes the half-res buffer at px/2.
+				const size_t cloud_xres = (xres + 1) / 2;
+				const size_t cloud_yres = (yres + 1) / 2;
+
+				// Needs an alpha channel for the transmittance, and float precision since the rgb is scene
+				// radiance, not a displayable colour.
+				cur_scene->cloud_texture = new OpenGLTexture(cloud_xres, cloud_yres, this,
+					ArrayRef<uint8>(), // data
+					OpenGLTextureFormat::Format_RGBA_Linear_Half,
+					OpenGLTexture::Filtering_Nearest, // The composite pass does its own depth-aware filtering.
+					OpenGLTexture::Wrapping_Clamp,
+					false, // has_mipmaps
+					/*MSAA_samples=*/1
+				);
+				cur_scene->cloud_framebuffer = new FrameBuffer();
+				cur_scene->cloud_framebuffer->attachTexture(*cur_scene->cloud_texture, GL_COLOR_ATTACHMENT0);
+
+				cur_scene->cloud_composite_colour_texture = new OpenGLTexture(xres, yres, this,
+					ArrayRef<uint8>(), // data
+					col_buffer_format,
+					OpenGLTexture::Filtering_Nearest,
+					OpenGLTexture::Wrapping_Clamp,
+					false, // has_mipmaps
+					/*MSAA_samples=*/1
+				);
+				cur_scene->cloud_composite_framebuffer = new FrameBuffer();
+				cur_scene->cloud_composite_framebuffer->attachTexture(*cur_scene->cloud_composite_colour_texture, GL_COLOR_ATTACHMENT0);
+			}
 
 
 			bindStandardTexturesToTextureUnits(); // Rebind textures as we have a new main_colour_copy_texture etc. that needs to get rebound.
@@ -8579,10 +8785,11 @@ void OpenGLEngine::draw()
 
 		const bool do_DOF_blur = cur_scene->dof_blur_strength > 0;
 		const bool do_fog      = (cur_scene->fog_settings.layer_0_A > 0) || (cur_scene->fog_settings.layer_1_A > 0);
+		const bool do_clouds   = volumetricCloudsEnabled() && cur_scene->cloud_framebuffer.nonNull();
 
 		// Copy from renderbuffer to our framebuffer copy with textures bound (main_render_copy_framebuffer), so we can access the main buffer as a colour texture.
 		blitFrameBuffer(/*src_framebuffer=*/*cur_scene->main_render_framebuffer, /*dest_framebuffer=*/*cur_scene->main_render_copy_framebuffer,
-			/*num_buffers_to_copy=*/1, /*copy_buf0_colour=*/true, /*copy_buf0_depth=*/do_DOF_blur || do_fog); // We need the depth buffer when doing DOF blur or fog.
+			/*num_buffers_to_copy=*/1, /*copy_buf0_colour=*/true, /*copy_buf0_depth=*/do_DOF_blur || do_fog || do_clouds); // We need the depth buffer when doing DOF blur, fog or clouds.
 
 		/*
 		This is the case where we do both order-independent transparency (OIT) and DOF blur:
@@ -8620,6 +8827,15 @@ void OpenGLEngine::draw()
 			doOITCompositing();
 
 			current_colour_tex_input = cur_scene->pre_dof_colour_texture.ptr(); // doOITCompositing writes to pre_dof_colour_texture
+		}
+
+		//================= Draw volumetric clouds =================
+		// Before the fog, so that the fog attenuates the clouds along with everything else behind it.
+		if(do_clouds)
+		{
+			doVolumetricCloudPass(current_colour_tex_input);
+
+			current_colour_tex_input = cur_scene->cloud_composite_colour_texture.ptr(); // doVolumetricCloudPass() writes to cloud_composite_colour_texture
 		}
 
 		//================= Do fog post-process =================
@@ -8881,6 +9097,114 @@ void OpenGLEngine::doFogPostProcess(OpenGLTexture* colour_tex_input, const Matri
 
 	if(query_profiling_enabled && fog_post_process_gpu_timer->isRunning())
 		fog_post_process_gpu_timer->endTimerQuery();
+}
+
+
+// Raymarches the clouds into cloud_env_texture, a lat-long map indexed by world-space direction, which
+// reflective materials read through sampleCloudEnvMap() in frag_utils.glsl.
+void OpenGLEngine::drawCloudEnvMap()
+{
+	DebugGroup debug_group("drawCloudEnvMap()");
+	TracyGpuZone("drawCloudEnvMap");
+
+	this->cloud_settings_uniform_buf_ob->updateData(/*dest offset=*/0, &current_scene->cloud_settings, sizeof(CloudGPUSettings));
+
+	glDepthMask(GL_FALSE);
+	glDisable(GL_DEPTH_TEST);
+
+	// bindStandardTexturesToTextureUnits() leaves this bound to a texture unit for the materials that read it.
+	// Rendering to it while it is still bound is a feedback loop, which Chrome rejects outright.
+	unbindTextureFromTextureUnit(*this->cloud_env_texture, /*texture_unit_index=*/CLOUD_ENV_TEXTURE_UNIT_INDEX);
+
+	cloud_env_framebuffer->bindForDrawing();
+	glViewport(0, 0, (int)cloud_env_texture->xRes(), (int)cloud_env_texture->yRes());
+
+	cloud_env_prog->useProgram();
+	bindMeshData(*unit_quad_meshdata);
+
+	bindTextureToTextureUnit(*this->blue_noise_tex, /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->fbm_tex,        /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
+
+	glUniform1i(cloud_env_debug_pattern_loc, cloud_env_debug_pattern);
+
+	bindTextureUnitToSampler(*this->cloud_shape_tex,  /*texture_unit_index=*/CLOUD_SHAPE_TEXTURE_UNIT_INDEX,  cloud_env_shape_tex_loc);
+	bindTextureUnitToSampler(*this->cloud_detail_tex, /*texture_unit_index=*/CLOUD_DETAIL_TEXTURE_UNIT_INDEX, cloud_env_detail_tex_loc);
+
+	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), unit_quad_meshdata->vbo_handle.base_vertex);
+
+	OpenGLProgram::useNoPrograms();
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
+
+	glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h); // Restore viewport
+
+	bindTextureToTextureUnit(*this->cloud_env_texture, /*texture_unit_index=*/CLOUD_ENV_TEXTURE_UNIT_INDEX);
+}
+
+
+// Raymarches the cloud layer into cloud_texture at half resolution, then upsamples it onto the scene colour.
+// Input: colour_tex_input
+// Output: cloud_composite_colour_texture
+void OpenGLEngine::doVolumetricCloudPass(OpenGLTexture* colour_tex_input)
+{
+	DebugGroup debug_group("doVolumetricCloudPass()");
+	TracyGpuZone("doVolumetricCloudPass");
+
+	//----------------------------- Setup -----------------------------
+	this->cloud_settings_uniform_buf_ob->updateData(/*dest offset=*/0, &current_scene->cloud_settings, sizeof(CloudGPUSettings));
+
+	glDepthMask(GL_FALSE); // Don't write to z-buffer, depth not needed.
+	glDisable(GL_DEPTH_TEST); // Don't depth test.
+
+	bindMeshData(*unit_quad_meshdata);
+
+	// Rebind some textures to texture units in case some other pass overwrote them.
+	bindTextureToTextureUnit(*this->blue_noise_tex, /*texture_unit_index=*/BLUE_NOISE_TEXTURE_UNIT_INDEX);
+	bindTextureToTextureUnit(*this->fbm_tex,        /*texture_unit_index=*/FBM_TEXTURE_UNIT_INDEX);
+
+	//----------------------------- Raymarch the clouds at half resolution -----------------------------
+	{
+		DebugGroup march_debug_group("cloud raymarch");
+
+		current_scene->cloud_framebuffer->bindForDrawing();
+		glViewport(0, 0, (int)current_scene->cloud_texture->xRes(), (int)current_scene->cloud_texture->yRes());
+
+		cloud_prog->useProgram();
+
+		bindTextureUnitToSampler(*current_scene->main_depth_copy_texture, /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX, cloud_depth_tex_loc);
+		bindTextureUnitToSampler(*this->cloud_shape_tex,                 /*texture_unit_index=*/CLOUD_SHAPE_TEXTURE_UNIT_INDEX,     cloud_shape_tex_loc);
+		bindTextureUnitToSampler(*this->cloud_detail_tex,                /*texture_unit_index=*/CLOUD_DETAIL_TEXTURE_UNIT_INDEX,    cloud_detail_tex_loc);
+
+		drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), unit_quad_meshdata->vbo_handle.base_vertex);
+	}
+
+	//----------------------------- Upsample onto the scene colour -----------------------------
+	{
+		DebugGroup composite_debug_group("cloud composite");
+
+		current_scene->cloud_composite_framebuffer->bindForDrawing();
+		glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h); // Restore viewport
+
+		cloud_composite_prog->useProgram();
+
+		bindTextureUnitToSampler(*colour_tex_input,                      /*texture_unit_index=*/MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX, cloud_composite_prog->albedo_texture_loc);
+		bindTextureUnitToSampler(*current_scene->main_depth_copy_texture,/*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX,  cloud_composite_depth_tex_loc);
+		bindTextureUnitToSampler(*current_scene->cloud_texture,          /*texture_unit_index=*/CLOUD_TEXTURE_UNIT_INDEX,            cloud_composite_cloud_tex_loc);
+
+		drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), unit_quad_meshdata->vbo_handle.base_vertex);
+	}
+
+	//----------------------------- Cleanup -----------------------------
+	OpenGLProgram::useNoPrograms();
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
+
+	// Unbind textures from texture units to avoid feedback-loop errors.
+	unbindTextureFromTextureUnit(*colour_tex_input,                       /*texture_unit_index=*/MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX);
+	unbindTextureFromTextureUnit(*current_scene->main_depth_copy_texture, /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX);
+	unbindTextureFromTextureUnit(*current_scene->cloud_texture,           /*texture_unit_index=*/CLOUD_TEXTURE_UNIT_INDEX);
 }
 
 
@@ -12389,6 +12713,10 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 
 	glUniform1i(program.uniform_locations.cirrus_tex_location, CIRRUS_TEX_TEXTURE_UNIT_INDEX);
 
+	glUniform1i(program.uniform_locations.cloud_env_tex_location, CLOUD_ENV_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.cloud_shape_tex_location, CLOUD_SHAPE_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.cloud_detail_tex_location, CLOUD_DETAIL_TEXTURE_UNIT_INDEX);
+
 	glUniform1i(program.uniform_locations.caustic_tex_location, CAUSTIC_TEXTURE_UNIT_INDEX);
 
 	glUniform1i(program.uniform_locations.detail_tex_0_location, DETAIL_0_TEXTURE_UNIT_INDEX);
@@ -12444,6 +12772,15 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 
 	if(cirrus_tex)
 		bindTextureToTextureUnit(*this->cirrus_tex, /*texture_unit_index=*/CIRRUS_TEX_TEXTURE_UNIT_INDEX);
+
+	if(cloud_env_texture)
+		bindTextureToTextureUnit(*this->cloud_env_texture, /*texture_unit_index=*/CLOUD_ENV_TEXTURE_UNIT_INDEX);
+
+	if(cloud_shape_tex)
+	{
+		bindTextureToTextureUnit(*this->cloud_shape_tex,  /*texture_unit_index=*/CLOUD_SHAPE_TEXTURE_UNIT_INDEX);
+		bindTextureToTextureUnit(*this->cloud_detail_tex, /*texture_unit_index=*/CLOUD_DETAIL_TEXTURE_UNIT_INDEX);
+	}
 
 	if(water_caustics_texture.nonNull())
 		bindTextureToTextureUnit(*water_caustics_texture, /*texture_unit_index=*/CAUSTIC_TEXTURE_UNIT_INDEX);
@@ -13905,7 +14242,9 @@ static const char* debug_pass_view_names[] = {
 	"indirect illum",
 	"blurred indirect illum", 
 	"specular", 
-	"specular refl roughness * trace dist"
+	"specular refl roughness * trace dist",
+	"cloud_texture",
+	"cloud_env_texture"
 };
 
 const char** OpenGLEngine::getDebugPassViewNames() const
@@ -13986,6 +14325,18 @@ void OpenGLEngine::setCurDebugTexIndex(int index)
 
 			// blurred specular refl
 			//large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_specular_texture;
+		}
+		else if(index == 9)
+		{
+			// specular refl roughness * trace dist
+			large_debug_overlay_ob->material.albedo_texture = current_scene->cloud_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+		}
+		else if(index == 10)
+		{
+			// specular refl roughness * trace dist
+			large_debug_overlay_ob->material.albedo_texture = cloud_env_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 	}
 }

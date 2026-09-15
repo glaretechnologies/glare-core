@@ -31,6 +31,9 @@ struct UniformLocations
 	int lightmap_tex_location;
 	int fbm_tex_location;
 	int cirrus_tex_location; // Just for water reflection of cirrus
+	int cloud_env_tex_location; // Directional map of the volumetric clouds, for reflections.  See cloud_frag_shader.glsl.
+	int cloud_shape_tex_location;  // 3D noise volumes, for programs that march clouds themselves.  See cloud_march.glsl.
+	int cloud_detail_tex_location;
 	int aurora_tex_location;
 	int ssao_tex_location;
 	int ssao_specular_tex_location;
@@ -113,6 +116,9 @@ struct ProgramKey
 		ProgramName_OIT_composite,
 		ProgramName_dof_blur,
 		ProgramName_fog_post,
+		ProgramName_cloud,
+		ProgramName_cloud_composite,
+		ProgramName_cloud_env,
 		ProgramName_env,
 		ProgramName_draw_aurora_tex,
 		ProgramName_compute_ssao,

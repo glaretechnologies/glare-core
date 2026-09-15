@@ -169,9 +169,16 @@ void main()
 #endif
 
 
+#if VOLUMETRIC_CLOUDS
+	// The cumulus layer is raymarched by the volumetric cloud pass and composited over this, so all the sky
+	// shader draws here is the cirrus.
+	float cloudfrac    = getCirrusCloudFrac(env_campos_ws, dir_ws, time, fbm_tex, cirrus_tex);
+	float cumulus_edge = 0.0;
+#else
 	vec2 cloudfrac_cumulus_edge = getCloudFrac(env_campos_ws, dir_ws, time, fbm_tex, cirrus_tex);
 	float cloudfrac    = cloudfrac_cumulus_edge.x;
 	float cumulus_edge = cloudfrac_cumulus_edge.y;
+#endif
 	vec4 cloudcol = sun_and_sky_av_spec_rad;
 	col = mix(col, cloudcol, max(0.f, cloudfrac));
 	vec4 suncloudcol = cloudcol * 2.5;

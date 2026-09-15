@@ -97,6 +97,12 @@ public:
 	
 	void createCubeMap(size_t tex_xres, size_t tex_yres, OpenGLEngine* opengl_engine, const std::vector<const void*>& tex_data, OpenGLTextureFormat format, Filtering filtering);
 
+	// Create a GL_TEXTURE_3D texture, which unlike a GL_TEXTURE_2D_ARRAY filters between z slices as well as
+	// within them.  tex_data is z-slice-major, and must be non-empty (3D textures are only used for data
+	// generated up-front).  No MIP levels are allocated, so Filtering_Fancy is not supported here.
+	void create3DTexture(size_t tex_xres, size_t tex_yres, size_t tex_zres, OpenGLEngine* opengl_engine, ArrayRef<uint8> tex_data, OpenGLTextureFormat format, Filtering filtering,
+		Wrapping wrapping = Wrapping_Repeat);
+
 
 	//--------------------------------------------- Updating existing texture ---------------------------------------------
 	void setMipMapLevelData(int mipmap_level, size_t level_W, size_t level_H, ArrayRef<uint8> tex_data, bool bind_needed);
@@ -129,6 +135,7 @@ public:
 	// Will return 0 if texture has not been created yet.
 	size_t xRes() const { return xres; }
 	size_t yRes() const { return yres; }
+	size_t zRes() const { return zres; } // Number of z slices.  Only set for GL_TEXTURE_3D textures.
 
 	int MSAASamples() const { return MSAA_samples; }
 
@@ -206,6 +213,7 @@ private:
 	Wrapping wrapping;
 
 	size_t xres, yres; // Will be set after load() etc.. is called, and 0 beforehand.
+	size_t zres; // Number of z slices, for GL_TEXTURE_3D textures.  0 otherwise.
 	int num_array_images;
 	int num_mipmap_levels_allocated;
 	int MSAA_samples;

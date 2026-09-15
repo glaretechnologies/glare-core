@@ -53,6 +53,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShaderFileWatcherThread.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShaderFileWatcherThread.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/IrradianceProbes.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/IrradianceProbes.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/CloudNoise.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/CloudNoise.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShadowMapping.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShadowMapping.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSBO.cpp 
@@ -173,6 +175,7 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/transparent_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/transparent_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/water_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/water_vert_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/water_wave_utils.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/compute_ssao_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/compute_ssao_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/vert_utils.glsl
@@ -180,6 +183,9 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/frag_utils.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/draw_aurora_tex_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/draw_aurora_tex_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/fog_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/cloud_march.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/cloud_frag_shader.glsl
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/cloud_composite_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_vert_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_frag_shader.glsl
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/shaders/gaussian_splat_resolve_vert_shader.glsl

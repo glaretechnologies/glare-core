@@ -9,10 +9,17 @@ in vec3 pos_ws;
 in vec3 cam_to_pos_ws;
 
 
+// March the clouds along each reflected ray, instead of looking them up in the directional cloud map?  More
+// accurate - the map has no parallax, which is visible on water - but it marches once per reflection
+// sub-sample, which measured at roughly double the frame time (190 -> 100 fps).
+#define WATER_RAYMARCH_CLOUDS 0
+
+
 uniform sampler2D specular_env_tex;
 uniform sampler2D fbm_tex;
 uniform sampler2D blue_noise_tex;
 uniform sampler2D cirrus_tex;
+uniform sampler2D cloud_env_tex;
 uniform sampler2D aurora_tex;
 
 
@@ -89,17 +96,10 @@ layout(location = 1) out vec3 normal_out;
 #endif
 
 
-// https://www.shadertoy.com/view/MdcfDj
-#define M1 1597334677U     //1719413*929
-#define M2 3812015801U     //140473*2467*11
-float hash( uvec2 q )
-{
-	q *= uvec2(M1, M2); 
+// NOTE: the wave spectrum - the hash, the amplitudes and the sum over components - lives in
+// water_wave_utils.glsl, which is appended to both this shader and water_vert_shader.glsl.  The vertex shader
+// displaces the tessellated mesh by the coarse end of that spectrum, so what is left to do here is the fine end.
 
-	uint n = (q.x ^ q.y) * M1;
-
-	return float(n) * (1.0/float(0xffffffffU));
-}
 
 // 'A Survey of Efficient Representations for Independent Unit Vectors', listing 1+2.
 // Returns +- 1
@@ -224,75 +224,6 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 
 
 
-// The total per-axis slope variance of all 200 wave components, e.g. the value that resolved_slope_var below takes
-// when k_nyquist is large enough that every component is resolved.  It depends only on hash() and the amplitude
-// formula in waterNormalWS(), so it is just a constant.  Computed by evaluating
-//     sum over i of ((a_i*k_i.x)^2 + (a_i*k_i.y)^2) / 4
-// offline with the same hash; recompute it if either the hash or the amplitude formula changes.
-// The rms slope it corresponds to is 0.0157, e.g. just under a degree.
-const float TOTAL_SLOPE_VAR = 0.000244974378;
-
-
-// Sums the wave components that this pixel is able to resolve, e.g. those whose wavelength is more than about twice
-// the width of the pixel's footprint on the water.  Returns the resulting (unnormalised) normal.
-//
-// The components above that limit are deliberately not summed.  They are not dropped either: their combined per-axis
-// slope variance is returned in resolved_slope_var_out (as the part of TOTAL_SLOPE_VAR that *was* resolved), so that
-// main() can put them back stochastically, one Gaussian draw per sub-sample rather than more sin() calls.
-// That works because those components are, by definition, at effectively uncorrelated phase from one sub-pixel
-// position to the next, so their sum over the footprint is Gaussian by the central limit theorem.
-//
-// NOTE: contains no derivative operations, so is safe to call from non-uniform control flow.
-vec3 waterNormalWS(vec2 pos_xy, vec3 base_normal_ws, float k_nyquist, out float resolved_slope_var_out)
-{
-	vec3 normal_out_ws = base_normal_ws;
-	float resolved_slope_var = 0.0;
-
-	float k_len = 0.2;
-	for(int i=0; i<200; ++i)
-	{
-		// f(x) = a sin(k.(x,y) - omega*t)
-		// f(x) = a sin(k_x*x + k_y*y)
-		// df/dx = a k_x cos(k_x*x + k_y*y)
-		// df/dy = a k_y cos(k_x*x + k_y*y)
-
-		// |k| <= k_len * sqrt(2)/2 (see the construction of k below), and k_len only increases, so once this upper
-		// bound passes the Nyquist limit, every remaining component is unresolvable and we can stop.
-		if(k_len * 0.70710678 > k_nyquist)
-			break;
-
-		float a = 0.02  * pow(max(1.0, k_len), -1.5);
-		if(k_len > 50.0)
-			a *= 0.2;
-
-		vec2 k = vec2(
-			-0.5 + hash(uvec2(uint(i), 0)),
-			-0.5 + hash(uvec2(uint(i), 1))
-		) * k_len;
-		float k_mag = length(k);
-
-		// Fade the component out as it approaches the limit, rather than dropping it abruptly, so that the handover
-		// to the stochastic part is smooth as the camera moves.
-		float window = 1.0 - smoothstep(0.5, 1.0, k_mag / k_nyquist);
-
-		float omega = sqrt(9.8 * k_mag); // Deep water dispersion relation.
-		vec2 df_dxy = (a * window) * k * cos(dot(k, pos_xy) - omega * time);
-
-		normal_out_ws.x -= df_dxy.x;
-		normal_out_ws.y -= df_dxy.y;
-
-		// Slope variance this component accounts for.  The x slope is a*window*k_x*cos(phase), whose variance over the
-		// phase is (a*window*k_x)^2 / 2, and likewise for y; take the mean of the two axes for an isotropic estimate.
-		resolved_slope_var += square(window) * (square(a * k.x) + square(a * k.y)) * 0.25;
-
-		k_len += 0.3;
-	}
-
-	resolved_slope_var_out = resolved_slope_var;
-	return normal_out_ws;
-}
-
-
 // Perturbs a water normal by a random slope drawn from the unresolved part of the wave spectrum.  slope_var is the
 // per-axis variance of that part; the slope distribution of a sum of many uncorrelated components is Gaussian, and
 // this is the Box-Muller transform of two uniform randoms into an isotropic 2D Gaussian slope.
@@ -304,7 +235,9 @@ vec3 perturbNormalBySlope(vec3 normal_ws, float slope_var, float u1, float u2)
 
 	normal_ws.x -= r * cos(theta);
 	normal_ws.y -= r * sin(theta);
-	return normal_ws;
+
+	// Reflecting about N, and N.V as cos(incidence), both assume unit length.
+	return normalize(normal_ws);
 }
 
 
@@ -340,6 +273,30 @@ vec3 envReflectedRadiance(vec3 reflected_dir_ws, float roughness)
 	// change in the reflected direction slides the sample point across the cloud plane by a long way.  Cloud
 	// reflections therefore alias at grazing angles just like everything else here, and being higher contrast than
 	// the sky gradient they alias more visibly.
+#if VOLUMETRIC_CLOUDS
+	// Cirrus still comes from the flat layer; the cumulus is reflected from the directional cloud map, which
+	// already carries its own lighting and transmittance, so it composites exactly as it does over the sky.
+	// Unlike getCloudFrac() this is filtered, so the cloud reflection no longer aliases at grazing angles.
+	float cirrus_frac = getCirrusCloudFrac(pos_ws, reflected_dir_ws, time, fbm_tex, cirrus_tex);
+	spec_refl_light = mix(spec_refl_light, sun_and_sky_av_spec_rad.xyz, max(0.f, cirrus_frac));
+
+#if WATER_RAYMARCH_CLOUDS
+	// Marching the reflected ray gets the clouds actually above this point; the map has no parallax, which on
+	// water is visible.  Runs per sub-sample, hence the coarser step than the sky pass uses.  The aerial
+	// perspective inside needs distance from the camera: to the water, plus along the reflected ray.
+	const float WATER_CLOUD_STEP_SCALE = 3.0;
+
+	// Decorrelate the step phase between sub-samples, so their phase errors average out instead of matching.
+	float cloud_pixel_hash = fract(texture(blue_noise_tex, gl_FragCoord.xy * (1.0 / 64.0)).x +
+		fract(dot(reflected_dir_ws, vec3(12.9898, 78.233, 37.719)) * 43758.5453));
+
+	vec4 refl_cloud = raymarchClouds(pos_ws, reflected_dir_ws, /*scene dist=*/1.0e9, cloud_pixel_hash, WATER_CLOUD_STEP_SCALE,
+		/*aerial dist offset=*/distance(pos_ws, mat_common_campos_ws.xyz), fbm_tex);
+#else
+	vec4 refl_cloud = sampleCloudEnvMapWithParallax(pos_ws, reflected_dir_ws, mat_common_campos_ws.xyz, cloud_layer_mid_z, cloud_env_tex);
+#endif
+	spec_refl_light = spec_refl_light * refl_cloud.a + refl_cloud.rgb;
+#else
 	vec2 cloudfrac_cumulus_edge = getCloudFrac(pos_ws, reflected_dir_ws, time, fbm_tex, cirrus_tex);
 	float cloudfrac    = cloudfrac_cumulus_edge.x;
 	float cumulus_edge = cloudfrac_cumulus_edge.y;
@@ -349,6 +306,7 @@ vec3 envReflectedRadiance(vec3 reflected_dir_ws, float roughness)
 	vec3 suncloudcol = cloudcol * 2.5;
 	float blend = max(0.f, cumulus_edge) * pow(max(0.0, d), 32.0);// smoothstep(0.9, 0.9999892083461507, d);
 	spec_refl_light = mix(spec_refl_light, suncloudcol, blend);
+#endif
 
 	return spec_refl_light;
 }
@@ -523,9 +481,21 @@ void main()
 	// more than about twice the footprint width, e.g. if k < pi / footprint_w.
 	float k_nyquist = PI / max(footprint_w, 1.0e-5);
 
+	// The coarse end of the spectrum - everything below k_geom - is already displaced into the tessellated mesh by
+	// the vertex shader and is sitting in normal_ws, so sum only what is between that and what this pixel can
+	// resolve.  The vertex shader computed k_geom the same way, from the undisplaced world space position.
+	float k_geom = waterGeomCutoffK(pos_ws, mat_common_campos_ws.xyz);
+
 	// Sum the components this pixel can resolve.  This happens once, no matter how many samples are taken below.
+	// The components above k_nyquist are deliberately not summed.  They are not dropped either: resolved_slope_var
+	// comes back as the part of TOTAL_SLOPE_VAR that the geometry and this sum between them account for, so that the
+	// sub-samples below can put the remainder back stochastically, one Gaussian draw per sub-sample rather than more
+	// sin() calls.  That works because those components are, by definition, at effectively uncorrelated phase from
+	// one sub-pixel position to the next, so their sum over the footprint is Gaussian by the central limit theorem.
+	vec2 wave_slope;
 	float resolved_slope_var;
-	unit_normal_ws = waterNormalWS(pos_ws.xy, unit_normal_ws, k_nyquist, resolved_slope_var);
+	waterWaveSum(pos_ws.xy, time, /*k_lowpass=*/k_nyquist, /*k_highpass=*/k_geom, wave_slope, resolved_slope_var);
+	unit_normal_ws -= vec3(wave_slope, 0.0);
 
 	// Per-axis slope variance of everything the sum above left out.  The sub-samples below put this back stochastically.
 	float unresolved_slope_var = max(0.0, TOTAL_SLOPE_VAR - resolved_slope_var);
@@ -548,6 +518,10 @@ void main()
 	// sqrt(N).
 	// NOTE: each sample now runs its own screen space ray march.  Raise it for less noise, lower it for speed. 
 	const int MAX_WATER_SAMPLES = 4;
+
+	// How many times to redraw a facet whose reflection points below the horizon before giving up on it.  At
+	// grazing incidence a good fraction of the distribution is masked, so a couple of retries are common.
+	const int MAX_REFL_RESAMPLES = 4;
 	float unresolved_frac = unresolved_slope_var * (1.0 / TOTAL_SLOPE_VAR); // In [0, 1]
 	int num_samples = 1 + int(float(MAX_WATER_SAMPLES - 1) * smoothstep(0.0, 0.6, unresolved_frac) + 0.5);
 
@@ -590,7 +564,7 @@ void main()
 
 			float refracted_px = px; // Tex coords of point where refracted ray hits ground, starting at water surface
 			float refracted_py = py;
-			float prev_penetration_depth = 0.0;
+			float prev_penetration_depth = water_dist - ground_dist;
 			vec3 refracted_hitpos_ws = pos_ws; // World space position where refracted ray hits ground, starting at water surface
 			bool hit_ground = false;
 			for(int i=0; i<MAX_STEPS; ++i)
@@ -653,6 +627,7 @@ void main()
 
 			// For the TIR case, the path length is from the camera to the water surface, then from the water
 			// surface to the seafloor.
+			// NOTE: using this for colourForUnderwaterPoint is actually incorrect since the colour buffer already has water extinction.
 			float cam_to_ground_hit_dist = length(pos_cs) + final_refracted_water_ground_d;
 
 			// Distance from water surface to ground, along the sun direction.  Used for computing the caustic effect envelope.
@@ -682,6 +657,8 @@ void main()
 	{
 		// Reflect cam-to-fragment vector in ws normal
 		float unit_cam_to_pos_ws_dot_normal_ws = dot(unit_normal_ws, unit_cam_to_pos_ws);
+
+		// TODO: reflected_dir_ws only used for aurora now, move into that scope.
 		vec3 reflected_dir_ws = unit_cam_to_pos_ws - unit_normal_ws * (2.0 * unit_cam_to_pos_ws_dot_normal_ws);
 
 		if(reflected_dir_ws.z < 0.0)
@@ -718,9 +695,35 @@ void main()
 			vec3 sample_normal_ws = perturbNormalBySlope(unit_normal_ws, unresolved_slope_var, u1, u2);
 
 			float sample_n_dot_v = dot(sample_normal_ws, unit_cam_to_pos_ws);
+
+			// A back-facing facet can't be the one we are looking at, so draw another rather than keeping it.
+			// (Kept, it gets cos = 0 from the max() below, i.e. the brightest Fresnel there is.)
+			for(int attempt = 0; (attempt < MAX_REFL_RESAMPLES) && (sample_n_dot_v > 0.0); ++attempt)
+			{
+				u1 = fract(u1 + 0.61803399); // The stratification above is spent; irrational steps keep the retries spread.
+				u2 = fract(u2 + 0.75487766);
+
+				sample_normal_ws = perturbNormalBySlope(unit_normal_ws, unresolved_slope_var, u1, u2);
+				sample_n_dot_v = dot(sample_normal_ws, unit_cam_to_pos_ws);
+			}
+
+			if(sample_n_dot_v > 0.0) // Every attempt was back-facing: fall back to the unperturbed normal.
+			{
+				sample_normal_ws = unit_normal_ws;
+				sample_n_dot_v = dot(sample_normal_ws, unit_cam_to_pos_ws);
+			}
+
 			vec3 sample_refl_dir_ws = unit_cam_to_pos_ws - sample_normal_ws * (2.0 * sample_n_dot_v);
+
+			// A reflection below the horizon immediately re-hits the water, at 80-89 degrees incidence where it
+			// is a near-mirror.  Treat it as a specular skip off a locally horizontal neighbouring facet, which
+			// reflects the ray to -z with incidence cosine |z|.
+			float sample_skip_refl = 1.0;
 			if(sample_refl_dir_ws.z < 0.0)
-				sample_refl_dir_ws.z = 0.05;
+			{
+				sample_skip_refl = dielectricFresnelReflForIOR1_333(-sample_refl_dir_ws.z);
+				sample_refl_dir_ws.z = -sample_refl_dir_ws.z;
+			}
 
 			float sample_fresnel = dielectricFresnelReflForIOR1_333(max(0.0, -sample_n_dot_v));
 			fresnel_sum += sample_fresnel;
@@ -731,10 +734,10 @@ void main()
 			sample_hit = traceScreenSpaceRefl(sample_refl_dir_ws, sample_hit_col);
 #endif
 			if(sample_hit)
-				ssr_refl_sum += sample_hit_col * sample_fresnel;
+				ssr_refl_sum += sample_hit_col * sample_fresnel * sample_skip_refl;
 			else
 			{
-				env_refl_sum += envReflectedRadiance(sample_refl_dir_ws, roughness) * sample_fresnel;
+				env_refl_sum += envReflectedRadiance(sample_refl_dir_ws, roughness) * sample_fresnel * sample_skip_refl;
 				env_fresnel_sum += sample_fresnel;
 				num_env_samples += 1.0;
 			}

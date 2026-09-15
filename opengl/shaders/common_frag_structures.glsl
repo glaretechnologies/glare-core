@@ -22,7 +22,7 @@ layout (std140) uniform MaterialCommonUniforms
 	int camera_type; // OpenGLScene::CameraType
 
 	int mat_common_flags;
-	float padding_a0;
+	float cloud_layer_mid_z; // Altitude the cloud env map is parallax-corrected against.  See sampleCloudEnvMapWithParallax().
 	float padding_a1;
 	float padding_a2;
 

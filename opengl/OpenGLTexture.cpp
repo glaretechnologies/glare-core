@@ -48,6 +48,7 @@ OpenGLTexture::OpenGLTexture()
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	zres(0),
 	num_array_images(0),
 	MSAA_samples(-1),
 	num_mipmap_levels_allocated(0),
@@ -82,6 +83,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	zres(0),
 	num_array_images(num_array_images_),
 	num_mipmap_levels_allocated(0),
 	refcount(0),
@@ -119,6 +121,7 @@ OpenGLTexture::OpenGLTexture(size_t tex_xres, size_t tex_yres, OpenGLEngine* ope
 :	texture_handle(0),
 	xres(0),
 	yres(0),
+	zres(0),
 	num_array_images(0),
 	MSAA_samples(-1),
 	num_mipmap_levels_allocated(0),
@@ -387,6 +390,7 @@ std::string getStringForTextureTarget(GLenum texture_target)
 		case GL_TEXTURE_2D: return "GL_TEXTURE_2D";
 		case GL_TEXTURE_2D_MULTISAMPLE: return "GL_TEXTURE_2D_MULTISAMPLE";
 		case GL_TEXTURE_2D_ARRAY: return  "GL_TEXTURE_2D_ARRAY";
+		case GL_TEXTURE_3D: return "GL_TEXTURE_3D";
 		default: return "[Unknown]";
 	};
 }
@@ -547,6 +551,79 @@ void OpenGLTexture::createCubeMap(size_t tex_xres, size_t tex_yres, OpenGLEngine
 	this->total_storage_size_B = computeTotalStorageSizeB();
 	OpenGLEngine::GPUMemAllocated(getTotalStorageSizeB());
 }
+
+
+// Note that no MIP levels are allocated: the volumes this is used for are sampled at a roughly fixed rate
+// along a ray, so there is nothing for a MIP chain to do.
+void OpenGLTexture::create3DTexture(size_t tex_xres, size_t tex_yres, size_t tex_zres, OpenGLEngine* opengl_engine, ArrayRef<uint8> tex_data, OpenGLTextureFormat format_, Filtering filtering_,
+	Wrapping wrapping_)
+{
+	assert(tex_data.data() != NULL);
+	assert(filtering_ == Filtering_Nearest || filtering_ == Filtering_Bilinear); // Filtering_Fancy would need MIP levels, Filtering_PCF a depth format.
+
+	this->format = format_;
+	this->filtering = filtering_;
+	this->wrapping = wrapping_;
+	this->xres = tex_xres;
+	this->yres = tex_yres;
+	this->zres = tex_zres;
+	this->num_mipmap_levels_allocated = 1;
+	this->texture_target = GL_TEXTURE_3D;
+	this->m_opengl_engine = opengl_engine;
+
+	getGLFormat(format_, this->gl_internal_format, this->gl_format, this->gl_type);
+
+	const size_t storage_size_B = TextureData::computeStorageSizeB(tex_xres, tex_yres, format_, /*include MIP levels=*/false) * tex_zres;
+	runtimeCheck(tex_data.size() >= storage_size_B);
+
+	if(texture_handle)
+	{
+		glDeleteTextures(1, &texture_handle);
+		texture_handle = 0;
+	}
+
+	assert(m_opengl_engine);
+	if(m_opengl_engine)
+		texture_handle = m_opengl_engine->allocTextureName();
+	else
+		glGenTextures(1, &texture_handle);
+
+	assert(texture_handle != 0);
+
+	glActiveTexture(GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit).
+	glBindTexture(GL_TEXTURE_3D, texture_handle);
+
+	glTexStorage3D(GL_TEXTURE_3D, /*num levels=*/1, gl_internal_format, (GLsizei)tex_xres, (GLsizei)tex_yres, (GLsizei)tex_zres);
+
+	setPixelStoreAlignment(tex_xres, gl_format, gl_type);
+
+	glTexSubImage3D(
+		GL_TEXTURE_3D,
+		0, // LOD level
+		0, // x offset
+		0, // y offset
+		0, // z offset
+		(GLsizei)tex_xres, // width
+		(GLsizei)tex_yres, // height
+		(GLsizei)tex_zres, // depth
+		gl_format,
+		gl_type,
+		tex_data.data()
+	);
+
+	const GLint gl_wrapping = (wrapping_ == Wrapping_Clamp) ? GL_CLAMP_TO_EDGE : ((wrapping_ == Wrapping_MirroredRepeat) ? GL_MIRRORED_REPEAT : GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, gl_wrapping);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, gl_wrapping);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, gl_wrapping); // A repeating 3D texture has to repeat in z as well, or it wouldn't tile.
+
+	const GLint gl_filtering = (filtering_ == Filtering_Nearest) ? GL_NEAREST : GL_LINEAR;
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, gl_filtering);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, gl_filtering);
+
+	this->total_storage_size_B = computeTotalStorageSizeB();
+	OpenGLEngine::GPUMemAllocated(getTotalStorageSizeB());
+}
+
 
 static int num_textures_created = 0;
 [[maybe_unused]] static int num_texture_views_created = 0;
@@ -1037,6 +1114,8 @@ size_t OpenGLTexture::computeTotalStorageSizeB() const
 
 	if(texture_target == GL_TEXTURE_CUBE_MAP)
 		total_size *= 6;
+	else if(texture_target == GL_TEXTURE_3D)
+		total_size *= zres;
 
 	return total_size;
 }
