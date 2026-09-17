@@ -25,6 +25,11 @@ out vec3 pos_cs;
 #if GENERATE_PLANAR_UVS
 out vec3 pos_os;
 #endif
+
+#if NUM_DEPTH_TEXTURES > 0
+out vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
+#endif
+
 out vec3 pos_ws;
 out vec2 texture_coords;
 out vec3 cam_to_pos_ws;
@@ -169,6 +174,11 @@ void main()
 	normal_cs = (view_matrix * (normal_skin_matrix * vec4(final_normal_in, 0.0))).xyz;
 #endif //-------------------------
 	//texture_coords = texture_coords_0_in;
+
+#if NUM_DEPTH_TEXTURES > 0
+	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
+		shadow_tex_coords[i] = (shadow_texture_matrix[i] * vec4(pos_ws, 1.0)).xyz;
+#endif
 
 	texture_coords = texture_coords_0_in * uv0_scale;
 

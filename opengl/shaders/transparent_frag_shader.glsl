@@ -11,6 +11,12 @@ in vec3 cam_to_pos_ws;
 flat in ivec4 light_indices_0;
 flat in ivec4 light_indices_1;
 
+#if NUM_DEPTH_TEXTURES > 0
+in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
+#endif
+
+uniform sampler2DShadow dynamic_depth_tex;
+uniform sampler2DShadow static_depth_tex;
 uniform sampler2D specular_env_tex;
 uniform sampler2D fbm_tex;
 uniform sampler2D cirrus_tex;
@@ -286,7 +292,11 @@ void main()
 		float spec_refl_cos_theta = abs(dot(frag_to_cam, unit_normal_cs));
 		float spec_refl_fresnel = dielectricFresnelReflForIOR2(spec_refl_cos_theta);
 
-		float sun_vis_factor = 1.0f; // TODO: use shadow mapping to compute this.
+#if NUM_DEPTH_TEXTURES > 0
+		float sun_vis_factor = getShadowMappingSunVisFactorFast(shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pos_cs);
+#else
+		float sun_vis_factor = 1.0;
+#endif
 		vec4 sun_light = sun_spec_rad_times_solid_angle * sun_vis_factor;
 
 	
@@ -301,7 +311,7 @@ void main()
 #else
 		col += transmission_col * 0.5 * sun_and_sky_av_spec_rad;
 
-		alpha = spec_refl_fresnel + sun_specular;
+		alpha = spec_refl_fresnel + sun_specular * sun_vis_factor;
 		col.xyz *= alpha; // To apply an alpha factor to the source colour if desired, we can just multiply by alpha in the fragment shader.
 #endif
 	}
