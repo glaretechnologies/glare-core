@@ -28,11 +28,28 @@ Copyright Glare Technologies Limited 2021 -
 #include <mfapi.h>
 #include <mferror.h>
 #include <mfreadwrite.h>
-#include <mfidl.h>
 #include <d3d11.h>
 #include <d3d11_4.h>
 
 
+/*
+WMFVideoReader stuttering in Substrata
+======================================
+Stutters with DO_VIDEO_TEXTURE_DISPLAY = false in substrata\gui_client\AnimatedTextureManager.cpp
+Stutters with DO_VIDEO_TEXTURE_DISPLAY = false in substrata\gui_client\AnimatedTextureManager.cpp and COPY_D3D_TEXTURES = false below.
+
+stutters with the above and MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING = FALSE
+
+with DO_VIDEO_TEXTURE_DISPLAY = false in substrata\gui_client\AnimatedTextureManager.cpp and COPY_D3D_TEXTURES = false below, and with GPU_DECODE = false: 
+	no stutter
+
+
+So WMF for video decoding seems to intrinsically cause stutters in GPU rendering in the same process.
+
+Claude suggests using libavformat and libavcodec from FFmpeg to parse and extract compressed video data, and decoding the extracted video data with DirectX Video Acceleration (DXVA).
+This is what Chromium does apparently.
+
+*/
 static const bool GPU_DECODE = true;
 
 
@@ -612,6 +629,8 @@ WMFVideoReader::~WMFVideoReader()
 
 double WMFVideoReader::getSourceDuration() const
 {
+	ZoneScoped; // Tracy profiler
+
 	if(reader.ptr)
 	{
 		PROPVARIANT prop;
@@ -630,6 +649,7 @@ double WMFVideoReader::getSourceDuration() const
 void WMFVideoReader::startReadingNextSample()
 {
 	assert(async_mode);
+	ZoneScoped; // Tracy profiler
 
 	if(reader.ptr)
 	{
@@ -653,6 +673,7 @@ void WMFVideoReader::startReadingNextSample()
 Reference<SampleInfo> WMFVideoReader::getAndLockNextSample(bool just_get_vid_sample)
 {
 	assert(!async_mode);
+	ZoneScoped; // Tracy profiler
 
 	ComObHandle<IMFSample> cur_sample;
 
@@ -867,6 +888,8 @@ void WMFVideoReader::OnReadSample(
 	IMFSample* pSample // A pointer to the IMFSample interface of a media sample. This parameter might be NULL.
 )
 {
+	ZoneScoped; // Tracy profiler
+
 	if(SUCCEEDED(hrStatus))
 	{
 		num_pending_reads--;
@@ -1168,6 +1191,8 @@ void WMFVideoReader::seekToStart()
 
 void WMFVideoReader::seek(double time)
 {
+	ZoneScoped; // Tracy profiler
+
 	if(read_from_video_device)
 		return; // Can't seek reading from a webcam etc.
 
@@ -1185,6 +1210,8 @@ void WMFVideoReader::seek(double time)
 
 WMFSampleInfo* WMFVideoReader::allocWMFSampleInfo()
 {
+	ZoneScoped; // Tracy profiler
+
 	// Allocate from pool allocator
 	auto res = frame_info_allocator->alloc();
 	//void* mem = frame_info_allocator->alloc(sizeof(WMFSampleInfo), 16);
