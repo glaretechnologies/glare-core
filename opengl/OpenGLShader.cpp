@@ -11,15 +11,19 @@ Copyright Glare Technologies Limited 2023 -
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include <tracy/Tracy.hpp>
 
 
 #define GL_SHADER                         0x82E1
+#define GL_COMPLETION_STATUS_KHR          0x91B1
 
 
 OpenGLShader::OpenGLShader(const std::string& path_, const std::string& version_directive, const std::string& preprocessor_defines, GLenum shader_type)
 :	shader(0),
 	path(path_)
 {
+	ZoneScoped; // Tracy profiler
+
 	shader = glCreateShader(shader_type);
 	if(shader == 0)
 		throw glare::Exception("Failed to create OpenGL shader.");
@@ -78,12 +82,26 @@ OpenGLShader::OpenGLShader(const std::string& path_, const std::string& version_
 
 OpenGLShader::~OpenGLShader()
 {
+	ZoneScoped; // Tracy profiler
+
 	glDeleteShader(shader);
+}
+
+
+bool OpenGLShader::checkCompilingDone()
+{
+	ZoneScoped; // Tracy profiler
+
+	GLint compiling_done_val = 0;
+	glGetShaderiv(shader, GL_COMPLETION_STATUS_KHR, &compiling_done_val);
+	return compiling_done_val != 0;
 }
 
 
 std::string OpenGLShader::getLog()
 {
+	ZoneScoped; // Tracy profiler
+
 	// Get log length including null terminator
 	GLint log_length = 0;
 	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);

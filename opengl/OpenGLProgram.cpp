@@ -62,9 +62,12 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	program_index(program_index_),
 	supports_gpu_resident(false),
 	uses_skinning(false),
-	built_successfully(false)
+	built_successfully(false),
+	shaders_finished_compiling(false),
+	started_linking(false)
 {
 	ZoneScoped; // Tracy profiler
+	ZoneText(prog_name_.c_str(), prog_name_.size());
 
 	// conPrint("Creating OpenGLProgram " + prog_name_ + "...");
 	build_start_time = Clock::getCurTimeRealSec();
@@ -72,32 +75,40 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	vert_shader = vert_shader_;
 	frag_shader = frag_shader_;
 
-	program = glCreateProgram();
-	if(program == 0)
-		throw glare::Exception("Failed to create OpenGL program '" + prog_name + "'.");
+	{
+		ZoneScopedN("glCreateProgram");
+		program = glCreateProgram();
+		if(program == 0)
+			throw glare::Exception("Failed to create OpenGL program '" + prog_name + "'.");
+	}
 
-	if(vert_shader.nonNull()) glAttachShader(program, vert_shader->shader);
-	if(frag_shader.nonNull()) glAttachShader(program, frag_shader->shader);
+	if(vert_shader) glAttachShader(program, vert_shader->shader);
+	if(frag_shader) glAttachShader(program, frag_shader->shader);
 
-	// Bind shader input variables.
-	// This corresponds to the order we supply vertex attributes in our mesh VAOs.
-	// This needs to go before glLinkProgram()
-	glBindAttribLocation(program, 0, "position_in");
-	glBindAttribLocation(program, 1, "normal_in");
-	glBindAttribLocation(program, 1, "imposter_width_in");
-	glBindAttribLocation(program, 2, "texture_coords_0_in");
-	glBindAttribLocation(program, 3, "vert_colours_in");
-	glBindAttribLocation(program, 3, "imposter_rot_in");
-	glBindAttribLocation(program, 4, "lightmap_coords_in");
-	glBindAttribLocation(program, 5, "instance_matrix_in"); // uses attribute indices 5, 6, 7, 8
-	//glBindAttribLocation(program, 9, "instance_colour_in");
-	glBindAttribLocation(program, 9, "joint");
-	glBindAttribLocation(program, 10, "weight");
-	glBindAttribLocation(program, 11, "tangent_in");
-	glBindAttribLocation(program, 12, "combined_mat_index_in");
 
-	for(size_t i=0; i<extra_args.input_vert_attribute_bindings.size(); ++i)
-		glBindAttribLocation(program, extra_args.input_vert_attribute_bindings[i].index, extra_args.input_vert_attribute_bindings[i].name.c_str());
+	{
+		ZoneScopedN("Bind shader input variables");
+
+		// Bind shader input variables.
+		// This corresponds to the order we supply vertex attributes in our mesh VAOs.
+		// This needs to go before glLinkProgram()
+		glBindAttribLocation(program, 0, "position_in");
+		glBindAttribLocation(program, 1, "normal_in");
+		glBindAttribLocation(program, 1, "imposter_width_in");
+		glBindAttribLocation(program, 2, "texture_coords_0_in");
+		glBindAttribLocation(program, 3, "vert_colours_in");
+		glBindAttribLocation(program, 3, "imposter_rot_in");
+		glBindAttribLocation(program, 4, "lightmap_coords_in");
+		glBindAttribLocation(program, 5, "instance_matrix_in"); // uses attribute indices 5, 6, 7, 8
+		//glBindAttribLocation(program, 9, "instance_colour_in");
+		glBindAttribLocation(program, 9, "joint");
+		glBindAttribLocation(program, 10, "weight");
+		glBindAttribLocation(program, 11, "tangent_in");
+		glBindAttribLocation(program, 12, "combined_mat_index_in");
+
+		for(size_t i=0; i<extra_args.input_vert_attribute_bindings.size(); ++i)
+			glBindAttribLocation(program, extra_args.input_vert_attribute_bindings[i].index, extra_args.input_vert_attribute_bindings[i].name.c_str());
+	}
 
 	// Declare the transform feedback captures.  Like the attribute bindings above this has to go before glLinkProgram(),
 	// since the linker decides the layout of the captured data and stops the captured outputs being optimised away.
@@ -110,12 +121,13 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 		glTransformFeedbackVaryings(program, (GLsizei)varying_names.size(), varying_names.data(), GL_INTERLEAVED_ATTRIBS);
 	}
 
-	glLinkProgram(program);
-
 	// conPrint("Start of OpenGL program '" + prog_name + "' build took " + doubleToStringNDecimalPlaces(Clock::getCurTimeRealSec() - build_start_time, 4) + " s");
 
 	if(wait_for_build_to_complete)
 	{
+		glLinkProgram(program);
+		started_linking = true;
+
 		forceFinishLinkAndDoPostLinkCode();
 
 		// conPrint("================== Blocking build of OpenGL program '" + prog_name + "' took " + doubleToStringNDecimalPlaces(Clock::getCurTimeRealSec() - build_start_time, 4) + " s ==================");
@@ -133,8 +145,16 @@ OpenGLProgram::~OpenGLProgram()
 
 void OpenGLProgram::forceFinishLinkAndDoPostLinkCode()
 {
+	ZoneScoped; // Tracy profiler
+
 	if(built_successfully) // If already done, don't do again
 		return;
+
+	if(!started_linking)
+	{
+		glLinkProgram(program);
+		started_linking = true;
+	}
 
 	// Get link status.  This should force the compilation and linking to complete, if it hasn't already.
 	GLint program_ok;
@@ -193,11 +213,39 @@ void OpenGLProgram::forceFinishLinkAndDoPostLinkCode()
 
 bool OpenGLProgram::checkLinkingDone()
 {
+	ZoneScoped; // Tracy profiler
+
 	//if((Clock::getCurTimeRealSec() - build_start_time) < 10.0) return; // TEMP DEBUG simulate long build time
 
-	GLint linking_done_val = 0;
-	glGetProgramiv(program, GL_COMPLETION_STATUS_KHR, &linking_done_val);
-	return linking_done_val != 0;
+	if(!shaders_finished_compiling)
+	{
+		// Poll the shaders to see if they have compiled
+		if(vert_shader && !vert_shader->checkCompilingDone())
+			return false;
+
+		if(frag_shader && !frag_shader->checkCompilingDone())
+			return false;
+
+		// Start linking:
+		if(!started_linking)
+		{
+			ZoneScopedN("glLinkProgram");
+			glLinkProgram(program);
+			started_linking = true;
+		}
+
+		shaders_finished_compiling = true;
+		return false; // Need to return false otherwise AMD drivers will block while querying GL_COMPLETION_STATUS_KHR below.
+	}
+
+	// If the shaders have built, see if the linking has done:
+	{
+		ZoneScopedN("program GL_COMPLETION_STATUS_KHR query");
+
+		GLint linking_done_val = 0;
+		glGetProgramiv(program, GL_COMPLETION_STATUS_KHR, &linking_done_val);
+		return linking_done_val != 0;
+	}
 }
 
 

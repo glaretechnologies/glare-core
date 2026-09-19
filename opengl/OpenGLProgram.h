@@ -286,6 +286,8 @@ public:
 
 	std::string prog_name;
 
+	bool shaders_finished_compiling;
+	bool started_linking;
 	bool built_successfully;
 	bool uses_phong_uniforms; // Does fragment shader use a PhongUniforms uniform block?
 	bool is_depth_draw;

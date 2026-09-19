@@ -2971,6 +2971,7 @@ static const bool PRINT_PROG_BUILD_TIMES = false;
 // Called when a program that has been asynchronously compiling+linking has finished.
 void OpenGLEngine::finishBuildingProg(OpenGLProgram* prog)
 {
+	ZoneScoped; // Tracy profiler
 	// conPrint("================== Async building OpenGL program '" + prog->prog_name + "' took " + doubleToStringNDecimalPlaces(Clock::getCurTimeRealSec() - prog->build_start_time, 4) + " s ==================");
 
 	prog->forceFinishLinkAndDoPostLinkCode();
@@ -3338,6 +3339,8 @@ OpenGLProgramRef OpenGLEngine::buildFinalImagingProg()
 
 OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
+	ZoneScoped; // Tracy profiler
+
 	if(progs[key] == NULL)
 	{
 		Timer timer;
@@ -3377,6 +3380,8 @@ OpenGLProgramRef OpenGLEngine::getPhongProgram(const ProgramKey& key) // Throws 
 
 void OpenGLEngine::doPostBuildForPhongProgram(OpenGLProgramRef phong_prog)
 {
+	ZoneScoped; // Tracy profiler
+
 	getUniformLocations(phong_prog);
 	setStandardTextureUnitUniformsForProgram(*phong_prog);
 
@@ -3421,6 +3426,7 @@ void OpenGLEngine::doPostBuildForPhongProgram(OpenGLProgramRef phong_prog)
 
 OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
+	ZoneScoped; // Tracy profiler
 	// TODO: use buildProgram() below
 
 	if(progs[key] == NULL)
@@ -3462,6 +3468,8 @@ OpenGLProgramRef OpenGLEngine::getTransparentProgram(const ProgramKey& key) // T
 
 void OpenGLEngine::doPostBuildForTransparentProgram(OpenGLProgramRef prog)
 {
+	ZoneScoped; // Tracy profiler
+
 	getUniformLocations(prog);
 	setStandardTextureUnitUniformsForProgram(*prog);
 
@@ -3516,6 +3524,8 @@ void OpenGLEngine::addProgram(OpenGLProgramRef prog)
 // shader_name_prefix should be something like "water" or "participating_media"
 OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix, const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
+	ZoneScoped; // Tracy profiler
+
 	if(progs[key] == NULL)
 	{
 		Timer timer;
@@ -3600,6 +3610,8 @@ OpenGLProgramRef OpenGLEngine::buildProgram(const string_view shader_name_prefix
 
 OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Throws glare::Exception on shader compilation failure.
 {
+	ZoneScoped; // Tracy profiler
+
 	if(progs[key] == NULL)
 	{
 		Timer timer;
@@ -3640,6 +3652,8 @@ OpenGLProgramRef OpenGLEngine::getImposterProgram(const ProgramKey& key) // Thro
 
 OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Throws glare::Exception on shader compilation failure.
 {
+	ZoneScoped; // Tracy profiler
+
 	// Only some fields are relevant for picking the correct depth draw prog.  Set the other options to false to avoid unnecessary state changes.
 	ProgramKey key = key_;
 	
@@ -3703,6 +3717,8 @@ OpenGLProgramRef OpenGLEngine::getDepthDrawProgram(const ProgramKey& key_) // Th
 
 void OpenGLEngine::doPostBuildForDepthDrawProgram(OpenGLProgramRef prog)
 {
+	ZoneScoped; // Tracy profiler
+
 	getUniformLocations(prog);
 	setStandardTextureUnitUniformsForProgram(*prog);
 
@@ -5547,6 +5563,10 @@ bool OpenGLEngine::checkUseProgram(const OpenGLProgram* prog)
 
 		// conPrint("---- checkUseProgram(): Changed to program " + prog->prog_name + " ----");
 
+		assert(prog->isBuilt());
+		//if(!prog->isBuilt())
+		//	runtimeCheckFailed("================================ ERROR: using program that is not built! ====================================");
+
 		prog->useProgram();
 		current_bound_prog = prog;
 		current_bound_prog_index = prog->program_index;
@@ -5577,6 +5597,8 @@ bool OpenGLEngine::checkUseProgram(uint32 prog_index)
 		// conPrint("---- checkUseProgram(): Changed to program " + prog->prog_name + " ----");
 
 		assert(prog->isBuilt());
+		//if(!prog->isBuilt())
+		//	runtimeCheckFailed("================================ ERROR: using program that is not built! ====================================");
 
 		prog->useProgram();
 		current_bound_prog = prog;
