@@ -50,6 +50,9 @@ static void readFromSubVoxFileStream(RandomAccessInStream& stream, SubVoxFileCon
 	const uint32 num_mats = stream.readUInt32();
 	content_out.materials_size = num_mats;
 
+	if(num_mats > 4096)
+		throw glare::Exception("too many used materials in SubVox file: " + toString(num_mats));
+
 	// Read voxel counts for each material
 	size_t total_num_voxels = 0;
 	std::vector<uint32> mat_vox_counts(num_mats);
@@ -248,6 +251,27 @@ void FormatDecoderSubVox::readSubVoxFileFromData(const uint8* data, size_t datal
 
 
 #include "../utils/TestUtils.h"
+#include "../utils/FileUtils.h"
+
+
+#if 1
+// Command line:
+// C:\fuzz_corpus\subvox c:\code\glare-core\testfiles\subvox
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	try
+	{
+		SubVoxFileContents contents;
+		FormatDecoderSubVox::readSubVoxFileFromData(data, size, contents);
+	}
+	catch(glare::Exception&)
+	{
+	}
+
+	return 0;  // Non-zero return values are reserved for future use.
+}
+#endif
 
 
 static Vec3<int> computeMinBounds(const SubVoxVoxelGroup& group)
@@ -302,9 +326,100 @@ static void testWritingAndReadingGroup(const SubVoxVoxelGroup& group)
 }
 
 
+#define WRITE_FUZZ_SEEDS 0
+#if WRITE_FUZZ_SEEDS
+
+
+// Write out a set of valid .subvox files for use as a libFuzzer seed corpus.  See docs/fuzzing.txt.
+// The seeds aim to cover the structural variation in the format: no voxels, one voxel, one material, many materials,
+// material buckets with zero voxels in them, negative and large coordinates, and a body large enough to give the zstd
+// payload some real structure.
+static void writeFuzzSeeds(const std::string& dir)
+{
+	FileUtils::createDirIfDoesNotExist(dir);
+
+	//---------------- No voxels: zero materials, empty compressed payload ----------------
+	{
+		SubVoxVoxelGroup group;
+		FormatDecoderSubVox::writeSubVoxFile(dir + "/empty.subvox", group);
+	}
+
+	//---------------- A single voxel ----------------
+	{
+		SubVoxVoxelGroup group;
+		group.voxels.push_back(SubVoxVoxel(Vec3i(0,0,0), /*mat index=*/0));
+		FormatDecoderSubVox::writeSubVoxFile(dir + "/single_voxel.subvox", group);
+	}
+
+	//---------------- Several voxels, all with the same material ----------------
+	{
+		SubVoxVoxelGroup group;
+		group.voxels.push_back(SubVoxVoxel(Vec3i(0,0,0), /*mat index=*/0));
+		group.voxels.push_back(SubVoxVoxel(Vec3i(1,0,0), /*mat index=*/0));
+		group.voxels.push_back(SubVoxVoxel(Vec3i(0,1,0), /*mat index=*/0));
+		FormatDecoderSubVox::writeSubVoxFile(dir + "/single_material.subvox", group);
+	}
+
+	//---------------- One voxel in each of several materials ----------------
+	{
+		SubVoxVoxelGroup group;
+		group.voxels.push_back(SubVoxVoxel(Vec3i(0,0,0), /*mat index=*/0));
+		group.voxels.push_back(SubVoxVoxel(Vec3i(1,0,0), /*mat index=*/1));
+		group.voxels.push_back(SubVoxVoxel(Vec3i(0,1,0), /*mat index=*/2));
+		FormatDecoderSubVox::writeSubVoxFile(dir + "/multiple_materials.subvox", group);
+	}
+
+	//---------------- Sparse material indices, so most material buckets have a voxel count of zero ----------------
+	{
+		SubVoxVoxelGroup group;
+		group.voxels.push_back(SubVoxVoxel(Vec3i(0,0,0), /*mat index=*/0));
+		group.voxels.push_back(SubVoxVoxel(Vec3i(1,0,0), /*mat index=*/10));
+		group.voxels.push_back(SubVoxVoxel(Vec3i(0,1,0), /*mat index=*/20));
+		FormatDecoderSubVox::writeSubVoxFile(dir + "/sparse_material_indices.subvox", group);
+	}
+
+	//---------------- Negative coordinates ----------------
+	{
+		SubVoxVoxelGroup group;
+		group.voxels.push_back(SubVoxVoxel(Vec3i(-10,0,-30), /*mat index=*/0));
+		group.voxels.push_back(SubVoxVoxel(Vec3i(-1,-1,-1), /*mat index=*/1));
+		group.voxels.push_back(SubVoxVoxel(Vec3i(0,1,0), /*mat index=*/2));
+		FormatDecoderSubVox::writeSubVoxFile(dir + "/negative_coords.subvox", group);
+	}
+
+	//---------------- Coordinates far from the origin, giving large relative positions between voxels ----------------
+	{
+		SubVoxVoxelGroup group;
+		group.voxels.push_back(SubVoxVoxel(Vec3i(-(1 << 28), 1 << 28, -(1 << 28)), /*mat index=*/0));
+		group.voxels.push_back(SubVoxVoxel(Vec3i(1 << 28, -(1 << 28), 1 << 28), /*mat index=*/0));
+		FormatDecoderSubVox::writeSubVoxFile(dir + "/large_coords.subvox", group);
+	}
+
+	//---------------- A solid 16^3 cube spread over 4 materials ----------------
+	{
+		SubVoxVoxelGroup group;
+		for(int z=0; z<16; ++z)
+		for(int y=0; y<16; ++y)
+		for(int x=0; x<16; ++x)
+			group.voxels.push_back(SubVoxVoxel(Vec3i(x, y, z), /*mat index=*/(x + y + z) % 4));
+
+		FormatDecoderSubVox::writeSubVoxFile(dir + "/cube_16.subvox", group);
+	}
+
+	conPrint("Wrote fuzz seeds to '" + dir + "'.");
+}
+
+
+#endif // WRITE_FUZZ_SEEDS
+
+
 void FormatDecoderSubVox::test()
 {
 	conPrint("FormatDecoderSubVox::test()");
+
+#if WRITE_FUZZ_SEEDS
+	writeFuzzSeeds(TestUtils::getTestReposDir() + "/testfiles/subvox");
+#endif
 
 	//---------------- Test empty voxel group ----------------
 	{
