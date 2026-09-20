@@ -250,7 +250,7 @@ LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 		}
 		else
 		{
-			if((cur_ai_model.provider == AIModel::Provider_Anthropic))
+			if(cur_ai_model.provider == AIModel::Provider_Anthropic)
 			{
 				post_content += "\"content\":[";
 
