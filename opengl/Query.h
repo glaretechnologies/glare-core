@@ -49,10 +49,13 @@ public:
 private:
 	GLARE_DISABLE_COPY(Query)
 
+#if !defined(OSX) // If queries are supported:
 	GLuint query_id;
-	State state;
+#endif
 
+	State state;
 	double last_time_elapsed;
+
 };
 
 

@@ -32,8 +32,10 @@ public:
 private:
 	GLARE_DISABLE_COPY(TimestampQuery)
 
+#if !defined(OSX) // If queries are supported:
 	static const int NUM_QUERIES = 8; // Still get stalls with 4 queries.
 	GLuint query_ids[NUM_QUERIES];
+#endif
 
 	int next_query_i;
 	int largest_queried_i;
