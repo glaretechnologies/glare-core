@@ -34,6 +34,31 @@ void writeRawString(ReplyInfo& reply_info, const std::string& s)
 }
 
 
+// Returns false if the value contains characters that would let it break out of its header line.  The ones that matter are CR and
+// LF, but we reject all control characters, which also excludes HTAB - technically legal in a field value, but nothing we write
+// needs it.
+bool isValidHeaderValue(const string_view value)
+{
+	for(size_t i=0; i<value.size(); ++i)
+	{
+		const unsigned char c = (unsigned char)value[i];
+		if(c < 0x20 || c == 0x7f)
+			return false;
+	}
+
+	return true;
+}
+
+
+void writeHeader(ReplyInfo& reply_info, const string_view name, const string_view value)
+{
+	if(!isValidHeaderValue(value))
+		throw glare::Exception("Invalid character in value for HTTP header '" + toString(name) + "'.");
+
+	writeRawString(reply_info, toString(name) + ": " + toString(value) + "\r\n");
+}
+
+
 void writeData(ReplyInfo& reply_info, const void* data, size_t datalen)
 {
 	reply_info.socket->writeData(data, datalen);
@@ -148,7 +173,10 @@ void writeHTTPOKHeaderWithCacheControlAndContentEncoding(ReplyInfo& reply_info, 
 
 void writeRedirectTo(ReplyInfo& reply_info, const std::string& url)
 {
-	const std::string response = 
+	if(!isValidHeaderValue(url))
+		throw glare::Exception("Invalid character in URL for redirect.");
+
+	const std::string response =
 		"HTTP/1.1 302 Redirect\r\n"
 		"Location: " + url + "\r\n"
 		"Content-Length: 0\r\n"
@@ -366,6 +394,22 @@ void web::ResponseUtils::test()
 	testAssert(getPrefixWithStrippedTags("hello<a>bc<a>there", /*max len=*/100) == "hellobcthere");
 	
 	testAssert(getPrefixWithStrippedTags("hello<a there", /*max len=*/100) == "hello");
+
+
+	//------------------------------- isValidHeaderValue -------------------------------
+	testAssert(isValidHeaderValue(""));
+	testAssert(isValidHeaderValue("/"));
+	testAssert(isValidHeaderValue("/parcel/123?msg=hi"));
+	testAssert(isValidHeaderValue("site-b=abc+de/fg==; Path=/; Max-Age=7776000; HttpOnly"));
+	testAssert(isValidHeaderValue("https://example.com/a b")); // Space is allowed in a field value.
+
+	testAssert(!isValidHeaderValue("/\r\nSet-Cookie: site-b=evil"));
+	testAssert(!isValidHeaderValue("/\r"));
+	testAssert(!isValidHeaderValue("/\n"));
+	testAssert(!isValidHeaderValue("\r\n\r\n<html>evil</html>"));
+	testAssert(!isValidHeaderValue(std::string("/abc\0def", 8))); // Embedded NUL.
+	testAssert(!isValidHeaderValue("/abc\tdef"));
+	testAssert(!isValidHeaderValue("/abc\x7f" "def"));
 }
 
 

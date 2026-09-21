@@ -208,6 +208,22 @@ void WorkerThread::parseHeaderValue(Parser& parser, std::string& header_value_ou
 }
 
 
+// A header field name or value may contain visible characters, spaces and horizontal tabs.  See RFC 7230, 3.2.
+// A bare LF in particular must not be accepted: some clients, proxies and caches treat one as a line terminator (RFC 7230, 3.5),
+// so a value containing one can inject extra header lines into any response that writes the value back out.
+static bool headerFieldCharsValid(const string_view s)
+{
+	for(size_t i=0; i<s.size(); ++i)
+	{
+		const unsigned char c = (unsigned char)s[i];
+		if((c < 0x20 && c != '\t') || c == 0x7f)
+			return false;
+	}
+
+	return true;
+}
+
+
 // Handle a single HTTP request.
 // The request header is in [socket_buffer[request_start_index], socket_buffer[request_start_index + request_header_size])
 // Returns if should keep connection alive.
@@ -305,6 +321,11 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 			throw WebsiteExcep("Parser error while parsing header fields");
 
 		// TODO: trim optional trailing whitespace after field value? See https://datatracker.ietf.org/doc/html/rfc7230#section-3.2
+
+		// NOTE: parseToChar() above stops at '\r' but will read over a bare '\n', and the field name scan will read over both,
+		// so check both for characters that aren't allowed in a header field.
+		if(!headerFieldCharsValid(field_name) || !headerFieldCharsValid(field_value))
+			throw WebsiteExcep("Invalid character in header field");
 
 		parser.consume('\r'); // Advance past \r
 		if(!parser.parseChar('\n')) // Advance past \n

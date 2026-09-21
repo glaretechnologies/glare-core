@@ -28,6 +28,15 @@ namespace ResponseUtils
 {
 	void writeRawString(ReplyInfo& reply_info, const std::string& s);
 
+	// Returns false if the value contains characters that would let it break out of its header line, in particular CR and LF.
+	// Any value that is derived from a request (a URL, a cookie, a filename etc.) should be checked with this before being written into a header.
+	bool isValidHeaderValue(const string_view value);
+
+	// Writes a "name: value" header line.  Throws glare::Exception if the value is not a valid header value (see isValidHeaderValue()).
+	// NOTE: writes directly to the socket, so a throw here leaves a partially-written response.  Callers that build a response from
+	// several attacker-influenced values should check them with isValidHeaderValue() up front instead.
+	void writeHeader(ReplyInfo& reply_info, const string_view name, const string_view value);
+
 	// Text
 	void writeHTTPOKHeaderAndData(ReplyInfo& reply_info, const void* data, size_t datalen);
 

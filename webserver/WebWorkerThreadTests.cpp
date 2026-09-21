@@ -188,6 +188,42 @@ static void testPacketBreaksWithRequest(const std::string& request, int expected
 }
 
 
+// Runs a request through a worker thread, and returns the number of requests that reached the request handler.
+// Calls doRunMainLoop() rather than doRun(), since doRun() catches the exception thrown when a request is rejected.
+// Throws WebsiteExcep if the request is rejected.
+static int numRequestsHandledForRequest(const std::string& request)
+{
+	TestSocketRef test_socket = new TestSocket();
+	test_socket->buffers.push_back(std::vector<uint8>(request.begin(), request.end()));
+
+	Reference<TestRequestHandler> request_handler = new TestRequestHandler();
+	Reference<web::WorkerThread> worker = new web::WorkerThread(0, test_socket, request_handler, /*tls connection=*/false);
+
+	worker->doRunMainLoop();
+
+	return request_handler->num_requests_handled;
+}
+
+
+// Checks that the request is rejected, i.e. that handling it throws.
+static void testRequestIsRejected(const std::string& request)
+{
+	try
+	{
+		numRequestsHandledForRequest(request);
+
+		failTest("Expected request to be rejected: '" + request + "'");
+	}
+	catch(WebsiteExcep&)
+	{}
+}
+
+
+// Checks that the request is accepted and reaches the request handler.
+static void testRequestIsAccepted(const std::string& request)
+{
+	testAssert(numRequestsHandledForRequest(request) == 1);
+}
 
 
 static void testConnectAndRequest(const std::string& request)
@@ -642,6 +678,16 @@ void WebWorkerThreadTests::test()
 		testPacketBreaksWithRequest(CRLFCRLF, 0);
 		testPacketBreaksWithRequest(CRLFCRLF + CRLFCRLF, 0);
 		testPacketBreaksWithRequest(CRLFCRLF + CRLFCRLF + CRLFCRLF, 0);
+	}
+
+	// A header field name or value containing a character that isn't allowed in one should get the request rejected.
+	{
+		testRequestIsAccepted("GET / HTTP/1.1" + CRLF + "Host: example.com" + CRLFCRLF);
+		testRequestIsAccepted("GET / HTTP/1.1" + CRLF + "Host: a\tb" + CRLFCRLF); // HTAB is allowed in a value.
+
+		testRequestIsRejected("GET / HTTP/1.1" + CRLF + "Host: example.com\nSet-Cookie: a=b" + CRLFCRLF); // Bare LF in value.
+		testRequestIsRejected("GET / HTTP/1.1" + CRLF + "Ho\nst: example.com" + CRLFCRLF); // Bare LF in name.
+		testRequestIsRejected("GET / HTTP/1.1" + CRLF + std::string("Host: a\0b", 9) + CRLFCRLF); // Embedded NUL in value.
 	}
 	
 	// Create and launch a server listener thread.
