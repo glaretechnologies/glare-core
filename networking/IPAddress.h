@@ -50,6 +50,7 @@ public:
 	const std::string toString() const;
 
 	bool operator == (const IPAddress& other) const;
+	bool operator < (const IPAddress& other) const;
 
 
 	// For IPv6, returns a string like [1fff:0:a88:85a3::ac1f]:8001  (see http://stackoverflow.com/questions/186829/ipv6-and-ports)

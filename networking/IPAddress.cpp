@@ -193,6 +193,16 @@ bool IPAddress::operator == (const IPAddress& other) const
 }
 
 
+bool IPAddress::operator < (const IPAddress& other) const
+{
+	if(version != other.version)
+		return version < other.version;
+
+	const size_t num_address_bytes = (version == Version_4) ? 4 : 16; // Only the first 4 bytes of address are used for IPv4.
+	return std::memcmp(address, other.address, num_address_bytes) < 0;
+}
+
+
 const std::string IPAddress::formatIPAddressAndPort(const IPAddress& ipaddress, int port)
 {
 	if(ipaddress.getVersion() == IPAddress::Version_6)
@@ -331,6 +341,29 @@ void IPAddress::test()
 		IPAddress a("127.0.0.1");
 		testAssert(a.getVersion() == IPAddress::Version_4);
 		testAssert(a.toString() == "127.0.0.1");
+	}
+	catch(NetworkingExcep& e)
+	{
+		failTest(e.what());
+	}
+
+	// Test operator <
+	try
+	{
+		const IPAddress a("1.2.3.4");
+		const IPAddress b("1.2.3.5");
+		const IPAddress a2("1.2.3.4");
+		const IPAddress v6("::1");
+
+		testAssert(a < b);
+		testAssert(!(b < a));
+
+		testAssert(!(a < a));				// Irreflexive.
+		testAssert(!(a < a2) && !(a2 < a));	// Equal addresses are equivalent under the ordering.
+		testAssert(a == a2);
+
+		testAssert((a < v6) != (v6 < a));	// IPv4 and IPv6 addresses are ordered consistently, and are never equivalent.
+		testAssert(!(a == v6));
 	}
 	catch(NetworkingExcep& e)
 	{
