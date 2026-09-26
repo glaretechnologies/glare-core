@@ -141,21 +141,18 @@ static int Vec3dEqualityOperator(lua_State* state)
 }
 
 
-LuaVM::LuaVM()
+bool LuaVM::static_init_called = false;
+
+
+LuaVM::LuaVM(const LuaVMOptions& options_)
 :	state(NULL),
+	options(options_),
 	total_allocated(0),
 	total_allocated_high_water_mark(0),
 	max_total_mem_allowed(std::numeric_limits<int64>::max()),
 	init_finished(false)
 {
-	// Set LuauRecursionLimit to 256.  The default value of 1000 is too high - get a stack overflow in some cases.  See https://github.com/luau-lang/luau/issues/1277
-	Luau::FValue<int>* cur = Luau::FValue<int>::list;
-	while(cur)
-	{
-		if(stringEqual(cur->name, "LuauRecursionLimit"))
-			cur->value = 256;
-		cur = cur->next;
-	}
+	runtimeCheck(static_init_called);
 
 	try
 	{
@@ -171,6 +168,13 @@ LuaVM::LuaVM()
 
 		lua_pushcfunction(state, Vec3dConstructor, /*debugname=*/"Vec3d");
 		lua_setglobal(state, "Vec3d");
+
+		// Set the caller's global functions.  These come after the built-ins above so they can replace one.
+		for(size_t i=0; i<options.c_funcs.size(); ++i)
+		{
+			lua_pushcfunction(state, options.c_funcs[i].func, /*debugname=*/options.c_funcs[i].func_name.c_str()); // "Important: Luau does not copy the debugname, the pointer lifetime has to encompass the lifetime of the VM." (https://luau.org/api/)
+			lua_setglobal(state, options.c_funcs[i].func_name.c_str());
+		}
 
 		//--------------------------- Create Vec3d Metatable ---------------------------
 		lua_createtable(state, /*num array elems=*/0, /*num non-array elems=*/4); // Create metatable
@@ -204,6 +208,21 @@ LuaVM::~LuaVM()
 }
 
 
+void LuaVM::staticInit()
+{
+	// Set LuauRecursionLimit to 256.  The default value of 1000 is too high - get a stack overflow in some cases.  See https://github.com/luau-lang/luau/issues/1277
+	Luau::FValue<int>* cur = Luau::FValue<int>::list;
+	while(cur)
+	{
+		if(stringEqual(cur->name, "LuauRecursionLimit"))
+			cur->value = 256;
+		cur = cur->next;
+	}
+
+	static_init_called = true;
+}
+
+
 void LuaVM::finishInitAndSandbox()
 {
 	try
@@ -219,6 +238,7 @@ void LuaVM::finishInitAndSandbox()
 
 
 // Assumes table is on top of stack.
+// Important: Luau does not copy the debugname, the pointer lifetime has to encompass the lifetime of the VM.
 void LuaVM::setCFunctionAsTableField(lua_CFunction fn, const char* debugname, const char* field_key)
 {
 	assert(lua_istable(state, -1));

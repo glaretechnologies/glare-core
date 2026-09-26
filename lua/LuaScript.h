@@ -6,25 +6,13 @@ Copyright Glare Technologies Limited 2024 -
 #pragma once
 
 
+#include "LuaVM.h" // For LuaCFunction
 #include <utils/Exception.h>
 #include <Luau/Location.h>
 #include <string>
 #include <vector>
 #include <limits>
-class LuaVM;
 class LuaScript;
-struct lua_State;
-typedef int (*lua_CFunction)(lua_State* L);
-
-
-struct LuaCFunction
-{
-	LuaCFunction() {}
-	LuaCFunction(lua_CFunction func_, const std::string& func_name_) : func(func_), func_name(func_name_) {}
-
-	lua_CFunction func;
-	std::string func_name;
-};
 
 
 class LuaScriptOutputHandler
@@ -41,6 +29,10 @@ struct LuaScriptOptions
 	LuaScriptOptions() : max_num_interrupts(std::numeric_limits<size_t>::max()), script_output_handler(NULL), userdata(NULL) {}
 
 	size_t max_num_interrupts;
+
+	// Name the script is known by in error messages, e.g. the path of the file it came from.  Luau puts it in front of the line
+	// number of a runtime error, and messageWithLocations() puts it in front of a compile error.  "script" if left empty.
+	std::string chunkname;
 
 	std::vector<LuaCFunction> c_funcs;
 
@@ -66,7 +58,8 @@ public:
 	LuaScriptExcepWithLocation(const std::string& msg_) : glare::Exception(msg_) {}
 
 	std::string messageWithLocations();
-	
+
+	std::string chunkname; // See LuaScriptOptions::chunkname.  Left out of the message when empty.
 	std::vector<LuaScriptParseError> errors;
 };
 
@@ -74,7 +67,8 @@ public:
 /*=====================================================================
 LuaScript
 ---------
-
+A single Lua script.
+We can have multiple Lua scripts running on one Lua VM.
 =====================================================================*/
 class LuaScript
 {

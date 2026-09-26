@@ -64,7 +64,9 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 
 		const std::string bytecode = bytecode_builder.getBytecode();
 
-		const std::string chunkname = "script";
+		// Luau prints a chunkname starting with '@' as-is, and wraps any other one as [string "..."], so a name we were given gets
+		// the prefix in order to read as a plain file:line: location.
+		const std::string chunkname = options.chunkname.empty() ? std::string("script") : ("@" + options.chunkname);
 		const int result = luau_load(thread_state, chunkname.c_str(), bytecode.c_str(), bytecode.size(), /*env=*/0);
 		if(result != 0)
 		{
@@ -91,6 +93,7 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 			lua_unref(lua_vm->state, thread_ref);
 
 		LuaScriptExcepWithLocation loc_excep(e.what());
+		loc_excep.chunkname = options.chunkname;
 		for(size_t i=0; i<e.getErrors().size(); ++i)
 			loc_excep.errors.push_back(LuaScriptParseError(e.getErrors()[i].getMessage(), e.getErrors()[i].getLocation()));
 
@@ -103,6 +106,7 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 			lua_unref(lua_vm->state, thread_ref);
 
 		LuaScriptExcepWithLocation loc_excep(e.what());
+		loc_excep.chunkname = options.chunkname;
 		loc_excep.errors.push_back(LuaScriptParseError(e.getMessage(), e.getLocation()));
 
 		throw loc_excep;
@@ -152,6 +156,15 @@ std::string LuaScriptExcepWithLocation::messageWithLocations()
 	std::string msg;// = what();
 
 	for(size_t i=0; i<errors.size(); ++i)
-		msg += "Line " + toString(errors[i].location.begin.line + 1) + ", col " + toString(errors[i].location.begin.column + 1) + ": " + errors[i].msg + "\n";
+	{
+		const std::string line = toString(errors[i].location.begin.line + 1);
+		const std::string col  = toString(errors[i].location.begin.column + 1);
+
+		// Name the script when we know what it's called, in the file:line:col form editors and tools expect.
+		if(chunkname.empty())
+			msg += "Line " + line + ", col " + col + ": " + errors[i].msg + "\n";
+		else
+			msg += chunkname + ":" + line + ":" + col + ": " + errors[i].msg + "\n";
+	}
 	return msg;
 }

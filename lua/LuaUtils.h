@@ -35,6 +35,7 @@ public:
 	static LuaFuncRefAndPtr getRefToFunction(lua_State* state, const char* func_name);
 
 	// Assumes table is on top of stack.
+	// Important: Luau does not copy the debugname, the pointer lifetime has to encompass the lifetime of the VM.
 	static void setCFunctionAsTableField(lua_State* state, lua_CFunction fn, const char* debugname, const char* field_key);
 	// Assumes table is on top of stack
 	static inline void setLightUserDataAsTableField(lua_State* state, const char* field_key, void* val);
