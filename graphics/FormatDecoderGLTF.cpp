@@ -15,7 +15,6 @@ Copyright Glare Technologies Limited 2021 -
 #include "../utils/BufferViewInStream.h"
 #include "../utils/StringUtils.h"
 #include "../utils/ConPrint.h"
-#include "../utils/FileUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/IncludeXXHash.h"
 #include "../utils/FileOutStream.h"
@@ -152,7 +151,7 @@ struct GLTFMaterial : public RefCounted
 {
 	GLARE_ALIGNED_16_NEW_DELETE
 
-	GLTFMaterial() : KHR_materials_pbrSpecularGlossiness_present(false), doubleSided(false) {}
+	GLTFMaterial() : KHR_materials_pbrSpecularGlossiness_present(false), doubleSided(false), emissiveStrength(1.f) {}
 
 	std::string name;
 	std::string alphaMode;
@@ -178,6 +177,7 @@ struct GLTFMaterial : public RefCounted
 
 	GLTFTextureObject emissiveTexture;
 	Colour3f emissiveFactor;
+	float emissiveStrength; // From KHR_materials_emissive_strength extension.
 
 	GLTFTextureObject normalTexture;
 };
@@ -1494,7 +1494,7 @@ static void processMaterial(GLTFData& data, GLTFMaterial& mat, const std::string
 		mat_out.roughness = pow(1.0f - mat.glossinessFactor, 0.6666666f);
 	}
 
-	mat_out.emissive_factor = mat.emissiveFactor;
+	mat_out.emissive_factor = mat.emissiveFactor * mat.emissiveStrength;
 	if(mat.emissiveTexture.valid())
 	{
 		GLTFTexture& texture = getTexture(data, mat.emissiveTexture.index);
@@ -1648,7 +1648,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFile(const std::string& pathnam
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	return loadGLBFileFromData(file.fileData(), file.fileSize(), gltf_base_dir, /*write_images_to_disk=*/true, data_out);
+	return loadGLBFileFromData(file.fileData(), file.fileSize(), gltf_base_dir, /*write_images_to_disk=*/true, /*restrict_uris_to_base_dir=*/false, data_out);
 }
 
 
@@ -1657,7 +1657,7 @@ static_assert(sizeof(GLBChunkHeader) == 8, "sizeof(GLBChunkHeader) == 8");
 
 
 // Takes raw data pointer so we can use for fuzzing.
-Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_data, const size_t file_size, const std::string& gltf_base_dir, bool write_images_to_disk, GLTFLoadedData& data_out)
+Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_data, const size_t file_size, const std::string& gltf_base_dir, bool write_images_to_disk, bool restrict_uris_to_base_dir, GLTFLoadedData& data_out)
 {
 	BufferViewInStream stream(ArrayRef<uint8>((const uint8*)file_data, file_size));
 
@@ -1733,7 +1733,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLBFileFromData(const void* file_d
 	JSONParser parser;
 	parser.parseBuffer((const char*)file_data + 20, json_header.chunk_length);
 
-	return loadGivenJSON(parser, gltf_base_dir, buffer, write_images_to_disk, data_out);
+	return loadGivenJSON(parser, gltf_base_dir, buffer, write_images_to_disk, restrict_uris_to_base_dir, data_out);
 }
 
 
@@ -1743,20 +1743,76 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGLTFFile(const std::string& pathna
 
 	const std::string gltf_base_dir = FileUtils::getDirectory(pathname);
 
-	return loadGLTFFileFromData(file.fileData(), file.fileSize(), gltf_base_dir, /*write_images_to_disk=*/true, data_out);
+	return loadGLTFFileFromData(file.fileData(), file.fileSize(), gltf_base_dir, /*write_images_to_disk=*/true, /*restrict_uris_to_base_dir=*/false, data_out);
 }
 
 
-Reference<BatchedMesh> FormatDecoderGLTF::loadGLTFFileFromData(const void* data, const size_t datalen, const std::string& gltf_base_dir, bool write_images_to_disk, GLTFLoadedData& data_out)
+Reference<BatchedMesh> FormatDecoderGLTF::loadGLTFFileFromData(const void* data, const size_t datalen, const std::string& gltf_base_dir, bool write_images_to_disk, bool restrict_uris_to_base_dir, GLTFLoadedData& data_out)
 {
 	JSONParser parser;
 	parser.parseBuffer((const char*)data, datalen);
 
-	return loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, write_images_to_disk, data_out);
+	return loadGivenJSON(parser, gltf_base_dir, /*glb_bin_buffer=*/NULL, write_images_to_disk, restrict_uris_to_base_dir, data_out);
 }
 
 
-Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, bool write_images_to_disk,
+// Decodes percent-encoded characters (e.g. "%20") in a URI path.  Throws glare::Exception on an invalid escape sequence.
+// Unlike form-encoding, '+' is a literal character in a URI path, so is not decoded to a space.
+static std::string percentDecodeURIPath(const std::string& uri)
+{
+	std::string path;
+	path.reserve(uri.size());
+	for(size_t i=0; i<uri.size(); ++i)
+	{
+		if(uri[i] == '%')
+		{
+			if(i + 2 >= uri.size())
+				throw glare::Exception("Invalid percent-encoding in URI.");
+			path.push_back((char)((hexCharToUInt(uri[i + 1]) << 4) + hexCharToUInt(uri[i + 2]))); // hexCharToUInt throws StringUtilsExcep on invalid hex chars.
+			i += 2;
+		}
+		else
+			path.push_back(uri[i]);
+	}
+	return path;
+}
+
+
+// Percent-decodes a URI referencing an external file, and checks the resulting path.  Throws glare::Exception if the URI is invalid or not allowed.
+// glTF external URIs must be relative paths, with reserved characters percent-encoded.  See https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#uris
+// Absolute paths (including Windows network paths) and URI schemes are rejected.
+// If restrict_to_base_dir is true, '..' path components are rejected as well.
+static std::string decodeAndCheckExternalURIPath(const std::string& uri, bool restrict_to_base_dir)
+{
+	const std::string path = percentDecodeURIPath(uri);
+
+	if(path.empty())
+		throw glare::Exception("Empty URI.");
+	if(path.find('\0') != std::string::npos)
+		throw glare::Exception("Invalid URI: contains a NUL character.");
+	if(FileUtils::isPathAbsolute(path) || (path.find(':') != std::string::npos))
+		throw glare::Exception("URI must be a relative path.");
+
+	if(restrict_to_base_dir)
+	{
+		// Check each path component, treating both slashes as separators.
+		size_t component_start = 0;
+		for(size_t i=0; i<=path.size(); ++i)
+		{
+			if(i == path.size() || path[i] == '/' || path[i] == '\\')
+			{
+				if(path.compare(component_start, i - component_start, "..") == 0)
+					throw glare::Exception("URI must not contain '..' path components.");
+				component_start = i + 1;
+			}
+		}
+	}
+
+	return path;
+}
+
+
+Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, bool write_images_to_disk, bool restrict_uris_to_base_dir,
 	GLTFLoadedData& data_out) // throws glare::Exception on failure
 {
 	const JSONNode& root = parser.nodes[0];
@@ -1798,6 +1854,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 						buffer->binary_data = buffer->decoded_base64_data.data();
 						buffer->data_size = buffer->decoded_base64_data.size();
 					}
+					else // Else the URI refers to an external file:
+						buffer->uri = decodeAndCheckExternalURIPath(buffer->uri, restrict_uris_to_base_dir);
 				}
 				else
 				{
@@ -1869,6 +1927,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				if(image_node.hasChild("uri"))
 				{
 					image->uri = image_node.getChildStringValue(parser, "uri");
+					if(!hasPrefix(image->uri, "data:")) // If the URI refers to an external file:
+						image->uri = decodeAndCheckExternalURIPath(image->uri, restrict_uris_to_base_dir);
 				}
 				else // Else image is embedded in GLB file:
 				{
@@ -1929,6 +1989,13 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 						mat->specularFactor = parseColour3ChildArrayWithDefault(parser, pbr_node, "specularFactor", Colour3f(1, 1, 1));
 						mat->glossinessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "glossinessFactor", 1.0);
 						mat->specularGlossinessTexture = parseTextureIfPresent(parser, pbr_node, "specularGlossinessTexture");
+					}
+
+					if(extensions_node.hasChild("KHR_materials_emissive_strength"))
+					{
+						const JSONNode& strength_node = extensions_node.getChildObject(parser, "KHR_materials_emissive_strength");
+
+						mat->emissiveStrength = (float)strength_node.getChildDoubleValueWithDefaultVal(parser, "emissiveStrength", 1.0);
 					}
 				}
 
@@ -2288,7 +2355,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			{
 				const std::string& extension = parser.nodes[extensions_node.child_indices[z]].getStringValue();
 
-				if(extension == "KHR_materials_pbrSpecularGlossiness")
+				if(extension == "KHR_materials_pbrSpecularGlossiness" || extension == "KHR_materials_emissive_strength")
 				{}
 				else
 					throw glare::Exception("Unsupported extension that file requires: '" + extension + "'");
@@ -3333,6 +3400,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 	return 0;
 }
 
+#if 0
 static int iter = 0;
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
@@ -3343,7 +3411,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 		//iter++;
 
 		GLTFLoadedData loaded_data;
-		FormatDecoderGLTF::loadGLBFileFromData(data, size, "dummy_path", /*write_images_to_disk=*/false, loaded_data);
+		FormatDecoderGLTF::loadGLBFileFromData(data, size, "dummy_path", /*write_images_to_disk=*/false, /*restrict_uris_to_base_dir=*/true, loaded_data);
 	
 		//conPrint("parsed ok");
 	}
@@ -3354,6 +3422,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	}
 	return 0;  // Non-zero return values are reserved for future use.
 }
+#endif
 
 #if 0
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
@@ -3361,7 +3430,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	try
 	{
 		GLTFLoadedData loaded_data;
-		FormatDecoderGLTF::loadGLTFFileFromData(data, size, "dummy_path", /*write_images_to_disk=*/false, loaded_data);
+		FormatDecoderGLTF::loadGLTFFileFromData(data, size, "dummy_path", /*write_images_to_disk=*/false, /*restrict_uris_to_base_dir=*/true, loaded_data);
 	
 		conPrint("parsed ok");
 	}
@@ -3377,9 +3446,128 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #endif // FUZZING
 
 
+#if 1
+// Fuzzing of decodeAndCheckExternalURIPath().
+// Checks that accepted URIs are relative paths, and when restricting to the base dir, that the URI joined to the base dir can't resolve to a path outside it.
+// Uses std::filesystem path handling as an independent check of the path logic.
+//
+// Command line:
+// C:\fuzz_corpus\gltf_uri -max_len=256 -dict=C:\code\glare-core\testfiles\fuzz_seeds\gltf_uri_dictionary.txt
+
+#include <filesystem>
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	const std::string uri((const char*)data, size);
+
+	for(int restrict=0; restrict<2; ++restrict)
+	{
+		const bool restrict_to_base_dir = restrict != 0;
+
+		std::string path;
+		try
+		{
+			path = decodeAndCheckExternalURIPath(uri, restrict_to_base_dir);
+		}
+		catch(glare::Exception&)
+		{
+			continue; // Rejected
+		}
+
+		bool accepted_path_ok = true;
+		try
+		{
+			const std::filesystem::path rel(path);
+			if(rel.has_root_name() || rel.has_root_directory() || rel.is_absolute())
+				accepted_path_ok = false;
+
+			if(restrict_to_base_dir)
+			{
+				// Join to the base dir the same way as the loader, then check the normalised path still starts with all components of the base dir.
+				const std::filesystem::path base("fuzz_base/dir");
+				const std::filesystem::path resolved = std::filesystem::path(base.string() + "/" + path).lexically_normal();
+
+				auto r = resolved.begin();
+				for(auto b = base.begin(); b != base.end(); ++b, ++r)
+					if(r == resolved.end() || *r != *b)
+					{
+						accepted_path_ok = false;
+						break;
+					}
+			}
+		}
+		catch(std::exception&)
+		{
+			// std::filesystem can fail to convert some byte sequences to a native path.  Skip those.
+		}
+
+		if(!accepted_path_ok)
+			failTest("Accepted URI escapes the base dir or is not a relative path: '" + uri + "' (restrict=" + toString(restrict) + ")");
+	}
+	return 0;
+}
+#endif
+
+
+static void testURIRejected(const std::string& uri, bool restrict_to_base_dir)
+{
+	bool rejected = false;
+	try
+	{
+		decodeAndCheckExternalURIPath(uri, restrict_to_base_dir);
+	}
+	catch(glare::Exception&)
+	{
+		rejected = true;
+	}
+	if(!rejected)
+		failTest("Expected URI to be rejected: " + uri);
+}
+
+
 void FormatDecoderGLTF::test()
 {
 	conPrint("FormatDecoderGLTF::test()");
+
+	//================= Test decodeAndCheckExternalURIPath =================
+	{
+		// Valid relative paths
+		testAssert(decodeAndCheckExternalURIPath("mesh.bin", true) == "mesh.bin");
+		testAssert(decodeAndCheckExternalURIPath("textures/wood.png", true) == "textures/wood.png");
+		testAssert(decodeAndCheckExternalURIPath("my%20texture.png", true) == "my texture.png");
+		testAssert(decodeAndCheckExternalURIPath("a+b.png", true) == "a+b.png"); // '+' is literal in a URI path
+		testAssert(decodeAndCheckExternalURIPath("a..b.png", true) == "a..b.png"); // '..' within a component is fine
+
+		// '..' components are allowed only when not restricting to the base dir
+		testAssert(decodeAndCheckExternalURIPath("../textures/wood.png", false) == "../textures/wood.png");
+		testURIRejected("../textures/wood.png", true);
+		testURIRejected("textures/../../secret.bin", true);
+		testURIRejected("textures\\..\\..\\secret.bin", true);
+		testURIRejected("..", true);
+		testURIRejected("%2E%2E/secret.bin", true); // Encoded '..'
+		testURIRejected("%2E%2E%2Fsecret.bin", true); // Encoded '../'
+
+		// Absolute paths, network paths and schemes are always rejected
+		for(int restrict=0; restrict<2; ++restrict)
+		{
+			testURIRejected("/etc/passwd", restrict != 0);
+			testURIRejected("\\secret.bin", restrict != 0);
+			testURIRejected("C:/secret.bin", restrict != 0);
+			testURIRejected("C:secret.bin", restrict != 0);
+			testURIRejected("\\\\attacker.example\\share\\mesh.bin", restrict != 0);
+			testURIRejected("%5C%5Cattacker.example%5Cshare%5Cmesh.bin", restrict != 0); // Encoded network path
+			testURIRejected("%2Fetc%2Fpasswd", restrict != 0); // Encoded absolute path
+			testURIRejected("file:///etc/passwd", restrict != 0);
+			testURIRejected("http://example.com/mesh.bin", restrict != 0);
+		}
+
+		// Invalid encodings
+		testURIRejected("", true);
+		testURIRejected("%", true);
+		testURIRejected("a%2", true);
+		testURIRejected("a%zzb", true);
+		testURIRejected("a%00b", true); // Encoded NUL
+	}
 
 	//================= Test writeBatchedMeshToGLBFile =================
 	/*try

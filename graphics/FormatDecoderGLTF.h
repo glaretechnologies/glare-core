@@ -94,12 +94,14 @@ public:
 
 	static void test();
 
-	// For fuzz testing:
-	static Reference<BatchedMesh> loadGLBFileFromData(const void* data, const size_t datalen, const std::string& gltf_base_dir, bool write_images_to_disk, GLTFLoadedData& data_out);
+	// External buffer and image URIs must be relative paths (after percent-decoding); absolute paths and URI schemes are rejected.
+	// If restrict_uris_to_base_dir is true, URIs with '..' path components are also rejected, so only files in or below gltf_base_dir can be referenced.
+	// Use restrict_uris_to_base_dir = true when loading untrusted files.
+	static Reference<BatchedMesh> loadGLBFileFromData(const void* data, const size_t datalen, const std::string& gltf_base_dir, bool write_images_to_disk, bool restrict_uris_to_base_dir, GLTFLoadedData& data_out);
 
-	static Reference<BatchedMesh> loadGLTFFileFromData(const void* data, const size_t datalen, const std::string& gltf_base_dir, bool write_images_to_disk, GLTFLoadedData& data_out);
+	static Reference<BatchedMesh> loadGLTFFileFromData(const void* data, const size_t datalen, const std::string& gltf_base_dir, bool write_images_to_disk, bool restrict_uris_to_base_dir, GLTFLoadedData& data_out);
 private:
-	static Reference<BatchedMesh> loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer, bool write_images_to_disk,
+	static Reference<BatchedMesh> loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const Reference<GLTFBuffer>& glb_bin_buffer, bool write_images_to_disk, bool restrict_uris_to_base_dir,
 		GLTFLoadedData& data_out); // throws glare::Exception on failure
 
 	static void makeGLTFJSONAndBin(const BatchedMesh& mesh, const std::string& bin_path, std::string& json_out, js::Vector<uint8, 16>& bin_out);
