@@ -28,7 +28,8 @@ BatchedMeshRef buildSimplifiedMesh(const BatchedMesh& mesh, float target_reducti
 BatchedMeshRef removeSmallComponents(const BatchedMeshRef mesh, float target_error);
 
 // index_map_out is a map from old to new index.
-BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, std::vector<uint32>& index_map_out, glare::TaskManager& task_manager);
+// Triangles are kept if hit by any ray from num_dirs directions, with res * res parallel rays per direction.  res must be >= 2.
+BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, std::vector<uint32>& index_map_out, glare::TaskManager& task_manager, int num_dirs = 32, int res = 1024);
 
 void test();
 

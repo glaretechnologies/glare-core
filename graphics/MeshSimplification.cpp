@@ -591,9 +591,21 @@ BatchedMeshRef removeSmallComponents(const BatchedMeshRef mesh_, float target_er
 	if(pos_attr.component_type != BatchedMesh::ComponentType_Float)
 		throw glare::Exception("Mesh simplification needs float position type.");
 
-	// Build adjacency info, build tris vector.
-	
 	const size_t vertex_size_B = mesh.vertexSize(); // In bytes
+
+	// Reject non-finite positions, as they can make an edge key compare equal to the empty key of edge_indices_map below:
+	// an edge with both ends at +inf equals it, and with /fp:fast, float comparisons against NaN can return true.
+	const size_t num_verts = mesh.numVerts();
+	for(size_t v=0; v<num_verts; ++v)
+	{
+		Vec3f pos;
+		std::memcpy(&pos, &mesh.vertex_data[pos_attr.offset_B + vertex_size_B * v], sizeof(Vec3f));
+		if(!pos.isFinite())
+			throw glare::Exception("Mesh simplification requires finite vertex positions.");
+	}
+
+	// Build adjacency info, build tris vector.
+
 	const size_t triangles_in_size = mesh.numIndices() / 3;
 
 	const Vec3f inf_vec(std::numeric_limits<float>::infinity());
@@ -828,8 +840,8 @@ struct ShootRaysTask : public glare::Task
 			if(next_i >= res * res)
 				return;
 
-			assert(next_i + num_rays_per_atomic_access <= res * res);
-			for(int i=next_i; i<next_i + num_rays_per_atomic_access; ++i)
+			const int end_i = myMin(next_i + num_rays_per_atomic_access, res * res);
+			for(int i=next_i; i<end_i; ++i)
 			{
 				const int px = i % res;
 				const int py = i / res;
@@ -866,8 +878,10 @@ struct ShootRaysTask : public glare::Task
 };
 
 
-BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, std::vector<uint32>& index_map_out, glare::TaskManager& task_manager)
+BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, std::vector<uint32>& index_map_out, glare::TaskManager& task_manager, int num_dirs, int res)
 {
+	runtimeCheck(num_dirs >= 1 && res >= 2);
+
 #if RAYMESH_TRACING_SUPPORT
 	RayMesh raymesh("raymesh", false);
 	raymesh.fromBatchedMesh(*mesh);
@@ -890,8 +904,6 @@ BatchedMeshRef removeInvisibleTriangles(const BatchedMeshRef mesh, std::vector<u
 	for(size_t i=0; i<myMax<size_t>(1, task_manager.getConcurrency()); ++i)
 		task_group->tasks.push_back(new ShootRaysTask());
 
-	const int num_dirs = 32;
-	const int res = 1024;
 	for(int i=0; i<num_dirs; ++i)
 	{
 		// Pick a direction using the Fibonacci lattice:  (https://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/#more-3069)

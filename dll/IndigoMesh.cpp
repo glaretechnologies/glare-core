@@ -359,14 +359,14 @@ void Mesh::endOfModel()
 	for(size_t i=0; i<triangles.size(); ++i)
 		max_mat_index = indigoMax(max_mat_index, triangles[i].tri_mat_index);
 
-	if(max_mat_index > 100000000) // Avoid overflow and wrap back to zero when computing num_materials_referenced.
-		throw IndigoException("Invalid max mat index: " + toIndigoString(toString(max_mat_index)) + " (too large)");
-
 	for(size_t i=0; i<quads.size(); ++i)
 		max_mat_index = indigoMax(max_mat_index, quads[i].mat_index);
 
 	//for(size_t i=0; i<this->chunks.size(); ++i)
 	//	max_mat_index = indigoMax(max_mat_index, this->chunks[i].mat_index);
+
+	if(max_mat_index > 100000000) // Avoid overflow and wrap back to zero when computing num_materials_referenced.
+		throw IndigoException("Invalid max mat index: " + toIndigoString(toString(max_mat_index)) + " (too large)");
 
 	num_materials_referenced = max_mat_index + 1;
 

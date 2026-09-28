@@ -254,7 +254,7 @@ void FormatDecoderSubVox::readSubVoxFileFromData(const uint8* data, size_t datal
 #include "../utils/FileUtils.h"
 
 
-#if 1
+#if 0
 // Command line:
 // C:\fuzz_corpus\subvox c:\code\glare-core\testfiles\subvox
 

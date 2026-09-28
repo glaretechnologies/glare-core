@@ -30,7 +30,8 @@ Copyright Glare Technologies Limited 2020
 
 
 BatchedMesh::BatchedMesh()
-:	uv0_scale(1),
+:	index_type(ComponentType_UInt16),
+	uv0_scale(1),
 	uv1_scale(1)
 {
 }
@@ -176,6 +177,15 @@ Reference<BatchedMesh> BatchedMesh::buildFromIndigoMesh(const Indigo::Mesh& mesh
 	const size_t pos_size = sizeof(float)*3;
 	const size_t packed_normal_size = 4; // 4 bytes since we are using GL_INT_2_10_10_10_REV format.
 	const size_t packed_uv_size = use_half_uvs ? sizeof(half)*2 : sizeof(float)*2;
+
+	// Check material indices before sorting by material below, as the counting sorts allocate a bucket for each material index up to the max.
+	// Uses the same limit as checkValidAndSanitiseMesh().
+	for(size_t t=0; t<num_tris; ++t)
+		if(tris[t].tri_mat_index >= 10000)
+			throw glare::Exception("Too many materials referenced.");
+	for(size_t q=0; q<num_quads; ++q)
+		if(quads[q].mat_index >= 10000)
+			throw glare::Exception("Too many materials referenced.");
 
 	/*
 	Vertex data layout is
@@ -1436,6 +1446,10 @@ Reference<BatchedMesh> BatchedMesh::readFromData(const void* data, size_t data_l
 
 		const size_t num_indices = header.index_data_size_B / componentTypeSize((ComponentType)header.index_type);
 
+		// Check num_indices is a multiple of 3 now, required for meshopt_decodeIndexBuffer below.
+		if((num_indices % 3) != 0)
+			throw glare::Exception("Invalid num_indices, must be multiple of 3.");
+
 		const uint32 MAX_INDEX_DATA_SIZE = 1 << 29; // 512 MB
 		if(header.index_data_size_B > MAX_INDEX_DATA_SIZE)
 			throw glare::Exception("Invalid index_data_size_B (too large).");
@@ -2018,22 +2032,27 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 			{
 				float weights[4];
 				std::memcpy(weights, &vert_data[i * vert_size_B + weights_offset_B], sizeof(float) * 4);
-				/*const float sum = (weights[0] + weights[1]) + (weights[2] + weights[3]);
+
+				//const float sum = (weights[0] + weights[1]) + (weights[2] + weights[3]);
+				//if(sum != 1.0)
+				//	printVar(sum);
+				const float sum = (weights[0] + weights[1]) + (weights[2] + weights[3]);
 				if(sum < 0.9999f || sum >= 1.0001f)
 				{
-				if(std::fabs(sum) < 1.0e-3f)
-				{
-				weights[0] = 1.f;
-				std::memcpy(&vert_data[i * vert_size_B + weights_offset_B], weights, sizeof(float) * 4); // Copy back to vertex data
+					if(std::fabs(sum) < 1.0e-3f)
+					{
+						weights[0] = 1.f;
+						std::memcpy(&vert_data[i * vert_size_B + weights_offset_B], weights, sizeof(float) * 4); // Copy back to vertex data
+					}
+					else
+					{
+						const float scale = 1 / sum;
+						for(int c=0; c<4; ++c) 
+							weights[c] *= scale;
+						std::memcpy(&vert_data[i * vert_size_B + weights_offset_B], weights, sizeof(float) * 4); // Copy back to vertex data
+					}
 				}
-				else
-				{
-				const float scale = 1 / sum;
-				for(int c=0; c<4; ++c) weights[c] *= scale;
-				std::memcpy(&vert_data[i * vert_size_B + weights_offset_B], weights, sizeof(float) * 4); // Copy back to vertex data
-				}
-				}*/
-
+			
 				if(weights[0] == 0 && weights[1] == 0 && weights[2] == 0 && weights[3] == 0)
 				{
 					weights[0] = 1.f;
@@ -2041,6 +2060,8 @@ void BatchedMesh::checkValidAndSanitiseMesh()
 				}
 			}
 		}
+		else
+			throw glare::Exception("Invalid component type for weight attribute: " + componentTypeString(weight_attr->component_type));
 
 		//conPrint("Checking weight data took " + timer.elapsedStringNSigFigs(4));
 	}
