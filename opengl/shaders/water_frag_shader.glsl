@@ -443,6 +443,109 @@ bool traceScreenSpaceRefl(vec3 reflected_dir_ws, out vec3 hit_col_out)
 
 	return hit_something;
 }
+
+
+// Past this distance along the refracted ray, the water attenuates the scene to nothing (transmittance < exp(-0.2 * 40) ~= 3.4e-4, see extinction in
+// colourForUnderwaterPoint()), so the refracted ray is not traced further.
+const float MAX_WATER_REFR_DIST = 40.0;
+
+
+// Returns the distance along the refracted ray, from the water surface, of the point on the ray with camera space depth 'depth'.
+// Camera space depth is linear along the ray.
+float refrRayDistForDepth(float depth, float start_depth, float end_depth, float ray_len, float s)
+{
+	float d_depth = end_depth - start_depth;
+	return (abs(d_depth) > 1.0e-5) ? (ray_len * (depth - start_depth) / d_depth) : (ray_len * s); // If the ray is parallel to the image plane, screen space is linear in distance along the ray.
+}
+
+
+// Walks the refracted ray through the depth buffer, looking for where it hits the scene under the water.  Only perspective cameras are supported.
+// Returns true if a hit was found.  hit_ss_out is set to the screen space position of the hit (or of the end of the traced ray segment if there was no hit),
+// and hit_pos_ws_out to the corresponding world space position.
+//
+// Marches in screen space, over the projection of the ray segment from the water surface to MAX_WATER_REFR_DIST along the ray.  The number of steps
+// depends on the projected length of the segment in pixels, so distant water, where the segment covers only a few pixels, takes only a few steps.
+// Steps are spaced quadratically, so they are finest near the water surface, where the water is shallow and the hit position matters most.
+// The ray depth at each step is computed with perspective-correct interpolation.
+bool traceScreenSpaceRefr(vec3 refracted_dir_ws, out vec2 hit_ss_out, out vec3 hit_pos_ws_out)
+{
+	vec3 dir_cs = (frag_view_matrix * vec4(refracted_dir_ws, 0.0)).xyz; // view matrix shouldn't change lengths so don't need to normalise
+
+	// Clip the ray segment against the near plane, in case it heads back towards the camera.
+	float ray_len = MAX_WATER_REFR_DIST;
+	vec3 end_cs = pos_cs + dir_cs * ray_len;
+	float min_depth = near_clip_dist * 1.01;
+	if(-end_cs.z < min_depth)
+	{
+		ray_len = max(0.0, (-min_depth - pos_cs.z) / dir_cs.z); // Solve pos_cs.z + dir_cs.z * t = -min_depth for t.
+		end_cs = pos_cs + dir_cs * ray_len;
+	}
+
+	vec2 start_ss = cameraToScreenSpace(pos_cs);
+	vec2 end_ss   = cameraToScreenSpace(end_cs);
+
+	float start_depth = -pos_cs.z;
+	float end_depth   = -end_cs.z;
+	float recip_start_depth = 1.0 / start_depth;
+	float recip_end_depth   = 1.0 / end_depth;
+
+	float len_px = length((end_ss - start_ss) * vec2(textureSize(main_depth_texture, 0))); // Length of the projected segment in pixels
+	int num_steps = clamp(int(ceil(2.0 * sqrt(len_px))), 1, 32); // With the quadratic spacing, the first step is < 1/4 pixel and the last step is ~ sqrt(len_px) pixels.
+	float recip_num_steps = 1.0 / float(num_steps);
+
+	float prev_s = 0.0; // Fraction along the screen space segment of the previous step
+	float prev_ray_depth = start_depth;
+	for(int i=1; i<=num_steps; ++i)
+	{
+		float s = square(float(i) * recip_num_steps); // Fraction along the screen space segment
+		vec2 cur_ss = mix(start_ss, end_ss, s);
+		float ray_depth = 1.0 / mix(recip_start_depth, recip_end_depth, s); // Camera space depth of the ray at this screen space point
+		float buf_depth = getDepthFromDepthTexture(cur_ss.x, cur_ss.y);
+
+		if(ray_depth > buf_depth) // If the ray has gone behind the depth buffer surface:
+		{
+			float hit_s;
+			float hit_depth;
+			if(buf_depth < prev_ray_depth)
+			{
+				// The surface was already in front of the ray at the previous step, so rather than hitting the surface, the ray has gone behind an
+				// object in the foreground.  Use the previous step position.
+				hit_s = prev_s;
+				hit_depth = prev_ray_depth;
+			}
+			else
+			{
+				// Binary search to refine hit
+				float lower_s = prev_s;
+				float upper_s = s;
+				for(int z=0; z<4; ++z)
+				{
+					float mid_s = (lower_s + upper_s) * 0.5;
+					vec2 mid_ss = mix(start_ss, end_ss, mid_s);
+					float mid_ray_depth = 1.0 / mix(recip_start_depth, recip_end_depth, mid_s);
+					if(mid_ray_depth < getDepthFromDepthTexture(mid_ss.x, mid_ss.y))
+						lower_s = mid_s; // Intersection lies in upper half of interval
+					else
+						upper_s = mid_s; // Intersection lies in lower half of interval
+				}
+				hit_s = (lower_s + upper_s) * 0.5;
+				hit_depth = 1.0 / mix(recip_start_depth, recip_end_depth, hit_s);
+			}
+
+			hit_ss_out = mix(start_ss, end_ss, hit_s);
+			hit_pos_ws_out = pos_ws + refracted_dir_ws * refrRayDistForDepth(hit_depth, start_depth, end_depth, ray_len, hit_s);
+			return true;
+		}
+
+		prev_s = s;
+		prev_ray_depth = ray_depth;
+	}
+
+	hit_ss_out = end_ss;
+	hit_pos_ws_out = pos_ws + refracted_dir_ws * ray_len;
+	return false;
+}
+
 #endif // end if WATER_DO_SCREENSPACE_REFL_AND_REFR
 
 
@@ -855,68 +958,17 @@ void main()
 
 	
 
-		// Step through water, projecting back onto depth buffer, and looking for an intersection with the world surface, as defined by the depth buffer.
-		int MAX_STEPS = 64;
-		float step_d = 0.01; // Start with a small step distance, increase it slightly each step.
-		float cur_d = step_d;
-
+		// Trace the refracted ray through the depth buffer, to find where it hits the ground (or other scene geometry) under the water.
 		float refracted_px = px; // Tex coords of point where refracted ray hits ground
 		float refracted_py = py;
-		float prev_penetration_depth = 0.0;
 		vec3 refracted_hitpos_ws = pos_ws; // World space position where refracted ray hits ground
 		bool hit_ground = false;
-		for(int i=0; i<MAX_STEPS; ++i)
+		if(camera_type == CameraType_Perspective) // For orthographic cameras, the values computed here are overridden below.
 		{
-			vec3 cur_pos_ws = pos_ws + refracted_dir_ws * cur_d; // Current step position = fragment position + refraction vector * dist along refraction vecgor
-		
-			// Transform current step position into cam space.
-			vec3 projected_cur_pos_cs = (frag_view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
-
-			// get depth texture coords for the current step position
-			float cur_px = projected_cur_pos_cs.x / -projected_cur_pos_cs.z * l_over_w + 0.5;
-			float cur_py = projected_cur_pos_cs.y / -projected_cur_pos_cs.z * l_over_h + 0.5;
-
-			float cur_depth = -projected_cur_pos_cs.z;
-
-			float cur_depth_buf_depth = getDepthFromDepthTexture(cur_px, cur_py); // Get depth from depth buffer for current step position
-
-			float penetration_depth = cur_depth - cur_depth_buf_depth;
-
-			if(penetration_depth > 0.0) // We have hit something
-			{
-				// If the ray penetrated the surface too far, then it indicates we are 'wrapping around' an object in the foreground.  So stop tracing and use the previous position.
-				if(penetration_depth > step_d * 5.0)
-				{}
-				else
-				{
-					// Solve for approximate distance along ray where we intersect surface.
-					float frac = -prev_penetration_depth / (penetration_depth - prev_penetration_depth); // frac = -prev_penetration_depth / (-prev_penetration_depth + penetration_depth);
-					float prev_d = cur_d - step_d;
-					float intersect_d = mix(prev_d, cur_d, frac);
-			
-					cur_pos_ws = pos_ws + refracted_dir_ws * intersect_d; // Current step position = fragment position + refraction vector * dist along refraction vecgor
-			
-					// Transform current step position into cam space.
-					projected_cur_pos_cs = (frag_view_matrix * vec4(cur_pos_ws, 1.0)).xyz;
-			
-					// get depth texture coords for the current step position
-					refracted_px = projected_cur_pos_cs.x / -projected_cur_pos_cs.z * l_over_w + 0.5;
-					refracted_py = projected_cur_pos_cs.y / -projected_cur_pos_cs.z * l_over_h + 0.5;
-					refracted_hitpos_ws = cur_pos_ws;
-				}
-
-				hit_ground = true;
-				break;
-			}
-
-			refracted_px = cur_px;
-			refracted_py = cur_py;
-			refracted_hitpos_ws = cur_pos_ws;
-
-			step_d += 0.015; // NOTE: increment step_d first, before adding to cur_d, as need to know the cur_d that was last added to step_d when solving for this position above.
-			//step_d *= 1.08;
-			cur_d += step_d;
-			prev_penetration_depth = penetration_depth;
+			vec2 refracted_hit_ss;
+			hit_ground = traceScreenSpaceRefr(refracted_dir_ws, refracted_hit_ss, refracted_hitpos_ws);
+			refracted_px = refracted_hit_ss.x;
+			refracted_py = refracted_hit_ss.y;
 		}
 
 		float final_ground_dist = ground_dist; // getDepthFromDepthTe xture(refracted_px, refracted_py); // Get depth from depth buffer.
