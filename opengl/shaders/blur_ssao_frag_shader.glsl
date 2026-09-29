@@ -78,6 +78,13 @@ void main()
 	ivec2 px_coords = ivec2(int(float(tex_res.x) * pos.x), int(float(tex_res.y) * pos.y));
 
 	float centre_depth = getDepthFromDepthTexture(px_coords);
+	if(centre_depth > 100000.0) // If nothing was drawn here in the prepass (environment sphere, or beyond the prepass draw distance):
+	{
+		// The main pass only uses SSAO texels whose prepass depth matches the fragment depth, so this texel's value is never used.
+		colour_out = vec4(0.0, 0.0, 0.0, 1.0);
+		return;
+	}
+
 	vec3 centre_n_cs = readNormalFromNormalTexture(px_coords);
 	vec3 centre_p_cs = camSpaceFromScreenSpacePos(pos, centre_depth); // View/camera space 'fragment' position
 
