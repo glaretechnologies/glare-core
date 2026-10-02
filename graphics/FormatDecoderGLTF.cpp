@@ -3446,7 +3446,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 #endif // FUZZING
 
 
-#if 1
+#if 0
 // Fuzzing of decodeAndCheckExternalURIPath().
 // Checks that accepted URIs are relative paths, and when restricting to the base dir, that the URI joined to the base dir can't resolve to a path outside it.
 // Uses std::filesystem path handling as an independent check of the path logic.
