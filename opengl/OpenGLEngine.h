@@ -1406,6 +1406,38 @@ public:
 
 	// Try and enable profiling.  May not work on some platforms that don't support queries.
 	void setProfilingEnabled(bool enabled);
+	bool isProfilingEnabled() const { return query_profiling_enabled; }
+
+	// The most recent GPU time of each timed pass, in seconds.  Only meaningful while profiling is enabled.  A pass's time is only
+	// updated when its query result comes back, which can be a frame or two behind, so consecutive calls may return the same value.
+	struct GPUPassTimes
+	{
+		double dynamic_depth_draw;
+		double static_depth_draw;
+		double pre_pass;
+		double compute_ssao;
+		double blur_ssao;
+		double draw_opaque_obs;
+		double draw_water;
+		double decal_copy_buffers;
+		double bloom;
+		double fog_post_process;
+		double final_imaging;
+		double overlay_obs;
+		double total;
+	};
+	GPUPassTimes getLastGPUPassTimes() const;
+
+	struct DrawCounts
+	{
+		uint32 num_obs_in_frustum;
+		uint32 num_batches_drawn;
+		uint32 num_prog_changes;
+		uint32 num_tris_drawn;
+		uint32 depth_num_batches_drawn;
+		uint32 depth_num_tris_drawn;
+	};
+	DrawCounts getLastDrawCounts() const;
 
 	bool runningInRenderDoc() const { return running_in_renderdoc; }
 	//----------------------------------------------------------------------------------------
@@ -1895,6 +1927,7 @@ private:
 	Reference<Query> bloom_gpu_timer;
 	Reference<Query> final_imaging_gpu_timer;
 	Reference<Query> fog_post_process_gpu_timer;
+	Reference<Query> draw_water_gpu_timer;
 	Reference<BufferedTimeElapsedQuery> buffered_total_timer;
 	
 	uint32 last_num_prog_changes;

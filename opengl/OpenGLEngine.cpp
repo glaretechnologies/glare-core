@@ -2605,6 +2605,7 @@ void OpenGLEngine::checkCreateProfilingQueries()
 		this->bloom_gpu_timer = new Query();
 		this->final_imaging_gpu_timer = new Query();
 		this->fog_post_process_gpu_timer = new Query();
+		this->draw_water_gpu_timer = new Query();
 
 #if EMSCRIPTEN
 		// Chrome/web doesn't support timestamp queries: https://codereview.chromium.org/1800383002
@@ -8925,6 +8926,7 @@ void OpenGLEngine::draw()
 		bloom_gpu_timer->checkResultAndStore();
 		final_imaging_gpu_timer->checkResultAndStore();
 		fog_post_process_gpu_timer->checkResultAndStore();
+		draw_water_gpu_timer->checkResultAndStore();
 	}
 
 	if(cur_scene->collect_stats)
@@ -10853,6 +10855,9 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 
 	if(current_scene->draw_water)
 	{
+		if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && draw_water_gpu_timer->isIdle())
+			draw_water_gpu_timer->beginTimerQuery();
+
 		if(current_scene->render_to_main_render_framebuffer)
 		{
 			assert(current_scene->main_render_framebuffer->getAttachedRenderBufferName(GL_COLOR_ATTACHMENT0) == current_scene->main_colour_renderbuffer->buffer_name);
@@ -10863,9 +10868,10 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 			assert(current_scene->main_render_copy_framebuffer->getAttachedTextureName(GL_COLOR_ATTACHMENT1) == current_scene->main_normal_copy_texture->texture_handle);
 			assert(current_scene->main_render_copy_framebuffer->getAttachedTextureName(GL_DEPTH_ATTACHMENT)  == current_scene->main_depth_copy_texture->texture_handle);
 
-			// Copy framebuffer textures from main render framebuffer to main render copy framebuffer.
-			blitFrameBuffer(/*src_framebuffer=*/*current_scene->main_render_framebuffer, /*dest_framebuffer=*/*current_scene->main_render_copy_framebuffer, 
-				/*num_buffers_to_copy=*/2, // Copy both colour/depth and normals buffer
+			// Copy colour and depth from main render framebuffer to main render copy framebuffer.
+			// The normal buffer isn't copied: the water shader doesn't read it, and drawDecals() copies it again after the water is drawn.
+			blitFrameBuffer(/*src_framebuffer=*/*current_scene->main_render_framebuffer, /*dest_framebuffer=*/*current_scene->main_render_copy_framebuffer,
+				/*num_buffers_to_copy=*/1,
 				/*copy_buf0_colour=*/true, /*copy_buf0_depth=*/true);
 
 			// Restore main render buffer binding for drawing
@@ -11004,6 +11010,9 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 		//glDepthMask(GL_TRUE); // Restore writing to depth buffer.
 
 		//conPrint("Draw water objects batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
+
+		if(query_profiling_enabled && draw_water_gpu_timer->isRunning())
+			draw_water_gpu_timer->endTimerQuery();
 	}
 }
 
@@ -14604,6 +14613,7 @@ std::string OpenGLEngine::getDiagnostics() const
 		s += "compute SSAO      : " + doubleToStringNSigFigs(compute_ssao_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "blur SSAO         : " + doubleToStringNSigFigs(blur_ssao_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "draw opaque obs   : " + doubleToStringNSigFigs(draw_opaque_obs_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
+		s += "draw water        : " + doubleToStringNSigFigs(draw_water_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "decal copy buffers: " + doubleToStringNSigFigs(decal_copy_buffers_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "bloom             : " + doubleToStringNSigFigs(bloom_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
 		s += "fog post-process  : " + doubleToStringNSigFigs(fog_post_process_gpu_timer->getLastTimeElapsed() * 1.0e3, 4) + " ms\n";
@@ -14688,6 +14698,43 @@ std::string OpenGLEngine::getDiagnostics() const
 	s += vert_buf_allocator->getDiagnostics();
 
 	return s;
+}
+
+
+OpenGLEngine::GPUPassTimes OpenGLEngine::getLastGPUPassTimes() const
+{
+	GPUPassTimes t;
+	std::memset(&t, 0, sizeof(t));
+	if(dynamic_depth_draw_gpu_timer)
+	{
+		t.dynamic_depth_draw	= dynamic_depth_draw_gpu_timer->getLastTimeElapsed();
+		t.static_depth_draw		= static_depth_draw_gpu_timer->getLastTimeElapsed();
+		t.pre_pass				= col_and_depth_pre_pass_gpu_timer->getLastTimeElapsed();
+		t.compute_ssao			= compute_ssao_gpu_timer->getLastTimeElapsed();
+		t.blur_ssao				= blur_ssao_gpu_timer->getLastTimeElapsed();
+		t.draw_opaque_obs		= draw_opaque_obs_gpu_timer->getLastTimeElapsed();
+		t.draw_water			= draw_water_gpu_timer->getLastTimeElapsed();
+		t.decal_copy_buffers	= decal_copy_buffers_timer->getLastTimeElapsed();
+		t.bloom					= bloom_gpu_timer->getLastTimeElapsed();
+		t.fog_post_process		= fog_post_process_gpu_timer->getLastTimeElapsed();
+		t.final_imaging			= final_imaging_gpu_timer->getLastTimeElapsed();
+		t.overlay_obs			= draw_overlays_gpu_timer->getLastTimeElapsed();
+	}
+	t.total = last_total_draw_GPU_time;
+	return t;
+}
+
+
+OpenGLEngine::DrawCounts OpenGLEngine::getLastDrawCounts() const
+{
+	DrawCounts c;
+	c.num_obs_in_frustum		= (uint32)last_num_obs_in_frustum;
+	c.num_batches_drawn			= last_num_batches_bound;
+	c.num_prog_changes			= last_num_prog_changes;
+	c.num_tris_drawn			= last_num_indices_drawn / 3;
+	c.depth_num_batches_drawn	= depth_draw_last_num_batches_bound;
+	c.depth_num_tris_drawn		= depth_draw_last_num_indices_drawn / 3;
+	return c;
 }
 
 
