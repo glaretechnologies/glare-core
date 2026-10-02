@@ -16,6 +16,16 @@ Copyright Glare Technologies Limited 2019 -
 
 struct VoxMaterial
 {
+	VoxMaterial()
+	:	type(Type_Diffuse),
+		weight(1.f),
+		roughness(0.5f),
+		specular(0.f),
+		IOR(1.5f),
+		attenuation(0.f),
+		flux(0.f)
+	{}
+
 	enum Type
 	{
 		Type_Diffuse = 0,
@@ -24,18 +34,14 @@ struct VoxMaterial
 		Type_Emissive = 3
 	};
 
-	int32 id;
 	Type type;
 	float weight;
 
-	// Material properties (values in (0.0, 1.0]).
-	float plastic;
 	float roughness;
 	float specular;
 	float IOR;
 	float attenuation;
-	float power;
-	float glow;
+	float flux; // Luminous flux?
 
 	Colour4f col_from_palette; // Computed data.
 };
@@ -69,9 +75,11 @@ struct VoxFileContents
 
 	js::Vector<Colour4f, 16> palette; // will have 256 elems
 
-	// std::vector<VoxMaterial> materials; // May be empty.
-
 	std::vector<VoxMaterial> used_materials; // Computed data.
+
+
+	// Internal:
+	std::vector<VoxMaterial> internal_materials;
 };
 
 
@@ -82,8 +90,6 @@ See https://github.com/ephtracy/voxel-model/blob/master/MagicaVoxel-file-format-
 
 Updated format:
 https://github.com/ephtracy/voxel-model/blob/master/MagicaVoxel-file-format-vox-extension.txt
-
-TODO: do something with material.id.
 =====================================================================*/
 class FormatDecoderVox
 {

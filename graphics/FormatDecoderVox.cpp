@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2019 -
 #include "../utils/FileUtils.h"
 #include "../utils/MemMappedFile.h"
 #include "../utils/Exception.h"
+#include "../maths/CheckedMaths.h"
 #include <unordered_map>
 
 
@@ -44,6 +45,25 @@ static int32 parseInt32(const uint8* data, size_t datalen, size_t& cur_i)
 	std::memcpy(&res, &data[cur_i], 4);
 	cur_i += 4;
 	return res;
+}
+
+
+static std::string parseString(const uint8* data, size_t datalen, size_t& cur_i)
+{
+	const int32 len = parseInt32(data, datalen, cur_i);
+	if(len < 0 || len > 10000)
+		throw glare::Exception("string length invalid: " + toString(len));
+	std::string s(len, '\0');
+	if(len > 0)
+	{
+		if(CheckedMaths::addUnsignedInts(cur_i, (size_t)len) > datalen)
+			throw glare::Exception("EOF while parsing string.");
+
+		std::memcpy(&s[0], &data[cur_i], len);
+
+		cur_i += len;
+	}
+	return s;
 }
 
 
@@ -114,39 +134,80 @@ static void parseRGBAChunk(const uint8* data, size_t datalen, size_t& cur_i, Vox
 }
 
 
-// Disabled for now, as this chunk type is deprecated, and is not exported by MagicaVoxel currently, so is hard to test.
-// TODO: check parsing of this chunk.
-// Not sure am handling properties the right way.
-// static void parseMATTChunk(const uint8* data, size_t datalen, size_t& cur_i, VoxMaterial& material)
-// {
-// 	material.id = parseInt32(data, datalen, cur_i); // TODO: do something with this id
-// 	const int32 type = parseInt32(data, datalen, cur_i);
-// 	if(type < 0 || type >= 4)
-// 		throw glare::Exception("Unhandled material type " + toString(type) + ".");
-// 	material.type = (VoxMaterial::Type)type;
-// 	material.weight = parseFloat(data, datalen, cur_i);
-// 
-// 	const int32 properties = parseInt32(data, datalen, cur_i);
-// 	if((properties >> 0) & 0x1) 
-// 		material.plastic = parseFloat(data, datalen, cur_i);
-// 	if((properties >> 1) & 0x1)
-// 		material.roughness = parseFloat(data, datalen, cur_i);
-// 	if((properties >> 2) & 0x1)
-// 		material.specular = parseFloat(data, datalen, cur_i);
-// 	if((properties >> 3) & 0x1)
-// 		material.IOR = parseFloat(data, datalen, cur_i);
-// 	if((properties >> 4) & 0x1)
-// 		material.attenuation = parseFloat(data, datalen, cur_i);
-// 	if((properties >> 5) & 0x1)
-// 		material.power = parseFloat(data, datalen, cur_i);
-// 	if((properties >> 6) & 0x1)
-// 		material.glow = parseFloat(data, datalen, cur_i);
-// 	if((properties >> 7) & 0x1)
-// 		/*totalPower=*/ parseFloat(data, datalen, cur_i);
-// }
+static void parseDict(const uint8* data, size_t datalen, size_t& cur_i, std::unordered_map<std::string, std::string>& dict_out)
+{
+	const int32 num_pairs = parseInt32(data, datalen, cur_i);
+	for(int i=0; i<num_pairs; ++i)
+	{
+		const std::string key   = parseString(data, datalen, cur_i);
+		const std::string value = parseString(data, datalen, cur_i);
+
+		dict_out[key] = value;
+	}
+}
 
 
-static unsigned int default_palette[256] = {
+static void setNamedFloatParam(const std::unordered_map<std::string, std::string>& dict, const std::string& name, float& param_val_in_out)
+{
+	auto res = dict.find(name);
+	if(res != dict.end())
+		param_val_in_out = ::stringToFloat(res->second);
+}
+
+
+static void parseMATLChunk(const uint8* data, size_t datalen, size_t& cur_i, VoxFileContents& contents)
+{
+	const int32 mat_id = parseInt32(data, datalen, cur_i);
+
+	if(mat_id < 0 || mat_id > 256)
+		throw glare::Exception("invalid mat_id: " + toString(mat_id));
+
+	if(mat_id >= (int32)contents.internal_materials.size())
+		contents.internal_materials.resize(mat_id + 1);
+
+	VoxMaterial& mat = contents.internal_materials[mat_id];
+
+	std::unordered_map<std::string, std::string> dict;
+	parseDict(data, datalen, cur_i, dict);
+
+	{
+		auto res = dict.find("_type");
+		if(res != dict.end())
+		{
+			if(res->second == "_diffuse")
+				mat.type = VoxMaterial::Type_Diffuse;
+			else if(res->second == "_metal")
+				mat.type = VoxMaterial::Type_Metal;
+			else if(res->second == "_glass")
+				mat.type = VoxMaterial::Type_Glass;
+			else if(res->second == "_emit")
+				mat.type = VoxMaterial::Type_Emissive;
+		}
+	}
+	
+	setNamedFloatParam(dict, "_rough", /*param val in/out=*/mat.roughness);
+	if(!isFinite(mat.roughness))
+		mat.roughness = 0.5f;
+	mat.roughness = myClamp(mat.roughness, 0.f, 1.f);
+
+	setNamedFloatParam(dict, "_flux", /*param val in/out=*/mat.flux);
+	if(!isFinite(mat.flux))
+		mat.flux = 0.0f;
+	mat.flux = myMax(mat.flux, 0.f);
+
+	// TODO: clamp and check these are finite as well if they are ever used.
+	setNamedFloatParam(dict, "_spec", /*param val in/out=*/mat.specular);
+	setNamedFloatParam(dict, "_att",  /*param val in/out=*/mat.attenuation);
+
+	// _ior is stored as IOR - 1.  Newer files also have _ri, which is the IOR itself, so use that if present.
+	float ior_minus_1 = mat.IOR - 1.f;
+	setNamedFloatParam(dict, "_ior", /*param val in/out=*/ior_minus_1);
+	mat.IOR = ior_minus_1 + 1.f;
+	setNamedFloatParam(dict, "_ri",  /*param val in/out=*/mat.IOR);
+}
+
+
+static const unsigned int default_palette[256] = {
 	0x00000000, 0xffffffff, 0xffccffff, 0xff99ffff, 0xff66ffff, 0xff33ffff, 0xff00ffff, 0xffffccff, 0xffccccff, 0xff99ccff, 0xff66ccff, 0xff33ccff, 0xff00ccff, 0xffff99ff, 0xffcc99ff, 0xff9999ff,
 	0xff6699ff, 0xff3399ff, 0xff0099ff, 0xffff66ff, 0xffcc66ff, 0xff9966ff, 0xff6666ff, 0xff3366ff, 0xff0066ff, 0xffff33ff, 0xffcc33ff, 0xff9933ff, 0xff6633ff, 0xff3333ff, 0xff0033ff, 0xffff00ff,
 	0xffcc00ff, 0xff9900ff, 0xff6600ff, 0xff3300ff, 0xff0000ff, 0xffffffcc, 0xffccffcc, 0xff99ffcc, 0xff66ffcc, 0xff33ffcc, 0xff00ffcc, 0xffffcccc, 0xffcccccc, 0xff99cccc, 0xff66cccc, 0xff33cccc,
@@ -202,6 +263,8 @@ void FormatDecoderVox::loadModel(const std::string& filename, VoxFileContents& c
 
 void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen, VoxFileContents& contents_out) // Throws glare::Exception on failure.
 {
+	contents_out.internal_materials.reserve(256);
+
 	size_t cur_i = 0;
 
 	const std::string vox_string = parseChunkID(data, datalen, cur_i);
@@ -263,13 +326,11 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 				parseRGBAChunk(data, datalen, cur_i, contents_out);
 				parsed_RGBA_chunk = true;
 			}
-			/*else if(chunk_id == "MATT")
+			else if(chunk_id == "MATL")
 			{
-				contents_out.materials.push_back(VoxMaterial());
-
-				parseMATTChunk(data, datalen, cur_i, contents_out.materials.back());
-			}*/
-
+				parseMATLChunk(data, datalen, cur_i, contents_out);
+			}
+			
 			skipPastChunk(datalen, chunk_end, cur_i); // Skip rest of chunk (if any unparsed)
 		}
 
@@ -301,7 +362,7 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 	}
 
 	int mat_final_index[256];
-	int mat_i = 0;
+	int mat_i = 0; // final mat index
 	for(size_t i=0; i<256; ++i)
 	{
 		if(mat_used[i])
@@ -309,14 +370,10 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 			mat_final_index[i] = mat_i;
 			mat_i++;
 
-			//if(i < contents_out.materials.size())
-			//	contents_out.used_materials.push_back(contents_out.materials[i]);
-			//else
-			{ 
-				// Use default diffuse material.
-				contents_out.used_materials.push_back(VoxMaterial());
-				contents_out.used_materials.back().type = VoxMaterial::Type_Diffuse;
-			}
+			if(i < contents_out.internal_materials.size())
+				contents_out.used_materials.push_back(contents_out.internal_materials[i]);
+			else
+				contents_out.used_materials.push_back(VoxMaterial()); // Use a default diffuse material.
 
 			contents_out.used_materials.back().col_from_palette = contents_out.palette[i];
 		}
@@ -324,7 +381,7 @@ void FormatDecoderVox::loadModelFromData(const uint8* data, const size_t datalen
 			mat_final_index[i] = -1;
 	}
 
-	// Go back over voxels and compute mat_index.
+	// Go back over voxels and compute an updated mat_index.
 	for(size_t z=0; z<contents_out.models.size(); ++z)
 	{
 		VoxModel& model = contents_out.models[z];
@@ -363,7 +420,7 @@ bool FormatDecoderVox::isValidVoxFile(const std::string& filename)
 
 #if 0
 // Command line:
-// C:\fuzz_corpus\vox N:\indigo\trunk\testfiles\vox
+// C:\fuzz_corpus\vox C:\code\glare-core\testfiles\vox
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
@@ -391,6 +448,23 @@ void FormatDecoderVox::test()
 
 	try
 	{
+		{
+			const std::string path = TestUtils::getTestReposDir() + "/testfiles/vox/emission.vox"; // Has some MATL chunks, one of them is emissive.
+
+			VoxFileContents contents;
+
+			loadModel(path, contents);
+
+			testAssert(contents.used_materials.size() == 6);
+			testAssert(contents.used_materials[0].type == VoxMaterial::Type_Emissive);
+			testAssert(contents.used_materials[0].flux == 2.f);
+
+			testAssert(contents.version == 200);
+			testAssert(contents.palette.size() == 256);
+			testAssert(contents.models.size() == 1);
+			testAssert(contents.models[0].voxels.size() == 4928);
+		}
+
 		{
 			const std::string path = TestUtils::getTestReposDir() + "/testfiles/vox/2-2-0.vox"; // Has a PACK chunk
 
