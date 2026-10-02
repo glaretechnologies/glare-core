@@ -505,6 +505,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	depth_draw_last_num_vbo_binds(0),
 	depth_draw_last_num_indices_drawn(0),
 	last_total_draw_GPU_time(0),
+	next_gpu_section(0),
+	last_gpu_section_times(),
 	last_num_animated_obs_processed(0),
 	last_num_decal_batches_drawn(0),
 	next_program_index(0),
@@ -2613,8 +2615,59 @@ void OpenGLEngine::checkCreateProfilingQueries()
 #else
 		this->start_query = new TimestampQuery();
 		this->end_query   = new TimestampQuery();
+		for(int i=0; i<NUM_GPU_SECTIONS; ++i)
+			this->gpu_section_end_queries[i] = new TimestampQuery();
 #endif
 	}
+}
+
+
+const char* OpenGLEngine::getGPUSectionName(GPUSection section)
+{
+	switch(section)
+	{
+	case GPUSection_DataUpdates:					return "data updates, anims, probes";
+	case GPUSection_AuroraAndCloudEnvMap:			return "aurora, cloud env map";
+	case GPUSection_ShadowMaps:						return "shadow maps";
+	case GPUSection_FramebufferSetup:				return "framebuffer setup";
+	case GPUSection_OutlineTexture:					return "outline texture";
+	case GPUSection_BackgroundEnvMap:				return "background env map";
+	case GPUSection_PrePassAndSSAO:					return "pre-pass, SSAO";
+	case GPUSection_OpaqueObs:						return "opaque obs";
+	case GPUSection_AlphaPunchThroughObs:			return "alpha punch-through obs";
+	case GPUSection_Water:							return "water";
+	case GPUSection_Decals:							return "decals";
+	case GPUSection_SplatClouds:					return "splat clouds";
+	case GPUSection_AlphaBlendedObs:				return "alpha-blended obs";
+	case GPUSection_TransparentObs:					return "transparent obs";
+	case GPUSection_AlwaysVisibleObs:				return "always-visible obs";
+	case GPUSection_Outlines:						return "outlines";
+	case GPUSection_DownsizeSetup:					return "downsize setup";
+	case GPUSection_OITCompositing:					return "OIT compositing";
+	case GPUSection_VolumetricClouds:				return "volumetric clouds";
+	case GPUSection_Fog:							return "fog";
+	case GPUSection_DOFBlur:						return "DOF blur";
+	case GPUSection_Bloom:							return "bloom";
+	case GPUSection_FinalImaging:					return "final imaging";
+	case GPUSection_UIOverlays:						return "UI overlays";
+	case NUM_GPU_SECTIONS:							break;
+	}
+	assert(0);
+	return "";
+}
+
+
+// Records the timestamp at the end of the given section, and of any skipped sections before it (which get zero time), so that each section's
+// timestamp query is recorded exactly once per frame, keeping the queries' ring buffers in step with each other and with start_query.
+void OpenGLEngine::endGPUSection(GPUSection section)
+{
+#if !EMSCRIPTEN
+	if(query_profiling_enabled && current_scene->collect_stats && gpu_section_end_queries[0])
+	{
+		for(; next_gpu_section <= (int)section; ++next_gpu_section)
+			gpu_section_end_queries[next_gpu_section]->recordTimestamp();
+	}
+#endif
 }
 
 
@@ -7665,6 +7718,7 @@ void OpenGLEngine::draw()
 		start_query->recordTimestamp();
 #endif
 	}
+	next_gpu_section = 0;
 
 	Timer draw_method_timer;
 
@@ -8159,6 +8213,7 @@ void OpenGLEngine::draw()
 
 	bindStandardTexturesToTextureUnits();
 
+	endGPUSection(GPUSection_DataUpdates);
 
 	if(draw_aurora && cur_scene->draw_aurora && (cur_scene->sun_dir[2] < 0.1))
 		drawAuroraTex();
@@ -8167,6 +8222,8 @@ void OpenGLEngine::draw()
 	// before doVolumetricCloudPass() runs.
 	if(volumetricCloudsEnabled() && cloud_env_framebuffer.nonNull())
 		drawCloudEnvMap();
+
+	endGPUSection(GPUSection_AuroraAndCloudEnvMap);
 
 
 	num_multi_draw_indirect_calls = 0;
@@ -8188,6 +8245,8 @@ void OpenGLEngine::draw()
 
 
 	bindStandardShadowMappingDepthTextures(); // Rebind now that the shadow maps have been redrawn, and hence cur_static_depth_tex has changed.
+
+	endGPUSection(GPUSection_ShadowMaps);
 
 
 #if EMSCRIPTEN
@@ -8610,12 +8669,15 @@ void OpenGLEngine::draw()
 	// * Preserves the standard render buffer attachment bindings for main_render_framebuffer: 0 = colour, 1 = normal, also the depth attachment binding.
 	// * Preserves the standard texture attachment bindings for main_render_copy_framebuffer: 0 = colour, 1 = normal, also the depth attachment binding.
 	// * preserves viewport as (0, 0, viewport_w, viewport_h)
+	endGPUSection(GPUSection_FramebufferSetup);
+
 	//================= Generate outline texture =================
 	generateOutlineTexture(view_matrix, proj_matrix);
 	
 	//================= Draw background env map =================
 	// Draw background env map if there is one. (or if we are using a non-standard env shader)
 	drawBackgroundEnvMap(view_matrix, proj_matrix);
+	endGPUSection(GPUSection_BackgroundEnvMap); // Here rather than in drawBackgroundEnvMap(), as that is also called for probe captures.
 
 	if(settings.ssao)
 	{
@@ -8633,6 +8695,7 @@ void OpenGLEngine::draw()
 		common_uniforms.mat_common_flags = old_flags;
 		this->material_common_uniform_buf_ob->updateData(/*dest offset=*/0, &common_uniforms, sizeof(MaterialCommonUniforms));
 	}
+	endGPUSection(GPUSection_PrePassAndSSAO);
 
 	//================= Draw non-transparent (opaque) batches from objects =================
 	drawNonTransparentMaterialBatches(view_matrix, proj_matrix);
@@ -8843,6 +8906,8 @@ void OpenGLEngine::draw()
 		target_frame_buffer
 		*/
 
+		endGPUSection(GPUSection_DownsizeSetup);
+
 		//================= Do order-independent transparency compositing =================
 		OpenGLTexture* current_colour_tex_input = cur_scene->main_colour_copy_texture.ptr();
 		if(use_order_indep_transparency)
@@ -8898,6 +8963,8 @@ void OpenGLEngine::draw()
 	current_bound_VAO = NULL;
 	glActiveTexture(GL_TEXTURE0); // Make sure we don't overwrite a texture binding to a non-zero texture unit (tex unit zero is the scratch texture unit), while loading data into textures or creating new textures, outside of this draw() call.
 
+	endGPUSection(GPUSection_UIOverlays); // The last section: also records any sections skipped this frame.
+
 	if(query_profiling_enabled && cur_scene->collect_stats)
 	{
 #if EMSCRIPTEN
@@ -8913,6 +8980,14 @@ void OpenGLEngine::draw()
 		last_total_draw_GPU_time = buffered_total_timer->getLastTimeElapsed();
 #else
 		last_total_draw_GPU_time = end_query->getLastTimestamp() - start_query->getLastTimestamp();
+
+		double section_begin_time = start_query->getLastTimestamp();
+		for(int i=0; i<NUM_GPU_SECTIONS; ++i)
+		{
+			const double section_end_time = gpu_section_end_queries[i]->getLastTimestamp();
+			last_gpu_section_times[i] = section_end_time - section_begin_time;
+			section_begin_time = section_end_time;
+		}
 #endif
 
 		dynamic_depth_draw_gpu_timer->checkResultAndStore();
@@ -9033,6 +9108,8 @@ void OpenGLEngine::doOITCompositing()
 		unbindTextureFromTextureUnit(*current_scene->transparent_accum_copy_texture, /*texture_unit_index=*/1);
 		unbindTextureFromTextureUnit(*current_scene->total_transmittance_copy_texture, /*texture_unit_index=*/2);
 	}
+
+	endGPUSection(GPUSection_OITCompositing);
 }
 
 
@@ -9069,6 +9146,8 @@ void OpenGLEngine::doDOFBlur(OpenGLTexture* colour_tex_input)
 	// Unbind textures from texture units.  Otherwise we get errors in Chrome: "GL_INVALID_OPERATION: Feedback loop formed between Framebuffer and active Texture."
 	unbindTextureFromTextureUnit(*colour_tex_input,                       /*texture_unit_index=*/0);
 	unbindTextureFromTextureUnit(*current_scene->main_depth_copy_texture, /*texture_unit_index=*/1);
+
+	endGPUSection(GPUSection_DOFBlur);
 }
 
 
@@ -9121,6 +9200,8 @@ void OpenGLEngine::doFogPostProcess(OpenGLTexture* colour_tex_input, const Matri
 
 	if(query_profiling_enabled && fog_post_process_gpu_timer->isRunning())
 		fog_post_process_gpu_timer->endTimerQuery();
+
+	endGPUSection(GPUSection_Fog);
 }
 
 
@@ -9229,6 +9310,8 @@ void OpenGLEngine::doVolumetricCloudPass(OpenGLTexture* colour_tex_input)
 	unbindTextureFromTextureUnit(*colour_tex_input,                       /*texture_unit_index=*/MAIN_COLOUR_COPY_TEXTURE_UNIT_INDEX);
 	unbindTextureFromTextureUnit(*current_scene->main_depth_copy_texture, /*texture_unit_index=*/MAIN_DEPTH_COPY_TEXTURE_UNIT_INDEX);
 	unbindTextureFromTextureUnit(*current_scene->cloud_texture,           /*texture_unit_index=*/CLOUD_TEXTURE_UNIT_INDEX);
+
+	endGPUSection(GPUSection_VolumetricClouds);
 }
 
 
@@ -9341,6 +9424,8 @@ void OpenGLEngine::doBloomPostProcess(OpenGLTexture* colour_tex_input)
 		if(query_profiling_enabled && bloom_gpu_timer->isRunning())
 			bloom_gpu_timer->endTimerQuery();
 	}
+
+	endGPUSection(GPUSection_Bloom);
 }
 
 
@@ -9420,6 +9505,8 @@ void OpenGLEngine::doFinalImaging(OpenGLTexture* colour_tex_input)
 
 	if(query_profiling_enabled && final_imaging_gpu_timer->isRunning())
 		final_imaging_gpu_timer->endTimerQuery();
+
+	endGPUSection(GPUSection_FinalImaging);
 }
 
 
@@ -10227,6 +10314,8 @@ void OpenGLEngine::drawAlphaBlendedObjects(const Matrix4f& view_matrix, const Ma
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
 	}
+
+	endGPUSection(GPUSection_AlphaBlendedObs);
 }
 
 
@@ -10562,6 +10651,8 @@ void OpenGLEngine::drawSplatClouds(const Matrix4f& view_matrix, const Matrix4f& 
 
 	if(use_accum_buffer)
 		resolveSplatAccumBuffer();
+
+	endGPUSection(GPUSection_SplatClouds);
 }
 
 
@@ -10845,6 +10936,8 @@ void OpenGLEngine::drawDecals(const Matrix4f& view_matrix, const Matrix4f& proj_
 		this->last_num_decal_batches_drawn = (uint32)temp_batch_draw_info.size();
 		//conPrint("Draw decal batches took " + timer3.elapsedStringNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
 	}
+
+	endGPUSection(GPUSection_Decals);
 }
 
 
@@ -11014,6 +11107,8 @@ void OpenGLEngine::drawWaterObjects(const Matrix4f& view_matrix, const Matrix4f&
 		if(query_profiling_enabled && draw_water_gpu_timer->isRunning())
 			draw_water_gpu_timer->endTimerQuery();
 	}
+
+	endGPUSection(GPUSection_Water);
 }
 
 
@@ -11361,6 +11456,8 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 		draw_opaque_obs_gpu_timer->endTimerQuery();
 
 	//conPrint("Draw opaque batches took " + timer3.elapsedStringMSWIthNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
+
+	endGPUSection(GPUSection_OpaqueObs);
 }
 
 
@@ -11531,6 +11628,8 @@ void OpenGLEngine::drawTransparentMaterialBatches(const Matrix4f& view_matrix, c
 		current_scene->main_render_copy_framebuffer->attachTextures(*current_scene->main_colour_copy_texture, GL_COLOR_ATTACHMENT0,
 		                                                            *current_scene->main_normal_copy_texture, GL_COLOR_ATTACHMENT1);
 	}
+
+	endGPUSection(GPUSection_TransparentObs);
 }
 
 
@@ -12009,6 +12108,8 @@ void OpenGLEngine::drawAlwaysVisibleObjects(const Matrix4f& view_matrix, const M
 
 		flushDrawCommandsAndUnbindPrograms();
 	}
+
+	endGPUSection(GPUSection_AlwaysVisibleObs);
 }
 
 
@@ -12079,6 +12180,8 @@ void OpenGLEngine::drawAlphaPunchThroughObjects(const Matrix4f& view_matrix, con
 
 		glDisable(GL_CULL_FACE); // Restore
 	}
+
+	endGPUSection(GPUSection_AlphaPunchThroughObs);
 }
 
 
@@ -12159,6 +12262,8 @@ void OpenGLEngine::generateOutlineTexture(const Matrix4f& view_matrix, const Mat
 
 		glViewport(0, 0, current_scene->viewport_w, current_scene->viewport_h); // Restore viewport
 	}
+
+	endGPUSection(GPUSection_OutlineTexture);
 }
 
 
@@ -12218,6 +12323,8 @@ void OpenGLEngine::drawOutlinesAroundSelectedObjects()
 		glDepthMask(GL_TRUE); // Restore
 		glDisable(GL_BLEND);
 	}
+
+	endGPUSection(GPUSection_Outlines);
 }
 
 
@@ -12328,6 +12435,8 @@ void OpenGLEngine::drawUIOverlayObjects(const Matrix4f& reverse_z_matrix)
 
 	if(query_profiling_enabled && draw_overlays_gpu_timer->isRunning())
 		draw_overlays_gpu_timer->endTimerQuery();
+
+	endGPUSection(GPUSection_UIOverlays);
 }
 
 

@@ -1428,6 +1428,40 @@ public:
 	};
 	GPUPassTimes getLastGPUPassTimes() const;
 
+	// GPU time of each top-level section of draw(), in seconds, from timestamps recorded between the sections.  Unlike GPUPassTimes,
+	// every section is timed every frame, and the sections cover the whole of draw(), so they sum to the total.  The results are a few frames behind.
+	// Only filled in while profiling is enabled, and not on Emscripten (no timestamp queries).
+	enum GPUSection
+	{
+		GPUSection_DataUpdates,				// data updates, anims, probes
+		GPUSection_AuroraAndCloudEnvMap,
+		GPUSection_ShadowMaps,
+		GPUSection_FramebufferSetup,
+		GPUSection_OutlineTexture,
+		GPUSection_BackgroundEnvMap,
+		GPUSection_PrePassAndSSAO,
+		GPUSection_OpaqueObs,
+		GPUSection_AlphaPunchThroughObs,
+		GPUSection_Water,
+		GPUSection_Decals,
+		GPUSection_SplatClouds,
+		GPUSection_AlphaBlendedObs,
+		GPUSection_TransparentObs,
+		GPUSection_AlwaysVisibleObs,
+		GPUSection_Outlines,
+		GPUSection_DownsizeSetup,
+		GPUSection_OITCompositing,
+		GPUSection_VolumetricClouds,
+		GPUSection_Fog,
+		GPUSection_DOFBlur,
+		GPUSection_Bloom,
+		GPUSection_FinalImaging,
+		GPUSection_UIOverlays,
+		NUM_GPU_SECTIONS
+	};
+	static const char* getGPUSectionName(GPUSection section);
+	double getLastGPUSectionTime(GPUSection section) const { return last_gpu_section_times[section]; }
+
 	struct DrawCounts
 	{
 		uint32 num_obs_in_frustum;
@@ -1915,6 +1949,11 @@ private:
 
 	Reference<TimestampQuery> start_query;
 	Reference<TimestampQuery> end_query;
+
+	void endGPUSection(GPUSection section);
+	Reference<TimestampQuery> gpu_section_end_queries[NUM_GPU_SECTIONS]; // [i] is recorded at the end of section i, once per frame.
+	int next_gpu_section; // Index of the section in progress in this frame.
+	double last_gpu_section_times[NUM_GPU_SECTIONS];
 
 	Reference<Query> dynamic_depth_draw_gpu_timer;
 	Reference<Query> static_depth_draw_gpu_timer;
