@@ -269,6 +269,7 @@ public:
 private:
 	GLARE_DISABLE_COPY(OpenGLProgram);
 public:
+	int per_ob_data_index_loc; // Location of the per_ob_data_index uniform, which selects the object's data in the per-object data SSBO.  -1 if the program reads per-object data from the PerObjectVertUniforms UBO.
 	int model_matrix_loc;
 	int view_matrix_loc;
 	int proj_matrix_loc;

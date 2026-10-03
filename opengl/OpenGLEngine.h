@@ -1428,6 +1428,9 @@ public:
 	};
 	GPUPassTimes getLastGPUPassTimes() const;
 
+	// CPU time of the last draw() call, in seconds.  When the GPU is the bottleneck, this includes time the driver spends blocked waiting for it.
+	double getLastDrawCPUTime() const { return last_draw_CPU_time; }
+
 	// GPU time of each top-level section of draw(), in seconds, from timestamps recorded between the sections.  Unlike GPUPassTimes,
 	// every section is timed every frame, and the sections cover the whole of draw(), so they sum to the total.  The results are a few frames behind.
 	// Only filled in while profiling is enabled, and not on Emscripten (no timestamp queries).
@@ -1461,6 +1464,7 @@ public:
 	};
 	static const char* getGPUSectionName(GPUSection section);
 	double getLastGPUSectionTime(GPUSection section) const { return last_gpu_section_times[section]; }
+	double getLastCPUSectionTime(GPUSection section) const { return last_cpu_section_times[section]; } // CPU time spent in the section in the last frame, in seconds.  Includes any time blocked waiting for the GPU.
 
 	struct DrawCounts
 	{
@@ -1470,6 +1474,11 @@ public:
 		uint32 num_tris_drawn;
 		uint32 depth_num_batches_drawn;
 		uint32 depth_num_tris_drawn;
+		uint32 num_multi_draw_indirect_calls; // In all passes in the frame.
+		uint32 num_phong_uniform_buf_updates; // In all passes in the frame, including skipped ones.
+		uint32 num_phong_uniform_buf_updates_skipped; // Skipped as the contents were the same as the last update.
+		uint32 num_phong_texture_sets_bound; // In all passes in the frame.  Only when bindless textures aren't used.
+		uint32 num_phong_texture_sets_already_bound; // Texture sets that were all bound already, so no binds were needed.
 	};
 	DrawCounts getLastDrawCounts() const;
 
@@ -1572,7 +1581,7 @@ public:
 private:
 	static void doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLProgram& program);
 	void setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, const OpenGLMeshRenderData& mesh_data, PhongUniforms& uniforms) const;
-	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat) const;
+	void bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat);
 	void partiallyClearBuffer(const Vec2f& begin, const Vec2f& end);
 	Matrix4f getReverseZMatrixOrIdentity() const;
 
@@ -1906,6 +1915,11 @@ public:
 	bool use_bindless_textures;
 	bool use_multi_draw_indirect;
 	bool use_ob_and_mat_data_gpu_resident;
+	// Without bindless textures, materials can't be GPU-resident, but per-object data can still be: it's kept in per_ob_vert_data_buffer, and each object's data is selected
+	// with a per_ob_data_index uniform, which is much cheaper to set for each object drawn than uploading the data to a uniform buffer.
+	bool use_per_ob_data_ssbo;
+	bool per_ob_data_on_gpu; // Is per-object data kept in per_ob_vert_data_buffer?  = use_ob_and_mat_data_gpu_resident || use_per_ob_data_ssbo
+	void bindPerObjectVertDataToProgram(OpenGLProgramRef prog);
 	bool use_reverse_z;
 	bool use_scatter_shader; // Use scatter shader for data updates
 	bool use_order_indep_transparency;
@@ -1954,6 +1968,9 @@ private:
 	Reference<TimestampQuery> gpu_section_end_queries[NUM_GPU_SECTIONS]; // [i] is recorded at the end of section i, once per frame.
 	int next_gpu_section; // Index of the section in progress in this frame.
 	double last_gpu_section_times[NUM_GPU_SECTIONS];
+	Timer cpu_section_timer; // Reset at the start of draw().
+	double cpu_section_begin_time;
+	double last_cpu_section_times[NUM_GPU_SECTIONS];
 
 	Reference<Query> dynamic_depth_draw_gpu_timer;
 	Reference<Query> static_depth_draw_gpu_timer;
@@ -2015,7 +2032,25 @@ private:
 	UniformBufObRef phong_uniform_buf_obs[64];
 #else
 	UniformBufObRef phong_uniform_buf_ob; // Used for transparent mats also.
+	void updatePhongUniformBuf(const PhongUniforms& uniforms);
+	PhongUniforms last_phong_uniforms; // The contents of phong_uniform_buf_ob, so updating it with the same contents again can be skipped.
+	bool last_phong_uniforms_valid;
 #endif
+public:
+	static const int NUM_PHONG_TEXTURE_UNITS = 8;
+private:
+	void invalidatePhongTextureBindings(); // Call when something else may have bound textures to the phong texture units.
+	// The textures bound to the phong texture units by bindTexturesForPhongProg(), or NULL if not known.
+	// NOTE: These are compared by pointer, so if a texture were destroyed and a new one allocated at the same address (the ABA problem), a needed bind could be skipped.
+	// That can't happen as long as these are invalidated at the start of each draw() and captureProbe() (the only phong drawing entry points), and textures aren't destroyed
+	// during them.  Post-processing passes also bind textures to these units, which is another reason to invalidate on entry.
+	const OpenGLTexture* bound_phong_textures[NUM_PHONG_TEXTURE_UNITS];
+
+	// Stats on how much of the per-draw state setting is redundant.  Reset each frame.
+	uint32 num_phong_uniform_buf_updates;
+	uint32 num_phong_uniform_buf_updates_skipped;
+	uint32 num_phong_texture_sets_bound;
+	uint32 num_phong_texture_sets_already_bound;
 	UniformBufObRef material_common_uniform_buf_ob;
 	UniformBufObRef depth_uniform_buf_ob;
 	UniformBufObRef shared_vert_uniform_buf_ob;

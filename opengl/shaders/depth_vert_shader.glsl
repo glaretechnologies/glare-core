@@ -69,10 +69,20 @@ layout (std430) buffer JointMatricesStorage
 //----------------------------------------------------------------------------------------------------------------------------
 #else // else if !OB_AND_MAT_DATA_GPU_RESIDENT:
 
+#if PER_OB_DATA_SSBO
+// The data for all objects is in an SSBO, and per_ob_data_index, which is set for each object drawn, selects the data for this object.
+layout(std430) buffer PerObjectVertUniforms
+{
+	PerObjectVertUniformsStruct per_object_data_array[];
+};
+uniform int per_ob_data_index;
+#define per_object_data per_object_data_array[per_ob_data_index]
+#else
 layout (std140) uniform PerObjectVertUniforms
 {
 	PerObjectVertUniformsStruct per_object_data;
 };
+#endif
 
 #if SKINNING
 layout (std140) uniform JointMatrixUniforms

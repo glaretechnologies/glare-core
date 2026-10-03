@@ -44,6 +44,7 @@ OpenGLProgram::OpenGLProgram(const std::string& prog_name_, const Reference<Open
 	const OpenGLProgramExtraArgs& extra_args)
 :	program(0),
 	prog_name(prog_name_),
+	per_ob_data_index_loc(-1),
 	model_matrix_loc(-1),
 	view_matrix_loc(-1),
 	proj_matrix_loc(-1),
