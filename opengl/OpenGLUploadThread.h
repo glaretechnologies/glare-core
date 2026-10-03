@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/ThreadSafeRefCounted.h>
 #include <utils/Reference.h>
 #include <utils/MessageableThread.h>
+#include <utils/AtomicInt.h>
 #include <string>
 #include <map>
 #include <functional>
@@ -134,6 +135,13 @@ public:
 	UploadTextureMessage*   allocUploadTextureMessage();
 	AnimatedTextureUpdated* allocAnimatedTextureUpdatedMessage();
 
+	// Queues an UploadTextureMessage or UploadGeometryMessage.  Use this rather than getMessageQueue().enqueue(), so that getNumNewResourceUploadsPending() is kept up to date.
+	void enqueueUpload(const Reference<ThreadMessage>& msg);
+
+	// Number of uploads of newly loaded textures and meshes that are queued or in progress.  An upload stops being counted once its 'uploaded' message has been sent,
+	// or, if it failed, its error message.  Doesn't count uploads of animated texture frames, which are queued continually while animated textures are visible.
+	int64 getNumNewResourceUploadsPending() const { return num_new_resource_uploads_pending.getVal(); }
+
 	void* gl_context;
 	std::function<void (void* gl_context)> make_gl_context_current_func;
 	OpenGLEngine* opengl_engine;
@@ -141,4 +149,7 @@ public:
 
 	Reference<glare::FastPoolAllocator> upload_texture_msg_allocator;
 	Reference<glare::FastPoolAllocator> animated_texture_updated_allocator;
+
+private:
+	glare::AtomicInt num_new_resource_uploads_pending;
 };

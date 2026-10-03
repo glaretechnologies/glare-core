@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "OpenGLEngine.h"
 #include "IncludeOpenGL.h"
 #include "../graphics/TextureData.h"
+#include "../maths/mathstypes.h"
 #include <utils/KillThreadMessage.h>
 #include <utils/PlatformUtils.h>
 #include <tracy/Tracy.hpp>
@@ -24,12 +25,30 @@ OpenGLUploadThread::OpenGLUploadThread()
 }
 
 
+// Is this an upload of a newly loaded texture or mesh?  (As opposed to an upload of the next frame of an animated texture.)
+static bool isNewResourceUpload(const ThreadMessage* msg)
+{
+	if(const UploadTextureMessage* upload_tex_msg = dynamic_cast<const UploadTextureMessage*>(msg))
+		return !upload_tex_msg->is_animated_texture_update;
+	return dynamic_cast<const UploadGeometryMessage*>(msg) != nullptr;
+}
+
+
+void OpenGLUploadThread::enqueueUpload(const Reference<ThreadMessage>& msg)
+{
+	if(isNewResourceUpload(msg.ptr()))
+		num_new_resource_uploads_pending++;
+	getMessageQueue().enqueue(msg);
+}
+
+
 struct StagingBuffer
 {
-	StagingBuffer() : fence_sync_ob(0) {}
+	StagingBuffer() : fence_sync_ob(0), used_B(0) {}
 
 	VBORef vbo;
 	GLsync fence_sync_ob;
+	size_t used_B; // Amount of the buffer used by the current batch.
 };
 
 
@@ -56,18 +75,12 @@ void OpenGLUploadThread::doRun()
 
 	make_gl_context_current_func(gl_context);
 
-	int next_pbo_index = 0;
-
 
 	// NOTE: biggest geometry seen in Substrata is Green_Lawn_obj_6978297763328388609_opt3.bmesh, 103 MB.
 	// Biggest texture data seen is ~25 MB.
 
-	std::vector<PBORef> pbos(1);
-	for(size_t i=0; i<pbos.size(); ++i)
-	{
-		pbos[i] = new PBO(64 * 1024 * 1024, /*for upload=*/true, /*create_persistently_mapped_buffer=*/true);
-		pbos[i]->map();
-	}
+	PBORef pbo = new PBO(64 * 1024 * 1024, /*for upload=*/true, /*create_persistently_mapped_buffer=*/true);
+	pbo->map();
 
 #if USE_SINGLE_LARGE_STAGING_BUFFER
 	VBORef staging_vbo;
@@ -85,7 +98,7 @@ void OpenGLUploadThread::doRun()
 		staging_buffers[i].vbo = new VBO(NULL, 8 * 1024 * 1024, GL_ARRAY_BUFFER, /*usage (not used)=*/GL_STREAM_DRAW, /*create_persistently_mapped_buffer=*/true);
 		staging_buffers[i].vbo->map();
 	}
-	int next_staging_buffer = 0;
+	int cur_staging_buffer = 0; // Index of the staging buffer being filled.
 #endif
 
 
@@ -95,19 +108,83 @@ void OpenGLUploadThread::doRun()
 	size_t largest_tex_B = 0;
 	size_t largest_geom_B = 0;
 
+
+	// Uploads are done in batches: the uploads for the queued messages are issued, then we block once until the GPU has completed all of them, then the 'uploaded'
+	// messages are sent.  Blocking after each upload instead limits uploading to around one item per frame when the GPU is busy rendering, as each wait has to
+	// wait for the frame being rendered.
+	const size_t MAX_BATCH_SIZE = 64;
+	std::vector<ThreadMessageRef> batch_uploaded_msgs; // Messages to send once the uploads in the current batch have completed.
+	std::vector<Reference<OpenGLTexture>> batch_textures_needing_bindless_handles;
+	size_t pbo_write_offset = 0; // Where the next texture in the current batch goes in the PBO.
+
+	// Blocks until all the texture and geometry uploads in the current batch have completed, then sends the 'uploaded' messages for them, and starts a new batch.
+	auto finishUploadingBatch = [&]()
+	{
+		if(batch_uploaded_msgs.empty())
+			return;
+
+		{
+			ZoneScopedN("blocking upload"); // Tracy profiler
+
+			// Block until all the uploads in the batch have completed: the copies from the PBO to the textures, and from the staging buffers to the vertex and index buffers.
+			GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
+			[[maybe_unused]] const GLenum wait_ret = glClientWaitSync(sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
+			assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
+			glDeleteSync(sync_ob); // Destroy sync object
+		}
+
+#if USE_STAGING_RING_BUFFERS
+		// The wait above covers the copies from the staging buffers, so their fences aren't needed any more, and they can all be reused from the start.
+		for(size_t i=0; i<NUM_STAGING_BUFFERS; ++i)
+		{
+			if(staging_buffers[i].fence_sync_ob != 0)
+			{
+				glDeleteSync(staging_buffers[i].fence_sync_ob);
+				staging_buffers[i].fence_sync_ob = 0;
+			}
+			staging_buffers[i].used_B = 0;
+		}
+#endif
+
+		// Get the bindless texture handles in this thread as can take a while.
+		for(size_t i=0; i<batch_textures_needing_bindless_handles.size(); ++i)
+			if(batch_textures_needing_bindless_handles[i]->bindless_tex_handle == 0)
+				batch_textures_needing_bindless_handles[i]->createBindlessTextureHandle();
+		batch_textures_needing_bindless_handles.clear(); // Release this thread's texture references before sending messages, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
+
+		for(size_t i=0; i<batch_uploaded_msgs.size(); ++i)
+		{
+			const int msg_id = batch_uploaded_msgs[i]->id;
+			out_msg_queue->enqueue(batch_uploaded_msgs[i]);
+
+			// A new resource upload is no longer pending once its 'uploaded' message has been sent.  (AnimatedTextureUpdated messages are for animated texture frames, which aren't counted.)
+			if(msg_id == OpenGLUploadThreadMessages_TextureUploadedMessage || msg_id == OpenGLUploadThreadMessages_GeometryUploadedMessage)
+				num_new_resource_uploads_pending--;
+		}
+		batch_uploaded_msgs.clear();
+
+		pbo_write_offset = 0;
+	};
+
+
 	while(1)
 	{
+		// Finish the current batch if there's nothing else to add to it right now (dequeue() would block), or it's big enough.
+		if(getMessageQueue().empty() || (batch_uploaded_msgs.size() >= MAX_BATCH_SIZE))
+			finishUploadingBatch();
+
 		ThreadMessageRef msg = getMessageQueue().dequeue();
+
 		if(dynamic_cast<KillThreadMessage*>(msg.ptr()))
+		{
+			finishUploadingBatch();
 			break;
+		}
 		else if(dynamic_cast<UploadTextureMessage*>(msg.ptr()))
 		{
 			try
 			{
 				UploadTextureMessage* upload_msg = static_cast<UploadTextureMessage*>(msg.ptr());
-
-				PBORef pbo  = pbos[next_pbo_index];
-				next_pbo_index = (next_pbo_index + 1) % (int)pbos.size();
 
 				//----------------------------- Copy texture data to PBO -----------------------------
 				Reference<TextureData> texture_data = upload_msg->texture_data;
@@ -125,17 +202,28 @@ void OpenGLUploadThread::doRun()
 				{
 					const std::string err_msg = "Error while uploading texture to GPU: Trying to upload texture of " + getNiceByteSize(source_data.dataSizeBytes()) + ", max size is " + getNiceByteSize(pbo->getSize()) + ".";
 					out_msg_queue->enqueue(new OpenGLUploadErrorMessage(err_msg));
+					if(isNewResourceUpload(msg.ptr()))
+						num_new_resource_uploads_pending--; // This upload won't happen, so is no longer pending.
 					continue; // Just drop this texture for now
 				}
 
+				// Put the texture data after the data for the textures already in this batch, if it fits.  Otherwise finish the batch, so the PBO can be reused from the start.
+				size_t pbo_offset = Maths::roundUpToMultipleOfPowerOf2<size_t>(pbo_write_offset, 256);
+				if(pbo_offset + source_data.dataSizeBytes() > pbo->getSize())
+				{
+					finishUploadingBatch();
+					pbo_offset = 0;
+				}
+				pbo_write_offset = pbo_offset + source_data.dataSizeBytes();
+
 				{
 					ZoneScopedN("memcpy to PBO"); // Tracy profiler
-					std::memcpy(pbo->getMappedPtr(), source_data.data(), source_data.size()); // TODO: remove memcpy and build texture data directly into PBO
+					std::memcpy((uint8*)pbo->getMappedPtr() + pbo_offset, source_data.data(), source_data.size()); // TODO: remove memcpy and build texture data directly into PBO
 				}
 
 				{
 					ZoneScopedN("flushRange"); // Tracy profiler
-					pbo->flushRange(0, source_data.size());
+					pbo->flushRange(pbo_offset, source_data.size());
 				}
 
 				//----------------------------- Free image texture memory now it has been copied to the PBO. -----------------------------
@@ -177,7 +265,7 @@ void OpenGLUploadThread::doRun()
 
 					opengl_tex->loadRegionIntoExistingTexture(/*mipmap level=*/(int)k, /*x=*/0, /*y=*/0, /*z=*/0, /*region_w=*/level_W, /*region_h=*/level_H, /*region depth=*/texture_data->D, 
 						/*row_stride_B=*/level_size / level_H, // not used for compressed textures  Assume packed.
-						ArrayRef<uint8>((const uint8*)level_offset, level_size), // tex data
+						ArrayRef<uint8>((const uint8*)(pbo_offset + level_offset), level_size), // tex data: an offset into the bound PBO
 						/*bind_needed=*/false
 					);
 				}
@@ -185,26 +273,13 @@ void OpenGLUploadThread::doRun()
 				opengl_tex->unbind();
 				pbo->unbind();
 
-				//----------------------------- Block until PBO upload and copy to OpenGL texture have fully completed -----------------------------
-				{
-					ZoneScopedN("blocking upload"); // Tracy profiler
-					// const std::string txt = "key: " + toString(opengl_tex->key) + " size: " + toString(source_data.size()) + " B";
-					// ZoneText(txt.c_str(), txt.size());
-					
-					// Insert fence object into stream. We can query this to see if the copy from the PBO to the texture has completed.
-					GLsync sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0);
-					[[maybe_unused]] const GLenum wait_ret = glClientWaitSync(sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
-					assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
-					glDeleteSync(sync_ob); // Destroy sync object
-				}
-
-				//----------------------------- Get the bindless texture handle in this thread as can take a while. -----------------------------
+				// The bindless texture handle is got once the upload has completed, in finishUploadingBatch().
 				if(opengl_engine->use_bindless_textures && (opengl_tex->bindless_tex_handle == 0))
-					opengl_tex->createBindlessTextureHandle();
+					batch_textures_needing_bindless_handles.push_back(opengl_tex);
 
+				//----------------------------- Queue the message to send back to client code once the batch's uploads have completed -----------------------------
 				if(upload_msg->is_animated_texture_update) // If doing animated texture update:
 				{
-					//----------------------------- Send AnimatedTextureUpdated back to client code -----------------------------
 					Reference<AnimatedTextureUpdated> updated_msg = allocAnimatedTextureUpdatedMessage();
 					updated_msg->old_tex.takeFrom(upload_msg->old_tex);
 					updated_msg->new_tex = opengl_tex;
@@ -212,11 +287,10 @@ void OpenGLUploadThread::doRun()
 					upload_msg->new_tex = nullptr;
 					opengl_tex = nullptr; // Null out this thread's reference before sending message, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
 
-					out_msg_queue->enqueue(updated_msg);
+					batch_uploaded_msgs.push_back(updated_msg);
 				}
 				else
 				{
-					//----------------------------- Send TextureUploadedMessage back to client code -----------------------------
 					Reference<TextureUploadedMessage> uploaded_msg = new TextureUploadedMessage();
 					uploaded_msg->tex_path = upload_msg->tex_path;
 					uploaded_msg->texture_data = upload_msg->texture_data;
@@ -225,7 +299,7 @@ void OpenGLUploadThread::doRun()
 
 					opengl_tex = nullptr; // Null out this thread's reference before sending message, so that making non-resident from textureRefCountDecreasedToOne only ever happens on the main thread.
 
-					out_msg_queue->enqueue(uploaded_msg);
+					batch_uploaded_msgs.push_back(uploaded_msg);
 				}
 
 				total_uploaded_B += source_data.size();
@@ -236,6 +310,8 @@ void OpenGLUploadThread::doRun()
 			{
 				const std::string err_msg = "Error while uploading texture to GPU: " + e.what();
 				out_msg_queue->enqueue(new OpenGLUploadErrorMessage(err_msg));
+				if(isNewResourceUpload(msg.ptr()))
+					num_new_resource_uploads_pending--; // This upload failed, so is no longer pending.
 			}
 		}
 		else if(dynamic_cast<UploadGeometryMessage*>(msg.ptr()))
@@ -291,54 +367,51 @@ void OpenGLUploadThread::doRun()
 					VBORef dest_vbo              = (i == 0) ? meshdata->vbo_handle.vbo : meshdata->indices_vbo_handle.index_vbo;
 					const size_t dest_vbo_offset = (i == 0) ? meshdata->vbo_handle.offset : meshdata->indices_vbo_handle.offset;
 
-					// Copy from data in chunks until completely copied, using one staging buffer at a time.
+					// Copy from data in chunks until completely copied.  Chunks are packed into the current staging buffer until it is full, then we move on to the next one, so that many
+					// small meshes can be uploaded in a batch without waiting for a staging buffer to become free.
 					for(size_t begin=0; begin<data.size(); )
 					{
-						StagingBuffer& staging_buffer = staging_buffers[next_staging_buffer];
-
-						// Block until this staging buffer has finished being used, if it is currently being used:
-						if(staging_buffer.fence_sync_ob != 0) // If the fence exists:
+						StagingBuffer* staging_buffer = &staging_buffers[cur_staging_buffer];
+						if(staging_buffer->used_B >= staging_buffer->vbo->getSize()) // If the current staging buffer is full:
 						{
-							[[maybe_unused]] GLenum wait_ret = glClientWaitSync(staging_buffer.fence_sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
-							assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
-							glDeleteSync(staging_buffer.fence_sync_ob); // Destroy sync object
-							staging_buffer.fence_sync_ob = 0;
+							// Create a fence object, which we can query to see if the copies from this staging buffer are done, and it can be reused.
+							staging_buffer->fence_sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0); // Returns a non-zero name on success.
+
+							cur_staging_buffer = (cur_staging_buffer + 1) % NUM_STAGING_BUFFERS; // Move on to the next staging buffer
+							staging_buffer = &staging_buffers[cur_staging_buffer];
+
+							// Block until this staging buffer has finished being used, if it is currently being used:
+							if(staging_buffer->fence_sync_ob != 0) // If the fence exists:
+							{
+								[[maybe_unused]] GLenum wait_ret = glClientWaitSync(staging_buffer->fence_sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
+								assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
+								glDeleteSync(staging_buffer->fence_sync_ob); // Destroy sync object
+								staging_buffer->fence_sync_ob = 0;
+							}
+							staging_buffer->used_B = 0;
 						}
 
-						const size_t end = myMin(data.size(), begin + staging_buffer.vbo->getSize());
-						const size_t chunk_size = end - begin;
+						// Copy the rest of the data, or as much as fits in the staging buffer, in which case the rest goes in the next one.
+						// The staging buffer isn't full here (we moved on above if it was), so chunk_size >= 1.
+						const size_t staging_offset = staging_buffer->used_B;
+						const size_t chunk_size = myMin(data.size() - begin, staging_buffer->vbo->getSize() - staging_offset);
 
 						// Copy into staging VBO
-						std::memcpy(staging_buffer.vbo->getMappedPtr(), &data[begin], chunk_size);
+						std::memcpy((uint8*)staging_buffer->vbo->getMappedPtr() + staging_offset, &data[begin], chunk_size);
 
-						staging_buffer.vbo->flushRange(0, chunk_size);
+						staging_buffer->vbo->flushRange(staging_offset, chunk_size);
 
 						//----------------------------- Do an on-GPU (hopefully) copy of the source data to the new buffer at the allocated position. -----------------------------
-						glBindBuffer(GL_COPY_READ_BUFFER,  staging_buffer.vbo->bufferName());
+						glBindBuffer(GL_COPY_READ_BUFFER,  staging_buffer->vbo->bufferName());
 						glBindBuffer(GL_COPY_WRITE_BUFFER, dest_vbo->bufferName());
-						glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/0, /*writeOffset=*/dest_vbo_offset + begin, /*size=*/chunk_size);
+						glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, /*readOffset=*/staging_offset, /*writeOffset=*/dest_vbo_offset + begin, /*size=*/chunk_size);
 
-						//----------------------------- Create a fence object, which we can query to see if the copy from this staging_vbo is done -----------------------------
-						staging_buffer.fence_sync_ob = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, /*flags=*/0); // Returns a non-zero name on success.
-
-						next_staging_buffer = (next_staging_buffer + 1) % NUM_STAGING_BUFFERS; // Advance next_staging_buffer
+						staging_buffer->used_B = myMin(staging_buffer->vbo->getSize(), Maths::roundUpToMultipleOfPowerOf2<size_t>(staging_offset + chunk_size, 16));
 						begin += chunk_size;
 					}
 				}
 
-				// Wait for any pending fences.  NOTE: we need to do this before we send a GeometryUploadedMessage to the main thread which starts rendering using the uploaded geometry.
-				for(size_t i=0; i<NUM_STAGING_BUFFERS; ++i)
-				{
-					StagingBuffer& staging_buffer = staging_buffers[i];
-					if(staging_buffer.fence_sync_ob != 0) // If the fence exists:
-					{
-						// Block until this staging buffer has finished being used
-						[[maybe_unused]] GLenum wait_ret = glClientWaitSync(staging_buffer.fence_sync_ob, /*wait flags=*/GL_SYNC_FLUSH_COMMANDS_BIT, /*waitDuration=*/(uint64)1.0e15);
-						assert(wait_ret == GL_ALREADY_SIGNALED || wait_ret == GL_CONDITION_SATISFIED);
-						glDeleteSync(staging_buffer.fence_sync_ob); // Destroy sync object
-						staging_buffer.fence_sync_ob = 0;
-					}
-				}
+				// The copies are waited for in finishUploadingBatch(), before the GeometryUploadedMessage is sent to the main thread, which starts rendering using the uploaded geometry.
 
 				// Unbind
 				glBindBuffer(GL_COPY_READ_BUFFER, 0);
@@ -359,6 +432,7 @@ void OpenGLUploadThread::doRun()
 				{
 					const std::string err_msg = "Error while uploading geometry to GPU: Trying to upload mesh of " + getNiceByteSize(total_geom_size_B) + ", max size is " + getNiceByteSize(vbo->getSize()) + ".";
 					out_msg_queue->enqueue(new OpenGLUploadErrorMessage(err_msg));
+					num_new_resource_uploads_pending--; // This upload won't happen, so is no longer pending.
 					continue; // Just drop this geometry for now
 				}
 
@@ -426,12 +500,12 @@ void OpenGLUploadThread::doRun()
 				}*/
 			
 
-				//----------------------------- Send GeometryUploadedMessage back to client code -----------------------------
+				//----------------------------- Queue GeometryUploadedMessage to send back to client code once the batch's uploads have completed -----------------------------
 				Reference<GeometryUploadedMessage> uploaded_msg = new GeometryUploadedMessage();
 				uploaded_msg->meshdata = meshdata;
 				uploaded_msg->user_info = upload_msg->user_info;
 
-				out_msg_queue->enqueue(uploaded_msg);
+				batch_uploaded_msgs.push_back(uploaded_msg);
 
 
 				//----------------------------- Compute stats -----------------------------
@@ -463,6 +537,7 @@ void OpenGLUploadThread::doRun()
 			{
 				const std::string err_msg = "Error while uploading geometry to GPU: " + e.what();
 				out_msg_queue->enqueue(new OpenGLUploadErrorMessage(err_msg));
+				num_new_resource_uploads_pending--; // This upload failed, so is no longer pending.
 			}
 		}
 		else
