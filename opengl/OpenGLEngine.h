@@ -1479,8 +1479,13 @@ public:
 		uint32 num_phong_uniform_buf_updates_skipped; // Skipped as the contents were the same as the last update.
 		uint32 num_phong_texture_sets_bound; // In all passes in the frame.  Only when bindless textures aren't used.
 		uint32 num_phong_texture_sets_already_bound; // Texture sets that were all bound already, so no binds were needed.
+		uint64 num_opaque_frag_invocations; // Fragment shader invocations in the opaque pass, if counting is enabled (see setOpaqueFragInvocationCountingEnabled()), else 0.
 	};
 	DrawCounts getLastDrawCounts() const;
+
+	// For measuring overdraw: when enabled, the fragment shader invocations in the opaque objects pass are counted with a pipeline statistics query.
+	// The count is read back without stalling, so it lags the frame being drawn by a frame or more.  Returns false if not supported.
+	bool setOpaqueFragInvocationCountingEnabled(bool enabled);
 
 	bool runningInRenderDoc() const { return running_in_renderdoc; }
 	//----------------------------------------------------------------------------------------
@@ -1765,6 +1770,7 @@ private:
 	int cloud_env_next_band = -1; // Band of rows of cloud_env_texture to draw next, or -1 to draw all of it.
 
 	Reference<OpenGLTexture> dummy_black_tex;
+	Reference<OpenGLTexture> dummy_black_array_tex; // A 1x1 array texture with 1 layer.  Its bindless handle is used for material array textures that are absent, see setUniformsForPhongProg().
 	Reference<OpenGLTexture> cosine_env_tex;
 	Reference<OpenGLTexture> specular_env_tex;
 	//Reference<OpenGLTexture> snow_ice_normal_map;
@@ -1905,6 +1911,7 @@ public:
 	bool GL_ARB_bindless_texture_support;
 	bool clip_control_support;
 	bool GL_ARB_shader_storage_buffer_object_support;
+	bool GL_ARB_pipeline_statistics_query_support;
 	bool parallel_shader_compile_support;
 	bool EXT_color_buffer_float_support;
 	bool float_texture_filtering_support;
@@ -2052,6 +2059,12 @@ private:
 	uint32 num_phong_uniform_buf_updates_skipped;
 	uint32 num_phong_texture_sets_bound;
 	uint32 num_phong_texture_sets_already_bound;
+
+	bool count_opaque_frag_invocations; // See setOpaqueFragInvocationCountingEnabled().
+	GLuint opaque_frag_invocations_query; // 0 if not created yet.
+	bool opaque_frag_invocations_query_pending; // Has the query been issued, without its result being read back yet?
+	uint64 last_num_opaque_frag_invocations;
+
 	UniformBufObRef material_common_uniform_buf_ob;
 	UniformBufObRef depth_uniform_buf_ob;
 	UniformBufObRef shared_vert_uniform_buf_ob;

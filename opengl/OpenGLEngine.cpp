@@ -519,6 +519,10 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	num_phong_uniform_buf_updates_skipped(0),
 	num_phong_texture_sets_bound(0),
 	num_phong_texture_sets_already_bound(0),
+	count_opaque_frag_invocations(false),
+	opaque_frag_invocations_query(0),
+	opaque_frag_invocations_query_pending(false),
+	last_num_opaque_frag_invocations(0),
 	last_num_animated_obs_processed(0),
 	last_num_decal_batches_drawn(0),
 	next_program_index(0),
@@ -651,6 +655,9 @@ OpenGLEngine::~OpenGLEngine()
 
 	// Free texture_names
 	glDeleteTextures((GLsizei)texture_names.size(), texture_names.data());
+
+	if(opaque_frag_invocations_query != 0)
+		glDeleteQueries(1, &opaque_frag_invocations_query);
 
 	// Update the message callback userParam to be NULL, since 'this' is being destroyed.
 #if !defined(OSX) && !defined(EMSCRIPTEN)
@@ -1844,6 +1851,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 	this->GL_ARB_bindless_texture_support = false;
 	this->clip_control_support = false;
 	this->GL_ARB_shader_storage_buffer_object_support = false;
+	this->GL_ARB_pipeline_statistics_query_support = false;
 	this->parallel_shader_compile_support = false;
 	this->EXT_color_buffer_float_support = false;
 #if EMSCRIPTEN
@@ -1867,6 +1875,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 		if(stringEqual(ext, "GL_ARB_bindless_texture")) this->GL_ARB_bindless_texture_support = true;
 		if(stringEqual(ext, "GL_ARB_clip_control")) this->clip_control_support = true;
 		if(stringEqual(ext, "GL_ARB_shader_storage_buffer_object")) this->GL_ARB_shader_storage_buffer_object_support = true;
+		if(stringEqual(ext, "GL_ARB_pipeline_statistics_query")) this->GL_ARB_pipeline_statistics_query_support = true;
 		if(stringEqual(ext, "GL_KHR_parallel_shader_compile")) parallel_shader_compile_support = true;
 		if(stringEqual(ext, "GL_EXT_memory_object")) GL_EXT_memory_object_support = true;
 		if(stringEqual(ext, "GL_EXT_memory_object_win32")) GL_EXT_memory_object_win32_support = true;
@@ -2102,6 +2111,12 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			ImageMapUInt8Ref dummy_black_tex_map = new ImageMapUInt8(1, 1, 1);
 			dummy_black_tex_map->getPixel(0, 0)[0] = 0;
 			this->dummy_black_tex = getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("__dummy_black_tex__"), *dummy_black_tex_map);
+		}
+
+		{
+			const uint8 black_texel[3] = { 0, 0, 0 };
+			this->dummy_black_array_tex = new OpenGLTexture(1, 1, this, ArrayRef<uint8>(black_texel, 3), OpenGLTextureFormat::Format_SRGB_Uint8, OpenGLTexture::Filtering_Nearest,
+				OpenGLTexture::Wrapping_Repeat, /*has_mipmaps=*/false, /*MSAA_samples=*/-1, /*num_array_images=*/1);
 		}
 
 
@@ -11300,6 +11315,31 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 	if(query_profiling_enabled && current_scene->collect_stats && time_individual_passes && draw_opaque_obs_gpu_timer->isIdle())
 		draw_opaque_obs_gpu_timer->beginTimerQuery();
 
+	// Count the fragment shader invocations in this pass, for measuring overdraw.  Only one query is in flight at a time, and a new one is only issued
+	// once the previous result has been read back, so this doesn't stall.
+	bool counting_frag_invocations = false;
+#if !defined(OSX) && !defined(EMSCRIPTEN)
+	if(count_opaque_frag_invocations)
+	{
+		if(opaque_frag_invocations_query_pending)
+		{
+			GLuint available = 0;
+			glGetQueryObjectuiv(opaque_frag_invocations_query, GL_QUERY_RESULT_AVAILABLE, &available);
+			if(available)
+			{
+				glGetQueryObjectui64v(opaque_frag_invocations_query, GL_QUERY_RESULT, &last_num_opaque_frag_invocations);
+				opaque_frag_invocations_query_pending = false;
+			}
+		}
+
+		if(!opaque_frag_invocations_query_pending)
+		{
+			glBeginQuery(GL_FRAGMENT_SHADER_INVOCATIONS_ARB, opaque_frag_invocations_query);
+			counting_frag_invocations = true;
+		}
+	}
+#endif
+
 	//conPrint("-----------------------------------------------drawNonTransparentMaterialBatches--------------------------------------");
 
 	assertCurrentProgramIsZero();
@@ -11535,6 +11575,14 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 	if(query_profiling_enabled && draw_opaque_obs_gpu_timer->isRunning())
 		draw_opaque_obs_gpu_timer->endTimerQuery();
+
+#if !defined(OSX) && !defined(EMSCRIPTEN)
+	if(counting_frag_invocations)
+	{
+		glEndQuery(GL_FRAGMENT_SHADER_INVOCATIONS_ARB);
+		opaque_frag_invocations_query_pending = true;
+	}
+#endif
 
 	//conPrint("Draw opaque batches took " + timer3.elapsedStringMSWIthNSigFigs(4) + " for " + toString(num_batches_bound) + " batches");
 
@@ -13059,14 +13107,20 @@ void OpenGLEngine::setUniformsForPhongProg(const OpenGLMaterial& opengl_mat, [[m
 
 	if(this->use_bindless_textures)
 	{
-		uniforms.diffuse_tex            = opengl_mat.albedo_texture             ? opengl_mat.albedo_texture            ->getBindlessTextureHandle() : 0;
-		uniforms.metallic_roughness_tex = opengl_mat.metallic_roughness_texture ? opengl_mat.metallic_roughness_texture->getBindlessTextureHandle() : 0;
-		uniforms.lightmap_tex           = opengl_mat.lightmap_texture           ? opengl_mat.lightmap_texture          ->getBindlessTextureHandle() : 0;
-		uniforms.emission_tex           = opengl_mat.emission_texture           ? opengl_mat.emission_texture          ->getBindlessTextureHandle() : 0;
-		uniforms.backface_albedo_tex    = opengl_mat.backface_albedo_texture    ? opengl_mat.backface_albedo_texture   ->getBindlessTextureHandle() : 0;
-		uniforms.transmission_tex       = opengl_mat.transmission_texture       ? opengl_mat.transmission_texture      ->getBindlessTextureHandle() : 0;
-		uniforms.normal_map             = opengl_mat.normal_map                 ? opengl_mat.normal_map                ->getBindlessTextureHandle() : 0;
-		uniforms.combined_array_tex     = opengl_mat.combined_array_texture     ? opengl_mat.combined_array_texture    ->getBindlessTextureHandle() : 0;
+		// Use dummy textures' handles for absent textures rather than 0, as accessing a 0 (invalid) handle is undefined behaviour.  On AMD it hangs the GPU, even though the shaders
+		// only sample textures whose material flags are set, presumably because the compiler loads the texture descriptor regardless.  (NVIDIA tolerates 0 handles.)
+		// The dummy textures must match the sampler types: sampler2D for most, sampler2DArray for combined_array_tex.
+		const uint64 dummy_2d_handle    = dummy_black_tex      ->getBindlessTextureHandle();
+		const uint64 dummy_array_handle = dummy_black_array_tex->getBindlessTextureHandle();
+
+		uniforms.diffuse_tex            = opengl_mat.albedo_texture             ? opengl_mat.albedo_texture            ->getBindlessTextureHandle() : dummy_2d_handle;
+		uniforms.metallic_roughness_tex = opengl_mat.metallic_roughness_texture ? opengl_mat.metallic_roughness_texture->getBindlessTextureHandle() : dummy_2d_handle;
+		uniforms.lightmap_tex           = opengl_mat.lightmap_texture           ? opengl_mat.lightmap_texture          ->getBindlessTextureHandle() : dummy_2d_handle;
+		uniforms.emission_tex           = opengl_mat.emission_texture           ? opengl_mat.emission_texture          ->getBindlessTextureHandle() : dummy_2d_handle;
+		uniforms.backface_albedo_tex    = opengl_mat.backface_albedo_texture    ? opengl_mat.backface_albedo_texture   ->getBindlessTextureHandle() : dummy_2d_handle;
+		uniforms.transmission_tex       = opengl_mat.transmission_texture       ? opengl_mat.transmission_texture      ->getBindlessTextureHandle() : dummy_2d_handle;
+		uniforms.normal_map             = opengl_mat.normal_map                 ? opengl_mat.normal_map                ->getBindlessTextureHandle() : dummy_2d_handle;
+		uniforms.combined_array_tex     = opengl_mat.combined_array_texture     ? opengl_mat.combined_array_texture    ->getBindlessTextureHandle() : dummy_array_handle;
 	}
 
 	
@@ -14984,7 +15038,26 @@ OpenGLEngine::DrawCounts OpenGLEngine::getLastDrawCounts() const
 	c.num_phong_uniform_buf_updates_skipped = num_phong_uniform_buf_updates_skipped;
 	c.num_phong_texture_sets_bound			= num_phong_texture_sets_bound;
 	c.num_phong_texture_sets_already_bound	= num_phong_texture_sets_already_bound;
+	c.num_opaque_frag_invocations			= count_opaque_frag_invocations ? last_num_opaque_frag_invocations : 0;
 	return c;
+}
+
+
+bool OpenGLEngine::setOpaqueFragInvocationCountingEnabled(bool enabled)
+{
+#if !defined(OSX) && !defined(EMSCRIPTEN)
+	if(enabled && !GL_ARB_pipeline_statistics_query_support)
+		return false;
+
+	if(enabled && (opaque_frag_invocations_query == 0))
+		glGenQueries(1, &opaque_frag_invocations_query);
+
+	count_opaque_frag_invocations = enabled;
+	last_num_opaque_frag_invocations = 0; // So a count from an earlier period of counting isn't returned.
+	return true;
+#else
+	return !enabled;
+#endif
 }
 
 
