@@ -50,6 +50,8 @@ public:
 
 	void checkForUploadedTexture(uint64 frame_num, js::Vector<PBOAsyncUploadedTextureInfo, 16>& uploaded_textures_out);
 
+	size_t numUploadingTextures() const { return uploading_textures.size(); }
+
 private:
 	struct PBOUploadingTexture
 	{

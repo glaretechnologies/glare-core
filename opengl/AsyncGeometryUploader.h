@@ -53,6 +53,8 @@ public:
 
 	void checkForUploadedGeometry(OpenGLEngine* opengl_engine, uint64 frame_num, js::Vector<AsyncUploadedGeometryInfo, 16>& loaded_geom_out);
 
+	size_t numUploadingGeometry() const { return uploading_geometry.size() + copying_geometry.size(); }
+
 private:
 	struct UploadingGeometry
 	{
