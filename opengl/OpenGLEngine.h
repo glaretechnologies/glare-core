@@ -1758,10 +1758,11 @@ private:
 	Reference<OpenGLTexture> cloud_shape_tex;
 	Reference<OpenGLTexture> cloud_detail_tex;
 
-	// Lat-long map of the clouds in each world-space direction, rebuilt each frame and read by reflective
-	// materials.  rgb = scattered radiance, a = transmittance.  See sampleCloudEnvMap() in frag_utils.glsl.
+	// Lat-long map of the clouds in each world-space direction, read by reflective materials.  One band of rows is
+	// rebuilt each frame (see drawCloudEnvMap()).  rgb = scattered radiance, a = transmittance.  See sampleCloudEnvMap() in frag_utils.glsl.
 	Reference<OpenGLTexture> cloud_env_texture;
 	Reference<FrameBuffer> cloud_env_framebuffer;
+	int cloud_env_next_band = -1; // Band of rows of cloud_env_texture to draw next, or -1 to draw all of it.
 
 	Reference<OpenGLTexture> dummy_black_tex;
 	Reference<OpenGLTexture> cosine_env_tex;

@@ -9274,6 +9274,8 @@ void OpenGLEngine::doFogPostProcess(OpenGLTexture* colour_tex_input, const Matri
 
 // Raymarches the clouds into cloud_env_texture, a lat-long map indexed by world-space direction, which
 // reflective materials read through sampleCloudEnvMap() in frag_utils.glsl.
+// The raymarch is expensive and the clouds change slowly, so only one band of rows of the map is redrawn each frame, cycling
+// through the bands, so each texel is refreshed every NUM_BANDS frames.  The whole map is drawn the first time.
 void OpenGLEngine::drawCloudEnvMap()
 {
 	DebugGroup debug_group("drawCloudEnvMap()");
@@ -9302,7 +9304,19 @@ void OpenGLEngine::drawCloudEnvMap()
 	bindTextureUnitToSampler(*this->cloud_shape_tex,  /*texture_unit_index=*/CLOUD_SHAPE_TEXTURE_UNIT_INDEX,  cloud_env_shape_tex_loc);
 	bindTextureUnitToSampler(*this->cloud_detail_tex, /*texture_unit_index=*/CLOUD_DETAIL_TEXTURE_UNIT_INDEX, cloud_env_detail_tex_loc);
 
+	// Restrict drawing to the band with a scissor rect rather than the viewport, so the quad still covers the whole map and the shader's map coordinates are unchanged.
+	const int NUM_BANDS = 4;
+	if(cloud_env_next_band >= 0)
+	{
+		const int band_h = (int)cloud_env_texture->yRes() / NUM_BANDS;
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(0, cloud_env_next_band * band_h, (int)cloud_env_texture->xRes(), band_h);
+	}
+
 	drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), unit_quad_meshdata->vbo_handle.base_vertex);
+
+	glDisable(GL_SCISSOR_TEST);
+	cloud_env_next_band = (cloud_env_next_band + 1) % NUM_BANDS;
 
 	OpenGLProgram::useNoPrograms();
 
