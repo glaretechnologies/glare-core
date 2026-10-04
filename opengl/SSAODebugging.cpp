@@ -164,98 +164,133 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 		//vec3 d_i_vs_cross_v = normalize(cross(d_i_vs, V)); // NOTE: need normalize?  Vector normal to sampling plane and orthogonal to view vector.
 		//vec3 projected_n_p = normalize(n - d_i_vs_cross_v * dot(n, d_i_vs_cross_v)); // fragment surface normal projected into sampling plane
 
-		const vec3 sampling_plane_n = normalize(cross(d_i_vs, V));
-		const vec3 projected_n = normalize(removeComponentInDir(n, sampling_plane_n));
+		const vec3 sampling_plane_n = normalize(cross(d_i_vs, V)); // normal of the plane on which the arc lies that will be divided into sectors.
+		const vec3 projected_n = normalize(removeComponentInDir(n, sampling_plane_n)); // Normal of the surface, projected into the sampling plane.
 
+		// Get angle between projected normal and view vector
 		const float view_proj_n_angle = acos(dot(projected_n, V));
+		// Get angle between (one of) the surface tangent(s) on the sampling plane, and the view vector.
+		// V x projected_n is a vector that points in the sampling plane normal direction if V is 'above' (for a vertical sampling plane) projected_n.
+		// So the sign(dot())) is +1 if V is above projected_n, -1 otherwise.  And projected_n lies at an angle of pi/2 from the sampling plane tangent.
 		const float view_alpha = PI_2 + sign(dot(cross(V, projected_n), sampling_plane_n)) * view_proj_n_angle;
 
-		//drawSamplingPlane(gl_engine, p, sampling_plane_n, projected_n);
+		drawSamplingPlane(gl_engine, p, sampling_plane_n, projected_n); // Draws projected_n as an arrow in red.
 
-		float step_incr = r / N_s; // Distance in screen space to step, increases slightly each step.
-		float last_step_incr = step_incr;
-		float dist_ss = step_incr;// * pixel_hash; // Total distance stepped in screen space, before randomisation
+		//float step_incr = r / N_s; // Distance in screen space to step, increases slightly each step.
+		//float last_step_incr = step_incr;
+		//float dist_ss = step_incr;// * pixel_hash; // Total distance stepped in screen space, before randomisation
+		const int num_steps = 22;
+		int N_s = num_steps; // Number of steps per direction.  A uniform rather than a constant, see num_steps.
+		float initial_step_size = r / float(N_s); // (float(N_s) + 1.0);
+		// NOTE: we want step_incr_factor^N_s ~= 2      , e.g. step length is approximately doubled at end of stepping.
+		// step_incr_factor = 2^(1 / N_s)
+		float step_incr_factor = exp2(1.0 / float(N_s));
 
 		uint b_i = 0; // bitmask (= globalOccludedBitfield)
-		for(int q=0; q<N_s * 2; ++q)
+		for(int side=0; side<2; ++side)
 		{
-			if(q == N_s)
+			float angle_add_sign = (side == 0) ? 1.0 : -1.0;
+			float step_incr      = (side == 0) ? initial_step_size : -initial_step_size; // Distance in screen space to step, increases slightly each step.
+			float last_step_incr = step_incr;
+			float dist_ss = step_incr; // Total distance stepped in screen space, before randomisation
+
+			for(int j=0; j<N_s; ++j)
 			{
-				// Reset, start walking in other direction
-				step_incr = -r / N_s;
+				float cur_dist_ss = dist_ss - pixel_hash * last_step_incr;
+
+				// Advance for the next step now, so that 'continue' can be used below.
+				dist_ss += step_incr;
 				last_step_incr = step_incr;
-				dist_ss = step_incr;
-			}
+				step_incr *= step_incr_factor;
 
-			float cur_dist_ss = dist_ss - pixel_hash * last_step_incr;
+				//vec2 pos_j_ss = origin_ss + d_i_ss * step_size * float(j); // step_j position in screen space
+				const vec2 pos_j_ss = origin_ss + d_i_ss * cur_dist_ss; // step_j position in screen space
+				if(!(pos_j_ss.x >= 0.0 && pos_j_ss.y <= 1.0 && pos_j_ss.y >= 0.0 && pos_j_ss.y <= 1.0))
+					break; // Walked off the screen.  The rest of the steps on this side would be off-screen too.
 
-			//vec2 pos_j_ss = origin_ss + d_i_ss * step_size * float(j); // step_j position in screen space
-			const vec2 pos_j_ss = origin_ss + d_i_ss * cur_dist_ss; // step_j position in screen space
-			if(!(pos_j_ss.x >= 0.0 && pos_j_ss.y <= 1.0 && pos_j_ss.y >= 0.0 && pos_j_ss.y <= 1.0))
-				continue;
+				//vec3 pos_j = viewSpaceFromScreenSpacePos(pos_j_ss, gl_engine, depth_querier); // step_j position in camera/view space
+				float pos_j_depth = depth_querier.depthForPosSS(pos_j_ss);// getDepthFromDepthTexture(normed_pos_ss);
+				//if(pos_j.z < -100000.0) // If nothing was drawn at the step position in the pre-pass (the depth is the cleared value, e.g. the sky), it's not an occluder.
+				//	continue;
+				if(pos_j_depth > 100000.0)
+					continue;
+				vec3 pos_j = viewSpaceFromScreenSpacePosAndDepth(pos_j_ss, gl_engine, pos_j_depth);
 
-			vec3 pos_j = viewSpaceFromScreenSpacePos(pos_j_ss, gl_engine, depth_querier); // step_j position in camera/view space
+				drawPoint(gl_engine, pos_j, Colour4f(1,1,0,1)); // Draw pos_j
+				
+				
 
-			//drawPoint(gl_engine, pos_j, Colour4f(1,1,0,1)); // Draw pos_j
+				vec3 back_pos_j = pos_j - V * thickness; // position of guessed 'backside' of step position in camera/view space
 
-			vec3 back_pos_j = pos_j - V * thickness; // position of guessed 'backside' of step position in camera/view space
+				//pos_j = rayPlaneIntersectPoint(pos_j, /*dir=*/V, plane_d, /*plane_normal=*/n);
+				//back_pos_j = rayPlaneIntersectPoint(back_pos_j, /*dir=*/V, plane_d, /*plane_normal=*/n);
 
-			//pos_j = rayPlaneIntersectPoint(pos_j, /*dir=*/V, plane_d, /*plane_normal=*/n);
-			//back_pos_j = rayPlaneIntersectPoint(back_pos_j, /*dir=*/V, plane_d, /*plane_normal=*/n);
-
-			const vec3 unit_p_to_pos_j      = normalize(pos_j      - p);
-			const vec3 unit_p_to_back_pos_j = normalize(back_pos_j - p);
+				const vec3 unit_p_to_pos_j      = normalize(pos_j      - p);
+				const vec3 unit_p_to_back_pos_j = normalize(back_pos_j - p);
 			
 
-			// Convert to angles in [0, pi], the angle between the surface and frag-to-step_j position
-			const float V_p_p_j_angle =      acos(dot(V, unit_p_to_pos_j)); // Angle between view vector and p to p_j.
-			const float V_p_p_j_back_angle = acos(dot(V, unit_p_to_back_pos_j)); // Angle between view vector and p to p_back_j.
-			const float angle_add_sign = sign(dot(cross(unit_p_to_pos_j, V), sampling_plane_n));
-			float front_alpha = view_alpha + angle_add_sign * V_p_p_j_angle;
-			float back_alpha  = view_alpha + angle_add_sign * V_p_p_j_back_angle;
+				// Convert to angles in [0, pi], the angle between the surface and frag-to-step_j position
+				const float V_p_p_j_angle =      acos(dot(V, unit_p_to_pos_j)); // Angle between view vector and p to p_j.
+				const float V_p_p_j_back_angle = acos(dot(V, unit_p_to_back_pos_j)); // Angle between view vector and p to p_back_j.
 
-			// Map from [0, pi] to [0, 1]
-			front_alpha = clamp(front_alpha / PI, 0.0, 1.0);
-			back_alpha  = clamp(back_alpha  / PI, 0.0, 1.0);
-
-			const float min_alpha = min(front_alpha, back_alpha);
-			const float max_alpha = max(front_alpha, back_alpha);
-
-			//debug_val = clamp(front_view_angle, 0.0, 1.0);
-
-			uint occlusion_mask = occlusionBitMask(min_alpha, max_alpha);
-			uint new_b_i = b_i | occlusion_mask;
-			uint bits_changed = new_b_i & ~b_i; //new_b_i - b_i;
-			assert(bits_changed == new_b_i - b_i);
-			b_i  = new_b_i;
-
-			//indirect += vec3(1.0) * float(countSetBits(bits_changed)) * (1.0 / float(SECTOR_COUNT)); // texture(diffuse_tex, pos_j_ss).xyz;
-			const float cos_norm_angle = dot(unit_p_to_pos_j, n);
-			if((cos_norm_angle > 0.01f) && (bits_changed != 0))
-			{
-				// Draw sector
-				//drawSectors(gl_engine, p, bits_changed, sampling_plane_n, projected_n);
-
-				//vec3 n_j_vs = Vec3f(normalise(gl_engine.getCurrentScene()->last_view_matrix * depth_querier.normalForPosSS(pos_j_ss).toVec4fVector()));
-				vec3 n_j_vs = depth_querier.normalCSForPosSS(pos_j_ss);
-				float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
-
-				const float sin_factor = sqrt(max(0.0f, 1.0f - cos_norm_angle*cos_norm_angle));
-
-				const float scalar_factors = cos_norm_angle * sin_factor * float(countSetBits(bits_changed));
-				uniform_irradiance += scalar_factors;
-
-				if(n_j_cos_theta > -0.3) // dot(n_j_ss, p_to_pos_j_vs) < 0)
+				//const float the_dot = dot(cross(unit_p_to_pos_j, V), sampling_plane_n);
+				assert(angle_add_sign == sign(dot(cross(unit_p_to_pos_j, V), sampling_plane_n)));
+				//const float angle_add_sign = sign(dot(cross(unit_p_to_pos_j, V), sampling_plane_n));
+				//assert(angle_add_sign == (side == 0 ? 1.f : -1.f));
+				if(angle_add_sign != sign(dot(cross(unit_p_to_pos_j, V), sampling_plane_n)))
 				{
-					vec3 common_factors = scalar_factors * vec3(1.f); // TEMP textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
-					irradiance += /*n_j_cos_theta * */common_factors;
-				}
-			}
+					conPrint("Sign differs!  side: " + toString(side) + "j: " + toString(j));
+					drawArrow(gl_engine, p, pos_j, Colour4f(0,1,0,1)); // draw arrow to pos_j
+					drawArrow(gl_engine, p, p + V, Colour4f(1,0,0,1)); // draw V
 
-			dist_ss += step_incr;
-			last_step_incr = step_incr;
-			const float step_incr_factor = exp(log(2.0f) / float(N_s));
-			step_incr *= step_incr_factor;
+					pos_j = viewSpaceFromScreenSpacePos(pos_j_ss, gl_engine, depth_querier); // step_j position in camera/view space
+				}
+				float front_alpha = view_alpha + angle_add_sign * V_p_p_j_angle;
+				float back_alpha  = view_alpha + angle_add_sign * V_p_p_j_back_angle;
+
+				// Map from [0, pi] to [0, 1]
+				front_alpha = clamp(front_alpha / PI, 0.0, 1.0);
+				back_alpha  = clamp(back_alpha  / PI, 0.0, 1.0);
+
+				const float min_alpha = min(front_alpha, back_alpha);
+				const float max_alpha = max(front_alpha, back_alpha);
+
+				//debug_val = clamp(front_view_angle, 0.0, 1.0);
+
+				uint occlusion_mask = occlusionBitMask(min_alpha, max_alpha);
+				uint new_b_i = b_i | occlusion_mask;
+				uint bits_changed = new_b_i & ~b_i; //new_b_i - b_i;
+				assert(bits_changed == new_b_i - b_i);
+				b_i  = new_b_i;
+
+				//indirect += vec3(1.0) * float(countSetBits(bits_changed)) * (1.0 / float(SECTOR_COUNT)); // texture(diffuse_tex, pos_j_ss).xyz;
+				const float cos_norm_angle = dot(unit_p_to_pos_j, n);
+				if((cos_norm_angle > 0.01f) && (bits_changed != 0))
+				{
+					// Draw sector
+					drawSectors(gl_engine, p, bits_changed, sampling_plane_n, projected_n);
+
+					//vec3 n_j_vs = Vec3f(normalise(gl_engine.getCurrentScene()->last_view_matrix * depth_querier.normalForPosSS(pos_j_ss).toVec4fVector()));
+					vec3 n_j_vs = depth_querier.normalCSForPosSS(pos_j_ss);
+					float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
+
+					const float sin_factor = sqrt(max(0.0f, 1.0f - cos_norm_angle*cos_norm_angle));
+
+					const float scalar_factors = cos_norm_angle * sin_factor * float(countSetBits(bits_changed));
+					uniform_irradiance += scalar_factors;
+
+					if(n_j_cos_theta > -0.3) // dot(n_j_ss, p_to_pos_j_vs) < 0)
+					{
+						vec3 common_factors = scalar_factors * vec3(1.f); // TEMP textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
+						irradiance += /*n_j_cos_theta * */common_factors;
+					}
+				}
+
+				/*dist_ss += step_incr;
+				last_step_incr = step_incr;
+				const float step_incr_factor = exp(log(2.0f) / float(N_s));
+				step_incr *= step_incr_factor;*/
+			}
 		}
 
 		//ao += 1.0f - float(countSetBits(b_i)) * (1.0f / 32.0f);
@@ -328,7 +363,7 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 		vec2  cur_ss  = origin_ss    + dir_ss  * cur_dist_ss; // Compute current screen space position
 		float p_ss_xy = o_ss_xy      + d_ss_xy * cur_dist_ss;
 
-		float t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
+		float t_1 =  (p.z*(p_ss_xy - 0.5f) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5f) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
 		if(t_1 < 0.0) // TODO: solve for the distance to this singularity to avoid this branch.
 			break;
 
@@ -337,16 +372,16 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 		float cur_depth_buf_depth = depth_querier.depthForPosSS(cur_ss); // getDepthFromDepthTexture(cur_ss); // Get depth from depth buffer for current step position
 		float pen_depth = cur_step_depth - cur_depth_buf_depth; // penetration depth, > 0 if we have intersected a surface.
 
-		drawPoint(gl_engine, viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_step_depth), Colour4f(1,0,0,1)); // Draw step position
-		drawPoint(gl_engine, viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_depth_buf_depth), Colour4f(1,0,0,1)); // Draw fragment position (uses depth buffer depth)
-		drawArrow(gl_engine, viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_step_depth), viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_depth_buf_depth), Colour4f(1, 0.5, 0, 1));
+		//drawPoint(gl_engine, viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_step_depth), Colour4f(1,0,0,1)); // Draw step position
+		//drawPoint(gl_engine, viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_depth_buf_depth), Colour4f(1,0,0,1)); // Draw fragment position (uses depth buffer depth)
+		//drawArrow(gl_engine, viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_step_depth), viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_depth_buf_depth), Colour4f(1, 0.5, 0, 1));
 
 		//vec3 frag_pos_cs = viewSpaceFromScreenSpacePosAndDepth(cur_ss, gl_engine, cur_depth_buf_depth);
 		//vec3 n_cs = depth_querier.normalCSForPosSS(cur_ss);
 		//drawArrow(gl_engine, frag_pos_cs, frag_pos_cs + n_cs * 0.2f, Colour4f(0, 0.8, 0, 1));
 		//float frag_dot = abs(dot(n_cs, normalise(frag_pos_cs)));
 		float last_step_depth_delta = cur_step_depth - prev_step_depth;
-		float coarse_thickness = max(1.0, last_step_depth_delta * 2.0); // 0.5 / max(0.05, frag_dot);
+		float coarse_thickness = max(1.0f, last_step_depth_delta * 2.0f); // 0.5 / max(0.05, frag_dot);
 
 		conPrint("step " + toString(i));
 		printVar(pen_depth);
@@ -361,9 +396,9 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 			float dist_ss_b = cur_dist_ss;
 			for(int z=0; z<4; ++z)
 			{
-				float mid_dist_ss = (dist_ss_a + dist_ss_b) * 0.5;
+				float mid_dist_ss = (dist_ss_a + dist_ss_b) * 0.5f;
 				p_ss_xy = o_ss_xy + d_ss_xy * mid_dist_ss;
-				t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
+				t_1 =  (p.z*(p_ss_xy - 0.5f) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5f) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
 				p_cs_z = p.z + dir_cs.z * t_1;
 				cur_step_depth = -p_cs_z;
 
@@ -379,7 +414,7 @@ float SSAODebugging::computeReferenceAO(OpenGLEngine& gl_engine, DepthQuerier& d
 			//cur_ss = origin_ss    + dir_ss  * ((dist_ss_a + dist_ss_b) * 0.5);
 			cur_ss = origin_ss    + dir_ss  * dist_ss_b;
 			p_ss_xy = o_ss_xy     + d_ss_xy * dist_ss_b;
-			t_1 =  (p.z*(p_ss_xy - 0.5) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
+			t_1 =  (p.z*(p_ss_xy - 0.5f) + o_cs_xy * l_over_w_factor) / (dir_cs.z*(-p_ss_xy + 0.5f) - d_cs_xy * l_over_w_factor); // Solve for distance t_1 along camera space ray
 			p_cs_z = p.z + dir_cs.z * t_1;
 			cur_step_depth = -p_cs_z;
 			cur_depth_buf_depth = depth_querier.depthForPosSS(cur_ss);

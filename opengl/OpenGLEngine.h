@@ -1022,8 +1022,8 @@ struct MaterialCommonUniforms
 
 	int mat_common_flags;
 	float cloud_layer_mid_z; // Altitude the cloud env map is parallax-corrected against.  See sampleCloudEnvMapWithParallax().
-	float padding_a1;
-	float padding_a2;
+	float w_over_l; // 1 / l_over_w, so shaders can multiply instead of divide
+	float h_over_l; // 1 / l_over_h
 
 	Matrix4f frag_shadow_texture_matrix[ShadowMapping::NUM_DYNAMIC_DEPTH_TEXTURES + ShadowMapping::NUM_STATIC_DEPTH_TEXTURES];
 
@@ -1816,6 +1816,7 @@ private:
 	Reference<OpenGLProgram> compute_ssao_prog;
 	int compute_ssao_normal_tex_location;
 	int compute_ssao_depth_tex_location;
+	int compute_ssao_num_steps_location;
 
 	Colour4f outline_colour;
 	float outline_width_px;

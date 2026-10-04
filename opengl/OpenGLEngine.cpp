@@ -3362,6 +3362,7 @@ OpenGLProgramRef OpenGLEngine::buildComputeSSAOProg()
 
 	compute_ssao_normal_tex_location = prog->getUniformLocation("normal_tex");
 	compute_ssao_depth_tex_location = prog->getUniformLocation("depth_tex");
+	compute_ssao_num_steps_location = prog->getUniformLocation("num_steps");
 
 	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
@@ -7582,6 +7583,8 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 			common_uniforms.time = current_time;
 			common_uniforms.l_over_w = 0.5f; // 90 degree field of view: half-width 1 at distance 1.
 			common_uniforms.l_over_h = 0.5f;
+			common_uniforms.w_over_l = 2.f;
+			common_uniforms.h_over_l = 2.f;
 			common_uniforms.env_phi = current_scene->sun_phi;
 			common_uniforms.water_level_z = current_scene->water_level_z;
 			common_uniforms.camera_type = (int)OpenGLScene::CameraType_Perspective;
@@ -7604,7 +7607,6 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 				(use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) | DOING_PROBE_CAPTURE_FLAG;
 
 			common_uniforms.cloud_layer_mid_z = (current_scene->cloud_settings.bottom_z + current_scene->cloud_settings.top_z) * 0.5f;
-			common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
 
 			setShadowCascadeBiasScaleUniforms(common_uniforms, current_scene->shadow_mapping.ptr());
 
@@ -8271,13 +8273,14 @@ void OpenGLEngine::draw()
 	common_uniforms.time = current_time;
 	common_uniforms.l_over_w = cur_scene->lens_sensor_dist / cur_scene->use_sensor_width;
 	common_uniforms.l_over_h = cur_scene->lens_sensor_dist / cur_scene->use_sensor_height;
+	common_uniforms.w_over_l = cur_scene->use_sensor_width  / cur_scene->lens_sensor_dist;
+	common_uniforms.h_over_l = cur_scene->use_sensor_height / cur_scene->lens_sensor_dist;
 	common_uniforms.env_phi = cur_scene->sun_phi;
 	common_uniforms.water_level_z = cur_scene->water_level_z;
 	common_uniforms.camera_type = (int)cur_scene->camera_type;
 	common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (settings.ssao ? DO_SSAO_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) | (use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) |
 		(settings.msaa_samples >= 2 ? ALPHA_TO_COVERAGE_ENABLED_FLAG : 0);
 	common_uniforms.cloud_layer_mid_z = (cur_scene->cloud_settings.bottom_z + cur_scene->cloud_settings.top_z) * 0.5f;
-	common_uniforms.padding_a1 = common_uniforms.padding_a2 = 0;
 
 	// Set from last frame's shadow map build for now, so we're not uploading uninitialised data.  The shadow maps
 	// for this frame are rendered below, after which the current values are uploaded over the top.
@@ -12011,6 +12014,10 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, PREPASS_NORMAL_TEXTURE_UNIT_INDEX, compute_ssao_normal_tex_location);
 				bindTextureUnitToSampler(*current_scene->prepass_depth_texture,  PREPASS_DEPTH_TEXTURE_UNIT_INDEX,  compute_ssao_depth_tex_location);
 
+				// This is a uniform rather than a constant in the shader, so that the shader compiler doesn't fully unroll the stepping loop: on AMD (RX 9060 XT) the
+				// unrolled loop is about 10% slower.
+				glUniform1i(compute_ssao_num_steps_location, /*num_steps=*/22);
+
 				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)mesh_data.batches[0].num_indices, mesh_data.getIndexType(), (void*)mesh_data.getBatch0IndicesTotalBufferOffset(), mesh_data.vbo_handle.base_vertex);
 			}
 
@@ -13173,7 +13180,7 @@ void OpenGLEngine::bindTexturesForPhongProg(const OpenGLMaterial& opengl_mat)
 		if(texture.nonNull())
 		{
 			const int i = texture_unit_index - DIFFUSE_TEXTURE_UNIT_INDEX;
-			assert(i >= 0 && < NUM_PHONG_TEXTURE_UNITS);
+			assert(i >= 0 && i < NUM_PHONG_TEXTURE_UNITS);
 			if(bound_phong_textures[i] != texture.ptr())
 			{
 				bindTextureToTextureUnitRaw(*texture, texture_unit_index);

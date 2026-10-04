@@ -23,8 +23,8 @@ layout (std140) uniform MaterialCommonUniforms
 
 	int mat_common_flags;
 	float cloud_layer_mid_z; // Altitude the cloud env map is parallax-corrected against.  See sampleCloudEnvMapWithParallax().
-	float padding_a1;
-	float padding_a2;
+	float w_over_l; // 1 / l_over_w, so shaders can multiply instead of divide
+	float h_over_l; // 1 / l_over_h
 
 	mat4 frag_shadow_texture_matrix[5];
 

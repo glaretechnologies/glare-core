@@ -30,8 +30,8 @@ out vec4 colour_out;
 vec3 camSpaceFromScreenSpaceDir(vec2 normed_pos_ss)
 {
 	return vec3(
-		(normed_pos_ss.x - 0.5) / l_over_w,
-		(normed_pos_ss.y - 0.5) / l_over_h,
+		(normed_pos_ss.x - 0.5) * w_over_l,
+		(normed_pos_ss.y - 0.5) * h_over_l,
 		-1
 	);
 }

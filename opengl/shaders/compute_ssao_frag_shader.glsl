@@ -11,6 +11,10 @@ uniform sampler2D blue_noise_tex;
 uniform samplerCube cosine_env_tex;
 uniform sampler2D specular_env_tex;
 
+// Number of steps per direction for the indirect lighting / AO stepping.  This is a uniform rather than a constant so that the shader compiler doesn't fully unroll the
+// stepping loop, which was about 10% slower on AMD (RX 9060 XT).
+uniform int num_steps;
+
 
 
 in vec2 texture_coords;
@@ -29,8 +33,8 @@ float getDepthFromDepthTexture(vec2 normed_pos_ss)
 vec3 viewSpaceFromScreenSpacePosAndDepth(vec2 normed_pos_ss, float depth)
 {
 	return vec3(
-		(normed_pos_ss.x - 0.5) * depth / l_over_w,
-		(normed_pos_ss.y - 0.5) * depth / l_over_h,
+		(normed_pos_ss.x - 0.5) * depth * w_over_l,
+		(normed_pos_ss.y - 0.5) * depth * h_over_l,
 		-depth
 	);
 }
@@ -130,7 +134,8 @@ void main()
 
 	vec3 n = src_normal_cs; // View/camera space surface normal
 	vec3 p = viewSpaceFromScreenSpacePos(texture_coords); // View/camera space surface position
-	if(p.z < -100000.0) // Don't do SSAO for the environment sphere
+	float no_ob_depth_threshold = near_clip_dist * 0.5e6; // Prepass clears depth so that empty pixels decode to ~near_clip_dist * 1e6 (see drawColourAndDepthPrePass()).
+	if(p.z < -no_ob_depth_threshold) // Don't do SSAO where no objects are drawn.
 	{
 		irradiance_out = vec4(0.0, 0.0, 0.0, 1.0);
 		specular_spec_rad_out = vec4(0.0);
@@ -146,15 +151,18 @@ void main()
 
 	const float thickness = 0.2;
 	const float r = 0.2; // Total stepping radius in screen space
-	const int N_s = 22; // Number of steps per direction
-	const float initial_step_size = r / float(N_s); // (float(N_s) + 1.0);
+	int N_s = num_steps; // Number of steps per direction.  A uniform rather than a constant, see num_steps.
+	float initial_step_size = r / float(N_s); // (float(N_s) + 1.0);
+	// NOTE: we want step_incr_factor^N_s ~= 2      , e.g. step length is approximately doubled at end of stepping.
+	// step_incr_factor = 2^(1 / N_s)
+	float step_incr_factor = exp2(1.0 / float(N_s));
 
 	const int N_d = 4; // num directions to sample
 
 	float uniform_irradiance = 0.0;
 	vec3 irradiance = vec3(0.0);
 
-	float aspect_ratio = l_over_h / l_over_w; // viewport width / height
+	float aspect_ratio = l_over_h * w_over_l; // viewport width / height
 
 	for(int i=0; i<N_d; ++i) // For each direction:
 	{
@@ -174,95 +182,90 @@ void main()
 		// d_i_vs = removeComponentInDir(d_i_vs, V);// d_i_vs - V * dot(V, d_i_vs); // Make d_i_vs orthogonal to view vector. NOTE: needed?
 
 		vec3 sampling_plane_n = normalize(cross(d_i_vs, V)); // Get vector normal to sampling plane and orthogonal to view vector.  Normalise needed for removeComponentInDir() below. (could use unnormalised version of function tho)
+
 		vec3 projected_n = normalize(removeComponentInDir(n, sampling_plane_n)); // fragment surface normal projected into sampling plane
 
 		// Get angle between projected normal and view vector
 		float view_proj_n_angle = fastApproxACos(dot(projected_n, V));
+		// Get angle between (one of) the surface tangent(s) on the sampling plane, and the view vector.
+		// V x projected_n is a vector that points in the sampling plane normal direction if V is 'above' (for a vertical sampling plane) projected_n.
+		// So the sign(dot())) is +1 if V is above projected_n, -1 otherwise.  And projected_n lies at an angle of pi/2 from the sampling plane tangent.
 		float view_alpha = PI_2 + sign(dot(cross(V, projected_n), sampling_plane_n)) * view_proj_n_angle;
 
 
 		uint b_i = 0u; // bitmask: each bit set to 1 if trace hit something in that sector.
-		float step_incr = initial_step_size; // Distance in screen space to step, increases slightly each step.
-		float last_step_incr = step_incr;
-		float dist_ss = step_incr;// * pixel_hash; // Total distance stepped in screen space, before randomisation
-
-		// We will trace in one direction in screen space for N_s steps, then go back and trace in the reverse direction for another N_s steps.
-		// Say N_s = 4.
-		// q = 0, 1, 2, 3  are samples in one direction,
-		// q = 4, 5, 6, 7 are samples in the backwards direction
-		for(int q=0; q<N_s * 2; ++q)
+		// Trace in one direction in screen space for N_s steps, then go back and trace in the reverse direction for another N_s steps.
+		for(int side=0; side<2; ++side)
 		{
-			if(q == N_s)
+			float angle_add_sign = (side == 0) ? 1.0 : -1.0;
+			float step_incr      = (side == 0) ? initial_step_size : -initial_step_size; // Distance in screen space to step, increases slightly each step.
+			float last_step_incr = step_incr;
+			float dist_ss = step_incr; // Total distance stepped in screen space, before randomisation
+
+			for(int j=0; j<N_s; ++j)
 			{
-				// Reset, start walking in other direction
-				step_incr = -initial_step_size;
+				float cur_dist_ss = dist_ss - pixel_hash.y * last_step_incr;
+
+				// Advance for the next step now, so that 'continue' can be used below.
+				dist_ss += step_incr;
 				last_step_incr = step_incr;
-				dist_ss = step_incr;
-			}
-			float cur_dist_ss = dist_ss - pixel_hash.y * last_step_incr;
+				step_incr *= step_incr_factor;
 
-			vec2 pos_j_ss = origin_ss + d_i_ss * cur_dist_ss; // step_j position in screen space
-			if(!(pos_j_ss.x >= 0.0 && pos_j_ss.x <= 1.0 && pos_j_ss.y >= 0.0 && pos_j_ss.y <= 1.0)) // TODO: optimise
-				continue;
+				vec2 pos_j_ss = origin_ss + d_i_ss * cur_dist_ss; // step_j position in screen space
+				if(!(pos_j_ss.x >= 0.0 && pos_j_ss.x <= 1.0 && pos_j_ss.y >= 0.0 && pos_j_ss.y <= 1.0))
+					break; // Walked off the screen.  The rest of the steps on this side would be off-screen too.
 			
-			vec3 pos_j = viewSpaceFromScreenSpacePos(pos_j_ss); // get step_j position in camera/view space
+				float pos_j_depth = getDepthFromDepthTexture(pos_j_ss); // Get step_j depth.  depth := -pos_cs.z
+				if(pos_j_depth > no_ob_depth_threshold) // If nothing was drawn at the step position in the pre-pass (the depth is the cleared value, e.g. the sky), it's not an occluder.
+					continue;
+				vec3 pos_j = viewSpaceFromScreenSpacePosAndDepth(pos_j_ss, pos_j_depth); // get step_j position in camera/view space
 
-			vec3 back_pos_j = pos_j - V * thickness; // position of guessed 'backside' of step position in camera/view space
+				vec3 back_pos_j = pos_j - V * thickness; // position of guessed 'backside' of step position in camera/view space
 
-			vec3 unit_p_to_pos_j      = normalize(pos_j      - p); // normalised vector from fragment position to step position, in view/camera space
-			vec3 unit_p_to_back_pos_j = normalize(back_pos_j - p); // normalised vector from fragment position to step back position, in view/camera space
+				vec3 unit_p_to_pos_j      = normalize(pos_j      - p); // normalised vector from fragment position to step position, in view/camera space
+				vec3 unit_p_to_back_pos_j = normalize(back_pos_j - p); // normalised vector from fragment position to step back position, in view/camera space
 			
-			// Convert to angles in [0, pi], the angle between the surface and frag-to-step_j position
-			float V_p_p_j_angle =      fastApproxACos(dot(V, unit_p_to_pos_j)); // Angle between view vector and p to p_j.
-			float V_p_p_j_back_angle = fastApproxACos(dot(V, unit_p_to_back_pos_j)); // Angle between view vector and p to p_back_j.
-			float angle_add_sign = sign(dot(cross(unit_p_to_pos_j, V), sampling_plane_n));
-			float front_alpha = view_alpha + angle_add_sign * V_p_p_j_angle;
-			float back_alpha  = view_alpha + angle_add_sign * V_p_p_j_back_angle;
+				// Convert to angles in [0, pi], the angle between the surface and frag-to-step_j position
+				float V_p_p_j_angle =      fastApproxACos(dot(V, unit_p_to_pos_j)); // Angle between view vector and p to p_j.
+				float V_p_p_j_back_angle = fastApproxACos(dot(V, unit_p_to_back_pos_j)); // Angle between view vector and p to p_back_j.
+				float front_alpha = view_alpha + angle_add_sign * V_p_p_j_angle;
+				float back_alpha  = view_alpha + angle_add_sign * V_p_p_j_back_angle;
 
-			// Map from [0, pi] to [0, 1]
-			front_alpha = clamp(front_alpha / PI, 0.0, 1.0);
-			back_alpha  = clamp(back_alpha  / PI, 0.0, 1.0);
+				// Map from [0, pi] to [0, 1]
+				front_alpha = clamp(front_alpha / PI, 0.0, 1.0);
+				back_alpha  = clamp(back_alpha  / PI, 0.0, 1.0);
 
-			float min_alpha = min(front_alpha, back_alpha);
-			float max_alpha = max(front_alpha, back_alpha);
+				float min_alpha = min(front_alpha, back_alpha);
+				float max_alpha = max(front_alpha, back_alpha);
 
-			uint occlusion_mask = occlusionBitMask(min_alpha, max_alpha);
-			uint new_b_i = b_i | occlusion_mask;
-			uint bits_changed = new_b_i & ~b_i;
-			b_i  = new_b_i;
+				uint occlusion_mask = occlusionBitMask(min_alpha, max_alpha);
+				uint new_b_i = b_i | occlusion_mask;
+				uint bits_changed = new_b_i & ~b_i;
+				b_i  = new_b_i;
 
-			float cos_norm_angle = dot(unit_p_to_pos_j, n);
-			if((cos_norm_angle > 0.01) && (bits_changed != 0u))
-			{
-				vec3 n_j_vs = readNormalFromNormalTexture(pos_j_ss);
-
-				float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
-
-				float sin_factor = sinForCos(cos_norm_angle);
-
-				float scalar_factors = cos_norm_angle * sin_factor * float(countSetBits(bits_changed));
-				uniform_irradiance += scalar_factors;
-
-				if(n_j_cos_theta > -0.3)
+				float cos_norm_angle = dot(unit_p_to_pos_j, n);
+				if((cos_norm_angle > 0.01) && (bits_changed != 0u))
 				{
-					vec3 tex_col = textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
-					const float MAX_TEX_COL_LEN = 2.0; // Clamp max contribution, otherwise we get fireflies near small, bright emissive surfaces.
-					if(dot(tex_col, tex_col) > square(MAX_TEX_COL_LEN))
-						tex_col *= MAX_TEX_COL_LEN / length(tex_col);
-					vec3 common_factors = scalar_factors * tex_col;
-					irradiance += common_factors;
+					vec3 n_j_vs = readNormalFromNormalTexture(pos_j_ss);
+
+					float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
+
+					float sin_factor = sinForCos(cos_norm_angle);
+
+					float scalar_factors = cos_norm_angle * sin_factor * float(countSetBits(bits_changed));
+					uniform_irradiance += scalar_factors;
+
+					if(n_j_cos_theta > -0.3)
+					{
+						vec3 tex_col = textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
+						const float MAX_TEX_COL_LEN = 2.0; // Clamp max contribution, otherwise we get fireflies near small, bright emissive surfaces.
+						if(dot(tex_col, tex_col) > square(MAX_TEX_COL_LEN))
+							tex_col *= MAX_TEX_COL_LEN / length(tex_col);
+						vec3 common_factors = scalar_factors * tex_col;
+						irradiance += common_factors;
+					}
 				}
 			}
-
-			dist_ss += step_incr;
-			last_step_incr = step_incr;
-			// NOTE: we want step_incr_factor^N_s ~= 2      , e.g. step length is approximately doubled at end of stepping.
-			// ln(step_incr_factor^N_s) = ln(2)
-			// N_s ln(step_incr_factor) = ln(2)
-			// ln(step_incr_factor) = ln(2) / N_s
-			// step_incr_factor = exp(ln(2) / N_s)
-			const float step_incr_factor = exp(log(2.0) / float(N_s));
-			step_incr *= step_incr_factor;
 		}
 	}
 

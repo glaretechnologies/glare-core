@@ -38,8 +38,8 @@ vec3 readNormalFromNormalTexture(ivec2 px_coords)
 vec3 camSpaceFromScreenSpacePos(vec2 normed_pos_ss, float depth)
 {
 	return vec3(
-		(normed_pos_ss.x - 0.5) * depth / l_over_w,
-		(normed_pos_ss.y - 0.5) * depth / l_over_h,
+		(normed_pos_ss.x - 0.5) * depth * w_over_l,
+		(normed_pos_ss.y - 0.5) * depth * h_over_l,
 		-depth
 	);
 }
