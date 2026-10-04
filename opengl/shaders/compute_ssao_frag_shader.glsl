@@ -26,7 +26,7 @@ layout(location = 1) out vec4 specular_spec_rad_out;
 
 float getDepthFromDepthTexture(vec2 normed_pos_ss)
 {
-	return getDepthFromDepthTextureValue(near_clip_dist, texture(depth_tex, normed_pos_ss).x);
+	return getDepthFromDepthTextureValue(near_clip_dist, textureLod(depth_tex, normed_pos_ss, 0.0).x); // textureLod as implicit derivatives are undefined in the non-uniform control flow of the stepping loops.
 }
 
 
