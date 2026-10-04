@@ -2,13 +2,7 @@
 
 uniform sampler2D albedo_texture; // source texture
 
-//uniform sampler2D main_colour_texture; // prepass colour texture (for roughness)
-uniform sampler2D main_depth_texture; // prepass depth texture
-#if NORMAL_TEXTURE_IS_UINT
-uniform usampler2D main_normal_texture; // prepass normal texture
-#else
-uniform sampler2D main_normal_texture; // prepass normal texture
-#endif
+uniform sampler2D depth_normal_tex; // xyz = cam space normal, w = linear depth, or -1 where no object was drawn.  Written by compute_ssao_frag_shader.glsl.
 
 uniform int is_ssao_blur;
 uniform int blur_x;
@@ -16,23 +10,6 @@ uniform int blur_x;
 in vec2 pos; // [0, 1] x [0, 1]
 
 out vec4 colour_out;
-
-
-// See 'Calculations for recovering depth values from depth buffer', OpenGLEngine.cpp.
-float getDepthFromDepthTexture(ivec2 px_coords)
-{
-	return getDepthFromDepthTextureValue(near_clip_dist, texelFetch(main_depth_texture, px_coords, /*mip level=*/0).x);
-}
-
-// Returns normalised vector in cam space
-vec3 readNormalFromNormalTexture(ivec2 px_coords)
-{
-#if NORMAL_TEXTURE_IS_UINT
-	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(main_normal_texture, px_coords, /*mip level=*/0))); // Read normal from normal texture
-#else
-	return oct_to_float32x3(unorm8x3_to_snorm12x2(texelFetch(main_normal_texture, px_coords, /*mip level=*/0).xyz)); // Read normal from normal texture.  oct_to_float32x3 returns a normalised vector
-#endif
-}
 
 
 vec3 camSpaceFromScreenSpacePos(vec2 normed_pos_ss, float depth)
@@ -77,15 +54,16 @@ void main()
 	
 	ivec2 px_coords = ivec2(int(float(tex_res.x) * pos.x), int(float(tex_res.y) * pos.y));
 
-	float centre_depth = getDepthFromDepthTexture(px_coords);
-	if(centre_depth > 100000.0) // If nothing was drawn here in the prepass (environment sphere, or beyond the prepass draw distance):
+	vec4 centre_depth_normal = texelFetch(depth_normal_tex, px_coords, /*mip level=*/0);
+	float centre_depth = centre_depth_normal.w;
+	if(centre_depth < 0.0) // If nothing was drawn here in the prepass:
 	{
 		// The main pass only uses SSAO texels whose prepass depth matches the fragment depth, so this texel's value is never used.
 		colour_out = vec4(0.0, 0.0, 0.0, 1.0);
 		return;
 	}
 
-	vec3 centre_n_cs = readNormalFromNormalTexture(px_coords);
+	vec3 centre_n_cs = centre_depth_normal.xyz;
 	vec3 centre_p_cs = camSpaceFromScreenSpacePos(pos, centre_depth); // View/camera space 'fragment' position
 
 	float V_dot_n = abs(dot(centre_n_cs, centre_p_cs)) / length(centre_p_cs);
@@ -108,36 +86,32 @@ void main()
 	if(blur_x != 0) // If should blur in x direction:
 	{
 		int y = px_coords.y;
-		for(int x = px_coords.x - r; x <= px_coords.x + r; ++x)
+		int x_begin = max(px_coords.x - r, 0); // Clamp the tap range to the texture, rather than checking each tap.
+		int x_end   = min(px_coords.x + r, tex_res.x - 1);
+		for(int x = x_begin; x <= x_end; ++x)
 		{
-			if(x >= 0 && x < tex_res.x)
+			vec4 depth_normal = texelFetch(depth_normal_tex, ivec2(x, y), /*mip level=*/0); // Taps where nothing was drawn have depth -1, so fail the depth test.
+			if((abs(depth_normal.w - centre_depth) < depth_thresh) && (dot(centre_n_cs, depth_normal.xyz) > 0.7))
 			{
-				float depth = getDepthFromDepthTexture(ivec2(x, y));
-				vec3 normal_cs = readNormalFromNormalTexture(ivec2(x, y));
-				if((abs(depth - centre_depth) < depth_thresh) && (dot(centre_n_cs, normal_cs) > 0.7))
-				{
-					float weight = mitchellNetravaliEval(abs(x - px_coords.x) * radius_scale);
-					val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0) * weight;
-					sum_weight += weight;
-				}
+				float weight = mitchellNetravaliEval(abs(x - px_coords.x) * radius_scale);
+				val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0) * weight;
+				sum_weight += weight;
 			}
 		}
 	}
 	else // else if should blur in y direction:
 	{
 		int x = px_coords.x;
-		for(int y = px_coords.y - r; y <= px_coords.y + r; ++y)
+		int y_begin = max(px_coords.y - r, 0); // Clamp the tap range to the texture, rather than checking each tap.
+		int y_end   = min(px_coords.y + r, tex_res.y - 1);
+		for(int y = y_begin; y <= y_end; ++y)
 		{
-			if(y >= 0 && y < tex_res.y)
+			vec4 depth_normal = texelFetch(depth_normal_tex, ivec2(x, y), /*mip level=*/0); // Taps where nothing was drawn have depth -1, so fail the depth test.
+			if((abs(depth_normal.w - centre_depth) < depth_thresh) && (dot(centre_n_cs, depth_normal.xyz) > 0.7))
 			{
-				float depth = getDepthFromDepthTexture(ivec2(x, y));
-				vec3 normal_cs = readNormalFromNormalTexture(ivec2(x, y));
-				if((abs(depth - centre_depth) < depth_thresh) && (dot(centre_n_cs, normal_cs) > 0.7))
-				{
-					float weight = mitchellNetravaliEval(abs(y - px_coords.y) * radius_scale);
-					val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0) * weight;
-					sum_weight += weight;
-				}
+				float weight = mitchellNetravaliEval(abs(y - px_coords.y) * radius_scale);
+				val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0) * weight;
+				sum_weight += weight;
 			}
 		}
 	}

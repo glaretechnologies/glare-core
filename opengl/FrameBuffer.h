@@ -73,6 +73,7 @@ public:
 	void setZeroDrawBuffers(); // NOTE: requires that this frame buffer is bound already.
 	void setSingleDrawBuffer(GLenum buffer); // NOTE: requires that this frame buffer is bound already.
 	void setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1); // NOTE: requires that this frame buffer is bound already.
+	void setThreeDrawBuffers(GLenum buffer_0, GLenum buffer_1, GLenum buffer_2); // NOTE: requires that this frame buffer is bound already.
 
 
 	// draw_buffer is the index into the colour buffers bound with setSingleDrawBuffer() or setTwoDrawBuffers().

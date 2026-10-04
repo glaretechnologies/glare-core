@@ -22,6 +22,7 @@ in vec2 texture_coords;
 
 layout(location = 0) out vec4 irradiance_out;
 layout(location = 1) out vec4 specular_spec_rad_out;
+layout(location = 2) out vec4 depth_normal_out; // xyz = cam space normal, w = linear depth, or -1 where no object was drawn.  For the blur passes, see blur_ssao_frag_shader.glsl.
 
 
 float getDepthFromDepthTexture(vec2 normed_pos_ss)
@@ -139,8 +140,11 @@ void main()
 	{
 		irradiance_out = vec4(0.0, 0.0, 0.0, 1.0);
 		specular_spec_rad_out = vec4(0.0);
+		depth_normal_out = vec4(0.0, 0.0, 0.0, -1.0);
 		return;
 	}
+	depth_normal_out = vec4(n, min(-p.z, 65504.0)); // Clamp depth to the max half-float value, as the texture is half-float.
+
 	vec3 V = -normalize(p); // View vector: vector from 'fragment' position to camera in view/camera space
 	
 	vec2 origin_ss = texture_coords; // Origin of stepping in screen space

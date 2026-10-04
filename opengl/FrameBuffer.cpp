@@ -369,6 +369,15 @@ void FrameBuffer::setTwoDrawBuffers(GLenum buffer_0, GLenum buffer_1)
 }
 
 
+void FrameBuffer::setThreeDrawBuffers(GLenum buffer_0, GLenum buffer_1, GLenum buffer_2)
+{
+	assert(getCurrentlyBoundDrawFrameBuffer() == buffer_name);
+
+	const GLenum draw_buffers[] = { buffer_0, buffer_1, buffer_2 };
+	glDrawBuffers(/*num=*/3, draw_buffers);
+}
+
+
 void FrameBuffer::clearFloatColourBuffer(int draw_buffer, const Colour3f& rgb, float alpha)
 {
 	assert(getCurrentlyBoundDrawFrameBuffer() == buffer_name);

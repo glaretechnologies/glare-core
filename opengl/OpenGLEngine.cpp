@@ -3389,6 +3389,8 @@ OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg()
 	bindUniformBlockToProgram(prog, "MaterialCommonUniforms",		MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 	bindUniformBlockToProgram(prog, "SharedVertUniforms",			SHARED_VERT_UBO_BINDING_POINT_INDEX);
 
+	blur_ssao_depth_normal_tex_location = prog->getUniformLocation("depth_normal_tex");
+
 	assert(prog->user_uniform_info.size() == 0);
 	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "is_ssao_blur");
 	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "blur_x");
@@ -4006,9 +4008,14 @@ void OpenGLScene::createSSAOTextures(OpenGLEngine* engine, bool normal_texture_i
 		OpenGLTextureFormat::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	blurred_ssao_specular_texture->setDebugName("blurred_ssao_specular_texture");
 
+	ssao_depth_normal_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(),
+		OpenGLTextureFormat::Format_RGBA_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	ssao_depth_normal_texture->setDebugName("ssao_depth_normal_texture");
+
 	compute_ssao_framebuffer = new FrameBuffer();
 	compute_ssao_framebuffer->attachTextures(*ssao_texture, GL_COLOR_ATTACHMENT0,
-	                                         *ssao_specular_texture, GL_COLOR_ATTACHMENT1);
+	                                         *ssao_specular_texture, GL_COLOR_ATTACHMENT1,
+	                                         *ssao_depth_normal_texture, GL_COLOR_ATTACHMENT2);
 
 	blurred_ssao_framebuffer = new FrameBuffer();
 	blurred_ssao_framebuffer->attachTexture(*blurred_ssao_texture, GL_COLOR_ATTACHMENT0);
@@ -11992,7 +11999,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 			glViewport(0, 0, (GLsizei)current_scene->prepass_framebuffer->xRes(), (GLsizei)current_scene->prepass_framebuffer->yRes());
 
 			current_scene->compute_ssao_framebuffer->bindForDrawing();
-			current_scene->compute_ssao_framebuffer->setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1);
+			current_scene->compute_ssao_framebuffer->setThreeDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2);
 
 
 			glDepthMask(GL_FALSE); // Don't write to z-buffer
@@ -12051,9 +12058,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				current_scene->blurred_ssao_framebuffer_x->bindForDrawing();
 
 				bindTextureUnitToSampler(*current_scene->ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
-				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
-				bindTextureUnitToSampler(*current_scene->prepass_depth_texture,  /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX,  /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*current_scene->ssao_depth_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_depth_normal_tex_location); // Uses the prepass normal texture unit, as the blur doesn't need the prepass normal texture.  The prepass normal texture is rebound afterwards.
 				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
 				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/1); // set is_ssao_blur = 1
@@ -12072,9 +12077,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 				bindTextureUnitToSampler(*current_scene->blurred_ssao_texture_x, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
 
-				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
-				bindTextureUnitToSampler(*current_scene->prepass_depth_texture,  /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*current_scene->ssao_depth_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_depth_normal_tex_location); // Uses the prepass normal texture unit, as the blur doesn't need the prepass normal texture.  The prepass normal texture is rebound afterwards.
 				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
 				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/1); // set is_ssao_blur = 1
@@ -12095,9 +12098,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				current_scene->blurred_ssao_framebuffer_x->bindForDrawing();
 
 				bindTextureUnitToSampler(*current_scene->ssao_specular_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
-				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
-				bindTextureUnitToSampler(*current_scene->prepass_depth_texture, /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*current_scene->ssao_depth_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_depth_normal_tex_location); // Uses the prepass normal texture unit, as the blur doesn't need the prepass normal texture.  The prepass normal texture is rebound afterwards.
 				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
 				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/0); // set is_ssao_blur = 0
@@ -12115,9 +12116,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				current_scene->blurred_ssao_specular_framebuffer->bindForDrawing();
 
 				bindTextureUnitToSampler(*current_scene->blurred_ssao_texture_x, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
-				assert(blur_ssao_prog->uniform_locations.main_depth_texture_location >= 0);
-				bindTextureUnitToSampler(*current_scene->prepass_depth_texture, /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_depth_texture_location);
-				bindTextureUnitToSampler(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_normal_texture_location);
+				bindTextureUnitToSampler(*current_scene->ssao_depth_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_depth_normal_tex_location); // Uses the prepass normal texture unit, as the blur doesn't need the prepass normal texture.  The prepass normal texture is rebound afterwards.
 				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
 				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/0); // set is_ssao_blur = 0

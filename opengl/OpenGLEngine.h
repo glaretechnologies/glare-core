@@ -779,6 +779,7 @@ public:
 	Reference<FrameBuffer> compute_ssao_framebuffer;
 	OpenGLTextureRef ssao_texture;
 	OpenGLTextureRef ssao_specular_texture;
+	OpenGLTextureRef ssao_depth_normal_texture; // Written by the compute SSAO pass: xyz = cam space normal, w = linear depth (or -1 where nothing was drawn).  Read by the blur passes, so they don't have to fetch and decode the prepass depth and normal for each tap.
 
 	OpenGLTextureRef blurred_ssao_texture;
 	OpenGLTextureRef blurred_ssao_texture_x;
@@ -1817,6 +1818,7 @@ private:
 	int compute_ssao_normal_tex_location;
 	int compute_ssao_depth_tex_location;
 	int compute_ssao_num_steps_location;
+	int blur_ssao_depth_normal_tex_location;
 
 	Colour4f outline_colour;
 	float outline_width_px;
