@@ -2902,6 +2902,7 @@ void OpenGLEngine::buildPrograms()
 	{
 		compute_ssao_prog = buildComputeSSAOProg();
 		blur_ssao_prog = buildBlurSSAOProg();
+		prepass_resolve_prog = buildPrepassResolveProg();
 	}
 
 	//------------------------------------------- Build irradiance probe progs -------------------------------------------
@@ -3394,7 +3395,30 @@ OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg()
 	assert(prog->user_uniform_info.size() == 0);
 	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "is_ssao_blur");
 	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "blur_x");
-	
+
+	return prog;
+}
+
+
+OpenGLProgramRef OpenGLEngine::buildPrepassResolveProg()
+{
+	const std::string key_defs = preprocessorDefsForKey(ProgramKey(ProgramKey::ProgramName_blur_ssao, ProgramKeyArgs()));
+
+	OpenGLProgramRef prog = new OpenGLProgram(
+		"prepass_resolve",
+		new OpenGLShader(shaders_dir + "/blur_ssao_vert_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_VERTEX_SHADER), // Plain unit-quad-to-clip-space vertex shader.
+		new OpenGLShader(shaders_dir + "/prepass_resolve_frag_shader.glsl", version_directive, key_defs + preprocessor_defines, GL_FRAGMENT_SHADER),
+		getAndIncrNextProgramIndex(),
+		/*wait for build to complete=*/true
+	);
+	getUniformLocations(prog); // Make sure any unused uniforms have their locations set to -1.
+	addProgram(prog);
+
+	prepass_resolve_colour_tex_location  = prog->getUniformLocation("colour_tex");
+	prepass_resolve_normal_tex_location  = prog->getUniformLocation("normal_tex");
+	prepass_resolve_depth_tex_location   = prog->getUniformLocation("depth_tex");
+	prepass_resolve_num_samples_location = prog->getUniformLocation("num_samples");
+
 	return prog;
 }
 
@@ -3984,6 +4008,23 @@ void OpenGLScene::createSSAOTextures(OpenGLEngine* engine, bool normal_texture_i
 	prepass_framebuffer->bindForDrawing();
 	prepass_framebuffer->setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Draw to colour and normal buffer
 	prepass_framebuffer->unbindFromDrawing();
+
+	// The multisampled pre-pass textures, resolved to the textures above.  See OpenGLEngine::drawColourAndDepthPrePass().
+	const int PREPASS_MSAA_SAMPLES = 4;
+	prepass_msaa_framebuffer = new FrameBuffer();
+	prepass_msaa_colour_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), prepass_col_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/PREPASS_MSAA_SAMPLES);
+	prepass_msaa_colour_texture->setDebugName("prepass_msaa_colour_texture");
+	prepass_msaa_normal_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), normal_buffer_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/PREPASS_MSAA_SAMPLES);
+	prepass_msaa_normal_texture->setDebugName("prepass_msaa_normal_texture");
+	prepass_msaa_depth_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), depth_format, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/PREPASS_MSAA_SAMPLES);
+	prepass_msaa_depth_texture->setDebugName("prepass_msaa_depth_texture");
+
+	prepass_msaa_framebuffer->attachTextures(*prepass_msaa_colour_texture, GL_COLOR_ATTACHMENT0,
+	                                         *prepass_msaa_normal_texture, GL_COLOR_ATTACHMENT1,
+	                                         *prepass_msaa_depth_texture,  GL_DEPTH_ATTACHMENT);
+	prepass_msaa_framebuffer->bindForDrawing();
+	prepass_msaa_framebuffer->setTwoDrawBuffers(GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1); // Draw to colour and normal buffer
+	prepass_msaa_framebuffer->unbindFromDrawing();
 
 
 
@@ -8003,6 +8044,7 @@ void OpenGLEngine::draw()
 			{
 				this->compute_ssao_prog = buildComputeSSAOProg();
 				this->blur_ssao_prog = buildBlurSSAOProg();
+				this->prepass_resolve_prog = buildPrepassResolveProg();
 			}
 		}
 		catch(glare::Exception& e)
@@ -11792,18 +11834,23 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 		unbindTextureFromTextureUnit(GL_TEXTURE_2D, PREPASS_DEPTH_TEXTURE_UNIT_INDEX);
 
 
-		current_scene->prepass_framebuffer->bindForDrawing();
+		// Draw into the multisampled pre-pass framebuffer, which is resolved to prepass_framebuffer below.
+		current_scene->prepass_msaa_framebuffer->bindForDrawing();
+
+#if !defined(EMSCRIPTEN) // WebGL doesn't have multisample toggling.
+		glEnable(GL_MULTISAMPLE); // Multisampling may be disabled for the main pass (settings.msaa_samples <= 1), but we want it for the pre-pass.
+#endif
 
 		glViewport(0, 0, (GLsizei)current_scene->prepass_framebuffer->xRes(), (GLsizei)current_scene->prepass_framebuffer->yRes());
 
 		// Clear colour buffer
-		current_scene->prepass_framebuffer->clearFloatColourBuffer(/*draw_buffer=*/0, current_scene->background_colour, /*alpha=*/1.f);
+		current_scene->prepass_msaa_framebuffer->clearFloatColourBuffer(/*draw_buffer=*/0, current_scene->background_colour, /*alpha=*/1.f);
 
 		// Clear normal buffer.  Note that we have to use the uint version for clearing the normal buffer if it's an uint format.
 		if(normal_texture_is_uint)
-			current_scene->prepass_framebuffer->clearUIntColourBuffer(/*draw_buffer=*/1, /*r=*/0, 0, 0, 0);
+			current_scene->prepass_msaa_framebuffer->clearUIntColourBuffer(/*draw_buffer=*/1, /*r=*/0, 0, 0, 0);
 		else
-			current_scene->prepass_framebuffer->clearFloatColourBuffer(/*draw_buffer=*/1, Colour3f(0.f), /*alpha=*/0.f);
+			current_scene->prepass_msaa_framebuffer->clearFloatColourBuffer(/*draw_buffer=*/1, Colour3f(0.f), /*alpha=*/0.f);
 
 		// Clear depth buffer
 		FrameBuffer::clearCurrentlyBoundDepthBuffer(use_reverse_z ? 0.000001f : 0.999999f); // For reversed-z, the 'far' z value is 0, instead of 1.
@@ -11968,7 +12015,35 @@ void OpenGLEngine::drawColourAndDepthPrePass(const Matrix4f& view_matrix, const 
 	#if !defined(EMSCRIPTEN)
 		if(draw_wireframes)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore normal fill mode
+
+		if(settings.msaa_samples <= 1)
+			glDisable(GL_MULTISAMPLE); // Restore, see setMSAASamples().
 	#endif
+
+		// Resolve the multisampled pre-pass to prepass_framebuffer, taking the closest sample in each pixel.  See prepass_resolve_frag_shader.glsl.
+		{
+			current_scene->prepass_framebuffer->bindForDrawing();
+
+			prepass_resolve_prog->useProgram();
+			bindTextureUnitToSampler(*current_scene->prepass_msaa_colour_texture, PREPASS_COLOUR_TEXTURE_UNIT_INDEX, prepass_resolve_colour_tex_location);
+			bindTextureUnitToSampler(*current_scene->prepass_msaa_normal_texture, PREPASS_NORMAL_TEXTURE_UNIT_INDEX, prepass_resolve_normal_tex_location);
+			bindTextureUnitToSampler(*current_scene->prepass_msaa_depth_texture,  PREPASS_DEPTH_TEXTURE_UNIT_INDEX,  prepass_resolve_depth_tex_location);
+			glUniform1i(prepass_resolve_num_samples_location, current_scene->prepass_msaa_depth_texture->MSAASamples());
+
+			glDepthFunc(GL_ALWAYS); // Write the resolved depth (gl_FragDepth) regardless of what is in the depth buffer.
+
+			bindMeshData(*unit_quad_meshdata);
+			drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(),
+				unit_quad_meshdata->vbo_handle.base_vertex);
+
+			glDepthFunc(use_reverse_z ? GL_GREATER : GL_LESS); // Restore
+
+			unbindTextureFromTextureUnit(*current_scene->prepass_msaa_colour_texture, PREPASS_COLOUR_TEXTURE_UNIT_INDEX);
+			unbindTextureFromTextureUnit(*current_scene->prepass_msaa_normal_texture, PREPASS_NORMAL_TEXTURE_UNIT_INDEX);
+			unbindTextureFromTextureUnit(*current_scene->prepass_msaa_depth_texture,  PREPASS_DEPTH_TEXTURE_UNIT_INDEX);
+
+			flushDrawCommandsAndUnbindPrograms();
+		}
 
 		if(query_profiling_enabled && col_and_depth_pre_pass_gpu_timer->isRunning())
 			col_and_depth_pre_pass_gpu_timer->endTimerQuery();
@@ -14531,6 +14606,7 @@ void OpenGLEngine::setSSAOEnabled(bool ssao_enabled)
 	{
 		compute_ssao_prog = buildComputeSSAOProg();
 		blur_ssao_prog = buildBlurSSAOProg();
+		prepass_resolve_prog = buildPrepassResolveProg();
 	}
 }
 

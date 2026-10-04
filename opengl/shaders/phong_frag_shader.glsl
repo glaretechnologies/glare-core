@@ -946,8 +946,36 @@ void main()
 
 		if(weight == 0.0)
 		{
-			ssao_val = vec4(0.0, 0.0, 0.0, 1.0);
-			spec_refl_light = vec3(0.0, 0.0, 0.0);
+			// No surrounding texel has a similar depth and normal.  This happens for surfaces too thin to have been captured in the half-res pre-pass, such as the side
+			// faces at steps in depth, and for objects not drawn in the pre-pass at all.  For the former, use the texel with the closest depth, if it's reasonably close,
+			// as no SSAO would make a visible discontinuity with the neighbouring pixels.
+			// Search the 3x3 texels around the fragment, rather than just the 4 above: the pre-pass resolve gives texels on a depth edge the depth of the nearer
+			// surface, so for a fragment on the farther side of an edge, the matching texels may be one texel further away.
+			ivec2 prepass_res = textureSize(prepass_depth_tex, /*lod=*/0);
+			ivec2 closest_texel_indices = a_texel_indices;
+			float closest_depth_diff = 1.0e30;
+			for(int dy=-1; dy<=1; ++dy)
+			for(int dx=-1; dx<=1; ++dx)
+			{
+				ivec2 texel_indices = clamp(prepass_frag_coords_i + ivec2(dx, dy), ivec2(0), prepass_res - ivec2(1));
+				float depth_diff = abs(getDepthFromDepthTextureValue(near_clip_dist, texelFetch(prepass_depth_tex, texel_indices, /*lod=*/0).x) - frag_depth);
+				if(depth_diff < closest_depth_diff)
+				{
+					closest_depth_diff = depth_diff;
+					closest_texel_indices = texel_indices;
+				}
+			}
+
+			if(closest_depth_diff < depth_thresh * 4.0)
+			{
+				ssao_val        = texelFetch(ssao_tex,          closest_texel_indices, /*lod=*/0);
+				spec_refl_light = texelFetch(ssao_specular_tex, closest_texel_indices, /*lod=*/0).xyz;
+			}
+			else
+			{
+				ssao_val = vec4(0.0, 0.0, 0.0, 1.0);
+				spec_refl_light = vec3(0.0, 0.0, 0.0);
+			}
 		}
 		else
 		{

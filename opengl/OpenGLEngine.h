@@ -769,8 +769,14 @@ public:
 	OpenGLTextureRef post_dof_colour_texture;
 
 
-	// Prepass will render to prepass_framebuffer, prepass_colour_texture, prepass_normal_texture, prepass_depth_texture.
+	// Prepass will render to the multisampled prepass_msaa_framebuffer, which is then resolved to prepass_framebuffer: prepass_colour_texture, prepass_normal_texture, prepass_depth_texture.
 	// Then SSAO is computed, reading from prepass_framebuffer.
+	// Multisampling means that thin geometry (thinner than a pre-pass pixel), which only covers some of the samples in a pixel, isn't lost.
+	Reference<FrameBuffer> prepass_msaa_framebuffer;
+	OpenGLTextureRef prepass_msaa_colour_texture;
+	OpenGLTextureRef prepass_msaa_normal_texture;
+	OpenGLTextureRef prepass_msaa_depth_texture;
+
 	Reference<FrameBuffer> prepass_framebuffer;
 	OpenGLTextureRef prepass_colour_texture;
 	OpenGLTextureRef prepass_normal_texture;
@@ -1634,6 +1640,7 @@ public:
 #endif
 private:
 	OpenGLProgramRef buildBlurSSAOProg();
+	OpenGLProgramRef buildPrepassResolveProg();
 	OpenGLProgramRef buildFinalImagingProg();
 public:
 	OpenGLProgramRef buildProgram(const string_view shader_name_prefix, const ProgramKey& key); // Throws glare::Exception on shader compilation failure.
@@ -1832,6 +1839,12 @@ private:
 	Reference<OpenGLProgram> draw_aurora_tex_prog;
 
 	Reference<OpenGLProgram> blur_ssao_prog;
+
+	Reference<OpenGLProgram> prepass_resolve_prog;
+	int prepass_resolve_colour_tex_location;
+	int prepass_resolve_normal_tex_location;
+	int prepass_resolve_depth_tex_location;
+	int prepass_resolve_num_samples_location;
 
 	Reference<OpenGLProgram> OIT_composite_prog;
 	Reference<OpenGLProgram> dof_blur_prog;
