@@ -48,6 +48,32 @@ float mitchellNetravaliEval(float x)
 }
 
 
+const float MAX_SPEC_BLUR_RADIUS = 25.0;
+
+
+// Blur radius, in texels, for a specular reflection texel, from its roughness * trace distance.  TODO: make radius calculation not ad hoc
+float specBlurRadius(float roughness_times_trace_dist)
+{
+	return clamp(roughness_times_trace_dist * 200.0, 3.0, MAX_SPEC_BLUR_RADIUS);
+}
+
+
+// Weight of a tap at the given offset (in texels) from the texel being blurred.
+// The SSAO blur uses a fixed radius.
+// The specular blur spreads each tap over that tap's own blur radius (scatter-as-gather), so how far a reflected object is blurred depends on the trace
+// distance to that object, not on the trace distances of the neighbouring texels, which may have hit something behind it, or nothing.
+float tapWeight(int offset, vec4 tap_val, float ssao_radius_scale)
+{
+	if(is_ssao_blur != 0)
+		return mitchellNetravaliEval(float(abs(offset)) * ssao_radius_scale);
+	else
+	{
+		float tap_radius = specBlurRadius(tap_val.w);
+		return mitchellNetravaliEval(float(abs(offset)) * (2.0 / tap_radius)) * (1.0 / tap_radius); // Divide by the radius so that every tap's kernel has the same total weight.
+	}
+}
+
+
 void main()
 {
 	ivec2 tex_res = textureSize(albedo_texture, /*mip level*/0);
@@ -70,14 +96,8 @@ void main()
 	float depth_thresh = 0.03 * centre_depth / max(0.05, V_dot_n);
 
 
-	float radius;
-	if(is_ssao_blur != 0) // If this is the SSAO blur:
-		radius = 5.0;
-	else // else if specular reflection blur:
-	{
-		float roughness_times_trace_dist = texelFetch(albedo_texture, px_coords, /*mip level=*/0).w;
-		radius = clamp(roughness_times_trace_dist * 200.0, 3.0, 25.0); // TODO: make radius calculation not ad hoc
-	}
+	// For the specular blur, any tap within the max radius may spread to this texel, see tapWeight().
+	float radius = (is_ssao_blur != 0) ? 5.0 : MAX_SPEC_BLUR_RADIUS;
 	int r = int(radius + 0.9999); // round up
 	float radius_scale = 2.f / radius;
 
@@ -93,8 +113,9 @@ void main()
 			vec4 depth_normal = texelFetch(depth_normal_tex, ivec2(x, y), /*mip level=*/0); // Taps where nothing was drawn have depth -1, so fail the depth test.
 			if((abs(depth_normal.w - centre_depth) < depth_thresh) && (dot(centre_n_cs, depth_normal.xyz) > 0.7))
 			{
-				float weight = mitchellNetravaliEval(abs(x - px_coords.x) * radius_scale);
-				val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0) * weight;
+				vec4 tap_val = texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0);
+				float weight = tapWeight(x - px_coords.x, tap_val, radius_scale);
+				val += tap_val * weight;
 				sum_weight += weight;
 			}
 		}
@@ -109,8 +130,9 @@ void main()
 			vec4 depth_normal = texelFetch(depth_normal_tex, ivec2(x, y), /*mip level=*/0); // Taps where nothing was drawn have depth -1, so fail the depth test.
 			if((abs(depth_normal.w - centre_depth) < depth_thresh) && (dot(centre_n_cs, depth_normal.xyz) > 0.7))
 			{
-				float weight = mitchellNetravaliEval(abs(y - px_coords.y) * radius_scale);
-				val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0) * weight;
+				vec4 tap_val = texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0);
+				float weight = tapWeight(y - px_coords.y, tap_val, radius_scale);
+				val += tap_val * weight;
 				sum_weight += weight;
 			}
 		}
