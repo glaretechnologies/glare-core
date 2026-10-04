@@ -192,18 +192,25 @@ void main()
 		// So the sign(dot())) is +1 if V is above projected_n, -1 otherwise.  And projected_n lies at an angle of pi/2 from the sampling plane tangent.
 		float view_alpha = PI_2 + sign(dot(cross(V, projected_n), sampling_plane_n)) * view_proj_n_angle;
 
+		// Side 0 can only set sectors at or above the view_alpha sector, side 1 only sectors at or below it.
+		uint view_sector = min(uint(clamp(view_alpha * RECIP_PI, 0.0, 1.0) * float(SECTOR_COUNT)), SECTOR_COUNT - 1u);
+
 
 		uint b_i = 0u; // bitmask: each bit set to 1 if trace hit something in that sector.
 		// Trace in one direction in screen space for N_s steps, then go back and trace in the reverse direction for another N_s steps.
 		for(int side=0; side<2; ++side)
 		{
 			float angle_add_sign = (side == 0) ? 1.0 : -1.0;
+			uint side_mask       = (side == 0) ? (0xFFFFFFFFu << view_sector) : (0xFFFFFFFFu >> (SECTOR_COUNT - 1u - view_sector)); // Sectors this side can set.
 			float step_incr      = (side == 0) ? initial_step_size : -initial_step_size; // Distance in screen space to step, increases slightly each step.
 			float last_step_incr = step_incr;
 			float dist_ss = step_incr; // Total distance stepped in screen space, before randomisation
 
 			for(int j=0; j<N_s; ++j)
 			{
+				if((b_i & side_mask) == side_mask)
+					break; // All sectors this side can set are occluded, so further steps can't contribute anything.
+
 				float cur_dist_ss = dist_ss - pixel_hash.y * last_step_incr;
 
 				// Advance for the next step now, so that 'continue' can be used below.
@@ -235,8 +242,8 @@ void main()
 					float back_alpha  = view_alpha + angle_add_sign * V_p_p_j_back_angle;
 
 					// Map from [0, pi] to [0, 1]
-					front_alpha = clamp(front_alpha / PI, 0.0, 1.0);
-					back_alpha  = clamp(back_alpha  / PI, 0.0, 1.0);
+					front_alpha = clamp(front_alpha * RECIP_PI, 0.0, 1.0);
+					back_alpha  = clamp(back_alpha  * RECIP_PI, 0.0, 1.0);
 
 					float min_alpha = min(front_alpha, back_alpha);
 					float max_alpha = max(front_alpha, back_alpha);
