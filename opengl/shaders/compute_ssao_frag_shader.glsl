@@ -223,46 +223,49 @@ void main()
 				vec3 back_pos_j = pos_j - V * thickness; // position of guessed 'backside' of step position in camera/view space
 
 				vec3 unit_p_to_pos_j      = normalize(pos_j      - p); // normalised vector from fragment position to step position, in view/camera space
-				vec3 unit_p_to_back_pos_j = normalize(back_pos_j - p); // normalised vector from fragment position to step back position, in view/camera space
-			
-				// Convert to angles in [0, pi], the angle between the surface and frag-to-step_j position
-				float V_p_p_j_angle =      fastApproxACos(dot(V, unit_p_to_pos_j)); // Angle between view vector and p to p_j.
-				float V_p_p_j_back_angle = fastApproxACos(dot(V, unit_p_to_back_pos_j)); // Angle between view vector and p to p_back_j.
-				float front_alpha = view_alpha + angle_add_sign * V_p_p_j_angle;
-				float back_alpha  = view_alpha + angle_add_sign * V_p_p_j_back_angle;
-
-				// Map from [0, pi] to [0, 1]
-				front_alpha = clamp(front_alpha / PI, 0.0, 1.0);
-				back_alpha  = clamp(back_alpha  / PI, 0.0, 1.0);
-
-				float min_alpha = min(front_alpha, back_alpha);
-				float max_alpha = max(front_alpha, back_alpha);
-
-				uint occlusion_mask = occlusionBitMask(min_alpha, max_alpha);
-				uint new_b_i = b_i | occlusion_mask;
-				uint bits_changed = new_b_i & ~b_i;
-				b_i  = new_b_i;
-
 				float cos_norm_angle = dot(unit_p_to_pos_j, n);
-				if((cos_norm_angle > 0.01) && (bits_changed != 0u))
+				if(cos_norm_angle > 0.01)
 				{
-					vec3 n_j_vs = readNormalFromNormalTexture(pos_j_ss);
+					vec3 unit_p_to_back_pos_j = normalize(back_pos_j - p); // normalised vector from fragment position to step back position, in view/camera space
+			
+					// Convert to angles in [0, pi], the angle between the surface and frag-to-step_j position
+					float V_p_p_j_angle =      fastApproxACos(dot(V, unit_p_to_pos_j)); // Angle between view vector and p to p_j.
+					float V_p_p_j_back_angle = fastApproxACos(dot(V, unit_p_to_back_pos_j)); // Angle between view vector and p to p_back_j.
+					float front_alpha = view_alpha + angle_add_sign * V_p_p_j_angle;
+					float back_alpha  = view_alpha + angle_add_sign * V_p_p_j_back_angle;
 
-					float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
+					// Map from [0, pi] to [0, 1]
+					front_alpha = clamp(front_alpha / PI, 0.0, 1.0);
+					back_alpha  = clamp(back_alpha  / PI, 0.0, 1.0);
 
-					float sin_factor = sinForCos(cos_norm_angle);
+					float min_alpha = min(front_alpha, back_alpha);
+					float max_alpha = max(front_alpha, back_alpha);
 
-					float scalar_factors = cos_norm_angle * sin_factor * float(countSetBits(bits_changed));
-					uniform_irradiance += scalar_factors;
+					uint occlusion_mask = occlusionBitMask(min_alpha, max_alpha);
+					uint new_b_i = b_i | occlusion_mask;
+					uint bits_changed = new_b_i & ~b_i;
+					b_i  = new_b_i;
 
-					if(n_j_cos_theta > -0.3)
+					if((bits_changed != 0u))
 					{
-						vec3 tex_col = textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
-						const float MAX_TEX_COL_LEN = 2.0; // Clamp max contribution, otherwise we get fireflies near small, bright emissive surfaces.
-						if(dot(tex_col, tex_col) > square(MAX_TEX_COL_LEN))
-							tex_col *= MAX_TEX_COL_LEN / length(tex_col);
-						vec3 common_factors = scalar_factors * tex_col;
-						irradiance += common_factors;
+						vec3 n_j_vs = readNormalFromNormalTexture(pos_j_ss);
+
+						float n_j_cos_theta = dot(n_j_vs, -unit_p_to_pos_j); // cosine of angle between surface normal at step position and vector from step position to p.
+
+						float sin_factor = sinForCos(cos_norm_angle);
+
+						float scalar_factors = cos_norm_angle * sin_factor * float(countSetBits(bits_changed));
+						uniform_irradiance += scalar_factors;
+
+						if(n_j_cos_theta > -0.3)
+						{
+							vec3 tex_col = textureLod(diffuse_tex, pos_j_ss, 0.0).xyz;
+							const float MAX_TEX_COL_LEN = 2.0; // Clamp max contribution, otherwise we get fireflies near small, bright emissive surfaces.
+							if(dot(tex_col, tex_col) > square(MAX_TEX_COL_LEN))
+								tex_col *= MAX_TEX_COL_LEN / length(tex_col);
+							vec3 common_factors = scalar_factors * tex_col;
+							irradiance += common_factors;
+						}
 					}
 				}
 			}
