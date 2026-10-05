@@ -7653,7 +7653,7 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 			// deliberate - it converges faster than double buffering the atlas, and the fixed point is the same.
 			// The transient asymmetry is what the convolve blend is for.
 			common_uniforms.mat_common_flags = (current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) |
-				(use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) | DOING_PROBE_CAPTURE_FLAG;
+				(use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) | DOING_PROBE_CAPTURE_FLAG | (current_scene->draw_water ? DRAW_WATER_FLAG : 0);
 
 			common_uniforms.cloud_layer_mid_z = (current_scene->cloud_settings.bottom_z + current_scene->cloud_settings.top_z) * 0.5f;
 
