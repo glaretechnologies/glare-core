@@ -111,6 +111,7 @@ Copyright Glare Technologies Limited 2023 -
 #define USE_PROBE_VISIBILITY_FLAG			32
 #define DOING_PROBE_CAPTURE_FLAG			64
 #define ALPHA_TO_COVERAGE_ENABLED_FLAG		128
+#define DRAW_WATER_FLAG						256
 
 
 #define OVERLAY_HAVE_TEXTURE_FLAG			1
@@ -8328,7 +8329,7 @@ void OpenGLEngine::draw()
 	common_uniforms.water_level_z = cur_scene->water_level_z;
 	common_uniforms.camera_type = (int)cur_scene->camera_type;
 	common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (settings.ssao ? DO_SSAO_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) | (use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) |
-		(settings.msaa_samples >= 2 ? ALPHA_TO_COVERAGE_ENABLED_FLAG : 0);
+		(settings.msaa_samples >= 2 ? ALPHA_TO_COVERAGE_ENABLED_FLAG : 0) | (cur_scene->draw_water ? DRAW_WATER_FLAG : 0);
 	common_uniforms.cloud_layer_mid_z = (cur_scene->cloud_settings.bottom_z + cur_scene->cloud_settings.top_z) * 0.5f;
 
 	// Set from last frame's shadow map build for now, so we're not uploading uninitialised data.  The shadow maps
@@ -14656,7 +14657,8 @@ static const char* debug_pass_view_names[] = {
 	"specular", 
 	"specular refl roughness * trace dist",
 	"cloud_texture",
-	"cloud_env_texture"
+	"cloud_env_texture",
+	"blurred specular"
 };
 
 const char** OpenGLEngine::getDebugPassViewNames() const
@@ -14734,20 +14736,23 @@ void OpenGLEngine::setCurDebugTexIndex(int index)
 			// specular refl roughness * trace dist
 			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_specular_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
-
-			// blurred specular refl
-			//large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_specular_texture;
 		}
 		else if(index == 9)
 		{
-			// specular refl roughness * trace dist
+			// volumetric clouds
 			large_debug_overlay_ob->material.albedo_texture = current_scene->cloud_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 		else if(index == 10)
 		{
-			// specular refl roughness * trace dist
+			// cloud env map
 			large_debug_overlay_ob->material.albedo_texture = cloud_env_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+		}
+		else if(index == 11)
+		{
+			// blurred specular refl
+			large_debug_overlay_ob->material.albedo_texture = current_scene->blurred_ssao_specular_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 	}

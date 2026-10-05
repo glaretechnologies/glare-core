@@ -289,6 +289,21 @@ void main()
 		unit_normal_ws = N_g;
 	}
 
+#if TERRAIN
+	// When the camera is above water, terrain more than 40 m below the water surface is not visible: the water shader attenuates it by at least
+	// exp(-0.2 * 40) ~= 3.4e-4 (see extinction in colourForUnderwaterPoint() in water_frag_shader.glsl), so skip the shading.
+	// Depth is still written, so the water shader still computes the water path length and in-scattering correctly.
+	if(((mat_common_flags & DRAW_WATER_FLAG) != 0) && (mat_common_campos_ws.z > water_level_z) && (pos_ws.z < water_level_z - 40.0))
+	{
+		colour_out = vec4(0.0, 0.0, 0.0, 1.0);
+		vec3 early_unit_normal = normalize(unit_normal_ws);
+		if((mat_common_flags & DOING_SSAO_PREPASS_FLAG) != 0) // If doing prepass:
+			early_unit_normal = normalize(frag_view_matrix * vec4(early_unit_normal, 0.0)).xyz; // use cam space normal
+		normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(early_unit_normal));
+		return;
+	}
+#endif
+
 
 	vec3 pos_cs = (frag_view_matrix * vec4(pos_ws, 1.0)).xyz;
 	vec3 cam_to_pos_ws = pos_ws - mat_common_campos_ws.xyz;
