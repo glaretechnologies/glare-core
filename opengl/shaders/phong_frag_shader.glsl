@@ -622,6 +622,61 @@ void main()
 	texcol += detail_2_texval * veg_weight; // TEMP disabled colour variation.    * colour_variation_factor * veg_weight;
 	texcol.w = 1.0;
 
+	// Shallow seabed: seagrass meadows and dark rubble / rock heads, about 1.2 - 14 m below the water surface.
+	// The masks are procedural, from just 3 noise lookups: a large-scale field sets out the meadows, limited to a depth band whose limits are
+	// jittered by the mid-scale noise, so the meadow edges don't follow the depth contours.  The mid-scale noise also makes the meadow edges
+	// ragged, cuts sand holes in the meadows (at its high end) and places rubble (at its low end).  The fine-scale noise gives blade clumps and tone.
+	// fbm_tex has a period of 4 per texture coordinate unit, so a texture coordinate scale of 1/(4 L) gives features of about L metres.
+	// Noise is sampled with textureLod, at a mip level computed here in uniform control flow, since the sampling is inside the depth branch.
+	// The level is isotropic, from the larger of the two screen-space derivatives: the seabed is mostly seen at grazing angles, where
+	// anisotropic filtering (with textureGrad) was expensive, for little visible benefit under the water surface.
+	{
+		vec2 seabed_dpdx = dFdx(pos_ws.xy);
+		vec2 seabed_dpdy = dFdy(pos_ws.xy);
+		float seabed_lod_base = log2(max(length(seabed_dpdx), length(seabed_dpdy)) * float(textureSize(fbm_tex, 0).x)); // Mip level for a texture coordinate scale of 1.
+		float seabed_depth = water_level_z - pos_ws.z;
+		if(((mat_common_flags & DRAW_WATER_FLAG) != 0) && (seabed_depth > 1.2) && (seabed_depth < 14.0))
+		{
+			#define SEABED_FBM(scale, offset) ((textureLod(fbm_tex, pos_ws.xy * (scale) + (offset), seabed_lod_base + log2(scale)).x - 0.5) * 2.0)
+
+			float big  = SEABED_FBM(1.0 / 340.0, vec2(0.0));        // ~85 m features
+			float mid  = SEABED_FBM(1.0 / 48.0,  vec2(0.23, 0.61)); // ~12 m
+			float fine = SEABED_FBM(1.0 / 6.0,   vec2(0.71, 0.37)); // ~1.5 m
+
+			#undef SEABED_FBM
+
+			vec3 under = texcol.xyz;
+
+			// Seagrass field, favouring depths around 5.5 m.
+			float jittered_depth = seabed_depth + mid * 1.1;
+			float depth_window = smoothstep(1.7, 2.8, jittered_depth) * (1.0 - smoothstep(8.5, 12.5, jittered_depth)) * smoothstep(1.2, 1.6, seabed_depth);
+			float f = big + mid * 0.3 + 0.12 * (1.0 - abs(seabed_depth - 5.5) * 0.25) - 0.2 * mask.x;
+			float grass = smoothstep(0.1, 0.3, f) * depth_window;
+			grass *= 1.0 - 0.95 * smoothstep(0.42, 0.62, mid); // Sand holes in the meadows
+
+			// Ragged, clumpy meadow edges
+			float macro = big * 0.5 + 0.5;
+			float clumps = fine * 0.5;
+			float seagrass_w = smoothstep(0.3, 0.55, grass + clumps);
+
+			float tone = fine * 0.5 + 0.5;
+			vec3 meadow = mix(vec3(0.080, 0.100, 0.040), vec3(0.160, 0.170, 0.070), smoothstep(0.35, 0.75, tone));
+			meadow = mix(meadow, vec3(0.100, 0.075, 0.032), smoothstep(0.55, 0.8, tone + (macro - 0.5) * 0.4) * 0.5); // Brownish epiphytes
+			meadow = mix(under, meadow, smoothstep(0.3, 0.85, grass + clumps * 0.5) * 0.35 + 0.65); // Sparse at the fringe: sand shows between the blades
+			under = mix(under, meadow, seagrass_w);
+
+			// Rubble / rock heads: sparse patches, more of them in rocky areas.
+			float rubble_depth_window = smoothstep(1.8, 3.0, seabed_depth) * (1.0 - smoothstep(11.0, 14.0, seabed_depth));
+			float rubble = smoothstep(0.52, 0.66, -mid + mask.x * 0.35) * rubble_depth_window * (1.0 - grass * 0.6);
+			float rubble_w = smoothstep(0.3, 0.6, rubble + (tone - 0.5) * 0.4);
+			vec3 rubble_col = mix(vec3(0.110, 0.100, 0.070), vec3(0.220, 0.190, 0.120), smoothstep(0.3, 0.7, tone)); // Rock
+			rubble_col = mix(rubble_col, vec3(0.070, 0.090, 0.030), smoothstep(0.5, 0.7, clumps + 0.5) * 0.6); // Algal turf
+			under = mix(under, rubble_col, rubble_w);
+
+			texcol.xyz = under;
+		}
+	}
+
 	refl_diffuse_col        = texcol;
 	direct_sun_diffuse_col  = texcol.xyz;
 #endif
