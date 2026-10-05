@@ -5,6 +5,7 @@ in vec3 pos_cs;
 in vec3 pos_ws;
 in vec2 texture_coords;
 in float imposter_rot;
+flat in vec3 imposter_col_factor;
 #if NUM_DEPTH_TEXTURES > 0
 in vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
@@ -159,6 +160,9 @@ void main()
 
 		if((matdata.flags & CONVERT_ALBEDO_FROM_SRGB_FLAG) != 0)
 			texture_diffuse_col.xyz = fastApproxNonLinearSRGBToLinearSRGB(texture_diffuse_col.xyz);
+
+		if((matdata.flags & IMPOSTER_TEX_HAS_MULTIPLE_ANGLES) != 0) // If tree imposter:
+			texture_diffuse_col.xyz *= imposter_col_factor; // Apply per-tree colour variation, to match the tree models.
 	}
 	else
 		texture_diffuse_col = vec4(1.f);
