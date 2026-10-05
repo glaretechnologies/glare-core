@@ -14,6 +14,14 @@ in vec3 cam_to_pos_ws;
 // sub-sample, which measured at roughly double the frame time (190 -> 100 fps).
 #define WATER_RAYMARCH_CLOUDS 0
 
+// Local wind.  Sets the drift of the gusts from waterGustRoughness().
+#define WATER_WIND_SPEED 7.0 // m/s, at 12.5 m above the sea.
+#define WATER_WIND_DIR normalize(vec2(1.0, 0.4)) // Direction the wind blows towards, in the x-y plane.
+
+#define WATER_GUST_AMOUNT 1.0     // Contrast of the gust patches.  0 = uniform roughness.
+#define WATER_GUST_CONTRAST 2.0   // Maps fbm() (roughly [-0.5, 0.5]) to gust in [0, 1].
+
+
 
 uniform sampler2D specular_env_tex;
 uniform sampler2D fbm_tex;
@@ -312,6 +320,26 @@ vec3 envReflectedRadiance(vec3 reflected_dir_ws, float roughness)
 }
 
 
+// Returns the amplitude multiplier for the short wind waves at pos_xy, in [0.5, 1.5].
+// Large scale variation of the sea surface in world space, much larger than the wave spectrum's patterns: gusts
+// ("cat's paws"), patches of rougher water a few hundred metres across drifting downwind.  Rough water reflects less
+// of the bright sky near the horizon, so from a low viewpoint gusts read as dark patches.
+float waterGustRoughness(vec2 pos_xy)
+{
+	vec2 w = WATER_WIND_DIR;
+
+	// Gust patterns travel with the wind, at roughly its speed near the surface.
+	vec2 p = pos_xy - w * (WATER_WIND_SPEED * 0.7 * time);
+
+	// Two octaves, ~600 m and ~230 m features, the second slowly morphing.
+	float g1 = fbm(p * (1.0 / 620.0), fbm_tex);
+	float g2 = fbm(rot(p * (1.0 / 230.0)) + vec2(time * 0.0009, 0.37), fbm_tex);
+	float gust = clamp((g1 * 0.62 + g2 * 0.38) * (WATER_GUST_CONTRAST * WATER_GUST_AMOUNT) + 0.5, 0.0, 1.0);
+
+	return mix(0.7, 1.2, gust);
+}
+
+
 #if WATER_DO_SCREENSPACE_REFL_AND_REFR
 // Walks the reflected ray through the depth buffer looking for an intersection with the scene.  Returns true if one
 // was found, in which case hit_col_out is set to the (already fogged) colour at the intersection.
@@ -584,10 +612,12 @@ void main()
 	// more than about twice the footprint width, e.g. if k < pi / footprint_w.
 	float k_nyquist = PI / max(footprint_w, 1.0e-5);
 
-	// The coarse end of the spectrum - everything below k_geom - is already displaced into the tessellated mesh by
-	// the vertex shader and is sitting in normal_ws, so sum only what is between that and what this pixel can
-	// resolve.  The vertex shader computed k_geom the same way, from the undisplaced world space position.
-	float k_geom = waterGeomCutoffK(pos_ws, mat_common_campos_ws.xyz);
+	// The water mesh isn't displaced, so sum everything this pixel can resolve.
+	float k_geom = 0.0;
+
+	// Gusts scale the short wind waves.
+	float short_wave_scale = waterGustRoughness(pos_ws.xy);
+	float total_slope_var = waterTotalSlopeVar(short_wave_scale);
 
 	// Sum the components this pixel can resolve.  This happens once, no matter how many samples are taken below.
 	// The components above k_nyquist are deliberately not summed.  They are not dropped either: resolved_slope_var
@@ -597,11 +627,11 @@ void main()
 	// one sub-pixel position to the next, so their sum over the footprint is Gaussian by the central limit theorem.
 	vec2 wave_slope;
 	float resolved_slope_var;
-	waterWaveSum(pos_ws.xy, time, /*k_lowpass=*/k_nyquist, /*k_highpass=*/k_geom, wave_slope, resolved_slope_var);
+	waterWaveSum(pos_ws.xy, time, /*k_lowpass=*/k_nyquist, /*k_highpass=*/k_geom, short_wave_scale, wave_slope, resolved_slope_var);
 	unit_normal_ws -= vec3(wave_slope, 0.0);
 
 	// Per-axis slope variance of everything the sum above left out.  The sub-samples below put this back stochastically.
-	float unresolved_slope_var = max(0.0, TOTAL_SLOPE_VAR - resolved_slope_var);
+	float unresolved_slope_var = max(0.0, total_slope_var - resolved_slope_var);
 
 
 	//unit_normal_ws.y += (fbmMix(pos_ws.xy * 0.1 + vec2(0, -time * 0.1), fbm_tex) * 0.04 + sin(dot(pos_ws.xy, vec2(0.6, 0.3)) * 10.0 + time * 2.0) * 0.003 + sin(pos_ws.y * 20.0 + -time * 2.0) * 0.04) * sin_window;
@@ -625,7 +655,7 @@ void main()
 	// How many times to redraw a facet whose reflection points below the horizon before giving up on it.  At
 	// grazing incidence a good fraction of the distribution is masked, so a couple of retries are common.
 	const int MAX_REFL_RESAMPLES = 4;
-	float unresolved_frac = unresolved_slope_var * (1.0 / TOTAL_SLOPE_VAR); // In [0, 1]
+	float unresolved_frac = unresolved_slope_var / total_slope_var; // In [0, 1]
 	int num_samples = 1 + int(float(MAX_WATER_SAMPLES - 1) * smoothstep(0.0, 0.6, unresolved_frac) + 0.5);
 
 	// Decorrelate the sample sequence between neighbouring pixels, so that what noise remains looks like noise rather
