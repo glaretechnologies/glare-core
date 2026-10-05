@@ -51,50 +51,16 @@ void main()
 {
 	vec3 use_normal_ws;
 	vec2 use_texture_coords = texture_coords;
-	if((matdata.flags & HAVE_SHADING_NORMALS_FLAG) != 0)
-	{
-		use_normal_ws = normal_ws;
-	}
-	else
-	{
-		// Compute world-space geometric normal.
-		vec3 dp_dx = dFdx(pos_ws);
-		vec3 dp_dy = dFdy(pos_ws);
-		vec3 N_g = cross(dp_dx, dp_dy);
-		use_normal_ws = N_g;
-	}
 
-	// TEMP: get normals from normal map
-	if((matdata.flags & HAVE_NORMAL_MAP_FLAG) != 0)
-		use_normal_ws = texture(NORMAL_MAP,  matdata.texture_upper_left_matrix_col0 * use_texture_coords.x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation).xyz * 2.0 - 
-			vec3(1,1,1);
+	// Do the cheap visibility tests first, so that discarded fragments (most of them, for grass) skip the normal map lookup, specular computation etc.
+	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 64.f)).x;
 
-	// Rotate normals vector around z-axis:
-	float phi = imposter_rot;
-
-	float new_x = cos(phi) * use_normal_ws.x - sin(phi) * use_normal_ws.y;
-	float new_y = sin(phi) * use_normal_ws.x + cos(phi) * use_normal_ws.y;
-	use_normal_ws.xy = vec2(new_x, new_y);
-
-	use_normal_ws = normalize(use_normal_ws);
-
-	float sun_light_cos_theta_factor = 1.0;
-
-	vec4 specular = vec4(0.0);
-	if((matdata.flags & HAVE_NORMAL_MAP_FLAG) != 0) // If grass (and so if have normal map with decent normals):
-	{
-		float final_fresnel_scale = 0.6;
-		float final_roughness = 0.4;
-
-		vec3 frag_to_cam = normalize(-cam_to_pos_ws);
-		vec3 h_ws = normalize(frag_to_cam + sundir_ws.xyz);
-		float h_cos_theta = abs(dot(h_ws, use_normal_ws));
-		vec4 dielectric_fresnel = vec4(dielectricFresnelReflForIOR1_333(h_cos_theta) * final_fresnel_scale);
-		specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * dielectric_fresnel;
-
-
-		sun_light_cos_theta_factor = abs(dot(use_normal_ws, sundir_ws.xyz));
-	}
+	float begin_fade_in_distance  = matdata.materialise_lower_z;
+	float end_fade_in_distance    = matdata.materialise_upper_z;
+	// 1.001 factor is to make sure is > 1 when should be visible.
+	float dist_alpha_factor = (smoothstep(begin_fade_in_distance, end_fade_in_distance, /*dist=*/-pos_cs.z) - smoothstep(matdata.begin_fade_out_distance, matdata.end_fade_out_distance, /*dist=*/-pos_cs.z)) * 1.001; 
+	if(pixel_hash > dist_alpha_factor)
+	 	discard;
 
 	// Work out which imposter sprite to use
 	vec3 to_frag_proj = normalize(vec3(pos_cs.x, 0.f, pos_cs.z)); // camera to fragment vector, projected onto ground plane
@@ -170,6 +136,61 @@ void main()
 	vec4 diffuse_col = texture_diffuse_col * matdata.diffuse_colour; // diffuse_colour is linear sRGB already.
 	diffuse_col.xyz *= 0.8f; // Just a hack scale to make the brightnesses look similar
 
+#if ALPHA_TEST 
+	if(diffuse_col.a < 0.01f)
+		discard; // Zero coverage regardless of technique - bail before the expensive shading below.
+
+	// When using alpha-to-coverage, we don't discard, but rather output an alpha value that is used for MSAA coverage.
+	if((mat_common_flags & ALPHA_TO_COVERAGE_ENABLED_FLAG) == 0) // If alpha-to-coverage is disabled:
+		if(diffuse_col.a < 0.5f)
+			discard;
+#endif
+
+	if((matdata.flags & HAVE_SHADING_NORMALS_FLAG) != 0)
+	{
+		use_normal_ws = normal_ws;
+	}
+	else
+	{
+		// Compute world-space geometric normal.
+		vec3 dp_dx = dFdx(pos_ws);
+		vec3 dp_dy = dFdy(pos_ws);
+		vec3 N_g = cross(dp_dx, dp_dy);
+		use_normal_ws = N_g;
+	}
+
+	// TEMP: get normals from normal map
+	if((matdata.flags & HAVE_NORMAL_MAP_FLAG) != 0)
+		use_normal_ws = texture(NORMAL_MAP,  matdata.texture_upper_left_matrix_col0 * use_texture_coords.x + matdata.texture_upper_left_matrix_col1 * use_texture_coords.y + matdata.texture_matrix_translation).xyz * 2.0 - 
+			vec3(1,1,1);
+
+	// Rotate normals vector around z-axis:
+	float phi = imposter_rot;
+
+	float new_x = cos(phi) * use_normal_ws.x - sin(phi) * use_normal_ws.y;
+	float new_y = sin(phi) * use_normal_ws.x + cos(phi) * use_normal_ws.y;
+	use_normal_ws.xy = vec2(new_x, new_y);
+
+	use_normal_ws = normalize(use_normal_ws);
+
+	float sun_light_cos_theta_factor = 1.0;
+
+	vec4 specular = vec4(0.0);
+	if((matdata.flags & HAVE_NORMAL_MAP_FLAG) != 0) // If grass (and so if have normal map with decent normals):
+	{
+		float final_fresnel_scale = 0.6;
+		float final_roughness = 0.4;
+
+		vec3 frag_to_cam = normalize(-cam_to_pos_ws);
+		vec3 h_ws = normalize(frag_to_cam + sundir_ws.xyz);
+		float h_cos_theta = abs(dot(h_ws, use_normal_ws));
+		vec4 dielectric_fresnel = vec4(dielectricFresnelReflForIOR1_333(h_cos_theta) * final_fresnel_scale);
+		specular = trowbridgeReitzPDF(h_cos_theta, max(1.0e-8f, alpha2ForRoughness(final_roughness))) * dielectric_fresnel;
+
+
+		sun_light_cos_theta_factor = abs(dot(use_normal_ws, sundir_ws.xyz));
+	}
+
 	vec4 refl_diffuse_col = diffuse_col;
 	if((matdata.flags & IMPOSTER_TEX_HAS_MULTIPLE_ANGLES) == 0) // TEMP HACK If grass:
 	{
@@ -187,25 +208,6 @@ void main()
 
 		refl_diffuse_col = vec4(0.04895491,0.10686976,0.010306382, 0.0);
 	}
-
-	float pixel_hash = texture(blue_noise_tex, gl_FragCoord.xy * (1.f / 64.f)).x;
-
-	float begin_fade_in_distance  = matdata.materialise_lower_z;
-	float end_fade_in_distance    = matdata.materialise_upper_z;
-	// 1.001 factor is to make sure is > 1 when should be visible.
-	float dist_alpha_factor = (smoothstep(begin_fade_in_distance, end_fade_in_distance, /*dist=*/-pos_cs.z) - smoothstep(matdata.begin_fade_out_distance, matdata.end_fade_out_distance, /*dist=*/-pos_cs.z)) * 1.001; 
-	if(pixel_hash > dist_alpha_factor)
-	 	discard;
-
-#if ALPHA_TEST 
-	if(diffuse_col.a < 0.01f)
-		discard; // Zero coverage regardless of technique - bail before the expensive shading below.
-
-	// When using alpha-to-coverage, we don't discard, but rather output an alpha value that is used for MSAA coverage.
-	if((mat_common_flags & ALPHA_TO_COVERAGE_ENABLED_FLAG) == 0) // If alpha-to-coverage is disabled:
-		if(diffuse_col.a < 0.5f)
-			discard;
-#endif
 
 	// Shadow mapping
 #if SHADOW_MAPPING
