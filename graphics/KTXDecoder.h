@@ -32,6 +32,7 @@ public:
 
 	static Reference<Map2D> decodeKTX2(const std::string& path, glare::Allocator* mem_allocator = NULL);
 
+	// Handles animated textures (array textures with a KTXanimData entry), as written by writeKTX2File(), returning a multi-frame CompressedImage.
 	static Reference<Map2D> decodeKTX2FromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator = NULL);
 
 
@@ -48,7 +49,10 @@ public:
 	};
 
 	// zstd_compression_level is used if supercompression is true.  3 is ZSTD_CLEVEL_DEFAULT.  Higher levels are slower to compress, but no slower to decompress.
-	static void writeKTX2File(Format format, bool supercompression, int w, int h, const std::vector<std::vector<uint8> >& level_image_data, const std::string& path_out, int zstd_compression_level);
+	// num_frames is 1 for a non-animated texture.  If num_frames > 1, the texture is animated: it is written as an array texture with one layer per frame, with a KTXanimData
+	// entry giving frame_duration_s.  level_image_data[k] holds the data for MIP level k of all frames: frame 0, then frame 1, etc.
+	static void writeKTX2File(Format format, bool supercompression, int w, int h, int num_frames, double frame_duration_s, const std::vector<std::vector<uint8> >& level_image_data,
+		const std::string& path_out, int zstd_compression_level);
 
 
 	static void test();
