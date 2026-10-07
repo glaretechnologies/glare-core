@@ -184,6 +184,7 @@ enum TextureUnitIndices
 	DETAIL_2_TEXTURE_UNIT_INDEX,
 	DETAIL_3_TEXTURE_UNIT_INDEX,
 	DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX,
+	DETAIL_3_NORMAL_MAP_TEXTURE_UNIT_INDEX,
 
 	AURORA_TEXTURE_UNIT_INDEX,
 	//SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX
@@ -1540,6 +1541,16 @@ void OpenGLEngine::setDetailHeightmap(int index, const OpenGLTextureRef& tex)
 }
 
 
+void OpenGLEngine::setDetailNormalMap(int index, const OpenGLTextureRef& tex)
+{
+	assert(index >= 0 && index < 4);
+	if(index >= 0 && index < 4)
+		this->detail_normal_map[index] = tex;
+	else
+		throw glare::Exception("invalid detail normal map index: " + toString(index));
+}
+
+
 OpenGLTextureRef OpenGLEngine::getDetailTexture(int index) const
 {
 	if(index >= 0 && index < 4)
@@ -1590,6 +1601,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.detail_tex_2_location			= prog->getUniformLocation("detail_tex_2");
 	prog->uniform_locations.detail_tex_3_location			= prog->getUniformLocation("detail_tex_3");
 	prog->uniform_locations.detail_heightmap_0_location		= prog->getUniformLocation("detail_heightmap_0");
+	prog->uniform_locations.detail_normal_map_3_location	= prog->getUniformLocation("detail_normal_map_3");
 	prog->uniform_locations.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	prog->uniform_locations.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
 	prog->uniform_locations.ssao_tex_location				= prog->getUniformLocation("ssao_tex");
@@ -2038,7 +2050,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			}
 			manager.runTaskGroup(group);
 
-			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
+			// EXRDecoder::saveImageToEXR(fbm_imagemap->getData(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
 			if(float_texture_filtering_support)
 			{
@@ -13076,6 +13088,7 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 	glUniform1i(program.uniform_locations.detail_tex_3_location, DETAIL_3_TEXTURE_UNIT_INDEX);
 
 	glUniform1i(program.uniform_locations.detail_heightmap_0_location, DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.detail_normal_map_3_location, DETAIL_3_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 	
 	glUniform1i(program.uniform_locations.aurora_tex_location, AURORA_TEXTURE_UNIT_INDEX);
 
@@ -13143,8 +13156,10 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 		bindTextureToTextureUnit(*this->detail_tex[1], /*texture_unit_index=*/DETAIL_1_TEXTURE_UNIT_INDEX);
 	if(this->detail_tex[2])
 		bindTextureToTextureUnit(*this->detail_tex[2], /*texture_unit_index=*/DETAIL_2_TEXTURE_UNIT_INDEX);
-	//if(this->detail_tex[3])
-	//	bindTextureToTextureUnit(*this->detail_tex[3], /*texture_unit_index=*/DETAIL_3_TEXTURE_UNIT_INDEX); // Not used in fragment shader currently
+	if(this->detail_tex[3])
+		bindTextureToTextureUnit(*this->detail_tex[3], /*texture_unit_index=*/DETAIL_3_TEXTURE_UNIT_INDEX); // Beach sand
+	if(this->detail_normal_map[3])
+		bindTextureToTextureUnit(*this->detail_normal_map[3], /*texture_unit_index=*/DETAIL_3_NORMAL_MAP_TEXTURE_UNIT_INDEX); // Beach sand normal map
 	
 	// NOTE: for now we will only use 1 detail heightmap (rock) in shader
 	//if(this->detail_heightmap[0])

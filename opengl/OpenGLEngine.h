@@ -1322,6 +1322,7 @@ public:
 	//------------------------------- Terrain --------------------
 	void setDetailTexture(int index, const OpenGLTextureRef& tex);
 	void setDetailHeightmap(int index, const OpenGLTextureRef& tex);
+	void setDetailNormalMap(int index, const OpenGLTextureRef& tex); // Only index 3 (beach sand) is currently used.
 	OpenGLTextureRef getDetailTexture(int index) const;
 	OpenGLTextureRef getDetailHeightmap(int index) const;
 	//----------------------------------------------------------------------------------------
@@ -1558,6 +1559,8 @@ public:
 
 
 	void shaderFileChanged(); // Called by ShaderFileWatcherThread, from another thread.
+	bool isShaderReloadPending() const { return shader_file_changed.getVal() != 0; } // Has a shader reload been requested, but not done yet?  (Done at the start of the next draw().)
+	size_t getNumProgramsBuilding() const { return building_progs.size(); } // Number of shader programs still being compiled and linked in parallel.
 private:
 	static void staticInit();
 	void checkCreateProfilingQueries();
@@ -1760,6 +1763,7 @@ private:
 	ImageMapFloatRef fbm_imagemap;
 	Reference<OpenGLTexture> fbm_tex;
 	Reference<OpenGLTexture> detail_tex[4];
+	Reference<OpenGLTexture> detail_normal_map[4];
 	Reference<OpenGLTexture> detail_heightmap[4];
 	Reference<OpenGLTexture> blue_noise_tex;
 	Reference<OpenGLTexture> noise_tex;
