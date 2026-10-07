@@ -467,7 +467,7 @@ void KTXDecoder::supercompressKTX2File(const std::string& path_in, const std::st
 }
 
 
-void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int h, const std::vector<std::vector<uint8> >& level_image_data, const std::string& path_out)
+void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int h, const std::vector<std::vector<uint8> >& level_image_data, const std::string& path_out, int zstd_compression_level)
 {
 	FileOutStream file(path_out);
 	file.writeData(ktx2_file_id, 12);
@@ -530,7 +530,7 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 			compressed_data.resize(compressed_data.size() + compressed_bound); // Resize to be large enough to hold compressed_bound additional bytes.
 		
 			const size_t compressed_size = ZSTD_compress(/*dest=*/compressed_data.data() + compressed_data_write_i, /*dst capacity=*/compressed_bound, level_i_data.data(), level_i_data.size(),
-				ZSTD_CLEVEL_DEFAULT // compression level
+				zstd_compression_level // compression level
 			);
 			if(ZSTD_isError(compressed_size))
 				throw glare::Exception("Compression failed: " + toString(compressed_size));
@@ -759,7 +759,7 @@ static void makeMipMapTestTexture()
 		level++;
 	}
 
-	KTXDecoder::writeKTX2File(KTXDecoder::Format::Format_BC1, /*supercompression=*/false, (int)W, (int)W, level_image_data, "d:/tempfiles/miptest.ktx2");
+	KTXDecoder::writeKTX2File(KTXDecoder::Format::Format_BC1, /*supercompression=*/false, (int)W, (int)W, level_image_data, "d:/tempfiles/miptest.ktx2", /*zstd_compression_level=*/3);
 
 
 	// Save to basis file as well, as an array texture.

@@ -47,7 +47,8 @@ public:
 		Format_BC6H
 	};
 
-	static void writeKTX2File(Format format, bool supercompression, int w, int h, const std::vector<std::vector<uint8> >& level_image_data, const std::string& path_out);
+	// zstd_compression_level is used if supercompression is true.  3 is ZSTD_CLEVEL_DEFAULT.  Higher levels are slower to compress, but no slower to decompress.
+	static void writeKTX2File(Format format, bool supercompression, int w, int h, const std::vector<std::vector<uint8> >& level_image_data, const std::string& path_out, int zstd_compression_level);
 
 
 	static void test();
