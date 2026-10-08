@@ -11382,8 +11382,8 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 	// Count the fragment shader invocations in this pass, for measuring overdraw.  Only one query is in flight at a time, and a new one is only issued
 	// once the previous result has been read back, so this doesn't stall.
-	bool counting_frag_invocations = false;
 #if !defined(OSX) && !defined(EMSCRIPTEN)
+	bool counting_frag_invocations = false;
 	if(count_opaque_frag_invocations)
 	{
 		if(opaque_frag_invocations_query_pending)
