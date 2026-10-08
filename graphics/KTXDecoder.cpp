@@ -531,6 +531,14 @@ void KTXDecoder::supercompressKTX2File(const std::string& path_in, const std::st
 void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int h, int num_frames, double frame_duration_s, const std::vector<std::vector<uint8> >& level_image_data,
 	const std::string& path_out, int zstd_compression_level)
 {
+	FileOutStream file(path_out);
+	writeKTX2ToStream(format, supercompression, w, h, num_frames, frame_duration_s, level_image_data, file, zstd_compression_level);
+}
+
+
+void KTXDecoder::writeKTX2ToStream(Format format, bool supercompression, int w, int h, int num_frames, double frame_duration_s, const std::vector<std::vector<uint8> >& level_image_data,
+	OutStream& file, int zstd_compression_level)
+{
 	if(num_frames < 1)
 		throw glare::Exception("Invalid num_frames: " + toString(num_frames));
 	for(size_t i=0; i<level_image_data.size(); ++i)
@@ -570,7 +578,6 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 			kvd.push_back(0);
 	}
 
-	FileOutStream file(path_out);
 	file.writeData(ktx2_file_id, 12);
 
 	uint32 vk_format;
@@ -613,7 +620,6 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 	file.writeUInt64(0); // sgdByteLength
 
 	// 80 bytes to here
-	assert(file.getWriteIndex() == 80);
 
 	//  level index
 	std::vector<LevelData> level_data(level_image_data.size());
@@ -672,17 +678,16 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 	// Write level index
 	file.writeData(level_data.data(), level_data.size() * sizeof(LevelData));
 
-	// Write key/value data
-	assert(file.getWriteIndex() == kvd_byte_offset);
+	// Write key/value data (at kvd_byte_offset)
 	file.writeData(kvd.data(), kvd.size());
 
 	// Write padding to align the mip level data
 	const uint8 zero_padding[16] = { 0 };
-	assert(mip_level_byte_start - file.getWriteIndex() < 16);
-	file.writeData(zero_padding, mip_level_byte_start - file.getWriteIndex());
+	const size_t padding_size = mip_level_byte_start - (kvd_byte_offset + kvd.size());
+	assert(padding_size < 16);
+	file.writeData(zero_padding, padding_size);
 
-	// Write mipmap level data
-	assert(file.getWriteIndex() == mip_level_byte_start);
+	// Write mipmap level data (at mip_level_byte_start)
 	file.writeData(compressed_data.data(), compressed_data.size());
 }
 
@@ -701,7 +706,7 @@ void KTXDecoder::writeKTX2File(Format format, bool supercompression, int w, int 
 //#include <encoder/basisu_comp.h>
 
 
-#if 1
+#if 0
 // Command line:
 // C:\fuzz_corpus\ktx c:/code/glare-core/testfiles\ktx
 

@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2023 -
 #include <string>
 namespace glare { class Allocator; }
 class Map2D;
+class OutStream;
 
 
 /*=====================================================================
@@ -53,6 +54,10 @@ public:
 	// entry giving frame_duration_s.  level_image_data[k] holds the data for MIP level k of all frames: frame 0, then frame 1, etc.
 	static void writeKTX2File(Format format, bool supercompression, int w, int h, int num_frames, double frame_duration_s, const std::vector<std::vector<uint8> >& level_image_data,
 		const std::string& path_out, int zstd_compression_level);
+
+	// As writeKTX2File(), but writes to a stream.
+	static void writeKTX2ToStream(Format format, bool supercompression, int w, int h, int num_frames, double frame_duration_s, const std::vector<std::vector<uint8> >& level_image_data,
+		OutStream& stream_out, int zstd_compression_level);
 
 
 	static void test();
