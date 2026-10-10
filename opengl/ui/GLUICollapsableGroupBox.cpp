@@ -15,7 +15,8 @@ GLUICollapsableGroupBox::CreateArgs::CreateArgs()
 	background_alpha(1.f),
 	z(0.f),
 	padding_px(10),
-	background_consumes_events(false)
+	background_consumes_events(false),
+	initially_expanded(true)
 {}
 
 
@@ -27,7 +28,7 @@ GLUICollapsableGroupBox::GLUICollapsableGroupBox(GLUI& glui_, const CreateArgs& 
 	args = args_;
 	m_z = args_.z;
 	visible = true;
-	expanded = true;
+	expanded = args_.initially_expanded;
 
 	sizing_type_x = GLUIWidget::SizingType_Expanding;
 	sizing_type_y = GLUIWidget::SizingType_Expanding;
@@ -58,8 +59,8 @@ GLUICollapsableGroupBox::GLUICollapsableGroupBox(GLUI& glui_, const CreateArgs& 
 		button_args.sizing_type_x = GLUIWidget::SizingType_FixedSizePx;
 		button_args.sizing_type_y = GLUIWidget::SizingType_FixedSizePx;
 		button_args.fixed_size = Vec2f(22.f); 
-		button_args.tooltip = "Collapse";
-		collapse_expand_button = new GLUIButton(*glui, opengl_engine->getDataDir() + "/gl_data/ui/expanded.png", button_args);
+		button_args.tooltip = expanded ? "Collapse" : "Expand";
+		collapse_expand_button = new GLUIButton(*glui, opengl_engine->getDataDir() + (expanded ? "/gl_data/ui/expanded.png" : "/gl_data/ui/collapsed.png"), button_args);
 		collapse_expand_button->setZ(m_z - 0.01f);
 		collapse_expand_button->handler = this;
 		glui->addWidget(collapse_expand_button);
@@ -90,6 +91,7 @@ void GLUICollapsableGroupBox::setBodyWidget(const GLUIWidgetRef body_widget_)
 
 	body_widget->setParent(this);
 	body_widget->setZ(m_z - 0.01f);
+	body_widget->setVisible(visible && expanded);
 
 	glui->addWidget(body_widget); // Add body_widget to GL UI if not already added.
 

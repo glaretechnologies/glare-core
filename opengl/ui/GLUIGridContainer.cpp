@@ -441,6 +441,7 @@ void GLUIGridContainer::setCellWidget(int cell_x, int cell_y, GLUIWidgetRef widg
 	widget->setParent(this);
 
 	widget->setZ(this->getZ() - 0.01f); // Position in front of the container.
+	widget->setVisible(this->isVisible()); // A widget added to a hidden container must start hidden as well.
 
 	recomputeLayout();
 }

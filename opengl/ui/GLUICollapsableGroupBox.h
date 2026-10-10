@@ -70,6 +70,7 @@ public:
 		float padding_px; // left, right, bottom padding/margin around body_widget, in pixels.
 
 		bool background_consumes_events; // Should the background around the body widget consume click events etc.?  Defaults to false.
+		bool initially_expanded; // Defaults to true.
 	};
 
 	GLUICollapsableGroupBox(GLUI& glui, const CreateArgs& args);
