@@ -35,7 +35,7 @@ void LLMThread::doRun()
 {
 	try
 	{
-		PlatformUtils::setCurrentThreadNameIfTestsEnabled("LLMThread");
+		PlatformUtils::setCurrentThreadName("LLMThread");
 
 		std::vector<AIModel> models;
 

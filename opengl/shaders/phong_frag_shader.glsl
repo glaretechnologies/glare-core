@@ -75,7 +75,8 @@ uniform sampler2D fbm_tex;
 //uniform sampler2D detail_tex_0; // rock
 uniform sampler2D detail_tex_1; // sediment
 uniform sampler2D detail_tex_2; // vegetation
-//uniform sampler2D detail_tex_3;
+uniform sampler2D detail_tex_3; // beach sand
+uniform sampler2D detail_normal_map_3; // beach sand normal map
 
 //uniform sampler2D detail_heightmap_0; // rock
 #endif // end #if TERRAIN
@@ -288,6 +289,22 @@ void main()
 		N_g = cross(dp_dx, dp_dy);
 		unit_normal_ws = N_g;
 	}
+
+#if TERRAIN
+	// When the camera is above water, terrain more than 40 m below the water surface is not visible: the water shader attenuates it by at least
+	// exp(-0.2 * 40) ~= 3.4e-4 (see extinction in colourForUnderwaterPoint() in water_frag_shader.glsl), so skip the shading.
+	// Depth is still written, so the water shader still computes the water path length and in-scattering correctly.
+	// Not done for probe captures, since they don't draw the water surface.
+	if(((mat_common_flags & (DRAW_WATER_FLAG | DOING_PROBE_CAPTURE_FLAG)) == DRAW_WATER_FLAG) && (mat_common_campos_ws.z > water_level_z) && (pos_ws.z < water_level_z - 40.0))
+	{
+		colour_out = vec4(0.0, 0.0, 0.0, 1.0);
+		vec3 early_unit_normal = normalize(unit_normal_ws);
+		if((mat_common_flags & DOING_SSAO_PREPASS_FLAG) != 0) // If doing prepass:
+			early_unit_normal = normalize(frag_view_matrix * vec4(early_unit_normal, 0.0)).xyz; // use cam space normal
+		normal_out = snorm12x2_to_unorm8x3(float32x3_to_oct(early_unit_normal));
+		return;
+	}
+#endif
 
 
 	vec3 pos_cs = (frag_view_matrix * vec4(pos_ws, 1.0)).xyz;
@@ -556,6 +573,8 @@ void main()
 #endif
 
 #if TERRAIN
+	float terrain_wetness = 0.0; // Used to lower the roughness of wet sand.
+
 	// NOTE: Simplified a bit to stop crashing Chrome's GPU process.
 	// Removed rock (wasn't visible anyway) and vegetation colour variation.
 
@@ -605,6 +624,142 @@ void main()
 	texcol += detail_1_texval * sed_weight;
 	texcol += detail_2_texval * veg_weight; // TEMP disabled colour variation.    * colour_variation_factor * veg_weight;
 	texcol.w = 1.0;
+
+	// Beach sand, on non-vegetated, not-too-steep ground from below the water line up to a few metres above it (with a noisy upper limit).
+	// The sand is detail_tex_3 with the detail_normal_map_3 normal map, with large-scale tone and saturation variation, paler dry sand higher up, a broken wrack line (seaweed, debris) at the high-tide mark, and a dark, shiny wet band at the water's edge.
+	// fbm_tex tiles once per texture coordinate unit, and has 4 base-octave noise cells across it, so a texture coordinate scale of 1/(4 L)
+	// gives base features of about L metres, repeating every 4 L metres.
+	// The work is skipped where the beach weight is zero (vegetation, steep slopes, above the highest possible beach top), and underwater, where the sand is
+	// fully wet, only the tone variation is computed.  The branches are taken where the results are zero or the same either way, so the implicit texture
+	// LODs being undefined in non-uniform control flow at the branch edges doesn't matter.
+	{
+		// Sand texture coordinates and their derivatives, computed here in uniform control flow, for textureGrad() in the branch below.
+		const float sand_tex_size_m = 8.0; // Width of the sand texture in metres
+		vec2 sand_uvs = pos_ws.xy * (1.0 / sand_tex_size_m);
+		vec2 sand_uvs_dx = dFdx(sand_uvs);
+		vec2 sand_uvs_dy = dFdy(sand_uvs);
+
+		float h = pos_ws.z - water_level_z;
+		float unit_normal_z = normalize(unit_normal_ws).z;
+		const float max_beach_h = 4.1; // Upper bound on beach_top + 0.2 below (fbm() is at most ~1.03).  Update if the beach_top formula changes.
+		if((sed_weight > 0.0) && (unit_normal_z > 0.85) && (h < max_beach_h))
+		{
+			float n_large = fbm(pos_ws.xy * (1.0 / 800.0), fbm_tex);                    // ~200 m
+			float n_mid   = fbm(pos_ws.xy * (1.0 / 80.0)  + vec2(0.31, 0.77), fbm_tex); // ~20 m
+
+			float beach_top = 3.5 + n_large * 0.2 + n_mid * 0.1;
+			float beach_weight = (1.0 - smoothstep(beach_top - 0.3, beach_top + 0.2, h)) * smoothstep(0.85, 0.95, unit_normal_z) * sed_weight;
+
+			// The sand texture colour is multiplied here to make it brighter - to look like white sand.
+			const float SAND_TEX_MULTIPLIER = 2.3;
+			vec3 sand = textureGrad(detail_tex_3, sand_uvs, sand_uvs_dx, sand_uvs_dy).xyz * vec3(SAND_TEX_MULTIPLIER);
+
+			sand *= 1.0 + n_large * 0.2 + n_mid * 0.1; // Macro tone
+			sand = mix(sand, vec3(dot(sand, vec3(0.333))), clamp(n_large * 0.3, 0.0, 0.15)); // Greyer patches
+
+			// Wet sand colour: darker, and half-way to the mean sand colour, which reduces the ripple shading baked into the texture (the swash
+			// smooths wet sand).  The top mip level (the level is clamped) is the mean texture colour.
+			vec3 mean_sand_col = textureLod(detail_tex_3, sand_uvs, 16.0).xyz * SAND_TEX_MULTIPLIER;
+
+			if(h < -0.5)
+			{
+				// Underwater: fully wet, no wrack or normal map, and (since h + n_mid < 1.5) no drying.
+				// Must match the wet sand colour and terrain_wetness of the branch below at h = -0.5, where wetness = 1.
+				sand = mix(sand, mean_sand_col, 0.5) * 0.5;
+				terrain_wetness = beach_weight * 0.9;
+			}
+			else
+			{
+				float n_fine  = fbm(pos_ws.xy * (1.0 / 6.0)   + vec2(0.53, 0.19), fbm_tex); // ~1.5 m
+
+				sand *= mix(vec3(1.0), vec3(1.08, 1.07, 1.04), smoothstep(1.5, 4.0, h + n_mid)); // Drier, paler sand higher up
+
+				// Wrack line: thin, since the beach slope is gentle.
+				// Broken up at two scales: the fine noise gives gaps of a metre or so, and the clump noise (~30 cm) breaks what's left into small clumps.
+				float n_clump = fbm(pos_ws.xy * (1.0 / 1.2) + vec2(0.13, 0.57), fbm_tex); // ~30 cm
+				float wrack = (1.0 - smoothstep(0.0, 0.06, abs(h - (1.5 + n_mid * 0.3)))) * smoothstep(0.0, 0.4, n_fine + n_mid * 0.5) * smoothstep(0.0, 0.25, n_clump);
+				sand = mix(sand, vec3(0.10, 0.085, 0.05), wrack * 1.0);
+
+				float wetness = 1.0 - smoothstep(0.15, 0.24 + n_mid * 0.05 + n_fine * 0.01, h);
+				sand = mix(sand, mix(sand, mean_sand_col, 0.5) * 0.5, wetness);
+
+				// Sand normal map.  The sand texture coordinates are world x and y, so the tangent frame is world x, y and the terrain normal, which is
+				// close to vertical on the beach.  Weakened on wet sand.
+				// The normal map is OpenGL convention (green = slope towards the top of the image), but textures are uploaded with the top image row at
+				// v = 0, so +v (world +y) is towards the bottom of the image, and the y component is negated.
+				{
+					vec3 n_ts = textureGrad(detail_normal_map_3, sand_uvs, sand_uvs_dx, sand_uvs_dy).xyz * 2.0 - 1.0;
+					n_ts.y = -n_ts.y;
+					float normal_map_strength = beach_weight * (1.0 - wetness * 0.97);
+					unit_normal_ws = normalize(unit_normal_ws * n_ts.z + vec3(n_ts.xy * normal_map_strength, 0.0));
+
+					// The sun cos(theta) terms were computed from the unperturbed normal, above, so recompute them.
+					light_cos_theta = dot(unit_normal_ws, sundir_ws.xyz);
+					sun_light_cos_theta_factor = max(0.f, light_cos_theta);
+				}
+
+				terrain_wetness = wetness * beach_weight * (0.9 + n_fine * 0.1 * smoothstep(-0.5, -0.2, h)); // The n_fine variation is faded out towards h = -0.5, to match the underwater branch.
+			}
+
+			texcol.xyz = mix(texcol.xyz, sand, beach_weight);
+		}
+	}
+
+	// Shallow seabed: seagrass meadows and dark rubble / rock heads, about 1.2 - 14 m below the water surface.
+	// The masks are procedural, from just 3 noise lookups: a large-scale field sets out the meadows, limited to a depth band whose limits are
+	// jittered by the mid-scale noise, so the meadow edges don't follow the depth contours.  The mid-scale noise also makes the meadow edges
+	// ragged, cuts sand holes in the meadows (at its high end) and places rubble (at its low end).  The fine-scale noise gives blade clumps and tone.
+	// fbm_tex tiles once per texture coordinate unit, and has 4 base-octave noise cells across it, so a texture coordinate scale of 1/(4 L)
+	// gives base features of about L metres, repeating every 4 L metres.
+	// Noise is sampled with textureLod, at a mip level computed here in uniform control flow, since the sampling is inside the depth branch.
+	// The level is isotropic, from the larger of the two screen-space derivatives: the seabed is mostly seen at grazing angles, where
+	// anisotropic filtering (with textureGrad) was expensive, for little visible benefit under the water surface.
+	{
+		vec2 seabed_dpdx = dFdx(pos_ws.xy);
+		vec2 seabed_dpdy = dFdy(pos_ws.xy);
+		float seabed_lod_base = log2(max(length(seabed_dpdx), length(seabed_dpdy)) * float(textureSize(fbm_tex, 0).x)); // Mip level for a texture coordinate scale of 1.
+		float seabed_depth = water_level_z - pos_ws.z;
+		if(((mat_common_flags & DRAW_WATER_FLAG) != 0) && (seabed_depth > 1.2) && (seabed_depth < 14.0))
+		{
+			#define SEABED_FBM(scale, offset) ((textureLod(fbm_tex, pos_ws.xy * (scale) + (offset), seabed_lod_base + log2(scale)).x - 0.5) * 2.0)
+
+			float big  = SEABED_FBM(1.0 / 340.0, vec2(0.0));        // ~85 m features
+			float mid  = SEABED_FBM(1.0 / 48.0,  vec2(0.23, 0.61)); // ~12 m
+			float fine = SEABED_FBM(1.0 / 6.0,   vec2(0.71, 0.37)); // ~1.5 m
+
+			#undef SEABED_FBM
+
+			vec3 under = texcol.xyz;
+
+			// Seagrass field, favouring depths around 5.5 m.
+			float jittered_depth = seabed_depth + mid * 1.1;
+			float depth_window = smoothstep(1.7, 2.8, jittered_depth) * (1.0 - smoothstep(8.5, 12.5, jittered_depth)) * smoothstep(1.2, 1.6, seabed_depth);
+			float f = big + mid * 0.3 + 0.12 * (1.0 - abs(seabed_depth - 5.5) * 0.25) - 0.2 * mask.x;
+			float grass = smoothstep(0.1, 0.3, f) * depth_window;
+			grass *= 1.0 - 0.95 * smoothstep(0.42, 0.62, mid); // Sand holes in the meadows
+
+			// Ragged, clumpy meadow edges
+			float macro = big * 0.5 + 0.5;
+			float clumps = fine * 0.5;
+			float seagrass_w = smoothstep(0.3, 0.55, grass + clumps);
+
+			float tone = fine * 0.5 + 0.5;
+			vec3 meadow = mix(vec3(0.080, 0.100, 0.040), vec3(0.160, 0.170, 0.070), smoothstep(0.35, 0.75, tone));
+			meadow = mix(meadow, vec3(0.100, 0.075, 0.032), smoothstep(0.55, 0.8, tone + (macro - 0.5) * 0.4) * 0.5); // Brownish epiphytes
+			meadow = mix(under, meadow, smoothstep(0.3, 0.85, grass + clumps * 0.5) * 0.35 + 0.65); // Sparse at the fringe: sand shows between the blades
+			under = mix(under, meadow, seagrass_w);
+
+			// Rubble / rock heads: sparse patches, more of them in rocky areas.
+			float rubble_depth_window = smoothstep(1.8, 3.0, seabed_depth) * (1.0 - smoothstep(11.0, 14.0, seabed_depth));
+			float rubble = smoothstep(0.52, 0.66, -mid + mask.x * 0.35) * rubble_depth_window * (1.0 - grass * 0.6);
+			float rubble_w = smoothstep(0.3, 0.6, rubble + (tone - 0.5) * 0.4);
+			vec3 rubble_col = mix(vec3(0.110, 0.100, 0.070), vec3(0.220, 0.190, 0.120), smoothstep(0.3, 0.7, tone)); // Rock
+			rubble_col = mix(rubble_col, vec3(0.070, 0.090, 0.030), smoothstep(0.5, 0.7, clumps + 0.5) * 0.6); // Algal turf
+			under = mix(under, rubble_col, rubble_w);
+
+			texcol.xyz = under;
+		}
+	}
 
 	refl_diffuse_col        = texcol;
 	direct_sun_diffuse_col  = texcol.xyz;
@@ -671,6 +826,9 @@ void main()
 	// final_metallic_frac *= (1.f - snow_frac);
 
 	float unclamped_roughness = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (use_roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : use_roughness;
+#if TERRAIN
+	unclamped_roughness = mix(unclamped_roughness, 0.3, terrain_wetness); // Wet sand is shiny
+#endif
 	float final_roughness = max(0.04, unclamped_roughness); // Avoid too small roughness values resulting in glare/bloom artifacts
 
 	if((mat_common_flags & DOING_SSAO_PREPASS_FLAG) != 0)
@@ -1143,7 +1301,7 @@ void main()
 	//------------------------------- Apply underwater effects (caustics, attenuation and in-scattering) ---------------------------
 #if UNDERWATER_CAUSTICS
 	float campos_z = mat_common_campos_ws.z;
-	if((pos_ws.z < water_level_z) || (campos_z < water_level_z))
+	if(((mat_common_flags & DRAW_WATER_FLAG) != 0) && ((pos_ws.z < water_level_z) || (campos_z < water_level_z)))
 	{
 		vec3 src_col = col.xyz; // texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
 

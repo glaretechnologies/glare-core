@@ -712,7 +712,7 @@ void PNGDecoder::write(const void* data, unsigned int W, unsigned int H, unsigne
 		// NOTE: We could write an sRGB Chunk instead, see section '11.3.3.5 sRGB Standard RGB colour space' (http://www.libpng.org/pub/png/spec/iso/index-object.html#11iCCP)
 		//
 		// Checking embedded ICC profiles can be done with this online tool: 'Jeffrey's Image Metadata Viewer': http://exif.regex.info/exif.cgi
-		if(N > 1) // It's not allowed to have a colour profile in a greyscale image.
+		if(N >= 3) // It's not allowed to have an RGB colour profile in a greyscale or greyscale + alpha image.
 		{
 #if 1 // if SAVE_PRECOMPUTED_SRGB_PROFILE:
 	

@@ -18,6 +18,7 @@ out vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
 #endif
 out vec3 cam_to_pos_ws;
 out float imposter_rot;
+flat out vec3 imposter_col_factor;
 
 
 #if PER_OB_DATA_SSBO
@@ -34,6 +35,30 @@ layout (std140) uniform PerObjectVertUniforms
 	PerObjectVertUniformsStruct per_object_data;
 };
 #endif
+
+
+// See https://nullprogram.com/blog/2018/07/31/ (lowbias32)
+uint lowbias32Hash(uint x)
+{
+	x ^= x >> 16u;
+	x *= 0x7feb352du;
+	x ^= x >> 15u;
+	x *= 0x846ca68bu;
+	x ^= x >> 16u;
+	return x;
+}
+
+// Per-tree leaf colour factor, in [0.7, 1.0] for each channel, computed from the tree position.
+// This must match treeColourFactor() in substrata TerrainScattering.cpp, so that tree imposters get the same colour as the tree models.
+vec3 treeColourFactor(vec2 tree_pos)
+{
+	uint h = lowbias32Hash(floatBitsToUint(tree_pos.x) ^ lowbias32Hash(floatBitsToUint(tree_pos.y)));
+	return vec3(
+		0.7 + float( h         & 0x3FFu) * (0.3 / 1023.0),
+		0.7 + float((h >> 10u) & 0x3FFu) * (0.3 / 1023.0),
+		0.7 + float((h >> 20u) & 0x3FFu) * (0.3 / 1023.0)
+	);
+}
 
 
 void main()
@@ -137,4 +162,5 @@ void main()
 
 	texture_coords = texture_coords_0_in;
 	imposter_rot = imposter_rot_in;
+	imposter_col_factor = treeColourFactor(position_in.xy); // All 4 vertices of a tree imposter have position_in.xy = the tree position.
 }

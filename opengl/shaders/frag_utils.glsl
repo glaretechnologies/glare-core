@@ -158,9 +158,16 @@ const vec2 samples[NUM_SHADOW_SAMPLES] = vec2[](
 );
 #endif
 
+// Returns a value approximately in [-1, 1]
 float fbm(vec2 p, in sampler2D fbm_tex)
 {
 	return (texture(fbm_tex, p).x - 0.5) * 2.f;
+}
+
+// Returns a value approximately in [0, 1]
+float fbm01(vec2 p, in sampler2D fbm_tex)
+{
+	return texture(fbm_tex, p).x;
 }
 
 vec2 rot(vec2 p)
@@ -173,7 +180,7 @@ float fbmMix(vec2 p, in sampler2D fbm_tex)
 {
 	return
 		fbm(p, fbm_tex) +
-		fbm(rot(p * 2.0), fbm_tex) * 0.5;
+		(texture(fbm_tex, rot(p * 2.0)).x - 0.5); // = fbm(rot(p * 2.0), fbm_tex) * 0.5
 }
 
 
@@ -183,7 +190,7 @@ float fbmMixLod(vec2 p, in sampler2D fbm_tex, float lod)
 {
 	return
 		(textureLod(fbm_tex, p, lod).x - 0.5) * 2.f +
-		(textureLod(fbm_tex, rot(p * 2.0), lod + 1.0).x - 0.5) * 2.f * 0.5;
+		(textureLod(fbm_tex, rot(p * 2.0), lod + 1.0).x - 0.5);
 }
 
 

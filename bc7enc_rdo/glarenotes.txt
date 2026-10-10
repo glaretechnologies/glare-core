@@ -1,0 +1,8 @@
+Checked out from https://github.com/richgel999/bc7enc_rdo master (commit b9438627eef73a1157e84201b6fa6eb2ffd6d9f0)
+on 7th October 2026.
+
+Only the files needed for RDO BC1/BC3 encoding are included: rgbcx (BC1-5 encoder/decoder) and ert (the RDO entropy reduction transform).
+License: MIT or public domain (unlicense), see LICENSE.
+
+Changes:
+ert.cpp: commented out #include "utils.h", as nothing from it is used.

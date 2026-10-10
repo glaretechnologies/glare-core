@@ -36,7 +36,7 @@ WebListenerThread::~WebListenerThread()
 
 void WebListenerThread::doRun()
 {
-	PlatformUtils::setCurrentThreadNameIfTestsEnabled("WebListenerThread");
+	PlatformUtils::setCurrentThreadName("WebListenerThread");
 
 	try
 	{

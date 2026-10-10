@@ -111,6 +111,7 @@ Copyright Glare Technologies Limited 2023 -
 #define USE_PROBE_VISIBILITY_FLAG			32
 #define DOING_PROBE_CAPTURE_FLAG			64
 #define ALPHA_TO_COVERAGE_ENABLED_FLAG		128
+#define DRAW_WATER_FLAG						256
 
 
 #define OVERLAY_HAVE_TEXTURE_FLAG			1
@@ -183,6 +184,7 @@ enum TextureUnitIndices
 	DETAIL_2_TEXTURE_UNIT_INDEX,
 	DETAIL_3_TEXTURE_UNIT_INDEX,
 	DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX,
+	DETAIL_3_NORMAL_MAP_TEXTURE_UNIT_INDEX,
 
 	AURORA_TEXTURE_UNIT_INDEX,
 	//SNOW_ICE_NORMAL_MAP_TEXTURE_UNIT_INDEX
@@ -1539,6 +1541,16 @@ void OpenGLEngine::setDetailHeightmap(int index, const OpenGLTextureRef& tex)
 }
 
 
+void OpenGLEngine::setDetailNormalMap(int index, const OpenGLTextureRef& tex)
+{
+	assert(index >= 0 && index < 4);
+	if(index >= 0 && index < 4)
+		this->detail_normal_map[index] = tex;
+	else
+		throw glare::Exception("invalid detail normal map index: " + toString(index));
+}
+
+
 OpenGLTextureRef OpenGLEngine::getDetailTexture(int index) const
 {
 	if(index >= 0 && index < 4)
@@ -1589,6 +1601,7 @@ void OpenGLEngine::getUniformLocations(Reference<OpenGLProgram>& prog)
 	prog->uniform_locations.detail_tex_2_location			= prog->getUniformLocation("detail_tex_2");
 	prog->uniform_locations.detail_tex_3_location			= prog->getUniformLocation("detail_tex_3");
 	prog->uniform_locations.detail_heightmap_0_location		= prog->getUniformLocation("detail_heightmap_0");
+	prog->uniform_locations.detail_normal_map_3_location	= prog->getUniformLocation("detail_normal_map_3");
 	prog->uniform_locations.blue_noise_tex_location			= prog->getUniformLocation("blue_noise_tex");
 	prog->uniform_locations.aurora_tex_location				= prog->getUniformLocation("aurora_tex");
 	prog->uniform_locations.ssao_tex_location				= prog->getUniformLocation("ssao_tex");
@@ -2037,7 +2050,7 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 			}
 			manager.runTaskGroup(group);
 
-			// EXRDecoder::saveImageToEXR(data.data(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
+			// EXRDecoder::saveImageToEXR(fbm_imagemap->getData(), W, W, 1, false, "fbm.exr", "noise", EXRDecoder::SaveOptions());
 
 			if(float_texture_filtering_support)
 			{
@@ -7652,7 +7665,7 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 			// deliberate - it converges faster than double buffering the atlas, and the fixed point is the same.
 			// The transient asymmetry is what the convolve blend is for.
 			common_uniforms.mat_common_flags = (current_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) |
-				(use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) | DOING_PROBE_CAPTURE_FLAG;
+				(use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) | DOING_PROBE_CAPTURE_FLAG | (current_scene->draw_water ? DRAW_WATER_FLAG : 0);
 
 			common_uniforms.cloud_layer_mid_z = (current_scene->cloud_settings.bottom_z + current_scene->cloud_settings.top_z) * 0.5f;
 
@@ -8328,7 +8341,7 @@ void OpenGLEngine::draw()
 	common_uniforms.water_level_z = cur_scene->water_level_z;
 	common_uniforms.camera_type = (int)cur_scene->camera_type;
 	common_uniforms.mat_common_flags = (cur_scene->cloud_shadows ? CLOUD_SHADOWS_FLAG : 0) | (settings.ssao ? DO_SSAO_FLAG : 0) | (use_probe_irradiance ? USE_PROBE_IRRADIANCE_FLAG : 0) | (use_probe_grid ? USE_PROBE_GRID_FLAG : 0) | (use_probe_visibility ? USE_PROBE_VISIBILITY_FLAG : 0) |
-		(settings.msaa_samples >= 2 ? ALPHA_TO_COVERAGE_ENABLED_FLAG : 0);
+		(settings.msaa_samples >= 2 ? ALPHA_TO_COVERAGE_ENABLED_FLAG : 0) | (cur_scene->draw_water ? DRAW_WATER_FLAG : 0);
 	common_uniforms.cloud_layer_mid_z = (cur_scene->cloud_settings.bottom_z + cur_scene->cloud_settings.top_z) * 0.5f;
 
 	// Set from last frame's shadow map build for now, so we're not uploading uninitialised data.  The shadow maps
@@ -11369,8 +11382,8 @@ void OpenGLEngine::drawNonTransparentMaterialBatches(const Matrix4f& view_matrix
 
 	// Count the fragment shader invocations in this pass, for measuring overdraw.  Only one query is in flight at a time, and a new one is only issued
 	// once the previous result has been read back, so this doesn't stall.
-	bool counting_frag_invocations = false;
 #if !defined(OSX) && !defined(EMSCRIPTEN)
+	bool counting_frag_invocations = false;
 	if(count_opaque_frag_invocations)
 	{
 		if(opaque_frag_invocations_query_pending)
@@ -13075,6 +13088,7 @@ void OpenGLEngine::doSetStandardTextureUnitUniformsForBoundProgram(const OpenGLP
 	glUniform1i(program.uniform_locations.detail_tex_3_location, DETAIL_3_TEXTURE_UNIT_INDEX);
 
 	glUniform1i(program.uniform_locations.detail_heightmap_0_location, DETAIL_HEIGHTMAP_TEXTURE_UNIT_INDEX);
+	glUniform1i(program.uniform_locations.detail_normal_map_3_location, DETAIL_3_NORMAL_MAP_TEXTURE_UNIT_INDEX);
 	
 	glUniform1i(program.uniform_locations.aurora_tex_location, AURORA_TEXTURE_UNIT_INDEX);
 
@@ -13142,8 +13156,10 @@ void OpenGLEngine::bindStandardTexturesToTextureUnits()
 		bindTextureToTextureUnit(*this->detail_tex[1], /*texture_unit_index=*/DETAIL_1_TEXTURE_UNIT_INDEX);
 	if(this->detail_tex[2])
 		bindTextureToTextureUnit(*this->detail_tex[2], /*texture_unit_index=*/DETAIL_2_TEXTURE_UNIT_INDEX);
-	//if(this->detail_tex[3])
-	//	bindTextureToTextureUnit(*this->detail_tex[3], /*texture_unit_index=*/DETAIL_3_TEXTURE_UNIT_INDEX); // Not used in fragment shader currently
+	if(this->detail_tex[3])
+		bindTextureToTextureUnit(*this->detail_tex[3], /*texture_unit_index=*/DETAIL_3_TEXTURE_UNIT_INDEX); // Beach sand
+	if(this->detail_normal_map[3])
+		bindTextureToTextureUnit(*this->detail_normal_map[3], /*texture_unit_index=*/DETAIL_3_NORMAL_MAP_TEXTURE_UNIT_INDEX); // Beach sand normal map
 	
 	// NOTE: for now we will only use 1 detail heightmap (rock) in shader
 	//if(this->detail_heightmap[0])
@@ -14656,7 +14672,8 @@ static const char* debug_pass_view_names[] = {
 	"specular", 
 	"specular refl roughness * trace dist",
 	"cloud_texture",
-	"cloud_env_texture"
+	"cloud_env_texture",
+	"blurred specular"
 };
 
 const char** OpenGLEngine::getDebugPassViewNames() const
@@ -14734,20 +14751,23 @@ void OpenGLEngine::setCurDebugTexIndex(int index)
 			// specular refl roughness * trace dist
 			large_debug_overlay_ob->material.albedo_texture = current_scene->ssao_specular_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_w = true;
-
-			// blurred specular refl
-			//large_debug_overlay_ob->material.albedo_texture = this->blurred_ssao_specular_texture;
 		}
 		else if(index == 9)
 		{
-			// specular refl roughness * trace dist
+			// volumetric clouds
 			large_debug_overlay_ob->material.albedo_texture = current_scene->cloud_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 		else if(index == 10)
 		{
-			// specular refl roughness * trace dist
+			// cloud env map
 			large_debug_overlay_ob->material.albedo_texture = cloud_env_texture;
+			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
+		}
+		else if(index == 11)
+		{
+			// blurred specular refl
+			large_debug_overlay_ob->material.albedo_texture = current_scene->blurred_ssao_specular_texture;
 			large_debug_overlay_ob->material.overlay_show_just_tex_rgb = true;
 		}
 	}

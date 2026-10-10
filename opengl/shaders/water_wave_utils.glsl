@@ -50,13 +50,32 @@ and writes products out.
 // erring low would double-count components.
 #define WATER_QUAD_W_SCREENSPACE_TARGET 0.032
 
+// The short wind waves - the band whose amplitude follows the local wind, so is scaled up and down by gusts
+// - is the part of the spectrum above WATER_SHORT_WAVE_K0, fully so above WATER_SHORT_WAVE_K1 (wavelengths
+// of about 3 m and 1 m).  It carries about 56% of the spectrum's slope variance.  The longer waves are left alone; they were raised by wind elsewhere and long ago.
+#define WATER_SHORT_WAVE_K0 2.0
+#define WATER_SHORT_WAVE_K1 6.0
+
 // The total per-axis slope variance of all 200 wave components, e.g. the value that resolved_slope_var takes
-// when k_lowpass is large enough that every component is resolved.  It depends only on waterWaveHash() and the
-// amplitude formula, so it is just a constant.  Computed by evaluating
+// when k_lowpass is large enough that every component is resolved, with short_wave_scale = 1.  It depends only on
+// waterWaveHash(), the amplitude formula and the short wave band, so it is just a constant.  Computed by evaluating
 //     sum over i of ((a_i*k_i.x)^2 + (a_i*k_i.y)^2) / 4
-// offline with the same hash; recompute it if either the hash or the amplitude formula changes.
-// The rms slope it corresponds to is 0.0289, e.g. about 1.7 degrees.
-const float TOTAL_SLOPE_VAR = 0.000416598;
+// offline with the same hash, per unit WATER_WAVE_AMPLITUDE_SCALE^2; recompute it if the hash, the amplitude formula
+// or the short wave band changes.  At WATER_WAVE_AMPLITUDE_SCALE = 0.09 the rms slope is 0.060, e.g. about 3.4 degrees.
+// SHORT_WAVE_SLOPE_VAR_1 and _2 are the same sum weighted by s_i and s_i^2, where s_i is the short wave weight
+// smoothstep(WATER_SHORT_WAVE_K0, WATER_SHORT_WAVE_K1, |k_i|).  See waterTotalSlopeVar().
+const float TOTAL_SLOPE_VAR        = 0.439469 * WATER_WAVE_AMPLITUDE_SCALE * WATER_WAVE_AMPLITUDE_SCALE;
+const float SHORT_WAVE_SLOPE_VAR_1 = 0.268130 * WATER_WAVE_AMPLITUDE_SCALE * WATER_WAVE_AMPLITUDE_SCALE;
+const float SHORT_WAVE_SLOPE_VAR_2 = 0.248111 * WATER_WAVE_AMPLITUDE_SCALE * WATER_WAVE_AMPLITUDE_SCALE;
+
+
+// The total per-axis slope variance of the spectrum with its short waves scaled by short_wave_scale.
+// Component i has slope variance (1 + (r-1) s_i)^2 v_i, which sums to V + 2(r-1) V_1 + (r-1)^2 V_2.
+float waterTotalSlopeVar(float short_wave_scale)
+{
+	float d = short_wave_scale - 1.0;
+	return TOTAL_SLOPE_VAR + 2.0 * d * SHORT_WAVE_SLOPE_VAR_1 + d * d * SHORT_WAVE_SLOPE_VAR_2;
+}
 
 
 // https://www.shadertoy.com/view/MdcfDj
@@ -102,12 +121,15 @@ float waterWaveWindow(float k_mag, float k_cutoff)
 // Returns the vertical displacement of the components summed; their combined slope (df/dx, df/dy) is returned
 // in slope_out, so the normal is normalize(vec3(0,0,1) - vec3(slope_out, 0)).
 //
+// short_wave_scale scales the amplitude of the short wind waves (see WATER_SHORT_WAVE_K0).  Pass 1.0 for the
+// unmodified spectrum.
+//
 // slope_var_out gets the per-axis slope variance of every component below k_lowpass, the ones the high-pass
-// left out included: it says how much of TOTAL_SLOPE_VAR is accounted for, and a component sitting in the
-// geometry is just as accounted for as one summed here.
+// left out included: it says how much of waterTotalSlopeVar(short_wave_scale) is accounted for, and a component
+// sitting in the geometry is just as accounted for as one summed here.
 //
 // NOTE: contains no derivative operations, so is safe to call from non-uniform control flow.
-float waterWaveSum(vec2 pos_xy, float wave_time, float k_lowpass, float k_highpass, out vec2 slope_out, out float slope_var_out)
+float waterWaveSum(vec2 pos_xy, float wave_time, float k_lowpass, float k_highpass, float short_wave_scale, out vec2 slope_out, out float slope_var_out)
 {
 	float displacement = 0.0;
 	vec2 slope = vec2(0.0);
@@ -136,6 +158,8 @@ float waterWaveSum(vec2 pos_xy, float wave_time, float k_lowpass, float k_highpa
 			-0.5 + waterWaveHash(uvec2(uint(i), 1))
 		) * k_len;
 		float k_mag = length(k);
+
+		a *= 1.0 + (short_wave_scale - 1.0) * smoothstep(WATER_SHORT_WAVE_K0, WATER_SHORT_WAVE_K1, k_mag);
 
 		float low_window = waterWaveWindow(k_mag, k_lowpass);
 
