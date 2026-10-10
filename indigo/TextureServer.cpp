@@ -6,9 +6,7 @@ Copyright Glare Technologies Limited 2022 -
 #include "TextureServer.h"
 
 
-#include "globals.h"
 #include "../graphics/Map2D.h"
-#include "../graphics/DXTImageMap.h"
 #include "../graphics/imformatdecoder.h"
 #include "../utils/FileUtils.h"
 #include "../utils/StringUtils.h"
@@ -321,9 +319,9 @@ void TextureServer::printStats()
 #if BUILD_TESTS
 
 
-#include "../indigo/globals.h"
-#include "../utils/TestUtils.h"
 #include "../graphics/image.h"
+#include "../graphics/ImageMap.h"
+#include "../utils/TestUtils.h"
 
 
 void TextureServer::test(const std::string& indigo_base_dir)
