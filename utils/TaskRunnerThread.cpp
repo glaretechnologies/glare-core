@@ -58,7 +58,7 @@ TaskRunnerThread::~TaskRunnerThread()
 
 void TaskRunnerThread::run()
 {
-	PlatformUtils::setCurrentThreadNameIfTestsEnabled(manager->getName() + " thread " + toString(thread_index));
+	PlatformUtils::setCurrentThreadName(manager->getName() + " thread " + toString(thread_index));
 
 	while(1)
 	{

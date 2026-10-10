@@ -1063,16 +1063,14 @@ void PlatformUtils::setCurrentThreadName(const std::string& name)
 #elif defined(EMSCRIPTEN)
 	emscripten_set_thread_name(pthread_self(), name.c_str());
 #else
-	pthread_setname_np(pthread_self(), name.c_str());
+	// Linux limits thread names to 16 bytes including the null terminator (TASK_COMM_LEN), and pthread_setname_np fails with ERANGE, without setting the name, if the name is longer.
+	// So truncate the name.
+	pthread_setname_np(pthread_self(), name.substr(0, 15).c_str());
 #endif
 }
 
 
-void PlatformUtils::setCurrentThreadNameIfTestsEnabled(const std::string& 
-#if BUILD_TESTS
-	name
-#endif
-)
+void PlatformUtils::setCurrentThreadNameIfTestsEnabled([[maybe_unused]] const std::string& name)
 {
 #if BUILD_TESTS
 	setCurrentThreadName(name);
