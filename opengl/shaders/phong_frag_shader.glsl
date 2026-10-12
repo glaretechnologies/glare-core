@@ -69,6 +69,9 @@ uniform samplerCube cosine_env_tex;
 uniform sampler2D probe_irradiance_tex;
 #endif
 uniform sampler2D specular_env_tex;
+#if VOLUMETRIC_CLOUDS
+uniform sampler2D cloud_env_tex;
+#endif
 uniform sampler2D blue_noise_tex;
 uniform sampler2D fbm_tex;
 #if TERRAIN
@@ -1031,6 +1034,7 @@ void main()
 	float frag_depth = -pos_cs.z;
 
 	vec3 spec_refl_light = vec3(0.0); // spectral radiance * 1.0e-9
+	vec4 ssr_val = vec4(0.0); // xyz = SSR hit spectral radiance * coverage, w = hit coverage.  See ssr_blur_pyramid_frag_shader.glsl.
 #if SSAO_SUPPORT
 	if((mat_common_flags & DO_SSAO_FLAG) != 0)
 	{
@@ -1075,30 +1079,29 @@ void main()
 
 		const float NORM_DOT_THRESHOLD = 0.7;
 		vec4 ssao_val = vec4(0.0);
-		spec_refl_light = vec3(0.0);
 		float weight = 0.0;
 		if((abs(prepass_depth_a - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_a, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          a_texel_indices, /*lod=*/0);
-			spec_refl_light += texelFetch(ssao_specular_tex, a_texel_indices, /*lod=*/0).xyz;
+			ssr_val         += texelFetch(ssao_specular_tex, a_texel_indices, /*lod=*/0);
 			weight += 1.0;
 		}
 		if((abs(prepass_depth_b - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_b, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          b_texel_indices, /*lod=*/0);
-			spec_refl_light += texelFetch(ssao_specular_tex, b_texel_indices, /*lod=*/0).xyz;
+			ssr_val         += texelFetch(ssao_specular_tex, b_texel_indices, /*lod=*/0);
 			weight += 1.0;
 		}
 		if((abs(prepass_depth_c - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_c, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          c_texel_indices, /*lod=*/0);
-			spec_refl_light += texelFetch(ssao_specular_tex, c_texel_indices, /*lod=*/0).xyz;
+			ssr_val         += texelFetch(ssao_specular_tex, c_texel_indices, /*lod=*/0);
 			weight += 1.0;
 		}
 		if((abs(prepass_depth_d - frag_depth) < depth_thresh) && (abs(dot(prepass_normal_d, unit_normal_cs)) > NORM_DOT_THRESHOLD))
 		{
 			ssao_val        += texelFetch(ssao_tex,          d_texel_indices, /*lod=*/0);
-			spec_refl_light += texelFetch(ssao_specular_tex, d_texel_indices, /*lod=*/0).xyz;
+			ssr_val         += texelFetch(ssao_specular_tex, d_texel_indices, /*lod=*/0);
 			weight += 1.0;
 		}
 
@@ -1127,18 +1130,18 @@ void main()
 			if(closest_depth_diff < depth_thresh * 4.0)
 			{
 				ssao_val        = texelFetch(ssao_tex,          closest_texel_indices, /*lod=*/0);
-				spec_refl_light = texelFetch(ssao_specular_tex, closest_texel_indices, /*lod=*/0).xyz;
+				ssr_val         = texelFetch(ssao_specular_tex, closest_texel_indices, /*lod=*/0);
 			}
 			else
 			{
 				ssao_val = vec4(0.0, 0.0, 0.0, 1.0);
-				spec_refl_light = vec3(0.0, 0.0, 0.0);
+				ssr_val = vec4(0.0); // No coverage, so the env map is used.
 			}
 		}
 		else
 		{
 			ssao_val /= weight;
-			spec_refl_light /= weight;
+			ssr_val /= weight;
 		}
 
 
@@ -1153,7 +1156,9 @@ void main()
 	// than redirected at the grid, since the capture is convolved to diffuse irradiance regardless.
 	// spec_refl_light stays at its vec3(0.0) initialiser: the SSAO branch above cannot have run, DO_SSAO_FLAG is
 	// never set during a capture.
-	if(((mat_common_flags & DOING_PROBE_CAPTURE_FLAG) == 0) && (((mat_common_flags & DO_SSAO_FLAG) == 0) || (frag_depth > 80.0)))
+	// With SSR, the env map is looked up here rather than in the half-res SSR pass, so that it uses the full-res, normal-mapped normal, and is not blurred
+	// by the SSR blur, as it's already prefiltered for roughness.  It fills in where the SSR traces missed: (1 - coverage).
+	if((mat_common_flags & DOING_PROBE_CAPTURE_FLAG) == 0)
 	{
 		//========================= Do specular reflection of environment, weighted by fresnel factor ============================
 	
@@ -1170,6 +1175,20 @@ void main()
 		vec3 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz; //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
 		vec3 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))).xyz;
 		spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
+
+#if VOLUMETRIC_CLOUDS
+		// The cloud env map isn't prefiltered for roughness, so fade the clouds out on rougher surfaces rather than reflect them sharply.
+		float cloud_refl_weight = 1.0 - smoothstep(0.1, 0.3, final_roughness);
+		if(cloud_refl_weight > 0.0)
+		{
+			// Bicubic, since a smooth surface reflecting the sky above it magnifies the map's texels to many pixels each.
+			vec4 refl_cloud = sampleCloudEnvMapBicubic(cloudEnvMapParallaxDir(pos_ws, reflected_dir_ws, mat_common_campos_ws.xyz, cloud_layer_mid_z), cloud_env_tex);
+			spec_refl_light = mix(spec_refl_light, spec_refl_light * refl_cloud.a + refl_cloud.rgb, cloud_refl_weight);
+		}
+#endif
+
+		if(((mat_common_flags & DO_SSAO_FLAG) != 0) && (frag_depth <= 80.0))
+			spec_refl_light = ssr_val.xyz + spec_refl_light * (1.0 - ssr_val.w);
 	}
 
 	float fresnel_cos_theta = max(0.0, dot(reflected_dir_ws, unit_normal_ws));

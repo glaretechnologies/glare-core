@@ -4,7 +4,6 @@ uniform sampler2D albedo_texture; // source texture
 
 uniform sampler2D depth_normal_tex; // xyz = cam space normal, w = linear depth, or -1 where no object was drawn.  Written by compute_ssao_frag_shader.glsl.
 
-uniform int is_ssao_blur;
 uniform int blur_x;
 
 in vec2 pos; // [0, 1] x [0, 1]
@@ -48,39 +47,14 @@ float mitchellNetravaliEval(float x)
 }
 
 
-const float MAX_SPEC_BLUR_RADIUS = 25.0;
-
-
-// Blur radius, in texels, for a specular reflection texel, from its roughness * trace distance.  TODO: make radius calculation not ad hoc
-float specBlurRadius(float roughness_times_trace_dist)
-{
-	return clamp(roughness_times_trace_dist * 200.0, 3.0, MAX_SPEC_BLUR_RADIUS);
-}
-
-
-// Weight of a tap at the given offset (in texels) from the texel being blurred.
-// The SSAO blur uses a fixed radius.
-// The specular blur spreads each tap over that tap's own blur radius (scatter-as-gather), so how far a reflected object is blurred depends on the trace
-// distance to that object, not on the trace distances of the neighbouring texels, which may have hit something behind it, or nothing.
-float tapWeight(int offset, vec4 tap_val, float ssao_radius_scale)
-{
-	if(is_ssao_blur != 0)
-		return mitchellNetravaliEval(float(abs(offset)) * ssao_radius_scale);
-	else
-	{
-		float tap_radius = specBlurRadius(tap_val.w);
-		return mitchellNetravaliEval(float(abs(offset)) * (2.0 / tap_radius)) * (1.0 / tap_radius); // Divide by the radius so that every tap's kernel has the same total weight.
-	}
-}
-
-
+// Blurs the SSAO (irradiance) texture.  The specular reflection texture is blurred by ssr_blur_pyramid_frag_shader.glsl.
 void main()
 {
 	ivec2 tex_res = textureSize(albedo_texture, /*mip level*/0);
-	
+
 	ivec2 px_coords = ivec2(int(float(tex_res.x) * pos.x), int(float(tex_res.y) * pos.y));
 
-	vec4 centre_depth_normal = texelFetch(depth_normal_tex, px_coords, /*mip level=*/0);
+	vec4 centre_depth_normal = texelFetch(depth_normal_tex, px_coords, /*mip level=*/0); // Read depth and normal at pixel
 	float centre_depth = centre_depth_normal.w;
 	if(centre_depth < 0.0) // If nothing was drawn here in the prepass:
 	{
@@ -96,10 +70,9 @@ void main()
 	float depth_thresh = 0.03 * centre_depth / max(0.05, V_dot_n);
 
 
-	// For the specular blur, any tap within the max radius may spread to this texel, see tapWeight().
-	float radius = (is_ssao_blur != 0) ? 5.0 : MAX_SPEC_BLUR_RADIUS;
-	int r = int(radius + 0.9999); // round up
-	float radius_scale = 2.f / radius;
+	const float radius = 5.0;
+	int r = int(ceil(radius)) - 1;
+	float radius_scale = 2.f / radius; // Mitchell-Netravali is non-zero on radius in [0, 2), this scales the distances to [0, 2).
 
 	vec4 val = vec4(0.0);
 	float sum_weight = 0.0;
@@ -110,12 +83,11 @@ void main()
 		int x_end   = min(px_coords.x + r, tex_res.x - 1);
 		for(int x = x_begin; x <= x_end; ++x)
 		{
-			vec4 depth_normal = texelFetch(depth_normal_tex, ivec2(x, y), /*mip level=*/0); // Taps where nothing was drawn have depth -1, so fail the depth test.
-			if((abs(depth_normal.w - centre_depth) < depth_thresh) && (dot(centre_n_cs, depth_normal.xyz) > 0.7))
+			vec4 depth_normal = texelFetch(depth_normal_tex, ivec2(x, y), /*mip level=*/0); // Taps where nothing was drawn have depth -1, so fail the depth similarity test below.
+			if((abs(depth_normal.w - centre_depth) < depth_thresh) && (dot(centre_n_cs, depth_normal.xyz) > 0.7)) // If depth and normal are similar:
 			{
-				vec4 tap_val = texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0);
-				float weight = tapWeight(x - px_coords.x, tap_val, radius_scale);
-				val += tap_val * weight;
+				float weight = mitchellNetravaliEval(float(abs(x - px_coords.x)) * radius_scale);
+				val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0) * weight;
 				sum_weight += weight;
 			}
 		}
@@ -127,18 +99,15 @@ void main()
 		int y_end   = min(px_coords.y + r, tex_res.y - 1);
 		for(int y = y_begin; y <= y_end; ++y)
 		{
-			vec4 depth_normal = texelFetch(depth_normal_tex, ivec2(x, y), /*mip level=*/0); // Taps where nothing was drawn have depth -1, so fail the depth test.
-			if((abs(depth_normal.w - centre_depth) < depth_thresh) && (dot(centre_n_cs, depth_normal.xyz) > 0.7))
+			vec4 depth_normal = texelFetch(depth_normal_tex, ivec2(x, y), /*mip level=*/0); // Taps where nothing was drawn have depth -1, so fail the depth similarity test below.
+			if((abs(depth_normal.w - centre_depth) < depth_thresh) && (dot(centre_n_cs, depth_normal.xyz) > 0.7)) // If depth and normal are similar:
 			{
-				vec4 tap_val = texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0);
-				float weight = tapWeight(y - px_coords.y, tap_val, radius_scale);
-				val += tap_val * weight;
+				float weight = mitchellNetravaliEval(float(abs(y - px_coords.y)) * radius_scale);
+				val += texelFetch(albedo_texture, ivec2(x, y), /*mip level=*/0) * weight;
 				sum_weight += weight;
 			}
 		}
 	}
 
-	val /= sum_weight;
-
-	colour_out = val;
+	colour_out = val / sum_weight;
 }

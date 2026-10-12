@@ -67,6 +67,8 @@ class Query;
 class TimestampQuery;
 class BufferedTimeElapsedQuery;
 class GaussianSplatRenderer;
+class SSRBlurPyramid;
+class SSRBlurPyramidTextures;
 class IrradianceProbes;
 namespace glare { class BestFitAllocator; }
 template <class V, class VTraits> class ImageMap;
@@ -789,10 +791,12 @@ public:
 
 	OpenGLTextureRef blurred_ssao_texture;
 	OpenGLTextureRef blurred_ssao_texture_x;
-	OpenGLTextureRef blurred_ssao_specular_texture;
+	OpenGLTextureRef blurred_ssao_specular_texture; // rgb = SSR hit radiance * coverage, w = hit coverage.
 	Reference<FrameBuffer> blurred_ssao_framebuffer; // Blurred in both directions:
 	Reference<FrameBuffer> blurred_ssao_framebuffer_x; // blurred in x direction
 	Reference<FrameBuffer> blurred_ssao_specular_framebuffer; // Blurred in both directions:
+
+	UniqueRef<SSRBlurPyramidTextures> ssr_blur_pyramid_textures; // For blurring ssao_specular_texture into blurred_ssao_specular_texture.
 
 	Reference<FrameBuffer> fog_framebuffer;
 	OpenGLTextureRef fog_colour_texture;
@@ -1830,6 +1834,8 @@ private:
 	int compute_ssao_depth_tex_location;
 	int compute_ssao_num_steps_location;
 	int blur_ssao_depth_normal_tex_location;
+
+	UniqueRef<SSRBlurPyramid> ssr_blur_pyramid; // Blurs the SSR trace output.  Built along with the SSAO progs.
 
 	Colour4f outline_colour;
 	float outline_width_px;

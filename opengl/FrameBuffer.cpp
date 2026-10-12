@@ -378,6 +378,18 @@ void FrameBuffer::setThreeDrawBuffers(GLenum buffer_0, GLenum buffer_1, GLenum b
 }
 
 
+void FrameBuffer::setDrawBuffers(int num_buffers)
+{
+	assert(getCurrentlyBoundDrawFrameBuffer() == buffer_name);
+
+	GLenum draw_buffers[8];
+	assert(num_buffers >= 1 && num_buffers <= 8);
+	for(int i=0; i<num_buffers; ++i)
+		draw_buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+	glDrawBuffers(/*num=*/num_buffers, draw_buffers);
+}
+
+
 void FrameBuffer::clearFloatColourBuffer(int draw_buffer, const Colour3f& rgb, float alpha)
 {
 	assert(getCurrentlyBoundDrawFrameBuffer() == buffer_name);

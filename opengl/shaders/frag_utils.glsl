@@ -824,7 +824,36 @@ vec4 sampleCloudEnvMap(vec3 dir_ws, in sampler2D cloud_env_tex)
 const float CLOUD_ENV_MAP_MAX_PARALLAX_DIST = 40000.0;
 
 
-// As sampleCloudEnvMap(), but corrected for the map having been captured from a single point.
+// As sampleCloudEnvMap(), but with a cubic B-spline filter, for surfaces that magnify the map enough for bilinear filtering to show the texel grid.
+// The 4x4 texel footprint is gathered with 4 bilinear fetches, by placing each fetch between two texels such that the hardware's lerp gives the
+// ratio of their B-spline weights (Sigg and Hadwiger, "Fast Third-Order Texture Filtering", GPU Gems 2).
+vec4 sampleCloudEnvMapBicubic(vec3 dir_ws, in sampler2D cloud_env_tex)
+{
+	vec2 tex_res = vec2(textureSize(cloud_env_tex, /*lod=*/0));
+	vec2 st = cloudEnvMapCoordsForDir(dir_ws) * tex_res - 0.5; // Texel space, with texel centres at integers.
+	vec2 i = floor(st);
+	vec2 f = st - i;
+
+	// B-spline weights of the texels at i - 1, i, i + 1 and i + 2.
+	vec2 one_minus_f = 1.0 - f;
+	vec2 w0 = one_minus_f * one_minus_f * one_minus_f * (1.0 / 6.0);
+	vec2 w3 = f * f * f * (1.0 / 6.0);
+	vec2 w1 = (2.0 / 3.0) - 0.5 * f * f * (2.0 - f);
+	vec2 w2 = 1.0 - w0 - w1 - w3;
+
+	vec2 g0 = w0 + w1;
+	vec2 g1 = w2 + w3;
+	vec2 uv0 = (i - 0.5 + w1 / g0) / tex_res; // (i - 1 + w1 / g0 + 0.5) / tex_res
+	vec2 uv1 = (i + 1.5 + w3 / g1) / tex_res; // (i + 1 + w3 / g1 + 0.5) / tex_res
+
+	// Explicit LOD for the same reason as sampleCloudEnvMap().  Wraps in u and clamps in v, as the map's wrapping modes are set up for.
+	return
+		g0.y * (g0.x * textureLod(cloud_env_tex, vec2(uv0.x, uv0.y), 0.0) + g1.x * textureLod(cloud_env_tex, vec2(uv1.x, uv0.y), 0.0)) +
+		g1.y * (g0.x * textureLod(cloud_env_tex, vec2(uv0.x, uv1.y), 0.0) + g1.x * textureLod(cloud_env_tex, vec2(uv1.x, uv1.y), 0.0));
+}
+
+
+// Direction to look the cloud env map up along for a ray from pos_ws in direction dir_ws, corrected for the map having been captured from a single point.
 //
 // Looking the map up by direction alone treats the clouds as infinitely far away, so every point on a reflective
 // surface sees the same cloud in a given direction.  On water that reads as plainly wrong, and worst where it
@@ -838,15 +867,22 @@ const float CLOUD_ENV_MAP_MAX_PARALLAX_DIST = 40000.0;
 // the top and bottom are progressively less correct.
 // layer_z is passed in rather than read from MaterialCommonUniforms because this file is prepended to every
 // fragment shader, including ones that don't include that block.
-vec4 sampleCloudEnvMapWithParallax(vec3 pos_ws, vec3 dir_ws, vec3 map_origin_ws, float layer_z, in sampler2D cloud_env_tex)
+vec3 cloudEnvMapParallaxDir(vec3 pos_ws, vec3 dir_ws, vec3 map_origin_ws, float layer_z)
 {
 	float t = rayPlaneIntersect(pos_ws, dir_ws, layer_z);
 	if(!(t > 0.0))
-		return sampleCloudEnvMap(dir_ws, cloud_env_tex); // Pointing away from the layer.
+		return dir_ws; // Pointing away from the layer.
 
 	vec3 hit_pos = pos_ws + dir_ws * min(t, CLOUD_ENV_MAP_MAX_PARALLAX_DIST);
 
-	return sampleCloudEnvMap(normalize(hit_pos - map_origin_ws), cloud_env_tex);
+	return normalize(hit_pos - map_origin_ws);
+}
+
+
+// As sampleCloudEnvMap(), but corrected for the map having been captured from a single point.  See cloudEnvMapParallaxDir().
+vec4 sampleCloudEnvMapWithParallax(vec3 pos_ws, vec3 dir_ws, vec3 map_origin_ws, float layer_z, in sampler2D cloud_env_tex)
+{
+	return sampleCloudEnvMap(cloudEnvMapParallaxDir(pos_ws, dir_ws, map_origin_ws, layer_z), cloud_env_tex);
 }
 
 

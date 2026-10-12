@@ -123,6 +123,20 @@ vec3 readNormalFromNormalTexture(vec2 use_tex_coords)
 }
 
 
+// Width b, in texels, of the image of the reflected GGX lobe, for the reflection of something at hit_dist along the reflected ray from a surface at
+// surface_dist from the camera.  See ssr_blur_pyramid_frag_shader.glsl, which blurs by the lobe image 1 / (pi b^2 (1 + r^2 / b^2)^2).
+// GGX is that function of the microfacet slope, with b = alpha.  A slope m turns the reflected ray by about 2m, which is right at normal incidence and
+// for small slopes.  Seen in a flat mirror, the reflected object is at surface_dist + hit_dist from the camera, so a ray turned by 2m lands
+// hit_dist * 2m across, which is that over surface_dist + hit_dist on screen.  Ignores the stretching of the lobe along the reflection direction at
+// grazing angles.
+float reflectionLobeWidth(float roughness, float hit_dist, float surface_dist)
+{
+	float alpha = square(roughness); // See alpha2ForRoughness() in frag_utils.glsl.
+	float focal_len_texels = l_over_w * float(textureSize(depth_tex, /*mip level=*/0).x); // Texels per camera-space unit at a depth of 1.
+	return min(2.0 * alpha * hit_dist * focal_len_texels / (surface_dist + hit_dist), 65504.0); // Clamp to the max half-float value, as the texture is half-float.
+}
+
+
 // See "Screen Space Indirect Lighting with Visibility Bitmask", PDF: https://arxiv.org/pdf/2301.11376
 // See "SSAO using Visibility Bitmasks" blog post: https://cdrinmatane.github.io/posts/ssaovb-code/
 
@@ -341,7 +355,7 @@ void main()
 	bool hit_something = false;
 	//float prev_t = 0.0;
 	float prev_step_depth = 0.0;
-	float final_trace_dist_ss = 0.0;
+	float hit_dist = 0.0; // Camera-space distance along the reflected ray to the hit.
 
 	for(int i=0; i<num_steps; ++i)
 	{
@@ -402,7 +416,7 @@ void main()
 			if(pen_depth < refined_thickness) // if we hit something:
 			{
 				spec_refl_col = textureLod(diffuse_tex, cur_ss, 0.0).xyz;
-				final_trace_dist_ss = dist_ss_b;
+				hit_dist = t_1;
 				hit_something = true;
 				break;
 			}
@@ -443,29 +457,8 @@ void main()
 
 	float final_roughness = textureLod(diffuse_tex, texture_coords, 0.0).w;
 
-	//========================= Mix in unoccluded specular env light ============================
-	if(!hit_something)
-	{
-		final_trace_dist_ss = max_len;
-
-		vec3 reflected_dir_ws = (vec4(reflected_dir, 0.0) * frag_view_matrix).xyz; // Right multiply by matrix which is equivalent to left multiplying by transpose matrix.
-
-		// Look up env map for reflected dir
-		int map_lower = int(final_roughness * 6.9999);
-		int map_higher = map_lower + 1;
-		float map_t = final_roughness * 6.9999 - float(map_lower);
-
-		float refl_theta = fastApproxACos(reflected_dir_ws.z);
-		float refl_phi = fastApproxAtan(reflected_dir_ws.y, reflected_dir_ws.x) - env_phi; // env_phi term is to rotate reflection so it aligns with env rotation.
-		// Note: specular_env_tex is just one side of the sphere of directions, so phi varies from 0 to pi.
-		vec2 refl_map_coords = vec2(refl_phi * (1.0 / PI), clamp(refl_theta * (1.0 / PI), 1.0 / 64.0, 1.0 - 1.0 / 64.0)); // Clamp to avoid texture coord wrapping artifacts.
-
-		vec4 spec_refl_light_lower  = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_lower)  * (1.0/8.0) + refl_map_coords.y * (1.0/8.0))); //  -refl_map_coords / 8.0 + map_lower  * (1.0 / 8)));
-		vec4 spec_refl_light_higher = texture(specular_env_tex, vec2(refl_map_coords.x, float(map_higher) * (1.0/8.0) + refl_map_coords.y * (1.0/8.0)));
-		vec4 spec_refl_light = spec_refl_light_lower * (1.0 - map_t) + spec_refl_light_higher * map_t; // spectral radiance * 1.0e-9
-
-		spec_refl_col = spec_refl_light.xyz;
-	}
+	// Misses are left black.  The main pass looks up the env map for them itself, at full resolution with the normal-mapped normal, weighted by
+	// 1 - the blurred hit coverage.  See ssr_blur_pyramid_frag_shader.glsl and phong_frag_shader.glsl.
 
 	// d_omega = sin(theta) dtheta dphi
 	// where dtheta = pi / SECTOR_COUNT = pi / SECTOR_COUNT
@@ -482,5 +475,6 @@ void main()
 	// E = L_i pi					[ See https://pbr-book.org/3ed-2018/Color_and_Radiometry/Working_with_Radiometric_Integrals]
 
 	irradiance_out = vec4(irradiance, irradiance_scale);
-	specular_spec_rad_out = vec4(spec_refl_col, final_roughness * final_trace_dist_ss);
+	// For a hit, w is the lobe width in texels, see reflectionLobeWidth().  w < 0 marks a miss.
+	specular_spec_rad_out = vec4(spec_refl_col, hit_something ? reflectionLobeWidth(final_roughness, hit_dist, /*surface_dist=*/length(p)) : -1.0);
 }

@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "MeshPrimitiveBuilding.h"
 #include "OpenGLMeshRenderData.h"
 #include "GaussianSplatRenderer.h"
+#include "SSRBlurPyramid.h"
 #include "ShaderFileWatcherThread.h"
 #include "AsyncTextureLoader.h"
 #include "Query.h"
@@ -580,6 +581,8 @@ OpenGLEngine::OpenGLEngine(const OpenGLEngineSettings& settings_)
 	// Doesn't touch OpenGL, and doesn't build its shaders until the first splat cloud is registered with it, so an
 	// engine that never renders one pays essentially nothing for this.
 	splat_renderer.set(new GaussianSplatRenderer(*this));
+
+	ssr_blur_pyramid.set(new SSRBlurPyramid());
 
 	initial_thread_id = PlatformUtils::getCurrentThreadID();
 }
@@ -2915,6 +2918,7 @@ void OpenGLEngine::buildPrograms()
 	{
 		compute_ssao_prog = buildComputeSSAOProg();
 		blur_ssao_prog = buildBlurSSAOProg();
+		ssr_blur_pyramid->build(*this, MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 		prepass_resolve_prog = buildPrepassResolveProg();
 	}
 
@@ -3406,7 +3410,6 @@ OpenGLProgramRef OpenGLEngine::buildBlurSSAOProg()
 	blur_ssao_depth_normal_tex_location = prog->getUniformLocation("depth_normal_tex");
 
 	assert(prog->user_uniform_info.size() == 0);
-	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "is_ssao_blur");
 	prog->appendUserUniformInfo(UserUniformInfo::UniformType_Int, "blur_x");
 
 	return prog;
@@ -4053,13 +4056,14 @@ void OpenGLScene::createSSAOTextures(OpenGLEngine* engine, bool normal_texture_i
 		OpenGLTextureFormat::Format_RGBA_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	blurred_ssao_texture_x->setDebugName("blurred_ssao_texture_x");
 
-	// We will store the screen-space trace distance (used to determine amount of blurring) in w coord.
-	ssao_specular_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), 
+	// rgb = SSR hit colour, w = width in texels of the reflected lobe for a hit (see reflectionLobeWidth() in compute_ssao_frag_shader.glsl), or -1 for a miss.
+	ssao_specular_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(),
 		OpenGLTextureFormat::Format_RGBA_Linear_Half/*col_buffer_format*/, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	ssao_specular_texture->setDebugName("ssao_specular_texture");
 
-	blurred_ssao_specular_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(), 
-		OpenGLTextureFormat::Format_RGB_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
+	// w is hit coverage.
+	blurred_ssao_specular_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(),
+		OpenGLTextureFormat::Format_RGBA_Linear_Half, OpenGLTexture::Filtering_Nearest, OpenGLTexture::Wrapping_Clamp, /*has_mipmaps=*/false, /*MSAA_samples=*/1);
 	blurred_ssao_specular_texture->setDebugName("blurred_ssao_specular_texture");
 
 	ssao_depth_normal_texture = new OpenGLTexture(prepass_xres, prepass_yres, engine, /*data=*/ArrayRef<uint8>(),
@@ -4079,6 +4083,8 @@ void OpenGLScene::createSSAOTextures(OpenGLEngine* engine, bool normal_texture_i
 
 	blurred_ssao_framebuffer_x = new FrameBuffer();
 	blurred_ssao_framebuffer_x->attachTexture(*blurred_ssao_texture_x, GL_COLOR_ATTACHMENT0);
+
+	ssr_blur_pyramid_textures.set(new SSRBlurPyramidTextures(engine, prepass_xres, prepass_yres));
 }
 
 
@@ -8057,6 +8063,7 @@ void OpenGLEngine::draw()
 			{
 				this->compute_ssao_prog = buildComputeSSAOProg();
 				this->blur_ssao_prog = buildBlurSSAOProg();
+				ssr_blur_pyramid->build(*this, MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 				this->prepass_resolve_prog = buildPrepassResolveProg();
 			}
 		}
@@ -12149,8 +12156,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				bindTextureUnitToSampler(*current_scene->ssao_depth_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_depth_normal_tex_location); // Uses the prepass normal texture unit, as the blur doesn't need the prepass normal texture.  The prepass normal texture is rebound afterwards.
 				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
-				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/1); // set is_ssao_blur = 1
-				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/1); // set blur_x = 1
+				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/1); // set blur_x = 1
 
 				// Draw quad
 				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
@@ -12168,8 +12174,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 				bindTextureUnitToSampler(*current_scene->ssao_depth_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_depth_normal_tex_location); // Uses the prepass normal texture unit, as the blur doesn't need the prepass normal texture.  The prepass normal texture is rebound afterwards.
 				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
 
-				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/1); // set is_ssao_blur = 1
-				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/0); // set blur_x = 0
+				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/0); // set blur_x = 0
 
 				// Draw quad
 				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
@@ -12177,42 +12182,14 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 			}
 
 
-			// Blur specular texture
-			
-			// First do blur in x direction
-			// Input: ssao_specular_texture, prepass textures
-			// Output: blurred_ssao_texture_x (via blurred_ssao_framebuffer_x)
+			// Blur specular texture.  Borrows texture units whose usual textures aren't needed until after these passes: they are rebound or unbound below.
 			{
-				current_scene->blurred_ssao_framebuffer_x->bindForDrawing();
-
-				bindTextureUnitToSampler(*current_scene->ssao_specular_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
-				bindTextureUnitToSampler(*current_scene->ssao_depth_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_depth_normal_tex_location); // Uses the prepass normal texture unit, as the blur doesn't need the prepass normal texture.  The prepass normal texture is rebound afterwards.
-				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
-
-				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/0); // set is_ssao_blur = 0
-				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/1); // set blur_x = 1
-
-				// Draw quad
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
-					unit_quad_meshdata->vbo_handle.base_vertex); 
-			}
-
-			// Do blur in y direction
-			// Input: blurred_ssao_texture_x, prepass textures
-			// Output: blurred_ssao_specular_texture (via blurred_ssao_specular_framebuffer)
-			{
-				current_scene->blurred_ssao_specular_framebuffer->bindForDrawing();
-
-				bindTextureUnitToSampler(*current_scene->blurred_ssao_texture_x, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->albedo_texture_loc);
-				bindTextureUnitToSampler(*current_scene->ssao_depth_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_depth_normal_tex_location); // Uses the prepass normal texture unit, as the blur doesn't need the prepass normal texture.  The prepass normal texture is rebound afterwards.
-				bindTextureUnitToSampler(*current_scene->prepass_colour_texture, /*texture_unit_index=*/PREPASS_COLOUR_TEXTURE_UNIT_INDEX, /*sampler_uniform_location=*/blur_ssao_prog->uniform_locations.main_colour_texture_location);
-
-				glUniform1i(blur_ssao_prog->user_uniform_info[0].loc, /*val=*/0); // set is_ssao_blur = 0
-				glUniform1i(blur_ssao_prog->user_uniform_info[1].loc, /*val=*/0); // set blur_x = 0
-
-				// Draw quad
-				drawElementsBaseVertex(GL_TRIANGLES, (GLsizei)unit_quad_meshdata->batches[0].num_indices, unit_quad_meshdata->getIndexType(), (void*)unit_quad_meshdata->getBatch0IndicesTotalBufferOffset(), 
-					unit_quad_meshdata->vbo_handle.base_vertex); 
+				const int units[6] = { SSAO_TEXTURE_UNIT_INDEX, SSAO_SPECULAR_TEXTURE_UNIT_INDEX, PREPASS_COLOUR_TEXTURE_UNIT_INDEX, PREPASS_DEPTH_TEXTURE_UNIT_INDEX,
+					CLOUD_TEXTURE_UNIT_INDEX, // Only used by the cloud composite pass, which binds it itself.
+					PREPASS_NORMAL_TEXTURE_UNIT_INDEX };
+				ssr_blur_pyramid->blur(*current_scene->ssr_blur_pyramid_textures.ptr(), *current_scene->ssao_specular_texture, *current_scene->ssao_depth_normal_texture,
+					*current_scene->blurred_ssao_specular_framebuffer, *unit_quad_meshdata, units);
+				unbindTextureFromTextureUnit(GL_TEXTURE_2D, CLOUD_TEXTURE_UNIT_INDEX);
 			}
 
 			if(query_profiling_enabled && blur_ssao_gpu_timer->isRunning())
@@ -12224,6 +12201,7 @@ void OpenGLEngine::computeSSAO(const Matrix4f& /*proj_matrix*/)
 
 			// restore bindings
 			bindTextureToTextureUnit(*current_scene->blurred_ssao_texture, /*texture_unit_index=*/SSAO_TEXTURE_UNIT_INDEX);
+			bindTextureToTextureUnit(*current_scene->blurred_ssao_specular_texture, /*texture_unit_index=*/SSAO_SPECULAR_TEXTURE_UNIT_INDEX);
 
 			bindTextureToTextureUnit(*current_scene->prepass_normal_texture, /*texture_unit_index=*/PREPASS_NORMAL_TEXTURE_UNIT_INDEX);
 			bindTextureToTextureUnit(*current_scene->prepass_depth_texture,  /*texture_unit_index=*/PREPASS_DEPTH_TEXTURE_UNIT_INDEX);
@@ -14622,6 +14600,7 @@ void OpenGLEngine::setSSAOEnabled(bool ssao_enabled)
 	{
 		compute_ssao_prog = buildComputeSSAOProg();
 		blur_ssao_prog = buildBlurSSAOProg();
+		ssr_blur_pyramid->build(*this, MATERIAL_COMMON_UBO_BINDING_POINT_INDEX);
 		prepass_resolve_prog = buildPrepassResolveProg();
 	}
 }
