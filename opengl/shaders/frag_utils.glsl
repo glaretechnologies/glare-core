@@ -106,6 +106,83 @@ float rayPlaneIntersect(vec3 raystart, vec3 ray_unitdir, float plane_h)
 }
 
 
+// Water optical properties, per metre, at ~650/550/450 nm.  Approximate values, after Petzold's measurements as tabulated
+// in Mobley, 'Light and Water'.  Absorption is pure water (Pope & Fry) plus, for coastal water, chlorophyll and dissolved
+// organic matter, which absorb most in the blue.  Scattering is from suspended particles, rising gently towards the blue.
+const vec3 CLEAR_OCEAN_SIGMA_A = vec3(0.35, 0.065, 0.02);
+const vec3 CLEAR_OCEAN_SIGMA_S = vec3(0.03, 0.035, 0.04);
+const vec3 COASTAL_SIGMA_A     = vec3(0.40, 0.15, 0.1); // vec3(0.40, 0.15, 0.22);
+const vec3 COASTAL_SIGMA_S     = vec3(0.19, 0.22, 0.25);
+
+const float WATER_TURBIDITY = 0.2; // 0 = clear ocean, 1 = coastal.  The coefficients are linear in the concentration of what is in the water.
+
+// Written out rather than with mix(), so these stay constant expressions on all GLSL versions.
+const vec3 WATER_SIGMA_A = CLEAR_OCEAN_SIGMA_A + (COASTAL_SIGMA_A - CLEAR_OCEAN_SIGMA_A) * WATER_TURBIDITY;
+const vec3 WATER_SIGMA_S = CLEAR_OCEAN_SIGMA_S + (COASTAL_SIGMA_S - CLEAR_OCEAN_SIGMA_S) * WATER_TURBIDITY;
+const vec3 WATER_SIGMA_T = WATER_SIGMA_A + WATER_SIGMA_S;
+
+// Distance through the water past which the scene behind is attenuated to nothing: transmittance < exp(-8) ~= 3.4e-4.
+// T = exp(-sigma_t d)
+// log(T) = -sigma_t d
+// d = log(T) / -sigma_t 
+// Say T = 3.4e-4
+// d = log(3.4e-4) / -sigma_t ~= -8 / -sigma_t = 8 / sigma_t.
+float waterMaxVisibleDist()
+{
+	return 8.0 / min(WATER_SIGMA_T.x, min(WATER_SIGMA_T.y, WATER_SIGMA_T.z));
+}
+
+const float WATER_IOR = 1.333;
+
+
+// Integral of exp(-k t) over t in [0, d].
+vec3 integrateExp(vec3 k, float d)
+{
+	return mix((vec3(1.0) - exp(-k * d)) / k, vec3(d), lessThan(abs(k), vec3(1.0e-4)));
+}
+
+
+// Single-scattered sun and sky light, scattered towards the viewer along a straight segment through the water, as
+// seen from the segment start.  The water surface is taken to be the flat plane at water_level_z.
+// start_depth is the depth of the segment start below the surface, unit_dir points along the segment away from the viewer.
+// The sun and sky values are passed in (sundir_ws, sun_spec_rad_times_solid_angle and sky_av_spec_rad), rather than
+// read from MaterialCommonUniforms, as not every shader that includes this file has that block.
+// sun_vis is the fraction of the sun term that isn't shadowed, see waterInscatterSunVisFraction() in water_frag_shader.glsl.
+vec3 waterInscatteredRadiance(float start_depth, vec3 unit_dir, float d, vec3 sun_dir, vec3 sun_rad_times_solid_angle, vec3 sky_av_rad, float sun_vis)
+{
+	start_depth = max(0.0, start_depth);
+	float mu_v = -unit_dir.z; // Rate of increase of depth along the segment.
+	if(mu_v < 0.0)
+		d = min(d, start_depth / -mu_v); // Stop at the surface.
+
+	// Direction to the sun after refraction into the water.  mu_s stays above ~0.66 even for a sun on the horizon.
+	float sun_cos = max(0.0, sun_dir.z);
+	float mu_s = sqrt(1.0 - (1.0 - square(sun_cos)) * (1.0 / square(WATER_IOR)));
+	vec3 sun_dir_w = vec3(sun_dir.xy * (1.0 / WATER_IOR), mu_s);
+
+	vec3 sun_irradiance = sun_rad_times_solid_angle * (1.0 - dielectricFresnelReflForIOR1_333(sun_cos));
+
+	// Henyey-Greenstein phase function.  Particle scattering in water is far more forward-peaked than this (g ~= 0.9),
+	// but seen from above the water the sun term is all backscatter, and the broader lobe partly stands in for the
+	// multiple scattering that is left out.
+	const float g = 0.4;
+	float cos_theta = dot(sun_dir_w, unit_dir); // Between the sunlight's propagation direction and the direction towards the viewer.
+	float phase = (1.0 - g*g) / (4.0 * PI * pow(1.0 + g*g - 2.0 * g * cos_theta, 1.5));
+
+	// Sunlight reaching depth z has travelled z / mu_s through the water.
+	vec3 sun_term = WATER_SIGMA_S * (phase * sun_vis) * sun_irradiance * exp(WATER_SIGMA_T * (-start_depth / mu_s)) *
+		integrateExp(WATER_SIGMA_T * (1.0 + mu_v / mu_s), d);
+
+	// Skylight is treated as an isotropic radiance field in the water: sky_av_rad over the upper hemisphere, less ~7%
+	// Fresnel reflection, decaying with depth at roughly WATER_SIGMA_T.  Scalar irradiance 2 pi L, times the isotropic
+	// phase function 1 / (4 pi), gives the factor 0.5.
+	vec3 sky_term = WATER_SIGMA_S * (0.5 * 0.93) * sky_av_rad * exp(WATER_SIGMA_T * -start_depth) *
+		integrateExp(WATER_SIGMA_T * (1.0 + mu_v), d);
+
+	return sun_term + sky_term;
+}
+
+
 
 // Shadow map sample offsets, in texture pixel coordinates.  Rotated per-pixel by R in the sampling
 // functions below.

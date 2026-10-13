@@ -294,11 +294,11 @@ void main()
 	}
 
 #if TERRAIN
-	// When the camera is above water, terrain more than 40 m below the water surface is not visible: the water shader attenuates it by at least
-	// exp(-0.2 * 40) ~= 3.4e-4 (see extinction in colourForUnderwaterPoint() in water_frag_shader.glsl), so skip the shading.
+	// When the camera is above water, terrain deeper than waterMaxVisibleDist() below the water surface is not visible, as the water shader
+	// attenuates it to nothing, so skip the shading.
 	// Depth is still written, so the water shader still computes the water path length and in-scattering correctly.
 	// Not done for probe captures, since they don't draw the water surface.
-	if(((mat_common_flags & (DRAW_WATER_FLAG | DOING_PROBE_CAPTURE_FLAG)) == DRAW_WATER_FLAG) && (mat_common_campos_ws.z > water_level_z) && (pos_ws.z < water_level_z - 40.0))
+	if(((mat_common_flags & (DRAW_WATER_FLAG | DOING_PROBE_CAPTURE_FLAG)) == DRAW_WATER_FLAG) && (mat_common_campos_ws.z > water_level_z) && (pos_ws.z < water_level_z - waterMaxVisibleDist()))
 	{
 		colour_out = vec4(0.0, 0.0, 0.0, 1.0);
 		vec3 early_unit_normal = normalize(unit_normal_ws);
@@ -1210,6 +1210,72 @@ void main()
 
 	vec3 sun_light = sun_spec_rad_times_solid_angle.xyz * sun_vis_factor; // sun_spec_rad_times_solid_angle is Sun spectral radiance multiplied by solid angle
 
+	//------------------------------- Light reaching underwater surfaces ---------------------------
+	// Light reaching a surface below the water has come down through it.  The unscattered sun beam is attenuated by
+	// WATER_SIGMA_T, and carries the caustic pattern.  Scattering by particles in water is strongly forward-peaked, so the
+	// light scattered out of the beam mostly carries on downwards, as a smooth glow: the downwelling light as a whole only
+	// loses its absorbed and backscattered parts, giving the diffuse attenuation coefficient Kd ~= (a + b_b) / mu, where
+	// the backscattered fraction b_b / b ~= 0.02 (Petzold).
+	// The sun's cosine factor and shadows still use the unrefracted sun direction, to stay consistent with the shadow maps.
+#if UNDERWATER_CAUSTICS
+	// Caustics are projected onto a plane normal to the direction to the sun.  The texture repeats every metre.
+	// Computed outside the branch below, as the derivatives would be undefined inside it.
+	vec2 caustic_uv = vec2(dot(pos_ws, caustic_right_ws.xyz), dot(pos_ws, caustic_up_ws.xyz));
+	vec2 caustic_uv_dx = dFdx(caustic_uv);
+	vec2 caustic_uv_dy = dFdy(caustic_uv);
+#endif
+
+	if(((mat_common_flags & DRAW_WATER_FLAG) != 0) && (pos_ws.z < water_level_z))
+	{
+		float surface_depth = water_level_z - pos_ws.z;
+		float sun_cos = max(0.0, sundir_ws.z);
+		float refracted_sun_cos = sqrt(1.0 - (1.0 - square(sun_cos)) * (1.0 / square(WATER_IOR)));
+		float sun_path_len = surface_depth / refracted_sun_cos;
+
+		vec3 water_kd_coeff = WATER_SIGMA_A + WATER_SIGMA_S * 0.02; // Kd * mu
+		vec3 sun_total_trans  = exp(water_kd_coeff * -sun_path_len); // Unscattered plus forward-scattered sunlight.
+		vec3 sun_direct_trans = exp(WATER_SIGMA_T * -sun_path_len);  // Unscattered sunlight only.
+
+		vec3 caustic = vec3(1.0); // Unscattered sun irradiance relative to its average over the caustic pattern.
+#if UNDERWATER_CAUSTICS
+		// Work out which two animation frames to blend between, assuming 24 fps.  caustic_tex is an array texture with
+		// one layer per frame, so this is all done here rather than by binding two textures on the CPU side.
+		// NOTE: wrap the time before scaling it up, not after.  time is a monotonically increasing float, so time*24.0
+		// loses fractional precision as the session goes on: after a few hours the blend between frames would quantise
+		// into visible steps and eventually stop advancing altogether.
+		float num_caustic_frames = float(textureSize(caustic_tex, 0).z);
+		float caustic_t = fract(time * (36.0 / num_caustic_frames)) * num_caustic_frames; // In [0, num_caustic_frames)
+		float caustic_frame = floor(caustic_t);
+		float caustic_frac = caustic_t - caustic_frame; // Get fraction through frame.
+		float next_caustic_frame = mod(caustic_frame + 1.0, num_caustic_frames);
+
+		// Interpolate between caustic animation frames.  NOTE: the layer coordinate of an array texture is not
+		// filtered between layers, so the two layers have to be fetched and blended explicitly.
+		vec3 caustic_val = mix(
+			textureGrad(caustic_tex, vec3(caustic_uv, caustic_frame),      caustic_uv_dx, caustic_uv_dy).xyz,
+			textureGrad(caustic_tex, vec3(caustic_uv, next_caustic_frame), caustic_uv_dx, caustic_uv_dy).xyz,
+			caustic_frac);
+
+		// Dividing by the pattern's mean per channel makes it conserve energy at each wavelength: dispersion splits the
+		// colours apart, but doesn't change the average colour of the sunlight.  The mean is of the linear values over all
+		// frames, as printed by the caustic texture building code in substrata's ResourceProcessing.cpp.  Update it if the texture changes.
+		const vec3 caustic_mean = vec3(0.09202, 0.05443, 0.03778);
+
+		// The light converges into the pattern over the first few metres below the waves, so the pattern fades in with depth.
+		caustic = mix(vec3(1.0), caustic_val * (1.0 / caustic_mean), smoothstep(0.0, 2.0, sun_path_len));
+#endif
+
+		sun_light *= (1.0 - dielectricFresnelReflForIOR1_333(sun_cos)) * (sun_direct_trans * caustic + (sun_total_trans - sun_direct_trans));
+
+		// Skylight comes down at all angles within Snell's window, with an average cosine of ~0.85 below the surface, and
+		// ~7% of it is reflected at the surface.  The specular reflection is attenuated the same way, as a stand-in for
+		// the surroundings it would really see.
+		vec3 sky_trans = 0.93 * exp(water_kd_coeff * (-surface_depth / 0.85));
+		sky_irradiance *= sky_trans;
+		transmission_sky_irradiance *= sky_trans;
+		spec_refl_light *= sky_trans;
+	}
+
 	
 #if MATERIALISE_EFFECT
 	// box mapping
@@ -1317,72 +1383,16 @@ void main()
 	col += sun_and_sky_av_spec_rad.xyz * (1.0 - transmission); // Add in-scattered sky+sunlight
 #endif
 
-	//------------------------------- Apply underwater effects (caustics, attenuation and in-scattering) ---------------------------
+	//------------------------------- Apply underwater attenuation and in-scattering along the view path ---------------------------
+	// The water's effect on the light reaching the surface, including caustics, was applied to the light terms above.
+	// If the camera is above the water, the water shader handles the path from the surface to the camera.
 #if UNDERWATER_CAUSTICS
-	float campos_z = mat_common_campos_ws.z;
-	if(((mat_common_flags & DRAW_WATER_FLAG) != 0) && ((pos_ws.z < water_level_z) || (campos_z < water_level_z)))
+	if(((mat_common_flags & DRAW_WATER_FLAG) != 0) && (mat_common_campos_ws.z < water_level_z)) // If water is enabled and the camera is below the surface:
 	{
-		vec3 src_col = col.xyz; // texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
+		vec3 inscattering = waterInscatteredRadiance(/*start_depth=*/water_level_z - mat_common_campos_ws.z, unit_cam_to_pos_ws, cam_to_pos_dist,
+			sundir_ws.xyz, sun_spec_rad_times_solid_angle.xyz, sky_av_spec_rad.xyz, /*sun_vis=*/1.0);
 
-		//vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
-		//vec3 src_normal_ws = oct_to_float32x3(unorm8x3_to_snorm12x2(src_normal_encoded)); // Read normal from normal texture
-
-		//--------------- Apply caustic texture ---------------
-		// Caustics are projected onto a plane normal to the direction to the sun.
-		vec3 sun_right = normalize(cross(sundir_ws.xyz, vec3(0.0,0.0,1.0)));
-		vec3 sun_up = cross(sundir_ws.xyz, sun_right);
-		vec2 hitpos_sunbasis = vec2(dot(pos_ws, sun_right), dot(pos_ws, sun_up));
-
-		float sun_lambert_factor = max(0.0, dot(unit_normal_ws, sundir_ws.xyz));
-
-		// Distance from water surface to ground, along the sun direction.  Used for computing the caustic effect envelope.
-		float water_to_ground_sun_d = max(0.0, (water_level_z - pos_ws.z) / sundir_ws.z); // TEMP HACK Assuming water surface height
-
-		float caustic_depth_factor = 0.03 + 0.9 * (smoothstep(0.1, 2.0, water_to_ground_sun_d) - 0.8 *smoothstep(2.0, 8.0, water_to_ground_sun_d)); // Caustics should not be visible just under the surface.
-		float scale_factor = 1.0; // Controls width of caustic pattern in world space.
-
-		// Work out which two animation frames to blend between, assuming 24 fps.  caustic_tex is an array texture with
-		// one layer per frame, so this is all done here rather than by binding two textures on the CPU side.
-		// NOTE: wrap the time before scaling it up, not after.  time is a monotonically increasing float, so time*24.0
-		// loses fractional precision as the session goes on: after a few hours the blend between frames would quantise
-		// into visible steps and eventually stop advancing altogether.
-		float num_caustic_frames = float(textureSize(caustic_tex, 0).z);
-		float caustic_t = fract(time * (24.0 / num_caustic_frames)) * num_caustic_frames; // In [0, num_caustic_frames)
-		float caustic_frame = floor(caustic_t);
-		float caustic_frac = caustic_t - caustic_frame; // Get fraction through frame.
-
-		// Interpolate between caustic animation frames.  NOTE: the layer coordinate of an array texture is not
-		// filtered between layers, so the two layers have to be fetched and blended explicitly.
-		vec3 caustic_val = mix(
-			texture(caustic_tex, vec3(hitpos_sunbasis * scale_factor, caustic_frame)),
-			texture(caustic_tex, vec3(hitpos_sunbasis * scale_factor, mod(caustic_frame + 1.0, num_caustic_frames))),
-			caustic_frac).xyz;
-
-		// Since the caustic is focused light, we should dim the src texture slightly between the focused caustic light areas.
-		src_col *= mix(vec3(1.0), vec3(0.3, 0.5, 0.7) + vec3(3.0, 1.0, 0.8) * caustic_val * 7.0, caustic_depth_factor * sun_lambert_factor);
-
-		if(campos_z > water_level_z)
-		{
-			// If camera is above water:
-			// Don't apply absorption on the edge between object and camera, we will do that in water shader.
-
-			col = src_col;
-		}
-		else // Else if camera is underwater:
-		{
-			vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
-			vec3 scattering = vec3(0.4, 0.4, 0.1);
-
-			// NOTE: this calculation is also in colourForUnderwaterPoint() in water_frag_shader.glsl and should be kept in sync.
-			vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * vec3(0.004, 0.015, 0.03) * 3.0;
-			vec3 exp_optical_depth = exp(extinction * -cam_to_pos_dist);
-			vec3 inscattering = inscatter_radiance_sigma_s_over_sigma_t * (vec3(1.0) - exp_optical_depth);
-
-	
-			vec3 attentuated_col = src_col * exp_optical_depth;
-
-			col = attentuated_col + inscattering;
-		}
+		col = col * exp(WATER_SIGMA_T * -cam_to_pos_dist) + inscattering;
 	}
 #endif // UNDERWATER_CAUSTICS
 	//------------------------------- End apply underwater effects ---------------------------

@@ -1653,6 +1653,15 @@ struct BuildFBMNoiseTask : public glare::Task
 };
 
 
+// Horizontal direction normal to the sun direction, spanning the plane that the underwater caustics are projected onto.
+static Vec4f causticRightWS(const Vec4f& sun_dir)
+{
+	const Vec4f right = crossProduct(sun_dir, Vec4f(0, 0, 1, 0));
+	const float right_len = right.length();
+	return (right_len > 1.0e-6f) ? (right * (1 / right_len)) : Vec4f(1, 0, 0, 0); // Any horizontal direction will do when the sun is straight up.
+}
+
+
 // See https://www.khronos.org/opengl/wiki/Program_Introspection#Uniforms_and_blocks
 static size_t getSizeOfUniformBlockInOpenGL(OpenGLProgramRef& prog, const char* block_name)
 {
@@ -7640,6 +7649,8 @@ void OpenGLEngine::captureProbe(const Vec4f& probe_pos, float capture_radius)
 			common_uniforms.frag_view_matrix = face_view_matrix;
 			common_uniforms.sundir_cs = face_view_matrix * current_scene->sun_dir;
 			common_uniforms.sundir_ws = current_scene->sun_dir;
+			common_uniforms.caustic_right_ws = causticRightWS(current_scene->sun_dir);
+			common_uniforms.caustic_up_ws = crossProduct(current_scene->sun_dir, common_uniforms.caustic_right_ws);
 			common_uniforms.sun_spec_rad_times_solid_angle = current_scene->sun_spec_rad_times_solid_angle * 1.0e-9f;
 			common_uniforms.sky_av_spec_rad         = current_scene->sky_av_spec_rad         * 1.0e-9f;
 			common_uniforms.sun_and_sky_av_spec_rad = current_scene->sun_and_sky_av_spec_rad * 1.0e-9f;
@@ -8332,6 +8343,8 @@ void OpenGLEngine::draw()
 	common_uniforms.frag_view_matrix = main_view_matrix;
 	common_uniforms.sundir_cs = cur_scene->sun_dir_cam_space;
 	common_uniforms.sundir_ws = cur_scene->sun_dir;
+	common_uniforms.caustic_right_ws = causticRightWS(cur_scene->sun_dir);
+	common_uniforms.caustic_up_ws = crossProduct(cur_scene->sun_dir, common_uniforms.caustic_right_ws);
 	common_uniforms.sun_spec_rad_times_solid_angle = cur_scene->sun_spec_rad_times_solid_angle * 1.0e-9f;
 	common_uniforms.sky_av_spec_rad         = cur_scene->sky_av_spec_rad        * 1.0e-9f;
 	common_uniforms.sun_and_sky_av_spec_rad = cur_scene->sun_and_sky_av_spec_rad * 1.0e-9f;

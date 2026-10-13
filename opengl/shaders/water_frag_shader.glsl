@@ -35,6 +35,9 @@ uniform sampler2D main_colour_texture; // source texture
 uniform sampler2D main_normal_texture;
 uniform sampler2D main_depth_texture;
 
+uniform sampler2DShadow dynamic_depth_tex;
+uniform sampler2DShadow static_depth_tex;
+
 
 //----------------------------------------------------------------------------------------------------------------------------
 #if OB_AND_MAT_DATA_GPU_RESIDENT
@@ -189,13 +192,68 @@ vec2 cameraToScreenSpace(vec3 pos_cs)
 }
 
 
-// Returns spectral radiance from refracted_hitpos_ws towards camera.
-vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, float refracted_py, float final_refracted_water_ground_d, float water_to_ground_sun_d)
+// As in fog_frag_shader.glsl.
+float shadowMapSunFactorAtPoint(vec3 pos_cs, vec3 pos_ws)
 {
-	//-----------------
-	vec3 extinction = vec3(1.0, 0.10, 0.1) * 2.0;
-	vec3 scattering = vec3(0.4, 0.4, 0.1);
+#if NUM_DEPTH_TEXTURES > 0
+	vec3 shadow_tex_coords[NUM_DEPTH_TEXTURES];
+	for(int i = 0; i < NUM_DEPTH_TEXTURES; ++i)
+		shadow_tex_coords[i] = (frag_shadow_texture_matrix[i] * vec4(pos_ws, 1.0)).xyz;
 
+	return getShadowMappingSunVisFactorFast(shadow_tex_coords, dynamic_depth_tex, static_depth_tex, pos_cs);
+#else
+	return 1.0;
+#endif
+}
+
+
+// Fraction of the single-scattered sunlight along a segment through the water that isn't shadowed, for the sun_vis
+// argument of waterInscatteredRadiance().  The arguments are as for that function, plus the segment start position.
+//
+// The shadow map is sampled at points distributed along the segment in proportion to the sun in-scattering at them, so
+// the samples all have equal weight.  The in-scattering falls off as exp(-k t), with k as in waterInscatteredRadiance();
+// the green channel's k is used, so the distribution is only exact for green.
+// Each point is tested where its refracted sunlight entered the water, so the shadows of occluders above the water - a
+// boat, a cliff - bend at the surface as they should.  Occluders under the water don't shadow the in-scattering.
+float waterInscatterSunVisFraction(vec3 start_ws, float start_depth, vec3 unit_dir, float d, float pixel_hash)
+{
+#if NUM_DEPTH_TEXTURES > 0
+	start_depth = max(0.0, start_depth);
+	float mu_v = -unit_dir.z;
+	if(mu_v < 0.0)
+		d = min(d, start_depth / -mu_v); // Stop at the surface.
+
+	float mu_s = sqrt(1.0 - (1.0 - square(max(0.0, sundir_ws.z))) * (1.0 / square(WATER_IOR)));
+	vec3 sun_dir_w = vec3(sundir_ws.xy * (1.0 / WATER_IOR), mu_s);
+
+	float k = WATER_SIGMA_T.y * (1.0 + mu_v / mu_s);
+	float cdf_d = 1.0 - exp(-k * d); // Unnormalised CDF at d.  k is negative for a segment rising faster than the sunlight does, which this still handles.
+
+	const int NUM_SAMPLES = 4;
+	float vis_sum = 0.0;
+	for(int i=0; i<NUM_SAMPLES; ++i)
+	{
+		// Stratified, jittered per pixel, and mapped through the inverse CDF.
+		float u = (float(i) + pixel_hash) * (1.0 / float(NUM_SAMPLES));
+		float t = (abs(k) < 1.0e-4) ? (u * d) : (-log(1.0 - u * cdf_d) / k);
+
+		vec3 p = start_ws + unit_dir * t;
+		vec3 entry_ws = p + sun_dir_w * (max(0.0, water_level_z - p.z) / mu_s); // Where the sunlight reaching p entered the water.
+		vec3 entry_cs = (frag_view_matrix * vec4(entry_ws, 1.0)).xyz;
+		vis_sum += shadowMapSunFactorAtPoint(entry_cs, entry_ws);
+	}
+	return vis_sum * (1.0 / float(NUM_SAMPLES));
+#else
+	return 1.0;
+#endif
+}
+
+
+// Returns spectral radiance from refracted_hitpos_ws towards camera.
+// inscattering is the light scattered into the path by the water, see waterInscatteredRadiance().
+vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, float refracted_py, float final_refracted_water_ground_d, float water_to_ground_sun_d,
+	vec3 inscattering)
+{
 	vec3 src_col = textureLod(main_colour_texture, vec2(refracted_px, refracted_py), /*lod=*/0.0).xyz; // Get colour value at refracted ground position.  main_colour_texture has no mipmaps, so lod 0 is what texture() would sample anyway.
 //return src_col;
 	//vec3 src_normal_encoded = texture(main_normal_texture, vec2(refracted_px, refracted_py)).xyz; // Encoded as a RGB8 texture (converted to floating point)
@@ -218,13 +276,7 @@ vec3 colourForUnderwaterPoint(vec3 refracted_hitpos_ws, float refracted_px, floa
 	// Since the caustic is focused light, we should dim the src texture slightly between the focused caustic light areas.
 //	src_col *= mix(vec3(1.0), vec3(0.3, 0.5, 0.7) + vec3(3.0, 1.0, 0.8) * caustic_val * 7.0, caustic_depth_factor * sun_lambert_factor);
 
-	// TODO: compute inscatter_radiance better.
-	// It should depend on the sun+sky colour, but also take into account attenuation through water giving a blue tint.
-	vec3 inscatter_radiance_sigma_s_over_sigma_t = sun_and_sky_av_spec_rad.xyz * vec3(0.004, 0.015, 0.03) * 3.0;
-	vec3 exp_optical_depth = exp(extinction * -final_refracted_water_ground_d);
-	vec3 inscattering = inscatter_radiance_sigma_s_over_sigma_t * (vec3(1.0) - exp_optical_depth);
-
-	vec3 attentuated_col = src_col * exp_optical_depth;
+	vec3 attentuated_col = src_col * exp(WATER_SIGMA_T * -final_refracted_water_ground_d);
 
 	return attentuated_col + inscattering;
 }
@@ -473,11 +525,6 @@ bool traceScreenSpaceRefl(vec3 reflected_dir_ws, out vec3 hit_col_out)
 }
 
 
-// Past this distance along the refracted ray, the water attenuates the scene to nothing (transmittance < exp(-0.2 * 40) ~= 3.4e-4, see extinction in
-// colourForUnderwaterPoint()), so the refracted ray is not traced further.
-const float MAX_WATER_REFR_DIST = 40.0;
-
-
 // Returns the distance along the refracted ray, from the water surface, of the point on the ray with camera space depth 'depth'.
 // Camera space depth is linear along the ray.
 float refrRayDistForDepth(float depth, float start_depth, float end_depth, float ray_len, float s)
@@ -491,7 +538,7 @@ float refrRayDistForDepth(float depth, float start_depth, float end_depth, float
 // Returns true if a hit was found.  hit_ss_out is set to the screen space position of the hit (or of the end of the traced ray segment if there was no hit),
 // and hit_pos_ws_out to the corresponding world space position.
 //
-// Marches in screen space, over the projection of the ray segment from the water surface to MAX_WATER_REFR_DIST along the ray.  The number of steps
+// Marches in screen space, over the projection of the ray segment from the water surface to waterMaxVisibleDist() along the ray.  The number of steps
 // depends on the projected length of the segment in pixels, so distant water, where the segment covers only a few pixels, takes only a few steps.
 // Steps are spaced quadratically, so they are finest near the water surface, where the water is shallow and the hit position matters most.
 // The ray depth at each step is computed with perspective-correct interpolation.
@@ -500,7 +547,7 @@ bool traceScreenSpaceRefr(vec3 refracted_dir_ws, out vec2 hit_ss_out, out vec3 h
 	vec3 dir_cs = (frag_view_matrix * vec4(refracted_dir_ws, 0.0)).xyz; // view matrix shouldn't change lengths so don't need to normalise
 
 	// Clip the ray segment against the near plane, in case it heads back towards the camera.
-	float ray_len = MAX_WATER_REFR_DIST;
+	float ray_len = waterMaxVisibleDist(); // Past this the water attenuates the scene to nothing, so the ray is not traced further.
 	vec3 end_cs = pos_cs + dir_cs * ray_len;
 	float min_depth = near_clip_dist * 1.01;
 	if(-end_cs.z < min_depth)
@@ -769,7 +816,17 @@ void main()
 			//vec3 src_col = texture(main_colour_texture, vec2(refracted_px, refracted_py)).xyz * (1.0 / 0.000000003); // Get colour value at refracted ground position, undo tonemapping.
 			//col = src_col;
 
-			col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, cam_to_ground_hit_dist, water_to_ground_sun_d);
+			// In-scattering along the camera to water surface segment, then along the reflected segment down to the ground.
+			float cam_to_surface_dist = length(pos_cs);
+			float cam_depth = water_level_z - mat_common_campos_ws.z;
+			float cam_seg_sun_vis     = waterInscatterSunVisFraction(mat_common_campos_ws.xyz, cam_depth, I, cam_to_surface_dist, water_sample_seed);
+			float reflected_seg_sun_vis = waterInscatterSunVisFraction(pos_ws, /*start_depth=*/0.0, reflected_dir_ws, final_refracted_water_ground_d, water_sample_seed);
+			vec3 inscattering = waterInscatteredRadiance(cam_depth, I, cam_to_surface_dist,
+					sundir_ws.xyz, sun_spec_rad_times_solid_angle.xyz, sky_av_spec_rad.xyz, cam_seg_sun_vis) +
+				exp(WATER_SIGMA_T * -cam_to_surface_dist) * waterInscatteredRadiance(/*start_depth=*/0.0, reflected_dir_ws, final_refracted_water_ground_d,
+					sundir_ws.xyz, sun_spec_rad_times_solid_angle.xyz, sky_av_spec_rad.xyz, reflected_seg_sun_vis);
+
+			col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, cam_to_ground_hit_dist, water_to_ground_sun_d, inscattering);
 		}
 		else // else if not totally internally reflected:
 		{
@@ -1070,7 +1127,10 @@ void main()
 		}
 
 
-		vec3 underwater_col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, final_refracted_water_ground_d, water_to_ground_sun_d);
+		float inscatter_sun_vis = waterInscatterSunVisFraction(pos_ws, /*start_depth=*/0.0, refracted_dir_ws, final_refracted_water_ground_d, water_sample_seed);
+		vec3 inscattering = waterInscatteredRadiance(/*start_depth=*/0.0, refracted_dir_ws, final_refracted_water_ground_d,
+			sundir_ws.xyz, sun_spec_rad_times_solid_angle.xyz, sky_av_spec_rad.xyz, inscatter_sun_vis);
+		vec3 underwater_col = colourForUnderwaterPoint(refracted_hitpos_ws, refracted_px, refracted_py, final_refracted_water_ground_d, water_to_ground_sun_d, inscattering);
 #else // else if !WATER_DO_SCREENSPACE_REFL_AND_REFR:
 		vec3 underwater_col = vec3(0.004, 0.015, 0.03);
 #endif

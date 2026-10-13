@@ -36,6 +36,10 @@ layout (std140) uniform MaterialCommonUniforms
 	// NUM_DYNAMIC_DEPTH_TEXTURES / NUM_STATIC_DEPTH_TEXTURES components respectively are used.
 	vec4 dynamic_cascade_bias_scales;
 	vec4 static_cascade_bias_scales;
+
+	// Basis of the plane normal to the sun direction that the underwater caustics are projected onto.
+	vec4 caustic_right_ws;
+	vec4 caustic_up_ws;
 };
 
 

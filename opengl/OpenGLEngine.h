@@ -1045,6 +1045,10 @@ struct MaterialCommonUniforms
 	// NUM_STATIC_DEPTH_TEXTURES components respectively are used.
 	Vec4f dynamic_cascade_bias_scales;
 	Vec4f static_cascade_bias_scales;
+
+	// Basis of the plane normal to the sun direction that the underwater caustics are projected onto.
+	Vec4f caustic_right_ws;
+	Vec4f caustic_up_ws;
 };
 
 
