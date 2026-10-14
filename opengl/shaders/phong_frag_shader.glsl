@@ -683,7 +683,7 @@ void main()
 				float wrack = (1.0 - smoothstep(0.0, 0.06, abs(h - (1.5 + n_mid * 0.3)))) * smoothstep(0.0, 0.4, n_fine + n_mid * 0.5) * smoothstep(0.0, 0.25, n_clump);
 				sand = mix(sand, vec3(0.10, 0.085, 0.05), wrack * 1.0);
 
-				float wetness = 1.0 - smoothstep(0.15, 0.24 + n_mid * 0.05 + n_fine * 0.01, h);
+				float wetness = 1.0 - smoothstep(0.1, 0.18 + n_mid * 0.05 + n_fine * 0.01, h);
 				sand = mix(sand, mix(sand, mean_sand_col, 0.5) * 0.5, wetness);
 
 				// Sand normal map.  The sand texture coordinates are world x and y, so the tangent frame is world x, y and the terrain normal, which is
@@ -830,7 +830,7 @@ void main()
 
 	float unclamped_roughness = ((MAT_UNIFORM.flags & HAVE_METALLIC_ROUGHNESS_TEX_FLAG) != 0) ? (use_roughness     * texture(METALLIC_ROUGHNESS_TEX, main_tex_coords).g) : use_roughness;
 #if TERRAIN
-	unclamped_roughness = mix(unclamped_roughness, 0.3, terrain_wetness); // Wet sand is shiny
+	unclamped_roughness = mix(unclamped_roughness, 0.1, terrain_wetness); // Wet sand is shiny
 #endif
 	float final_roughness = max(0.04, unclamped_roughness); // Avoid too small roughness values resulting in glare/bloom artifacts
 
