@@ -12,6 +12,7 @@ Generated at 2020-01-12 14:59:19 +1300
 
 #include "../graphics/ImageMap.h"
 #include "../graphics/PNGDecoder.h"
+#include "../maths/mathstypes.h"
 #include "../utils/Exception.h"
 #include "../utils/Timer.h"
 #include "../utils/StringUtils.h"
@@ -51,8 +52,21 @@ WMFVideoWriter::WMFVideoWriter(const std::string& URL, const VidParams& vid_para
 	if(!SUCCEEDED(hr))
 		throw glare::Exception("MFStartup failed: " + PlatformUtils::COMErrorString(hr));
 
-	// Create the writer.
-	hr = MFCreateSinkWriterFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), NULL, NULL, &this->writer.ptr);
+	ComObHandle<IMFAttributes> attributes;
+	hr = MFCreateAttributes(&attributes.ptr, /*initial size=*/1);
+	if(FAILED(hr))
+		throw glare::Exception("MFCreateAttributes failed: " + PlatformUtils::COMErrorString(hr));
+
+	// Allow use of hardware encoders.
+	hr = attributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE);
+	if(FAILED(hr))
+		throw glare::Exception("Setting attribute failed: " + PlatformUtils::COMErrorString(hr));
+
+	// MP4 files are written with the moov box at the end.  MF_MPEG4SINK_MOOV_BEFORE_MDAT isn't used, as with it the MP4 sink writes chunk offsets
+	// that don't match the position of the mdat data.
+
+	// Create the writer.  The container format is chosen from the URL extension, e.g. .mp4
+	hr = MFCreateSinkWriterFromURL(StringUtils::UTF8ToPlatformUnicodeEncoding(URL).c_str(), NULL, attributes.ptr, &this->writer.ptr);
 	if(FAILED(hr))
 		throw glare::Exception("MFCreateSinkWriterFromURL failed: " + PlatformUtils::COMErrorString(hr));
 
@@ -151,8 +165,9 @@ WMFVideoWriter::~WMFVideoWriter()
 
 void WMFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stride_B)
 {
-	const LONG width_B = 3 * vid_params.width;
-	const DWORD buffer_size_B = width_B * vid_params.height;
+	// The default stride for RGB24 in Media Foundation is the row size rounded up to a multiple of 4 bytes.
+	const DWORD row_stride_B = Maths::roundUpToMultipleOfPowerOf2(3 * vid_params.width, 4u);
+	const DWORD buffer_size_B = row_stride_B * vid_params.height;
 
 	// Create a new memory buffer.
 	ComObHandle<IMFMediaBuffer> buffer;
@@ -166,15 +181,17 @@ void WMFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stri
 	if(FAILED(hr))
 		throw glare::Exception("Lock failed: " + PlatformUtils::COMErrorString(hr));
 
-	// Copy and switch byte order to what WMF expects.
+	// Copy and switch byte order to what WMF expects (BGR, bottom row first).
 	for(uint32 sy=0; sy<vid_params.height; ++sy)
 	{
 		uint32 y = vid_params.height - 1 - sy;
+		BYTE* dest_row = buffer_data + (size_t)row_stride_B * y;
+		const uint8* src_row = source_data + source_row_stride_B * sy;
 		for(uint32 x=0; x<vid_params.width; ++x)
 		{
-			buffer_data[vid_params.width * y * 3 + x * 3 + 0] = source_data[source_row_stride_B * sy + (size_t)x * 3 + 2];
-			buffer_data[vid_params.width * y * 3 + x * 3 + 1] = source_data[source_row_stride_B * sy + (size_t)x * 3 + 1];
-			buffer_data[vid_params.width * y * 3 + x * 3 + 2] = source_data[source_row_stride_B * sy + (size_t)x * 3 + 0];
+			dest_row[x * 3 + 0] = src_row[(size_t)x * 3 + 2];
+			dest_row[x * 3 + 1] = src_row[(size_t)x * 3 + 1];
+			dest_row[x * 3 + 2] = src_row[(size_t)x * 3 + 0];
 		}
 	}
 
@@ -212,7 +229,7 @@ void WMFVideoWriter::writeFrame(const uint8* source_data, size_t source_row_stri
 	// Send the sample to the Sink Writer.
 	hr = this->writer->WriteSample(this->stream_index, sample.ptr);
 	if(FAILED(hr))
-		throw glare::Exception("WriteSample failed: " + PlatformUtils::COMErrorString(hr));
+		throw glare::Exception("WriteSample failed (frame size " + toString(vid_params.width) + "x" + toString(vid_params.height) + "): " + PlatformUtils::COMErrorString(hr));
 
 	frame_index++;
 }
