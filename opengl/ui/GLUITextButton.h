@@ -56,6 +56,8 @@ public:
 
 	void rebuild();
 
+	void setText(const std::string& new_text); // The button size may change, so the containing layout should be updated afterwards.
+
 	virtual Vec2f getMinDims() const override; // Return the natural or minimum dimensions of the widget.
 
 	virtual void setPos(const Vec2f& botleft) override;

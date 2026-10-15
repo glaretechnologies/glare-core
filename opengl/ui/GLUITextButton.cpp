@@ -163,6 +163,20 @@ void GLUITextButton::rebuild()
 }
 
 
+void GLUITextButton::setText(const std::string& new_text)
+{
+	if(new_text == button_text)
+		return;
+
+	button_text = new_text;
+	text_view->setText(button_text);
+
+	this->rect = text_view->getRect();
+
+	this->setFixedDimsPx(max(args.fixed_size, Vec2f(glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().x), glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().y))));
+}
+
+
 Vec2f GLUITextButton::getMinDims() const
 {
 	return text_view->getMinDims();
