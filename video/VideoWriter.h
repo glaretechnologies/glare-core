@@ -42,7 +42,7 @@ public:
 	VideoWriter();
 	virtual ~VideoWriter();
 
-	// Creates the writer for the current platform (WMFVideoWriter on Windows).  Throws glare::Exception if not supported or on failure.
+	// Creates the writer for the current platform (WMFVideoWriter on Windows, AVFVideoWriter on Mac).  Throws glare::Exception if not supported or on failure.
 	static Reference<VideoWriter> create(const std::string& path, const VidParams& vid_params);
 
 	// data is 8-bit RGB, top row first.

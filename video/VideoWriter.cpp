@@ -10,6 +10,8 @@ Generated at 2020-01-12 14:58:43 +1300
 #include "../utils/Exception.h"
 #if defined(_WIN32)
 #include "WMFVideoWriter.h"
+#elif defined(OSX)
+#include "AVFVideoWriter.h"
 #endif
 
 
@@ -29,8 +31,9 @@ Reference<VideoWriter> VideoWriter::create(const std::string& path, const VidPar
 {
 #if defined(_WIN32)
 	return new WMFVideoWriter(path, vid_params);
+#elif defined(OSX)
+	return new AVFVideoWriter(path, vid_params);
 #else
-	// TODO: use AVFVideoWriter on Mac (AVFVideoWriter.mm needs to be added to the build).
 	throw glare::Exception("Video writing is not supported on this platform.");
 #endif
 }
