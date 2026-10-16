@@ -71,7 +71,7 @@ private:
 		double frame_time;
 	};
 
-	static const int NUM_SLOTS = 4;
+	static const int NUM_SLOTS = 6; // Enough for a grab every frame, as grabs are retrieved at least 2 frames after submission and the GPU may lag a few frames behind.
 	Slot grab_slots[NUM_SLOTS]; // Note: can't be called 'slots', as Qt defines that as a macro.
 	int next_submit_i; // Slot index the next grab will use.
 	int num_in_flight; // Number of grabs submitted but not yet retrieved.  The oldest is at (next_submit_i - num_in_flight) mod NUM_SLOTS.

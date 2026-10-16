@@ -91,7 +91,7 @@ public:
 	VideoRecorder();
 	~VideoRecorder(); // Stops any recording in progress.
 
-	static const size_t MAX_QUEUED_BYTES = 2048ull * 1024 * 1024; // About 26 seconds of 1280x720 frames at 30 fps.
+	static const size_t MAX_QUEUED_BYTES = 2048ull * 1024 * 1024; // About 26 seconds of 1280x720 frames at 30 fps, or 13 seconds at 60 fps.
 
 	// Starts recording to a video file at path (e.g. "something.mp4").  bitrate is in bits per second.
 	// Returns the encode job for the recording.  The caller should call its run() method on another thread.
