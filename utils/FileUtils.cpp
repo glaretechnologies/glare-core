@@ -533,7 +533,8 @@ void writeEntireFile(const std::string& pathname,
 	if(filecontents.size() > 0)
 		file.write((const char*)filecontents.data(), filecontents.size());
 
-	if(file.bad())
+	file.close(); // Close explicitly, so that a failure to flush the last buffered data is detected.
+	if(file.fail())
 		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
 }
 
@@ -549,7 +550,8 @@ void writeEntireFile(const std::string& pathname,
 	if(filecontents.size() > 0)
 		file.write(filecontents.data(), filecontents.size());
 
-	if(file.bad())
+	file.close(); // Close explicitly, so that a failure to flush the last buffered data is detected.
+	if(file.fail())
 		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
 }
 
@@ -565,7 +567,8 @@ void writeEntireFileTextMode(const std::string& pathname,
 	if(filecontents.size() > 0)
 		file.write(filecontents.data(), filecontents.size());
 
-	if(file.bad())
+	file.close(); // Close explicitly, so that a failure to flush the last buffered data is detected.
+	if(file.fail())
 		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
 }
 
@@ -580,7 +583,8 @@ void writeEntireFile(const std::string& pathname, const char* data, size_t data_
 	if(data_size)
 		file.write(data, data_size);
 
-	if(file.bad())
+	file.close(); // Close explicitly, so that a failure to flush the last buffered data is detected.
+	if(file.fail())
 		throw FileUtilsExcep("Write to '" + pathname + "' failed.");
 }
 
@@ -592,16 +596,25 @@ void writeEntireFileAtomically(const std::string& pathname, const char* data, si
 	//
 	const std::string dir = FileUtils::getDirectory(pathname);
 	TCHAR temp_file_name[MAX_PATH];
-	GetTempFileName(
+	if(GetTempFileName(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(dir).c_str(), // dir path
 		TEXT("glare"), // lpPrefixString
 		0, // uUnique
 		temp_file_name
-	);
+	) == 0)
+		throw FileUtilsExcep("Failed to create temp file in dir '" + dir + "': " + PlatformUtils::getLastErrorString());
 
-	const std::string temp_pathname = StringUtils::PlatformToUTF8UnicodeEncoding(temp_file_name);// pathname + "_tmp";
+	const std::string temp_pathname = StringUtils::PlatformToUTF8UnicodeEncoding(temp_file_name);
 
-	writeEntireFile(temp_pathname, data, data_size);
+	try
+	{
+		writeEntireFile(temp_pathname, data, data_size);
+	}
+	catch(FileUtilsExcep&)
+	{
+		DeleteFile(temp_file_name);
+		throw;
+	}
 
 
 	//-------------------- Replace target file contents with temporary file contents -----------------------
@@ -638,7 +651,11 @@ void writeEntireFileAtomically(const std::string& pathname, const char* data, si
 	}
 
 	if(!succeeded)
-		throw FileUtilsExcep("Failed to replace file '" + pathname + "' with '" + temp_pathname + "': " + PlatformUtils::getLastErrorString());
+	{
+		const std::string error_string = PlatformUtils::getLastErrorString(); // Get before DeleteFile() can change the last error.
+		DeleteFile(temp_file_name);
+		throw FileUtilsExcep("Failed to replace file '" + pathname + "' with '" + temp_pathname + "': " + error_string);
+	}
 
 #else
 	//-------------------- Write data to a unique temporary file first -----------------------
@@ -654,16 +671,34 @@ void writeEntireFileAtomically(const std::string& pathname, const char* data, si
 	{
 		const ssize_t bytes_written = write(file, data, remaining_size);
 		if(bytes_written == -1)
-			throw FileUtilsExcep("Error while writing to temp file: " + PlatformUtils::getLastErrorString());
+		{
+			if(errno == EINTR) // If interrupted by a signal before any data was written, try again.
+				continue;
+
+			const std::string error_string = PlatformUtils::getLastErrorString(); // Get error string before calling close() and unlink(), which can change errno.
+			close(file);
+			unlink(temp_pathname.c_str()); // Delete temp file
+			throw FileUtilsExcep("Error while writing to temp file '" + temp_pathname + "': " + error_string);
+		}
 		data += bytes_written;
 		remaining_size -= bytes_written;
 	}
 
-	close(file);
+	// close() can report write errors that were deferred, for example on network filesystems.
+	if(close(file) != 0)
+	{
+		const std::string error_string = PlatformUtils::getLastErrorString();
+		unlink(temp_pathname.c_str()); // Delete temp file
+		throw FileUtilsExcep("Error while closing temp file '" + temp_pathname + "': " + error_string);
+	}
 
 	//-------------------- Replace target file contents with temporary file contents -----------------------
 	if(rename(temp_pathname.c_str(), pathname.c_str()) != 0)
-		throw FileUtilsExcep("Failed to move file '" + temp_pathname + "' to '" + pathname + "': " + PlatformUtils::getLastErrorString());
+	{
+		const std::string error_string = PlatformUtils::getLastErrorString();
+		unlink(temp_pathname.c_str()); // Delete temp file
+		throw FileUtilsExcep("Failed to move file '" + temp_pathname + "' to '" + pathname + "': " + error_string);
+	}
 #endif
 }
 
@@ -683,14 +718,14 @@ std::string writeEntireFileToTempFile(const char* data, size_t data_size)
 #ifdef WIN32
 	//-------------------- Write data to a unique temporary file first -----------------------
 	//
-	const std::string dir = FileUtils::getDirectory(temp_dir); // TODO: pick a better dir?
 	TCHAR temp_file_name[MAX_PATH];
-	GetTempFileName(
-		StringUtils::UTF8ToPlatformUnicodeEncoding(dir).c_str(), // dir path
+	if(GetTempFileName(
+		StringUtils::UTF8ToPlatformUnicodeEncoding(temp_dir).c_str(), // dir path
 		TEXT("glare"), // lpPrefixString
 		0, // uUnique
 		temp_file_name
-	);
+	) == 0)
+		throw FileUtilsExcep("Failed to create temp file in dir '" + temp_dir + "': " + PlatformUtils::getLastErrorString());
 
 	const std::string temp_pathname = StringUtils::PlatformToUTF8UnicodeEncoding(temp_file_name);// pathname + "_tmp";
 
@@ -1507,6 +1542,46 @@ void doUnitTests()
 		catch(FileUtilsExcep& e)
 		{
 			conPrint(e.what());
+		}
+#endif
+
+		// Test that a failure to flush the buffered data when the file is closed is detected.  Writes to /dev/full fail with ENOSPC.
+		// The data is smaller than the stream buffer, so the error only occurs when the buffered data is flushed.
+#if defined(__linux__)
+		{
+			const std::string small_data(100, 'a');
+
+			try
+			{
+				FileUtils::writeEntireFile("/dev/full", small_data);
+				failTest("Excep expected.");
+			}
+			catch(FileUtilsExcep&)
+			{}
+
+			try
+			{
+				FileUtils::writeEntireFile("/dev/full", std::vector<unsigned char>(small_data.begin(), small_data.end()));
+				failTest("Excep expected.");
+			}
+			catch(FileUtilsExcep&)
+			{}
+
+			try
+			{
+				FileUtils::writeEntireFile("/dev/full", small_data.data(), small_data.size());
+				failTest("Excep expected.");
+			}
+			catch(FileUtilsExcep&)
+			{}
+
+			try
+			{
+				FileUtils::writeEntireFileTextMode("/dev/full", small_data);
+				failTest("Excep expected.");
+			}
+			catch(FileUtilsExcep&)
+			{}
 		}
 #endif
 	}
