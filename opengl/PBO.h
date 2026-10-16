@@ -27,8 +27,14 @@ public:
 
 	void updateData(size_t offset, const void* data, size_t data_size);
 
-	void* map();
+	void* map(); // Maps for writing (upload PBOs).
 	void unmap();
+
+	// For download PBOs (for_upload = false).  Mem-mapping is not supported in WebGL or on Mac, so use readData() there.
+	static bool isMapForReadingSupported();
+	const void* mapForReading(); // Maps the whole buffer read-only.  Call unmap() when done.
+
+	void readData(size_t offset, void* data_out, size_t data_size); // Copies buffer contents to CPU memory with glGetBufferSubData.  Works on all platforms.
 
 	void flushWholeBuffer();
 	void flushRange(size_t offset, size_t range_size);

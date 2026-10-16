@@ -9,6 +9,9 @@ Copyright Glare Technologies Limited 2025 -
 #include "IncludeOpenGL.h"
 #include "OpenGLEngine.h"
 #include <tracy/Tracy.hpp>
+#if EMSCRIPTEN
+#include <webgl/webgl2.h> // For glGetBufferSubData, which is in WebGL 2 but not GLES 3.0.
+#endif
 
 
 #if !EMSCRIPTEN && !defined(__APPLE__)
@@ -95,6 +98,46 @@ void* PBO::map()
 	unbind();
 	return mapped_ptr;
 #endif
+}
+
+
+bool PBO::isMapForReadingSupported()
+{
+#if PBO_MEM_MAPPING_SUPPORT
+	return true;
+#else
+	return false;
+#endif
+}
+
+
+const void* PBO::mapForReading()
+{
+	ZoneScoped; // Tracy profiler
+#if !PBO_MEM_MAPPING_SUPPORT
+	assert(!"PBO::mapForReading() not supported on this platform.");
+	return nullptr;
+#else
+	assert(!mapped_ptr);
+	bind();
+	mapped_ptr = glMapBufferRange(buffer_type, /*offset=*/0, /*length=*/this->size, /*access=*/GL_MAP_READ_BIT);
+	unbind();
+	return mapped_ptr;
+#endif
+}
+
+
+void PBO::readData(size_t offset, void* data_out, size_t data_size)
+{
+	ZoneScoped; // Tracy profiler
+	assert(offset + data_size <= size);
+
+	if(data_size == 0)
+		return;
+
+	bind();
+	glGetBufferSubData(buffer_type, /*offset=*/offset, data_size, data_out);
+	unbind();
 }
 
 

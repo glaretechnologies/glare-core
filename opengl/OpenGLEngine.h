@@ -63,6 +63,7 @@ class TextureServer;
 class UInt8ComponentValueTraits;
 class TerrainSystem;
 class RenderBuffer;
+class AsyncFrameGrabber;
 class Query;
 class TimestampQuery;
 class BufferedTimeElapsedQuery;
@@ -1393,6 +1394,10 @@ public:
 	// Creates some off-screen render buffers, sets as target_frame_buffer, draws the current scene.
 	// Then captures the draw result using glReadPixels() in getRenderedColourBuffer() and returns as an ImageMapUInt8.
 	Reference<ImageMap<uint8, UInt8ComponentValueTraits> > drawToBufferAndReturnImageMap();
+
+	// Makes the next draw() call start an async grab of the rendered frame with grabber, scaled to dest_w x dest_h, e.g. for video recording.
+	// The grab is done before UI overlay objects are drawn, so they aren't included.  grabber must stay alive until the next draw() call.
+	void requestFrameGrab(AsyncFrameGrabber* grabber, int dest_w, int dest_h, double frame_time);
 	//----------------------------------------------------------------------------------------
 
 
@@ -1926,6 +1931,12 @@ private:
 	Reference<TextureServer> texture_server;
 
 	Reference<FrameBuffer> target_frame_buffer;
+
+	// Frame grab requested with requestFrameGrab(), done in the next draw() call.
+	AsyncFrameGrabber* frame_grabber = nullptr; // Non-null if a grab is requested.
+	int frame_grab_dest_w = 0;
+	int frame_grab_dest_h = 0;
+	double frame_grab_time = 0; // Caller-supplied timestamp, not used by the engine.  Passed through to the grabbed frame, which completes a few frames later.
 
 	glare::TaskManager* main_task_manager; // Used for building 8-bit texture data (DXT compression, mip-map data building).
 	glare::TaskManager* high_priority_task_manager; // For short, processor intensive tasks that the main thread depends on, such as computing animation data for the current frame

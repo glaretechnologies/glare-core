@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "OpenGLProgram.h"
 #include "OpenGLShader.h"
 #include "RenderBuffer.h"
+#include "AsyncFrameGrabber.h"
 #include "ShadowMapping.h"
 #include "IrradianceProbes.h"
 #include "CloudNoise.h"
@@ -9120,6 +9121,23 @@ void OpenGLEngine::draw()
 	} // End if(cur_scene->render_to_main_render_framebuffer)
 
 
+	//================= Start frame grab, if requested =================
+	// Before the UI overlay objects are drawn, so they aren't included in the grabbed frame.
+	if(frame_grabber)
+	{
+		try
+		{
+			frame_grabber->startFrameGrab(/*src framebuffer=*/target_frame_buffer ? target_frame_buffer->buffer_name : 0, cur_scene->viewport_w, cur_scene->viewport_h,
+				frame_grab_dest_w, frame_grab_dest_h, frame_grab_time);
+		}
+		catch(glare::Exception& e)
+		{
+			conPrint("Error while starting frame grab: " + e.what());
+		}
+		frame_grabber = nullptr;
+	}
+
+
 	//================= Draw UI overlay objects =================
 	// We will do this after the final imaging shader runs above, so that the UI is drawn over transparent objects.
 	if(cur_scene->draw_overlay_objects)
@@ -14359,6 +14377,15 @@ Reference<ImageMap<uint8, UInt8ComponentValueTraits>> OpenGLEngine::drawToBuffer
 	this->target_frame_buffer = old_target_frame_buffer;
 
 	return image;
+}
+
+
+void OpenGLEngine::requestFrameGrab(AsyncFrameGrabber* grabber, int dest_w, int dest_h, double frame_time)
+{
+	frame_grabber = grabber;
+	frame_grab_dest_w = dest_w;
+	frame_grab_dest_h = dest_h;
+	frame_grab_time = frame_time;
 }
 
 

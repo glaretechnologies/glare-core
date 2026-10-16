@@ -79,6 +79,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSAODebugging.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/SSAODebugging.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBO.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBO.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncFrameGrabber.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/AsyncFrameGrabber.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBOPool.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/PBOPool.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/VBOPool.cpp

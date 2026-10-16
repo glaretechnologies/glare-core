@@ -8,6 +8,8 @@ Generated at 2020-01-12 14:58:43 +1300
 
 
 #include "../utils/RefCounted.h"
+#include "../utils/Reference.h"
+#include <string>
 
 
 struct VidParams
@@ -32,11 +34,22 @@ struct VidParams
 /*=====================================================================
 VideoWriter
 -----------
-
+Encodes RGB frames to a video file.
 =====================================================================*/
 class VideoWriter : public RefCounted
 {
 public:
 	VideoWriter();
 	virtual ~VideoWriter();
+
+	// Creates the writer for the current platform (WMFVideoWriter on Windows).  Throws glare::Exception if not supported or on failure.
+	static Reference<VideoWriter> create(const std::string& path, const VidParams& vid_params);
+
+	// data is 8-bit RGB, top row first.
+	virtual void writeFrame(const uint8* data, size_t source_row_stride_B) = 0;
+
+	virtual void finalise() = 0;
 };
+
+
+typedef Reference<VideoWriter> VideoWriterRef;
