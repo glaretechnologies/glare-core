@@ -28,6 +28,21 @@ T addUnsignedInts(T x, T y)
 }
 
 
+// Throws glare::Exception if the result would overflow.
+template <class T> 
+T addSignedInts(T x, T y)
+{
+	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
+	static_assert(std::numeric_limits<T>::is_signed,  "Template param must be signed");
+
+	if(Maths::signedIntAdditionOverflows(x, y))
+		throw glare::Exception("Signed integer addition overflow");
+
+	return x + y;
+}
+
+
+
 void test();
 
 

@@ -856,6 +856,30 @@ inline bool unsignedIntAdditionWraps(T x, T y)
 }
 
 
+template <class T>
+inline bool signedIntAdditionOverflows(T x, T y)
+{
+	static_assert(std::numeric_limits<T>::is_integer, "Template param must be an integer");
+	static_assert(std::numeric_limits<T>::is_signed,  "Template param must be signed");
+
+	// overflows iff
+	// x + y > max_v
+	// y > max_v - x
+	// 
+	// underflows iff
+	// x + y < min_v
+	// y < min_v - x
+	//
+	// If x is >= 0, then x + y >= y.  So we only need to check for the sum being greater than max_v.
+	// likewise if x < 0, then x + y <= y. So we only need to check for the sum being less than min_v.
+
+	if(x >= 0)
+		return y > (std::numeric_limits<T>::max() - x);
+	else
+		return y < (std::numeric_limits<T>::min() - x);
+}
+
+
 void test();
 
 

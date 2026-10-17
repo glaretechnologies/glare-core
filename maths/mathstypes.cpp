@@ -145,6 +145,34 @@ void Maths::test()
 	testAssert(unsignedIntAdditionWraps(18446744073709551615ull , 18446744073709551615ull));
 
 
+	//=============================== signedIntAdditionOverflows ================================
+	testAssert(!signedIntAdditionOverflows(0, 0));
+	testAssert(!signedIntAdditionOverflows(1, 2));
+	testAssert(!signedIntAdditionOverflows(std::numeric_limits<int32>::max(), 0));
+	testAssert(!signedIntAdditionOverflows(0, std::numeric_limits<int32>::max()));
+	testAssert(!signedIntAdditionOverflows(std::numeric_limits<int32>::max()-1, 1));
+	testAssert(!signedIntAdditionOverflows(1, std::numeric_limits<int32>::max()-1));
+	testAssert( signedIntAdditionOverflows(std::numeric_limits<int32>::max(), 1));
+	testAssert( signedIntAdditionOverflows(std::numeric_limits<int32>::max(), 2));
+	testAssert( signedIntAdditionOverflows(1, std::numeric_limits<int32>::max()));
+	testAssert( signedIntAdditionOverflows(2, std::numeric_limits<int32>::max()));
+	testAssert( signedIntAdditionOverflows(std::numeric_limits<int32>::max(), std::numeric_limits<int32>::max()));
+	testAssert(!signedIntAdditionOverflows(1073741824, 1073741824-1)); // 2^30 + 2^30-1 = 2^31-1
+	testAssert( signedIntAdditionOverflows(1073741824, 1073741824)); // 2^31 + 2^31 = 2^32
+
+	// Check negative overflow:
+	testAssert(!signedIntAdditionOverflows(std::numeric_limits<int32>::min(),  0));
+	testAssert(!signedIntAdditionOverflows(std::numeric_limits<int32>::min(),  1));
+	testAssert( signedIntAdditionOverflows(std::numeric_limits<int32>::min(), -1));
+	testAssert(!signedIntAdditionOverflows(0,  std::numeric_limits<int32>::min()));
+	testAssert(!signedIntAdditionOverflows(1,  std::numeric_limits<int32>::min()));
+	testAssert( signedIntAdditionOverflows(-1, std::numeric_limits<int32>::min()));
+
+	testAssert(!signedIntAdditionOverflows(std::numeric_limits<int32>::min(), std::numeric_limits<int32>::max()));
+	testAssert(!signedIntAdditionOverflows(std::numeric_limits<int32>::max(), std::numeric_limits<int32>::min()));
+
+
+
 	//=============================== roundToNextHighestPowerOf2() =========================================
 	testAssert(roundToNextHighestPowerOf2(0) == 0); // This is expected.
 	testAssert(roundToNextHighestPowerOf2(1) == 1);
