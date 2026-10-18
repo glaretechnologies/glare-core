@@ -105,6 +105,7 @@ public:
 	bool isRecording() const { return job.nonNull(); }
 	double getElapsedTime(double cur_time) const { return cur_time - start_time; }
 	bool reachedMaxDuration(double cur_time) const { return getElapsedTime(cur_time) >= max_duration; }
+	double getMaxDuration() const { return max_duration; } // Max duration of the current or last recording, in seconds.
 	bool encodingFailed() const { return job.nonNull() && job->hasFailed(); }
 	size_t getNumDroppedFrames() const { return num_dropped_frames; } // Frames dropped in the current or last recording because the encoder fell behind.
 

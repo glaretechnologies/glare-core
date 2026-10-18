@@ -23,6 +23,7 @@ Generated at 2020-01-12 14:59:19 +1300
 #include <mfapi.h>
 #include <mferror.h>
 #include <mfreadwrite.h>
+#include <codecapi.h>
 
 
 
@@ -139,9 +140,44 @@ WMFVideoWriter::WMFVideoWriter(const std::string& URL, const VidParams& vid_para
 	if(FAILED(hr))
 		throw glare::Exception("Setting media type failed: " + PlatformUtils::COMErrorString(hr));
 	
-	hr = this->writer->SetInputMediaType(stream_index, media_type_in.ptr, NULL);
-	if(FAILED(hr))
-		throw glare::Exception("Setting input media type failed: " + PlatformUtils::COMErrorString(hr));
+	// Set the input media type, and configure the encoder's rate control so the output data rate is close to vid_params.bitrate.
+	// MF_MT_AVG_BITRATE alone isn't enough, as hardware encoders may default to a quality-based mode that ignores it.
+	// Not all encoders support all rate control modes, so try peak-constrained VBR, then CBR, then the encoder's default settings.
+	const size_t NUM_ATTEMPTS = 3;
+	for(size_t i=0; i<NUM_ATTEMPTS; ++i)
+	{
+		ComObHandle<IMFAttributes> encoding_params;
+		if(i < 2)
+		{
+			hr = MFCreateAttributes(&encoding_params.ptr, /*initial size=*/3);
+			if(FAILED(hr))
+				throw glare::Exception("MFCreateAttributes failed: " + PlatformUtils::COMErrorString(hr));
+
+			const bool peak_constrained_VBR = i == 0;
+
+			hr = encoding_params->SetUINT32(CODECAPI_AVEncCommonRateControlMode, peak_constrained_VBR ? eAVEncCommonRateControlMode_PeakConstrainedVBR : eAVEncCommonRateControlMode_CBR);
+			if(FAILED(hr))
+				throw glare::Exception("Setting attribute failed: " + PlatformUtils::COMErrorString(hr));
+
+			hr = encoding_params->SetUINT32(CODECAPI_AVEncCommonMeanBitRate, vid_params.bitrate);
+			if(FAILED(hr))
+				throw glare::Exception("Setting attribute failed: " + PlatformUtils::COMErrorString(hr));
+
+			if(peak_constrained_VBR)
+			{
+				// Allow the data rate to go 50% above the mean for short periods, e.g. for complex or fast-moving scenes.
+				hr = encoding_params->SetUINT32(CODECAPI_AVEncCommonMaxBitRate, (uint32)myMin<uint64>((uint64)vid_params.bitrate * 3 / 2, std::numeric_limits<uint32>::max()));
+				if(FAILED(hr))
+					throw glare::Exception("Setting attribute failed: " + PlatformUtils::COMErrorString(hr));
+			}
+		}
+
+		hr = this->writer->SetInputMediaType(stream_index, media_type_in.ptr, encoding_params.ptr); // encoding_params is null on the last attempt, which uses the encoder's default settings.
+		if(SUCCEEDED(hr))
+			break;
+		if(i == NUM_ATTEMPTS - 1)
+			throw glare::Exception("Setting input media type failed: " + PlatformUtils::COMErrorString(hr));
+	}
 	
 	
 	// Tell the sink writer to start accepting data.
