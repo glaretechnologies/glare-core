@@ -331,10 +331,9 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		if(!parser.parseChar('\n')) // Advance past \n
 			throw WebsiteExcep("Parse error");
 
-		Header header;
-		header.key = field_name;
-		header.value = field_value;
-		request_info.headers.push_back(header);
+		request_info.headers.push_back(Header());
+		request_info.headers.back().key   = field_name;
+		request_info.headers.back().value = field_value;
 
 		if(request_info.headers.size() > 256)
 			throw glare::Exception("Too many headers");

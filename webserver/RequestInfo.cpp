@@ -143,13 +143,13 @@ Reference<FormField> RequestInfo::getPostFieldForNameIfPresent(const std::string
 }
 
 
-std::string RequestInfo::getHostHeader() const
+UnsafeString RequestInfo::getHostHeader() const
 {
 	for(size_t i=0; i<headers.size(); ++i)
-		if(StringUtils::equalCaseInsensitive(headers[i].key, "host"))
-			return toString(headers[i].value);
+		if(StringUtils::equalCaseInsensitive(headers[i].key.str(), "host"))
+			return headers[i].value;
 
-	return std::string();
+	return UnsafeString();
 }
 
 

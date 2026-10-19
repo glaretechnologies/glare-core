@@ -226,6 +226,66 @@ static void testRequestIsAccepted(const std::string& request)
 }
 
 
+// Request handler that records copies of the headers and post content of the last request it handled.
+class RecordingRequestHandler : public RequestHandler
+{
+public:
+	RecordingRequestHandler() : num_requests_handled(0) {}
+
+	virtual void handleRequest(const RequestInfo& request_info, ReplyInfo& /*reply_info*/) override
+	{
+		headers.clear();
+		for(size_t i=0; i<request_info.headers.size(); ++i)
+			headers.push_back(std::make_pair(request_info.headers[i].key.str(), request_info.headers[i].value.str()));
+		post_content = std::string(request_info.post_content.begin(), request_info.post_content.end());
+		num_requests_handled++;
+	}
+
+	std::vector<std::pair<std::string, std::string>> headers;
+	std::string post_content;
+	int num_requests_handled;
+};
+
+
+// Sends a POST request where the first packet contains the request header and the first num_content_bytes_in_first_packet bytes of the content,
+// and a second packet contains the rest of the content.  Checks the request handler gets the correct headers and content.
+// When content arrives after the header, the worker thread enlarges its socket buffer, which may reallocate it, so this checks the request info doesn't refer to the old buffer.
+static void testPostWithContentInLaterPacket(size_t content_size, size_t num_content_bytes_in_first_packet)
+{
+	assert(num_content_bytes_in_first_packet <= content_size);
+
+	std::string content(content_size, '\0');
+	for(size_t i=0; i<content_size; ++i)
+		content[i] = (char)('a' + i % 26);
+
+	const std::string header = "POST /mcp HTTP/1.1" + CRLF +
+		"Host: example.com" + CRLF +
+		"Authorization: Bearer abcdef0123456789" + CRLF +
+		"Content-Type: application/json" + CRLF +
+		"Content-Length: " + toString(content_size) + CRLFCRLF;
+
+	const std::string first_packet  = header + content.substr(0, num_content_bytes_in_first_packet);
+	const std::string second_packet = content.substr(num_content_bytes_in_first_packet);
+
+	TestSocketRef test_socket = new TestSocket();
+	test_socket->buffers.push_back(std::vector<uint8>(first_packet.begin(), first_packet.end()));
+	if(!second_packet.empty())
+		test_socket->buffers.push_back(std::vector<uint8>(second_packet.begin(), second_packet.end()));
+
+	Reference<RecordingRequestHandler> request_handler = new RecordingRequestHandler();
+	Reference<web::WorkerThread> worker = new web::WorkerThread(0, test_socket, request_handler, /*tls connection=*/false);
+	worker->doRunMainLoop();
+
+	testAssert(request_handler->num_requests_handled == 1);
+	testAssert(request_handler->headers.size() == 4);
+	testAssert(request_handler->headers[0] == std::make_pair(std::string("Host"),           std::string("example.com")));
+	testAssert(request_handler->headers[1] == std::make_pair(std::string("Authorization"),  std::string("Bearer abcdef0123456789")));
+	testAssert(request_handler->headers[2] == std::make_pair(std::string("Content-Type"),   std::string("application/json")));
+	testAssert(request_handler->headers[3] == std::make_pair(std::string("Content-Length"), toString(content_size)));
+	testAssert(request_handler->post_content == content);
+}
+
+
 static void testConnectAndRequest(const std::string& request)
 {
 	
@@ -473,13 +533,58 @@ static void testParseQuotedHeaderValueExcepExpected(const std::string& input)
 }
 
 
+// Request handler that does nothing except read all the request data, so that fuzzing with ASan detects any request data referring to invalid memory.
 class TestDummyRequestHandler : public RequestHandler
 {
 public:
-	TestDummyRequestHandler() {}
+	TestDummyRequestHandler() : checksum(0) {}
 
-	virtual void handleRequest(const RequestInfo& /*request_info*/, ReplyInfo& /*reply_info*/) override
-	{}
+	virtual void handleRequest(const RequestInfo& request_info, ReplyInfo& /*reply_info*/) override
+	{
+		addToChecksum(request_info.verb);
+		addToChecksum(request_info.path);
+		for(size_t i=0; i<request_info.headers.size(); ++i)
+		{
+			addToChecksum(request_info.headers[i].key);
+			addToChecksum(request_info.headers[i].value);
+		}
+		for(size_t i=0; i<request_info.URL_params.size(); ++i)
+		{
+			addToChecksum(request_info.URL_params[i].key);
+			addToChecksum(request_info.URL_params[i].value);
+		}
+		for(size_t i=0; i<request_info.post_fields.size(); ++i)
+		{
+			addToChecksum(request_info.post_fields[i]->key);
+			addToChecksum(request_info.post_fields[i]->filename);
+			addToChecksum(request_info.post_fields[i]->content_type);
+			addToChecksum((const uint8*)request_info.post_fields[i]->content.data(), request_info.post_fields[i]->content.size());
+		}
+		for(size_t i=0; i<request_info.cookies.size(); ++i)
+		{
+			addToChecksum(request_info.cookies[i].key);
+			addToChecksum(request_info.cookies[i].value);
+		}
+		addToChecksum(request_info.post_content.data(), request_info.post_content.size());
+	}
+
+	void addToChecksum(const std::string& s)
+	{
+		addToChecksum((const uint8*)s.data(), s.size());
+	}
+
+	void addToChecksum(const UnsafeString& s)
+	{
+		addToChecksum((const uint8*)s.str().data(), s.str().size());
+	}
+
+	void addToChecksum(const uint8* data, size_t size)
+	{
+		for(size_t i=0; i<size; ++i)
+			checksum += data[i];
+	}
+
+	uint64 checksum; // Store the sum in a member, so the compiler can't remove the reads.
 };
 
 
@@ -688,6 +793,17 @@ void WebWorkerThreadTests::test()
 		testRequestIsRejected("GET / HTTP/1.1" + CRLF + "Host: example.com\nSet-Cookie: a=b" + CRLFCRLF); // Bare LF in value.
 		testRequestIsRejected("GET / HTTP/1.1" + CRLF + "Ho\nst: example.com" + CRLFCRLF); // Bare LF in name.
 		testRequestIsRejected("GET / HTTP/1.1" + CRLF + std::string("Host: a\0b", 9) + CRLFCRLF); // Embedded NUL in value.
+	}
+
+	// Test POST requests where the content arrives in a later packet than the header.  Headers should still be correct after the socket buffer is enlarged to hold the content.
+	{
+		const size_t content_sizes[] = { 1, 100, 3000, 100000, 1000000 };
+		for(size_t i=0; i<staticArrayNumElems(content_sizes); ++i)
+		{
+			testPostWithContentInLaterPacket(content_sizes[i], /*num_content_bytes_in_first_packet=*/0);
+			testPostWithContentInLaterPacket(content_sizes[i], /*num_content_bytes_in_first_packet=*/content_sizes[i] / 2);
+			testPostWithContentInLaterPacket(content_sizes[i], /*num_content_bytes_in_first_packet=*/content_sizes[i]); // All content in first packet.
+		}
 	}
 	
 	// Create and launch a server listener thread.

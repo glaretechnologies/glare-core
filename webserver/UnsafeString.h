@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include <string>
+#include "../utils/string_view.h"
 class OutStream;
 class InStream;
 
@@ -26,6 +27,7 @@ class UnsafeString
 public:
 	UnsafeString();
 	UnsafeString(const std::string& s_) : s(s_) {}
+	UnsafeString(const string_view s_) : s(s_) {}
 	UnsafeString(const char* s_) : s(s_) {}
 	~UnsafeString();
 

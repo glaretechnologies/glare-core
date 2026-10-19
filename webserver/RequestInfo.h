@@ -51,8 +51,8 @@ public:
 class Header
 {
 public:
-	string_view key; // NOTE: these are unsafe strings also.
-	string_view value;
+	UnsafeString key;
+	UnsafeString value;
 };
 
 class Range
@@ -89,7 +89,7 @@ public:
 	Reference<FormField> getPostFieldForName(const std::string& name) const; // Throws WebsiteExcep on failure
 	Reference<FormField> getPostFieldForNameIfPresent(const std::string& name) const; // Returns null ref if not present
 
-	std::string getHostHeader() const; // Returns host header, or empty string if not present.
+	UnsafeString getHostHeader() const; // Returns host header, or empty string if not present.
 
 	std::string verb;
 	std::string path;
