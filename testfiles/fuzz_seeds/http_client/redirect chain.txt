@@ -1,0 +1,20 @@
+HTTP/1.1 301 Moved Permanently
+Location: //other.org/x
+Content-Length: 1
+
+a!HTTP/1.1 302 Found
+Location: ?q=1
+Content-Length: 1
+
+b!HTTP/1.1 303 See Other
+Location: #frag
+Content-Length: 1
+
+c!HTTP/1.1 302 Found
+Location: https://third.com/y
+Content-Length: 1
+
+d!HTTP/1.1 200 OK
+Content-Length: 4
+
+done

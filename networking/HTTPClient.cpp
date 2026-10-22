@@ -98,6 +98,14 @@ void HTTPClient::resetConnection()
 }
 
 
+// Used to read and throw away the body of a redirect response.
+class DiscardDataHandler : public HTTPClient::StreamingDataHandler
+{
+public:
+	virtual void handleData(ArrayRef<uint8> /*data*/, const HTTPClient::ResponseInfo& /*response_info*/) override {}
+};
+
+
 // Handle the HTTP response.
 // The response header is in [socket_buffer[0], socket_buffer[response_header_size])
 HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size, RequestType request_type, const URL& request_url, int num_redirects_done, StreamingDataHandler& response_data_handler)
@@ -223,46 +231,49 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		throw glare::Exception("Parse error");
 
 	// 301 Moved Permanently, 302 Found, 303 See Other, 307 Temporary Redirect, 308 Permanent Redirect.  For a GET these all mean fetch the Location URL.
-	if(code == 301 || code == 302 || code == 303 || code == 307 || code == 308)
+	const bool is_redirect = code == 301 || code == 302 || code == 303 || code == 307 || code == 308;
+	std::string redirect_location; // Copied, as location points into socket_buffer, which is overwritten when reading the body.
+	if(is_redirect)
 	{
 		if(location.empty())
 			throw glare::Exception("Redirect location was empty");
 
-		if(request_type == RequestType_Get)
-		{
-			// conPrint("Redirecting to '" + location + "'...");
-			return doDownloadFile(URL::resolveToAbsoluteURL(request_url, toString(location)), num_redirects_done + 1, response_data_handler); // Location may be relative to the request URL.
-		}
-		else
+		if(request_type != RequestType_Get)
 			throw glare::Exception("Redirect received for POST request, not supported currently.");
+
+		redirect_location = toString(location);
 	}
+
+	// For a redirect, read the body but throw it away.  Reading it means the connection can be reused for the redirected request.
+	DiscardDataHandler discard_data_handler;
+	StreamingDataHandler& body_data_handler = is_redirect ? discard_data_handler : response_data_handler;
 
 	if(have_content_length) // If the server sent a valid content-length:
 	{
 		if(content_length > max_data_size)
 			throw glare::Exception("Content length (" + toString(content_length) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
 
-		response_data_handler.haveContentLength(content_length);
+		body_data_handler.haveContentLength(content_length);
 
 		// Copy any body data we have from socket_buffer to data_out.
 		const uint64 body_data_read = socket_buffer.size() - response_header_size;
 		const uint64 use_content_read_B = myMin(body_data_read, content_length);
 		if(use_content_read_B > 0)
-			response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, use_content_read_B), response_info);
+			body_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, use_content_read_B), response_info);
 
 		// Now read rest of data from socket, and write to data_out
 		runtimeCheck(content_length >= use_content_read_B);
 		uint64 remaining_data = content_length - use_content_read_B;
 		while(remaining_data > 0)
 		{
-			// Read chunks of data from socket, pass to response_data_handler.handleData().
+			// Read chunks of data from socket, pass to body_data_handler.handleData().
 			const uint64 MAX_READ_SIZE = 1 << 14; // TODO: use min() with max_socket_buffer_size here?
 			
 			const size_t read_size = (size_t)myMin(remaining_data, MAX_READ_SIZE);
 			socket_buffer.resize(read_size);
 			socket->readDataChecked(socket_buffer, /*buf index=*/0, /*num bytes=*/read_size);
 
-			response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, read_size), response_info);
+			body_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, read_size), response_info);
 
 			runtimeCheck(remaining_data >= read_size);
 			remaining_data -= read_size;
@@ -310,13 +321,21 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 						socket->readDataChecked(socket_buffer, /*buf index=*/current_amount_read, /*num bytes=*/required_buffer_size - current_amount_read);
 					}
 
-					response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(chunk_line_end_index, chunk_size), response_info);
+					body_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(chunk_line_end_index, chunk_size), response_info);
 
 					chunk_line_start_index = chunk_line_end_index + chunk_and_crlf_size; // Advance past chunk line + chunk data.
 				}
 				else
 				{
-					// Finished chunks.  Footers follow but we will ignore those.
+					// Finished chunks.  Read and ignore any trailer fields, up to the empty line that ends the response, so the connection can be reused.
+					size_t trailer_line_start_index = chunk_line_end_index;
+					while(1)
+					{
+						const size_t trailer_line_end_index = readUntilCRLF(trailer_line_start_index);
+						if(trailer_line_end_index == trailer_line_start_index + 2) // If we read an empty line:
+							break;
+						trailer_line_start_index = trailer_line_end_index;
+					}
 					break;
 				}
 			}
@@ -331,7 +350,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 				throw glare::Exception("Body length (" + toString(body_data_read) + " B) exceeded max data size (" + toString(max_data_size) + " B)");
 
 			if(body_data_read > 0)
-				response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, body_data_read), response_info);
+				body_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(response_header_size, body_data_read), response_info);
 
 			while(1)
 			{
@@ -340,11 +359,19 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 				socket_buffer.resize(MAX_READ_SIZE);
 				const size_t amount_read = socket->readSomeBytesChecked(socket_buffer, /*buf index=*/0, /*max num bytes=*/MAX_READ_SIZE);
 				if(amount_read > 0)
-					response_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, amount_read), response_info);
+					body_data_handler.handleData(ArrayRef<uint8>(socket_buffer).getSliceChecked(0, amount_read), response_info);
 				else
 					break; // Else connection was gracefully closed
 			}
+
+			resetConnection(); // The server closed the connection, so we can't reuse it.
 		}
+	}
+
+	if(is_redirect)
+	{
+		// conPrint("Redirecting to '" + redirect_location + "'...");
+		return doDownloadFile(URL::resolveToAbsoluteURL(request_url, redirect_location), num_redirects_done + 1, response_data_handler); // Location may be relative to the request URL.
 	}
 
 	return response_info;
@@ -671,8 +698,105 @@ public:
 };
 
 
+// Queue str to be returned by a single read from the test socket.
+static void pushReadString(TestSocket& test_socket, const std::string& str)
+{
+	test_socket.buffers.push_back(std::vector<uint8>(str.begin(), str.end()));
+}
+
+
+// Returns the i-th write to the test socket, as a string.
+static std::string getWrittenString(TestSocket& test_socket, size_t i)
+{
+	testAssert(i < test_socket.dest_buffers.size());
+	return std::string(test_socket.dest_buffers[i].begin(), test_socket.dest_buffers[i].end());
+}
+
+
+static Reference<HTTPClient> makeTestClient(TestSocketRef test_socket)
+{
+	Reference<HTTPClient> client = new HTTPClient();
+	client->setKeepAlive(true);
+	client->test_socket = test_socket;
+	return client;
+}
+
+
 void HTTPClient::test()
 {
+	// Tests using a TestSocket, where each response is split across reads so that unread data is left in the socket.
+	try
+	{
+		// Test a same-host redirect with a Content-Length body.  The body must be read, or it would be parsed as the header of the next response.
+		{
+			TestSocketRef test_socket = new TestSocket();
+			pushReadString(*test_socket, "HTTP/1.1 302 Found\r\nLocation: /target\r\nContent-Length: 5\r\n\r\n");
+			pushReadString(*test_socket, "moved");
+			pushReadString(*test_socket, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello");
+
+			Reference<HTTPClient> client = makeTestClient(test_socket);
+			std::string data;
+			const ResponseInfo info = client->downloadFile("http://a.com/dir/file", data);
+			testAssert(info.response_code == 200);
+			testAssert(data == "hello");
+			testAssert(hasPrefix(getWrittenString(*test_socket, 1), "GET /target HTTP/1.1\r\n"));
+		}
+
+		// Test a same-host redirect with a chunked body, with the final CRLF in its own read.
+		{
+			TestSocketRef test_socket = new TestSocket();
+			pushReadString(*test_socket, "HTTP/1.1 301 Moved Permanently\r\nLocation: target\r\nTransfer-Encoding: chunked\r\n\r\n");
+			pushReadString(*test_socket, "5\r\nmoved\r\n0\r\n");
+			pushReadString(*test_socket, "\r\n");
+			pushReadString(*test_socket, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello");
+
+			Reference<HTTPClient> client = makeTestClient(test_socket);
+			std::string data;
+			const ResponseInfo info = client->downloadFile("http://a.com/dir/file", data);
+			testAssert(info.response_code == 200);
+			testAssert(data == "hello");
+			testAssert(hasPrefix(getWrittenString(*test_socket, 1), "GET /dir/target HTTP/1.1\r\n"));
+		}
+
+		// Test a chunked response with trailer fields, followed by another request on the same connection.
+		{
+			TestSocketRef test_socket = new TestSocket();
+			pushReadString(*test_socket, "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n");
+			pushReadString(*test_socket, "5\r\nhello\r\n6\r\n world\r\n0\r\n");
+			pushReadString(*test_socket, "X-Checksum: abc\r\n");
+			pushReadString(*test_socket, "\r\n");
+			pushReadString(*test_socket, "HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nabc");
+
+			Reference<HTTPClient> client = makeTestClient(test_socket);
+			std::string data;
+			client->downloadFile("http://a.com/first", data);
+			testAssert(data == "hello world");
+
+			client->downloadFile("http://a.com/second", data);
+			testAssert(data == "abc");
+		}
+
+		// Test a body that ends when the server closes the connection, followed by another request.
+		{
+			TestSocketRef test_socket = new TestSocket();
+			pushReadString(*test_socket, "HTTP/1.1 200 OK\r\n\r\n");
+			pushReadString(*test_socket, "hello");
+
+			Reference<HTTPClient> client = makeTestClient(test_socket);
+			std::string data;
+			client->downloadFile("http://a.com/first", data);
+			testAssert(data == "hello");
+
+			pushReadString(*test_socket, "HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nabc");
+			client->downloadFile("http://a.com/second", data);
+			testAssert(data == "abc");
+		}
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
 	// Test downloading a file
 	try
 	{

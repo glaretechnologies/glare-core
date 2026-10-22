@@ -1,0 +1,12 @@
+HTTP/1.1 301 Moved Permanently
+Location: target
+Transfer-Encoding: chunked
+
+!5
+moved
+0
+!
+!HTTP/1.1 200 OK
+Content-Length: 5
+
+hello

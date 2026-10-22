@@ -1,0 +1,14 @@
+HTTP/1.1 307 Temporary Redirect
+Location: /a
+Transfer-Encoding: chunked
+
+4
+body
+0
+X-Checksum: abc
+!X-Other: def
+
+!HTTP/1.1 200 OK
+Content-Length: 2
+
+ok
