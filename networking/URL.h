@@ -30,6 +30,11 @@ public:
 	// a=b&c=d&e=f etc.
 	static std::map<std::string, std::string> parseQuery(const std::string& query);
 
+	// Resolves a URL 'reference', such as the Location header of a redirect, against the URL it was received for.
+	// 'ref' may be absolute ("https://a.com/x"), scheme-relative ("//a.com/x"), host-relative ("/x"), a query ("?q=1"), a fragment ("#f"),
+	// or relative to the base URL's directory ("x/y.png").  Dot segments such as "../" are passed through, not removed.
+	static std::string resolveToAbsoluteURL(const URL& base, const std::string& ref);
+
 	static void test();
 
 	std::string scheme; // Without the trailing "://"

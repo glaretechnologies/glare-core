@@ -180,6 +180,39 @@ URL URL::parseURL(const std::string& url) // throws glare::Exception
 }
 
 
+std::string URL::resolveToAbsoluteURL(const URL& base, const std::string& ref)
+{
+	// An absolute URL has a scheme: "://" before any '/', '?' or '#'.
+	const size_t scheme_terminator_pos = ref.find("://");
+	if((scheme_terminator_pos != std::string::npos) && (scheme_terminator_pos < ref.find_first_of("/?#")))
+		return ref;
+
+	if(hasPrefix(ref, "//"))
+		return base.scheme + ":" + ref;
+
+	const std::string origin = base.scheme + "://" + base.host + ((base.port != -1) ? (":" + toString(base.port)) : std::string());
+
+	if(hasPrefix(ref, "/"))
+		return origin + ref;
+
+	const std::string base_path = base.path.empty() ? std::string("/") : base.path;
+
+	if(hasPrefix(ref, "?"))
+		return origin + base_path + ref;
+
+	if(hasPrefix(ref, "#"))
+		return origin + base_path + (base.query.empty() ? std::string() : ("?" + base.query)) + ref;
+
+	// Relative to the directory of the base path.
+	// TODO: remove "." and ".." segments, as in RFC 3986 section 5.2.4.
+	const size_t last_slash_pos = base_path.rfind('/');
+	if(last_slash_pos == std::string::npos) // No directory in the base path, so resolve relative to the root.
+		return origin + "/" + ref;
+
+	return origin + base_path.substr(0, last_slash_pos + 1) + ref;
+}
+
+
 // NOTE: copied from Escaping::URLUnescape
 static const std::string URLUnescape(const std::string& s)
 {
@@ -292,6 +325,28 @@ static void testQuery(const std::string& query, const std::map<std::string, std:
 
 void URL::test()
 {
+	//================== Test resolveToAbsoluteURL ===================
+	{
+		const URL base = parseURL("https://www.a.com/dir/file.html?q=1#f");
+		testAssert(resolveToAbsoluteURL(base, "http://b.org/x.png") == "http://b.org/x.png");
+		testAssert(resolveToAbsoluteURL(base, "//b.org/x.png") == "https://b.org/x.png");
+		testAssert(resolveToAbsoluteURL(base, "/x.png") == "https://www.a.com/x.png");
+		testAssert(resolveToAbsoluteURL(base, "?r=2") == "https://www.a.com/dir/file.html?r=2");
+		testAssert(resolveToAbsoluteURL(base, "#g") == "https://www.a.com/dir/file.html?q=1#g");
+		testAssert(resolveToAbsoluteURL(base, "x.png") == "https://www.a.com/dir/x.png");
+		testAssert(resolveToAbsoluteURL(base, "sub/x.png?y=1") == "https://www.a.com/dir/sub/x.png?y=1");
+		testAssert(resolveToAbsoluteURL(base, "a/b?u=http://c.com") == "https://www.a.com/dir/a/b?u=http://c.com"); // "://" in the query doesn't make it absolute.
+
+		const URL base_with_port = parseURL("http://localhost:8080");
+		testAssert(resolveToAbsoluteURL(base_with_port, "/x") == "http://localhost:8080/x");
+		testAssert(resolveToAbsoluteURL(base_with_port, "x") == "http://localhost:8080/x");
+
+		// A base path without a '/' can't come from parseURL(), but resolve relative to the root if we get one.
+		URL base_with_no_slash_path = parseURL("https://www.a.com");
+		base_with_no_slash_path.path = "file.html";
+		testAssert(resolveToAbsoluteURL(base_with_no_slash_path, "x.png") == "https://www.a.com/x.png");
+	}
+
 	//================== Test parseQuery ===================
 	testQuery(
 		"",

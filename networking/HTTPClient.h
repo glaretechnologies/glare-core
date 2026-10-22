@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/Exception.h"
 #include <string>
 #include <vector>
+class URL;
 
 
 
@@ -50,6 +51,7 @@ public:
 		int response_code;
 		std::string response_message;
 		std::string mime_type;
+		std::string retry_after; // Value of the Retry-After header, empty if not sent.  Either a number of seconds or an HTTP date.
 	};
 
 
@@ -107,7 +109,7 @@ private:
 
 	size_t readUntilCRLF(size_t scan_start_index);
 	size_t readUntilCRLFCRLF(size_t scan_start_index);
-	ResponseInfo handleResponse(size_t request_header_size, RequestType request_type, int num_redirects_done, StreamingDataHandler& response_data_handler);
+	ResponseInfo handleResponse(size_t request_header_size, RequestType request_type, const URL& request_url, int num_redirects_done, StreamingDataHandler& response_data_handler);
 	std::vector<uint8> socket_buffer;
 
 	SocketInterfaceRef socket;

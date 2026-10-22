@@ -100,7 +100,7 @@ void HTTPClient::resetConnection()
 
 // Handle the HTTP response.
 // The response header is in [socket_buffer[0], socket_buffer[response_header_size])
-HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size, RequestType request_type, int num_redirects_done, StreamingDataHandler& response_data_handler)
+HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size, RequestType request_type, const URL& request_url, int num_redirects_done, StreamingDataHandler& response_data_handler)
 {
 	// conPrint(std::string(&socket_buffer[0], &socket_buffer[0] + response_header_size));
 
@@ -212,13 +212,18 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		{
 			location = field_value;
 		}
+		else if(StringUtils::equalCaseInsensitive(field_name, "retry-after"))
+		{
+			response_info.retry_after = toString(field_value);
+		}
 	}
 
 	parser.advance(); // Advance past \r
 	if(!parser.parseChar('\n')) // Advance past \n
 		throw glare::Exception("Parse error");
 
-	if(code == 301 || code == 302)
+	// 301 Moved Permanently, 302 Found, 303 See Other, 307 Temporary Redirect, 308 Permanent Redirect.  For a GET these all mean fetch the Location URL.
+	if(code == 301 || code == 302 || code == 303 || code == 307 || code == 308)
 	{
 		if(location.empty())
 			throw glare::Exception("Redirect location was empty");
@@ -226,7 +231,7 @@ HTTPClient::ResponseInfo HTTPClient::handleResponse(size_t response_header_size,
 		if(request_type == RequestType_Get)
 		{
 			// conPrint("Redirecting to '" + location + "'...");
-			return doDownloadFile(toString(location), num_redirects_done + 1, response_data_handler);
+			return doDownloadFile(URL::resolveToAbsoluteURL(request_url, toString(location)), num_redirects_done + 1, response_data_handler); // Location may be relative to the request URL.
 		}
 		else
 			throw glare::Exception("Redirect received for POST request, not supported currently.");
@@ -403,10 +408,10 @@ size_t HTTPClient::readUntilCRLFCRLF(size_t scan_start_index)
 }
 
 
-class StreamToStringDataHandler : public HTTPClient::StreamingDataHandler
+class StreamToBufferDataHandler : public HTTPClient::StreamingDataHandler
 {
 public:
-	StreamToStringDataHandler(std::vector<uint8>& combined_data_, size_t max_data_size_) : combined_data(combined_data_), max_data_size(max_data_size_) {}
+	StreamToBufferDataHandler(std::vector<uint8>& combined_data_, size_t max_data_size_) : combined_data(combined_data_), max_data_size(max_data_size_) {}
 
 	virtual void haveContentLength(uint64 content_length) override
 	{
@@ -437,7 +442,7 @@ public:
 
 HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::vector<uint8>& data_out) // Throws glare::Exception on failure.
 {
-	StreamToStringDataHandler handler(data_out, max_data_size);
+	StreamToBufferDataHandler handler(data_out, max_data_size);
 	return sendPost(url, post_content, content_type, handler);
 }
 
@@ -445,7 +450,7 @@ HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std:
 HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std::string& post_content, const std::string& content_type, std::string& data_out)
 {
 	std::vector<uint8> vec_data;
-	StreamToStringDataHandler handler(vec_data, max_data_size);
+	StreamToBufferDataHandler handler(vec_data, max_data_size);
 	ResponseInfo response = sendPost(url, post_content, content_type, handler);
 
 	data_out.assign((const char*)vec_data.data(), vec_data.size());
@@ -462,7 +467,8 @@ HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std:
 
 	checkSchemeValid(url_components.scheme);
 
-	if(this->socket.isNull() || (this->connected_scheme != url_components.scheme) || (this->connected_hostname != url_components.host) || (this->connected_port != url_components.port)) // If not connected yet, or connected to wrong host
+	// Reconnect if not connected yet, or connected to the wrong host, or if not using keep-alive.
+	if(this->socket.isNull() || !keepalive_socket || (this->connected_scheme != url_components.scheme) || (this->connected_hostname != url_components.host) || (this->connected_port != url_components.port))
 		connect(url_components.scheme, url_components.host, url_components.port);
 
 	const std::string path_and_query = url_components.path + (!url_components.query.empty() ? ("?" + url_components.query) : "");
@@ -486,7 +492,7 @@ HTTPClient::ResponseInfo HTTPClient::sendPost(const std::string& url, const std:
 
 	const size_t CRLFCRLF_end_i = readUntilCRLFCRLF(/*scan_start_index=*/0);
 
-	return handleResponse(CRLFCRLF_end_i, RequestType_Post, /*num_redirects_done=*/0, response_data_handler);
+	return handleResponse(CRLFCRLF_end_i, RequestType_Post, url_components, /*num_redirects_done=*/0, response_data_handler);
 }
 
 
@@ -498,7 +504,7 @@ HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, Stream
 
 HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, std::vector<uint8>& data_out)
 {
-	StreamToStringDataHandler handler(data_out, max_data_size);
+	StreamToBufferDataHandler handler(data_out, max_data_size);
 
 	return doDownloadFile(url, /*num_redirects_done=*/0, handler);
 }
@@ -507,7 +513,7 @@ HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, std::v
 HTTPClient::ResponseInfo HTTPClient::downloadFile(const std::string& url, std::string& data_out)
 {
 	std::vector<uint8> data_vec;
-	StreamToStringDataHandler handler(data_vec, max_data_size);
+	StreamToBufferDataHandler handler(data_vec, max_data_size);
 
 	ResponseInfo response = doDownloadFile(url, /*num_redirects_done=*/0, handler);
 
@@ -527,7 +533,9 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 
 	checkSchemeValid(url_components.scheme);
 
-	if(this->socket.isNull() || (this->connected_scheme != url_components.scheme) || (this->connected_hostname != url_components.host) || (this->connected_port != url_components.port)) // If not connected yet, or connected to wrong host:
+	// Reconnect if not connected yet, or connected to the wrong host, or if not using keep-alive, since then we asked the server to close the
+	// connection after the last response (which is also the case when following a redirect to the same host).
+	if(this->socket.isNull() || !keepalive_socket || (this->connected_scheme != url_components.scheme) || (this->connected_hostname != url_components.host) || (this->connected_port != url_components.port))
 		connect(url_components.scheme, url_components.host, url_components.port);
 		
 	const std::string path_and_query = url_components.path + (!url_components.query.empty() ? ("?" + url_components.query) : "");
@@ -555,7 +563,7 @@ HTTPClient::ResponseInfo HTTPClient::doDownloadFile(const std::string& url, int 
 
 	const size_t CRLFCRLF_end_i = readUntilCRLFCRLF(/*scan_start_index=*/0);
 
-	return handleResponse(CRLFCRLF_end_i, RequestType_Get, num_redirects_done, response_data_handler);
+	return handleResponse(CRLFCRLF_end_i, RequestType_Get, url_components, num_redirects_done, response_data_handler);
 }
 
 
