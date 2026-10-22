@@ -382,6 +382,12 @@ void BasisDecoder::test()
 
 			conPrint("Writing italy_bolsena_flag_flowers_stairs_01.basis took " + timer.elapsedStringMSWIthNSigFigs(4));
 		}
+
+		if(0)
+		{
+			Reference<Map2D> im = PNGDecoder::decode("C:\\code\\substrata\\source_resources\\processing.png");
+			writeBasisFile(*im.downcastToPtr<ImageMapUInt8>(), "C:\\code\\substrata\\source_resources\\processing.basis");
+		}
 #endif
 
 		//----------------------------------- Test time to load a JPG and do DXT compression for comparison -------------------------------------------
