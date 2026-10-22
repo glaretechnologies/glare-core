@@ -45,11 +45,10 @@ void ThreadManager::killThreadsBlocking()
 	// We don't want to hold the mutex while joining threads, as threads will be getting removed from the threads set during the joining process.
 	{
 		Lock lock(mutex);
-		for(THREAD_SET_TYPE::iterator i=threads.begin(); i!=threads.end(); ++i)
-			threads_to_wait_on.push_back(*i);
+		threads_to_wait_on.assign(threads.begin(), threads.end());
 	}
 	
-	// Wait for each thread to terminate.  NOTE: Could use WaitForMulitpleObjects on Windows.
+	// Wait for each thread to terminate.  NOTE: Could use WaitForMultipleObjects on Windows.
 	for(size_t i=0; i<threads_to_wait_on.size(); ++i)
 		threads_to_wait_on[i]->join();
 }
