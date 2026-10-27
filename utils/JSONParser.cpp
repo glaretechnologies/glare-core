@@ -12,6 +12,8 @@ Copyright Glare Technologies Limited 2020 -
 #include "UTF8Utils.h"
 #include "ConPrint.h"
 #include "StringUtils.h"
+#include "../maths/mathstypes.h"
+#include <limits>
 
 
 const std::string JSONNode::typeString(const Type type)
@@ -44,21 +46,31 @@ const std::string& JSONNode::getStringValue() const
 }
 
 
+// Converting a non-finite or out-of-range double to an integer type is undefined behaviour, so check the value is convertible first.
+// Values are truncated towards zero.
 int JSONNode::getIntValue() const
 {
-	if(type == JSONNode::Type_Number)
-		return (int)this->value.double_v;
-	else
+	if(type != JSONNode::Type_Number)
 		throw glare::Exception("Expected type Number.");
+
+	const double v = this->value.double_v;
+	if(!isFinite(v) || !(v > (double)std::numeric_limits<int>::min() - 1.0 && v < (double)std::numeric_limits<int>::max() + 1.0))
+		throw glare::Exception("Number value out of range for int.");
+
+	return (int)v;
 }
 
 
 size_t JSONNode::getUIntValue() const
 {
-	if(type == JSONNode::Type_Number)
-		return (size_t)this->value.double_v;
-	else
+	if(type != JSONNode::Type_Number)
 		throw glare::Exception("Expected type Number.");
+
+	const double v = this->value.double_v;
+	if(!isFinite(v) || !(v >= 0.0 && v < (double)std::numeric_limits<size_t>::max() + 1.0)) // Reject negative values
+		throw glare::Exception("Number value out of range for unsigned integer.");
+
+	return (size_t)v;
 }
 
 
@@ -623,6 +635,7 @@ std::string JSONParser::errorContext(Parser& p)
 
 
 #include "../utils/TestUtils.h"
+#include "../utils/TestExceptionUtils.h"
 #include "Timer.h"
 
 
@@ -831,6 +844,80 @@ void JSONParser::test()
 		}
 		catch(glare::Exception&)
 		{}
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	//--------- Test getIntValue and getUIntValue range checking ----------
+	try
+	{
+		JSONParser p;
+		std::string s = "{ \"zero\": 0, \"neg_zero\": -0.0, \"a\": 27, \"neg_a\": -27, \"frac\": 27.9, \"neg_frac\": -27.9, \"small_neg_frac\": -0.5, \"neg_one\": -1, "
+			"\"int_max\": 2147483647, \"int_max_frac\": 2147483647.5, \"int_max_plus_one\": 2147483648, "
+			"\"int_min\": -2147483648, \"int_min_frac\": -2147483648.5, \"int_min_minus_one\": -2147483649, "
+			"\"big\": 1e19, \"two_pow_64\": 18446744073709551616, \"huge\": 1e300, \"neg_huge\": -1e300, \"str\": \"1\" }";
+		p.parseBuffer(s.data(), s.size());
+
+		const JSONNode& root_ob = p.nodes[0];
+
+		// getIntValue: values are truncated towards zero.
+		testEqual(root_ob.getChildIntValue(p, "zero"), 0);
+		testEqual(root_ob.getChildIntValue(p, "neg_zero"), 0);
+		testEqual(root_ob.getChildIntValue(p, "a"), 27);
+		testEqual(root_ob.getChildIntValue(p, "neg_a"), -27);
+		testEqual(root_ob.getChildIntValue(p, "frac"), 27);
+		testEqual(root_ob.getChildIntValue(p, "neg_frac"), -27);
+		testEqual(root_ob.getChildIntValue(p, "small_neg_frac"), 0);
+		testEqual(root_ob.getChildIntValue(p, "neg_one"), -1);
+		testEqual(root_ob.getChildIntValue(p, "int_max"), std::numeric_limits<int>::max());
+		testEqual(root_ob.getChildIntValue(p, "int_max_frac"), std::numeric_limits<int>::max());
+		testEqual(root_ob.getChildIntValue(p, "int_min"), std::numeric_limits<int>::min());
+		testEqual(root_ob.getChildIntValue(p, "int_min_frac"), std::numeric_limits<int>::min());
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "int_max_plus_one"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "int_min_minus_one"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "big"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "huge"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "neg_huge"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "str"); }, "Expected type Number");
+
+		// getChildIntValueWithDefaultVal should throw for an out-of-range value, not return the default.
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValueWithDefaultVal(p, "int_max_plus_one", 0); }, "out of range");
+		testEqual(root_ob.getChildIntValueWithDefaultVal(p, "missing", 123), 123);
+
+		// getUIntValue: values are truncated towards zero, negative values are rejected.
+		testEqual(root_ob.getChildUIntValue(p, "zero"), (size_t)0);
+		testEqual(root_ob.getChildUIntValue(p, "neg_zero"), (size_t)0);
+		testEqual(root_ob.getChildUIntValue(p, "a"), (size_t)27);
+		testEqual(root_ob.getChildUIntValue(p, "frac"), (size_t)27);
+		testEqual(root_ob.getChildUIntValue(p, "int_max_plus_one"), (size_t)2147483648u);
+		if(sizeof(size_t) == 8)
+			testEqual(root_ob.getChildUIntValue(p, "big"), (size_t)10000000000000000000ull); // 1e19 is exactly representable as a double.
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "neg_a"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "neg_frac"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "small_neg_frac"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "neg_one"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "two_pow_64"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "huge"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "neg_huge"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "str"); }, "Expected type Number");
+
+		// getChildUIntValueWithDefaultVal should throw for an out-of-range value, not return the default.
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValueWithDefaultVal(p, "neg_one", 0); }, "out of range");
+		testEqual(root_ob.getChildUIntValueWithDefaultVal(p, "missing", 123), (size_t)123);
+
+		// Non-finite values.  Set these directly on nodes since they can't be written in JSON.
+		const double non_finite_vals[] = { std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN() };
+		for(size_t i=0; i<staticArrayNumElems(non_finite_vals); ++i)
+		{
+			JSONNode node;
+			node.type = JSONNode::Type_Number;
+			node.value.double_v = non_finite_vals[i];
+
+			testThrowsExcepContainingString([&]() { node.getIntValue(); }, "out of range");
+			testThrowsExcepContainingString([&]() { node.getUIntValue(); }, "out of range");
+		}
 	}
 	catch(glare::Exception& e)
 	{
