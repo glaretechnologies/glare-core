@@ -52,7 +52,6 @@ struct JSONNode
 	int getChildIntValue(const JSONParser& parser, const string_view name) const;
 	int getChildIntValueWithDefaultVal(const JSONParser& parser, const string_view name, int default_val) const;
 
-
 	double getChildDoubleValue(const JSONParser& parser, const string_view name) const;
 	double getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view name, double default_val) const;
 
@@ -60,6 +59,13 @@ struct JSONNode
 
 	const std::string& getChildStringValue(const JSONParser& parser, const string_view name) const;
 	const std::string getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view name, const string_view default_val) const;
+
+	bool hasChildWithStringValueEqualTo(const JSONParser& parser, const string_view name, const string_view target_value) const;
+
+	// Returns true if this object has a child 'name' with a string value equal to target_value, ignoring case.  target_value must be lowercase.
+	// Returns false if the child is missing or is not a string.
+	bool hasChildWithStringValueCaseInsensitiveEqualTo(const JSONParser& parser, const string_view name, const string_view target_value) const;
+
 	const JSONNode& getChildObject(const JSONParser& parser, const string_view name) const;
 	const JSONNode& getChildArray(const JSONParser& parser, const string_view name) const;
 

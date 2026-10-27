@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "Exception.h"
 #include "UTF8Utils.h"
 #include "ConPrint.h"
+#include "StringUtils.h"
 
 
 const std::string JSONNode::typeString(const Type type)
@@ -219,6 +220,34 @@ const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& 
 			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue();
 
 	return toString(default_val);
+}
+
+
+bool JSONNode::hasChildWithStringValueEqualTo(const JSONParser& parser, const string_view name, const string_view target_value) const
+{
+	if(type != JSONNode::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(size_t i=0; i<name_val_pairs.size(); ++i)
+		if(name_val_pairs[i].name == name && parser.nodes[name_val_pairs[i].value_node_index].type == JSONNode::Type_String)
+			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue() == target_value;
+
+	return false;
+}
+
+
+bool JSONNode::hasChildWithStringValueCaseInsensitiveEqualTo(const JSONParser& parser, const string_view name, const string_view target_value) const
+{
+	assert(::toLowerCase(target_value) == target_value); // target_value should be lower case.
+
+	if(type != JSONNode::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(size_t i=0; i<name_val_pairs.size(); ++i)
+		if(name_val_pairs[i].name == name && parser.nodes[name_val_pairs[i].value_node_index].type == JSONNode::Type_String)
+			return StringUtils::equalCaseInsensitive(parser.nodes[name_val_pairs[i].value_node_index].getStringValue(), target_value);
+
+	return false;
 }
 
 
@@ -741,6 +770,67 @@ void JSONParser::test()
 		testAssert(root_ob.name_val_pairs[0].name == "a");
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_Object);
 		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].name_val_pairs.empty());
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	//--------- Test hasChildWithStringValueEqualTo and hasChildWithStringValueCaseInsensitiveEqualTo ----------
+	try
+	{
+		JSONParser p;
+		std::string s = "{ \"type\": \"sale\", \"addr\": \"0xAbCd\", \"empty\": \"\", \"num\": 1, \"null\": null, \"ob\": {}, \"arr\": [\"sale\"] }";
+		p.parseBuffer(s.data(), s.size());
+
+		const JSONNode& root_ob = p.nodes[0];
+
+		// hasChildWithStringValueEqualTo
+		testAssert(root_ob.hasChildWithStringValueEqualTo(p, "type", "sale"));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "type", "Sale")); // Case sensitive
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "type", "sal")); // Target is prefix of value
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "type", "sales")); // Value is prefix of target
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "type", ""));
+		testAssert(root_ob.hasChildWithStringValueEqualTo(p, "addr", "0xAbCd"));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "addr", "0xabcd"));
+		testAssert(root_ob.hasChildWithStringValueEqualTo(p, "empty", ""));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "empty", "a"));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "missing", "sale")); // Missing child
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "missing", ""));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "num", "1")); // Non-string children
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "null", "null"));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "ob", ""));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "arr", "sale"));
+
+		// hasChildWithStringValueCaseInsensitiveEqualTo.  target_value must be lowercase.
+		testAssert(root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "type", "sale"));
+		testAssert(root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "addr", "0xabcd")); // Mixed-case value
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "addr", "0xabce"));
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "addr", "0xabc")); // Target is prefix of value
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "addr", "0xabcde")); // Value is prefix of target
+		testAssert(root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "empty", ""));
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "empty", "a"));
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "missing", "sale")); // Missing child
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "num", "1")); // Non-string children
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "null", "null"));
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "arr", "sale"));
+
+		// Calling on a non-object node should throw.
+		const JSONNode& arr_node = root_ob.getChildArray(p, "arr");
+		try
+		{
+			arr_node.hasChildWithStringValueEqualTo(p, "type", "sale");
+			failTest("Expected excep to be thrown.");
+		}
+		catch(glare::Exception&)
+		{}
+		try
+		{
+			arr_node.hasChildWithStringValueCaseInsensitiveEqualTo(p, "type", "sale");
+			failTest("Expected excep to be thrown.");
+		}
+		catch(glare::Exception&)
+		{}
 	}
 	catch(glare::Exception& e)
 	{
