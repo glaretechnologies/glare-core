@@ -28,9 +28,15 @@ class PNGDecoder
 public:
 	// All methods throw ImFormatExcep on failure.
 
-	static Reference<Map2D> decode(const std::string& path, glare::Allocator* mem_allocator = NULL);
+	struct PNGDecoderOptions
+	{
+		PNGDecoderOptions() : max_num_pixels(1 << 28) {}
+		size_t max_num_pixels; // Images with more pixels than this are rejected, after reading the header but before allocating memory for the image.
+	};
 
-	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator = NULL);
+	static Reference<Map2D> decode(const std::string& path, glare::Allocator* mem_allocator = NULL, const PNGDecoderOptions& options = PNGDecoderOptions());
+
+	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator = NULL, const PNGDecoderOptions& options = PNGDecoderOptions());
 	
 	static void write(const Bitmap& bitmap, const std::map<std::string, std::string>& metadata, const std::string& path);
 	static void write(const Bitmap& bitmap, const std::string& path); // Write with no metadata

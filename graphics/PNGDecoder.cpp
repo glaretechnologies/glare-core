@@ -113,12 +113,12 @@ static void pngdecoder_read_data(png_structp png_ptr, png_bytep data, png_size_t
 #endif // LIBPNG_SUPPORT
 
 
-Reference<Map2D> PNGDecoder::decode(const std::string& path, glare::Allocator* mem_allocator)
+Reference<Map2D> PNGDecoder::decode(const std::string& path, glare::Allocator* mem_allocator, const PNGDecoderOptions& options)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeFromBuffer(file.fileData(), file.fileSize(), mem_allocator);
+		return decodeFromBuffer(file.fileData(), file.fileSize(), mem_allocator, options);
 	}
 	catch(glare::Exception& e)
 	{
@@ -175,7 +175,7 @@ For example it will load a 3x16 bit rgb color PNG file as a 4x16 bit format.
 As such we won't make it the default way to load PNGs for now, but will continue to use LibPNG as the default.  
 Define WUFFS_SUPPORT to make Wuffs the default way to load PNGs.
 */
-static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewInStream& buffer_view_in_stream, glare::Allocator* mem_allocator)
+static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewInStream& buffer_view_in_stream, glare::Allocator* mem_allocator, const PNGDecoder::PNGDecoderOptions& options)
 {
 	try
 	{
@@ -207,8 +207,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 		if(h >= 1000000)
 			throw ImFormatExcep("invalid height: " + toString(h));
 
-		const size_t max_num_pixels = 1 << 28;
-		if((size_t)w * (size_t)h > max_num_pixels)
+		if((size_t)w * (size_t)h > options.max_num_pixels)
 			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(w) + ", " + toString(h));
 
 		// See https://github.com/google/wuffs/blob/main/doc/note/pixel-formats.md
@@ -244,8 +243,8 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 		const wuffs_base__slice_u8 workbuf_slice = wuffs_base__make_slice_u8(workbuf_array.data(), workbuf_len);
 
 
-		wuffs_base__decode_frame_options options;
-		memset(&options, 0, sizeof(wuffs_base__decode_frame_options));
+		wuffs_base__decode_frame_options frame_options;
+		memset(&frame_options, 0, sizeof(wuffs_base__decode_frame_options));
 
 		const wuffs_base__pixel_blend blend = WUFFS_BASE__PIXEL_BLEND__SRC;
 
@@ -310,7 +309,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 			status = dest_pixel_buffer.set_from_slice(&destination_pixcfg, pixbuf_slice);
 			throwOnError(status);
 
-			status = png_decoder.decode_frame(&dest_pixel_buffer, &src_io_buffer, blend, workbuf_slice, &options);
+			status = png_decoder.decode_frame(&dest_pixel_buffer, &src_io_buffer, blend, workbuf_slice, &frame_options);
 			throwOnError(status);
 
 			
@@ -358,7 +357,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 			status = dest_pixel_buffer.set_from_slice(&destination_pixcfg, pixbuf_slice);
 			throwOnError(status);
 
-			status = png_decoder.decode_frame(&dest_pixel_buffer, &src_io_buffer, blend, workbuf_slice, &options);
+			status = png_decoder.decode_frame(&dest_pixel_buffer, &src_io_buffer, blend, workbuf_slice, &frame_options);
 			throwOnError(status);
 
 			const size_t num_pixels = (size_t)w * (size_t)h;
@@ -407,7 +406,7 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferWithWuffs(BufferViewIn
 
 #if !WUFFS_SUPPORT
 
-static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStream& buffer_view_in_stream)
+static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStream& buffer_view_in_stream, const PNGDecoder::PNGDecoderOptions& options)
 {
 	std::vector<png_bytep> row_pointers;
 
@@ -437,6 +436,19 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStr
 
 
 		png_read_info(png_ptr, info_ptr);
+
+		// Check the image dimensions before png_read_update_info(), which allocates buffers based on the image width.
+		// The transformations set below don't change the image width or height.
+		const uint32 width = png_get_image_width(png_ptr, info_ptr);
+		const uint32 height = png_get_image_height(png_ptr, info_ptr);
+
+		if(width >= 1000000)
+			throw ImFormatExcep("invalid width: " + toString(width));
+		if(height >= 1000000)
+			throw ImFormatExcep("invalid height: " + toString(height));
+
+		if((size_t)width * (size_t)height > options.max_num_pixels)
+			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(width) + ", " + toString(height));
 
 
 		// Work out gamma
@@ -469,19 +481,8 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStr
 		// Re-read info, which will be changed based on our transformations.
 		png_read_update_info(png_ptr, info_ptr);
 
-		const uint32 width = png_get_image_width(png_ptr, info_ptr);
-		const uint32 height = png_get_image_height(png_ptr, info_ptr);
 		const uint32 bit_depth = png_get_bit_depth(png_ptr, info_ptr);
 		const uint32 num_channels = png_get_channels(png_ptr, info_ptr);
-
-		if(width >= 1000000)
-			throw ImFormatExcep("invalid width: " + toString(width));
-		if(height >= 1000000)
-			throw ImFormatExcep("invalid height: " + toString(height));
-
-		const size_t max_num_pixels = 1 << 28;
-		if((size_t)width * (size_t)height > max_num_pixels)
-			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(width) + ", " + toString(height));
 
 		if(num_channels > 4)
 			throw ImFormatExcep("Invalid num channels: " + toString(num_channels));
@@ -536,14 +537,14 @@ static GLARE_NO_INLINE Reference<Map2D> doDecodeFromBufferLibPNG(BufferViewInStr
 #endif // !WUFFS_SUPPORT
 
 
-Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator)
+Reference<Map2D> PNGDecoder::decodeFromBuffer(const void* data, size_t size, glare::Allocator* mem_allocator, const PNGDecoderOptions& options)
 {
 	BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)data, size));
 
 #if WUFFS_SUPPORT
-	return doDecodeFromBufferWithWuffs(buffer_view_in_stream, mem_allocator);
+	return doDecodeFromBufferWithWuffs(buffer_view_in_stream, mem_allocator, options);
 #else
-	return doDecodeFromBufferLibPNG(buffer_view_in_stream);
+	return doDecodeFromBufferLibPNG(buffer_view_in_stream, options);
 #endif
 }
 
@@ -846,6 +847,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
 
 #include "../utils/TestUtils.h"
+#include "../utils/TestExceptionUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "bitmap.h"
@@ -1365,6 +1367,45 @@ void PNGDecoder::test(const std::string& base_dir_path)
 		failTest(e.what());
 	}
 
+	// Test PNGDecoderOptions::max_num_pixels
+	try
+	{
+		testAssert(PNGDecoderOptions().max_num_pixels == (1 << 28));
+
+		ImageMapUInt8 imagemap(20, 10, 3);
+		imagemap.set(125);
+
+		const std::string path = PlatformUtils::getTempDirPath() + "/png_max_num_pixels_test.png";
+		write(imagemap, path);
+
+		std::vector<unsigned char> file_data;
+		FileUtils::readEntireFile(path, file_data);
+
+		PNGDecoderOptions options;
+
+		// An image with max_num_pixels pixels should be decoded.
+		options.max_num_pixels = 20 * 10;
+		{
+			Reference<Map2D> im = decode(path, /*mem_allocator=*/NULL, options);
+			testAssert(im->getMapWidth() == 20);
+			testAssert(im->getMapHeight() == 10);
+		}
+		{
+			Reference<Map2D> im = decodeFromBuffer(file_data.data(), file_data.size(), /*mem_allocator=*/NULL, options);
+			testAssert(im->getMapWidth() == 20);
+			testAssert(im->getMapHeight() == 10);
+		}
+
+		// An image with more than max_num_pixels pixels should be rejected.
+		options.max_num_pixels = 20 * 10 - 1;
+		testThrowsExcepContainingString([&]() { decode(path, /*mem_allocator=*/NULL, options); }, "too many pixels");
+		testThrowsExcepContainingString([&]() { decodeFromBuffer(file_data.data(), file_data.size(), /*mem_allocator=*/NULL, options); }, "too many pixels");
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
 
 
 	// Try testing write failure - write to an invalid location
@@ -1418,7 +1459,7 @@ void PNGDecoder::test(const std::string& base_dir_path)
 			{
 				Timer timer;
 				BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)file.fileData(), file.fileSize()));
-				Reference<Map2D> map = doDecodeFromBufferLibPNG(buffer_view_in_stream);
+				Reference<Map2D> map = doDecodeFromBufferLibPNG(buffer_view_in_stream, PNGDecoderOptions());
 				//testAssert(map->getMapWidth() == 1000);
 				min_time = myMin(min_time, timer.elapsed());
 
@@ -1433,7 +1474,7 @@ void PNGDecoder::test(const std::string& base_dir_path)
 			{
 				Timer timer;
 				BufferViewInStream buffer_view_in_stream(ArrayRef<uint8>((const uint8*)file.fileData(), file.fileSize()));
-				Reference<Map2D> map = doDecodeFromBufferWithWuffs(buffer_view_in_stream, NULL);
+				Reference<Map2D> map = doDecodeFromBufferWithWuffs(buffer_view_in_stream, NULL, PNGDecoderOptions());
 				//testAssert(map->getMapWidth() == 1000);
 				min_time = myMin(min_time, timer.elapsed());
 			}

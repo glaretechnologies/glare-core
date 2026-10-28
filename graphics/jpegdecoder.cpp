@@ -86,12 +86,22 @@ public:
 };
 
 
-Reference<Map2D> JPEGDecoder::decode(const std::string& base_dir_path, const std::string& path, glare::Allocator* mem_allocator)
+JPEGDecoder::JPEGDecoderOptions::JPEGDecoderOptions()
+{
+#if IS_INDIGO
+	max_num_pixels = std::numeric_limits<size_t>::max(); // Don't limit the memory in Indigo, allow loading very large images.
+#else
+	max_num_pixels = 1 << 27;
+#endif
+}
+
+
+Reference<Map2D> JPEGDecoder::decode(const std::string& base_dir_path, const std::string& path, glare::Allocator* mem_allocator, const JPEGDecoderOptions& options)
 {
 	try
 	{
 		MemMappedFile file(path);
-		return decodeFromBuffer(file.fileData(), file.fileSize(), base_dir_path, mem_allocator);
+		return decodeFromBuffer(file.fileData(), file.fileSize(), base_dir_path, mem_allocator, options);
 	}
 	catch(glare::Exception& e)
 	{
@@ -100,7 +110,7 @@ Reference<Map2D> JPEGDecoder::decode(const std::string& base_dir_path, const std
 }
 
 
-Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& base_dir_path, glare::Allocator* mem_allocator)
+Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, const std::string& base_dir_path, glare::Allocator* mem_allocator, const JPEGDecoderOptions& options)
 {
 	try
 	{
@@ -141,6 +151,10 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 		//read header
 		//------------------------------------------------------------------------
 		jpeg_read_header(&cinfo, /*require_image=*/TRUE);
+
+		// Check the image size before jpeg_start_decompress(), which allocates memory based on it.
+		if((size_t)cinfo.image_width * (size_t)cinfo.image_height > options.max_num_pixels)
+			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(cinfo.image_width) + ", " + toString(cinfo.image_height));
 
 		// Go through markers until we find the icc profile
 		//jpeg_saved_marker_ptr marker = cinfo.marker_list;
@@ -187,13 +201,6 @@ Reference<Map2D> JPEGDecoder::decodeFromBuffer(const void* data, size_t size, co
 			throw ImFormatExcep("Invalid width: " + toString(cinfo.output_width));
 		if(cinfo.output_height > 1000000)
 			throw ImFormatExcep("Invalid height: " + toString(cinfo.output_height));
-
-#if !IS_INDIGO
-		// Don't limit the memory in Indigo, allow loading very large images.
-		const size_t max_num_pixels = 1 << 27;
-		if((size_t)cinfo.output_width * (size_t)cinfo.output_height > max_num_pixels)
-			throw ImFormatExcep("invalid width and height (too many pixels): " + toString(cinfo.output_width) + ", " + toString(cinfo.output_height));
-#endif
 
 		ImageMapUInt8Ref texture = new ImageMapUInt8(cinfo.output_width, cinfo.output_height, final_num_components, mem_allocator);
 
@@ -486,6 +493,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
 
 #include "../utils/TestUtils.h"
+#include "../utils/TestExceptionUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/BufferOutStream.h"
 
@@ -690,6 +698,43 @@ void JPEGDecoder::test(const std::string& base_dir_path)
 		}
 		catch(ImFormatExcep&)
 		{
+		}
+
+		// Test JPEGDecoderOptions::max_num_pixels
+		try
+		{
+			Reference<ImageMapUInt8> im = new ImageMapUInt8(20, 10, 3);
+			im->set(125);
+
+			const std::string path = tempdir + "/max_num_pixels_test.jpg";
+			JPEGDecoder::save(im, path, JPEGDecoder::SaveOptions());
+
+			BufferOutStream stream;
+			JPEGDecoder::saveToStream(im, JPEGDecoder::SaveOptions(), stream);
+
+			JPEGDecoderOptions options;
+
+			// An image with max_num_pixels pixels should be decoded.
+			options.max_num_pixels = 20 * 10;
+			{
+				Reference<Map2D> loaded_im = JPEGDecoder::decode(base_dir_path, path, /*mem_allocator=*/NULL, options);
+				testAssert(loaded_im->getMapWidth() == 20);
+				testAssert(loaded_im->getMapHeight() == 10);
+			}
+			{
+				Reference<Map2D> loaded_im = JPEGDecoder::decodeFromBuffer(stream.buf.data(), stream.buf.size(), base_dir_path, /*mem_allocator=*/NULL, options);
+				testAssert(loaded_im->getMapWidth() == 20);
+				testAssert(loaded_im->getMapHeight() == 10);
+			}
+
+			// An image with more than max_num_pixels pixels should be rejected.
+			options.max_num_pixels = 20 * 10 - 1;
+			testThrowsExcepContainingString([&]() { JPEGDecoder::decode(base_dir_path, path, /*mem_allocator=*/NULL, options); }, "too many pixels");
+			testThrowsExcepContainingString([&]() { JPEGDecoder::decodeFromBuffer(stream.buf.data(), stream.buf.size(), base_dir_path, /*mem_allocator=*/NULL, options); }, "too many pixels");
+		}
+		catch(ImFormatExcep& e)
+		{
+			failTest(e.what());
 		}
 
 		// Perf test

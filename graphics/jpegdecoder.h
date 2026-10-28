@@ -34,9 +34,16 @@ public:
 	};
 
 
-	static Reference<Map2D> decode(const std::string& base_dir_path, const std::string& path, glare::Allocator* mem_allocator = NULL);
+	struct JPEGDecoderOptions
+	{
+		JPEGDecoderOptions();
+		size_t max_num_pixels; // Images with more pixels than this are rejected, after reading the header but before allocating memory for the image.
+	};
 
-	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, const std::string& base_dir_path, glare::Allocator* mem_allocator = NULL);
+
+	static Reference<Map2D> decode(const std::string& base_dir_path, const std::string& path, glare::Allocator* mem_allocator = NULL, const JPEGDecoderOptions& options = JPEGDecoderOptions());
+
+	static Reference<Map2D> decodeFromBuffer(const void* data, size_t size, const std::string& base_dir_path, glare::Allocator* mem_allocator = NULL, const JPEGDecoderOptions& options = JPEGDecoderOptions());
 
 	static void saveToStream(const Reference<ImageMapUInt8>& image, const SaveOptions& options, OutStream& stream);
 	static void save(const Reference<ImageMapUInt8>& image, const std::string& path, const SaveOptions& options);
