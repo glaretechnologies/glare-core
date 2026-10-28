@@ -43,6 +43,7 @@ public:
 	inline bool empty() const { return s.empty(); }
 
 	inline bool operator == (const std::string& other) const { return s == other; }
+	inline bool operator != (const std::string& other) const { return s != other; }
 
 private:
 	std::string s;
