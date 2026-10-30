@@ -26,14 +26,14 @@ public:
 // These functions ignore the current locale.  Decimal separator is always considered to be '.'.
 
 float stringToFloat(const std::string& s); // throws StringUtilsExcep
-double stringToDouble(const std::string& s); // throws StringUtilsExcep
+double stringToDouble(const string_view s); // throws StringUtilsExcep
 
-int stringToInt(const std::string& s); // throws StringUtilsExcep
+int stringToInt(const string_view s); // throws StringUtilsExcep
 uint64 stringToUInt64(const std::string& s); // throws StringUtilsExcep
 
 unsigned int hexCharToUInt(char c); // throws StringUtilsExcep
-uint32 hexStringToUInt32(const std::string& s); // Input: something like "AABBCCDD"
-uint64 hexStringToUInt64(const std::string& s); // Input: something like "AABBCCDD"
+uint32 hexStringToUInt32(const string_view s); // Input: something like "AABBCCDD"
+uint64 hexStringToUInt64(const string_view s); // Input: something like "AABBCCDD"
 
 //====================== Number to String conversion ======================
 //const std::string toHexString(unsigned int i);//32 bit integers

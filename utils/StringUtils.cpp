@@ -36,7 +36,7 @@ float stringToFloat(const std::string& s) // throws StringUtilsExcep
 }
 
 
-double stringToDouble(const std::string& s) // throws StringUtilsExcep
+double stringToDouble(const string_view s) // throws StringUtilsExcep
 {
 	double_conversion::StringToDoubleConverter s2d_converter(
 		double_conversion::StringToDoubleConverter::NO_FLAGS,
@@ -47,22 +47,95 @@ double stringToDouble(const std::string& s) // throws StringUtilsExcep
 	);
 
 	int num_processed_chars = 0;
-	const double x = s2d_converter.StringToDouble(s.c_str(), (int)s.length(), &num_processed_chars);
+	const double x = s2d_converter.StringToDouble(s.data(), (int)s.length(), &num_processed_chars);
 	if(::isNAN(x))
-		throw StringUtilsExcep("Failed to convert '" + s + "' to a double.");
+		throw StringUtilsExcep("Failed to convert '" + toString(s) + "' to a double.");
 	return x;
 }
 
 
-int stringToInt(const std::string& s) // throws StringUtilsExcep
+// Keep the exception throwing code out-of-line in this function so it doesn't bloat stringToInt.
+[[noreturn]] static GLARE_NO_INLINE void throwStringToIntFailed(const string_view text)
 {
-	char* end_ptr = NULL;
-	const int ret = strtol(s.c_str(), &end_ptr,
-		10 // base
-		);
-	if(end_ptr == s.c_str())
-		throw StringUtilsExcep("Failed to convert '" + s + "' to an int.");
-	return ret;
+	throw StringUtilsExcep("Failed to convert '" + toString(text) + "' to an int.");
+}
+
+
+int stringToInt(const string_view text) // throws StringUtilsExcep
+{
+	// NOTE: code adapted from Parser::parseInt().
+
+	size_t pos = 0;
+	const size_t textsize = text.size();
+
+	/// Parse sign ///
+	int sign = 1;
+	if(textsize == 0) // if EOF:
+		throwStringToIntFailed(text);
+	if(text[0] == '+')
+		pos++;
+	else if(text[0] == '-')
+	{
+		pos++;
+		sign = -1;
+	}
+
+	/// Parse digits ///
+	const size_t digit_start_pos = pos;
+	unsigned int x = 0;
+	for( ; (pos < textsize) && ::isNumeric(text[pos]); ++pos)
+	{
+		if(x > 214748364u) // If x will overflow when multiplied by 10:
+			throwStringToIntFailed(text);
+
+		// At this point we know:
+		assert(x <= 214748364u);
+		assert(10*x <= 2147483640u);
+		
+		x *= 10;
+
+		assert(x <= 2147483640u);
+
+		const unsigned int d = (unsigned int)text[pos] - (unsigned int)'0';
+		assert(d <= 9);
+
+		x += d;
+
+		assert(x <= 2147483649u);
+	}
+
+	// If there were no digits, then this is not a valid integer literal
+	if(pos == digit_start_pos)
+		throwStringToIntFailed(text);
+
+	assert(x <= 2147483649u);
+	if(x >= 2147483648u)
+	{
+		// Possible overflow
+		if(x == 2147483648u)
+		{
+			if(sign == 1) // 2147483648 is not representable as a positive signed integer.
+				throwStringToIntFailed(text);
+			else
+			{			
+				assert(sign == -1);
+				// else if sign = -1, then result = -2147483648, which is valid.
+				// We can't cast x to int though, as it will overflow.  So just return the result directly.
+				// -2147483648 can't be written directly as 2147483648 is too large for a signed integer.
+				return -2147483647 - 1;
+			}
+		}
+		else
+		{
+			// x > 2147483648u, overflow.
+			assert(x > 2147483648u);
+			throwStringToIntFailed(text);
+		}
+	}
+
+	assert(x <= 2147483647u);
+
+	return sign * (int)x;
 }
 
 
@@ -112,12 +185,12 @@ unsigned int hexCharToUInt(char c)
 }
 
 
-uint32 hexStringToUInt32(const std::string& s)
+uint32 hexStringToUInt32(const string_view s)
 {
 	if(s.empty())
-		throw StringUtilsExcep("Failed to convert '" + s + "', string was empty.");
+		throw StringUtilsExcep("Failed to convert '" + toString(s) + "', string was empty.");
 	else if(s.size() > 8)
-		throw StringUtilsExcep("Failed to convert '" + s + "', string was too long.");
+		throw StringUtilsExcep("Failed to convert '" + toString(s) + "', string was too long.");
 
 	uint32 x = 0;
 	for(size_t i=0; i<s.size(); ++i)
@@ -140,12 +213,12 @@ uint32 hexStringToUInt32(const std::string& s)
 }
 
 
-uint64 hexStringToUInt64(const std::string& s)
+uint64 hexStringToUInt64(const string_view s)
 {
 	if(s.empty())
-		throw StringUtilsExcep("Failed to convert '" + s + "', string was empty.");
+		throw StringUtilsExcep("Failed to convert '" + toString(s) + "', string was empty.");
 	else if(s.size() > 16)
-		throw StringUtilsExcep("Failed to convert '" + s + "', string was too long.");
+		throw StringUtilsExcep("Failed to convert '" + toString(s) + "', string was too long.");
 
 	uint64 x = 0;
 	for(size_t i=0; i<s.size(); ++i)
@@ -2690,17 +2763,80 @@ void StringUtils::test()
 
 
 	
+	//======================== stringToInt() ==========================
+	testAssert(stringToInt("0") == 0);
+	testAssert(stringToInt("1") == 1);
+	testAssert(stringToInt("-0") == 0);
+	testAssert(stringToInt("-1") == -1);
+	testAssert(stringToInt("123") == 123);
+	testAssert(stringToInt("-123") == -123);
+	testAssert(stringToInt("+123") == 123);
 
-	testAssert(epsEqual((double)stringToInt("-631"), (double)-631));
+	// Trailing garbage is accepted
+	testAssert(stringToInt("123abc") == 123);
+	testAssert(stringToInt("123   ") == 123);
+	testAssert(stringToInt("123   456") == 123);
+	testAssert(stringToInt("-123abc") == -123);
+
+	testAssert(std::numeric_limits<int32>::max() == 2147483647);
+	testAssert(stringToInt("314748363") == 314748363);
+	testAssert(stringToInt("2147483636") == 2147483636);
+	testAssert(stringToInt("2147483646") == 2147483646);
+	testAssert(stringToInt("2147483647") == 2147483647);
+	
+	testAssert(stringToInt("-2147483647") == -2147483647);
+	testAssert(stringToInt("-2147483648") == std::numeric_limits<int32>::min());
 
 
-	try
-	{
-		stringToInt("dfgg");
-		testAssert(false);
-	}
-	catch(StringUtilsExcep& )
-	{}
+	testExceptionExpected([&]() { stringToInt("2147483648"); });
+	testExceptionExpected([&]() { stringToInt("2147483649"); });
+	testExceptionExpected([&]() { stringToInt("2147483650"); });
+	testExceptionExpected([&]() { stringToInt("21474836480"); });
+	testExceptionExpected([&]() { stringToInt("4294967295"); });
+	testExceptionExpected([&]() { stringToInt("4294967296"); });
+	testExceptionExpected([&]() { stringToInt("99999999999999999999"); });
+
+	testExceptionExpected([&]() { stringToInt("-2147483649"); });
+	testExceptionExpected([&]() { stringToInt("-2147483650"); });
+	testExceptionExpected([&]() { stringToInt("-4294967296"); });
+
+	// Leading zeros
+	testAssert(stringToInt("000000000000000000000123") == 123);
+	testAssert(stringToInt("000000000002147483647") == 2147483647);
+	testAssert(stringToInt("-000000000002147483648") == std::numeric_limits<int32>::min());
+	testExceptionExpected([&]() { stringToInt("000000000002147483648"); });
+
+	testExceptionExpected([&]() { stringToInt("abc"); });
+	testExceptionExpected([&]() { stringToInt("x123"); });
+
+	// Empty string and malformed signs
+	testExceptionExpected([&]() { stringToInt(""); });
+	testExceptionExpected([&]() { stringToInt("-"); });
+	testExceptionExpected([&]() { stringToInt("+"); });
+	testExceptionExpected([&]() { stringToInt("--1"); });
+	testExceptionExpected([&]() { stringToInt("++1"); });
+	testExceptionExpected([&]() { stringToInt("+-1"); });
+	testExceptionExpected([&]() { stringToInt("-+1"); });
+	testExceptionExpected([&]() { stringToInt("- 1"); });
+
+	// Leading whitespace is not accepted
+	testExceptionExpected([&]() { stringToInt(" 123"); });
+	testExceptionExpected([&]() { stringToInt(" -123"); });
+
+	// Only the chars in the string_view are parsed, there is no reliance on null termination.
+	testAssert(stringToInt(string_view("123456", 3)) == 123);
+	testAssert(stringToInt(string_view("-123456", 4)) == -123);
+	testAssert(stringToInt(string_view("12\0" "34", 5)) == 12);
+	testExceptionExpected([&]() { stringToInt(string_view("123", 0)); });
+	testExceptionExpected([&]() { stringToInt(string_view("-123", 1)); });
+
+	// Chars with the high bit set (negative if char is signed)
+	testExceptionExpected([&]() { stringToInt("\xFF"); });
+	testExceptionExpected([&]() { stringToInt("\xB2"); });
+	testAssert(stringToInt("1\xB2") == 1);
+
+
+
 
 
 	{
