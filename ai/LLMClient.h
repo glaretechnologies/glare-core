@@ -131,7 +131,7 @@ struct LLMChatMessage
 class LLMClientHandlerInterface
 {
 public:
-	virtual void responseDataReceived(const std::string& /*data*/) {};
+	virtual void responseDataReceived(const string_view /*data*/) {};
 	virtual void toolFunctionCallsReceived(const Reference<AIToolFunctionCalls>& /*function_calls*/) {};
 	virtual void responseDone() {};
 	virtual void modelIsThinking() {};

@@ -647,12 +647,12 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 							JSONParser json_parser;
 							json_parser.parseBuffer(value.data(), value.size());
 						
-							const std::string& type = json_parser.nodes[0].getChildStringValue(json_parser, "type");
+							const string_view type = json_parser.nodes[0].getChildStringValue(json_parser, "type");
 							if(type == "content_block_start")
 							{
 								const int block_index = json_parser.nodes[0].getChildIntValueWithDefaultVal(json_parser, "index", 0);
 								const JSONNode& content_block_node = json_parser.nodes[0].getChildNode(json_parser, "content_block");
-								const std::string& content_type = content_block_node.getChildStringValue(json_parser, "type");
+								const string_view content_type = content_block_node.getChildStringValue(json_parser, "type");
 								if(content_type == "thinking" || content_type == "redacted_thinking")
 								{
 									// Record the thinking block, so that we can send it back to the server as part of the chat history.
@@ -674,7 +674,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 								}
 								else if(content_type == "text")
 								{
-									const std::string& content_text = content_block_node.getChildStringValue(json_parser, "text");
+									const string_view content_text = content_block_node.getChildStringValue(json_parser, "text");
 									if(!content_text.empty()) // For streaming responses, the text in a content_block_start element is always empty.
 									{
 										this->current_assistant_response.content += content_text;
@@ -698,10 +698,10 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 							{
 								const int block_index = json_parser.nodes[0].getChildIntValueWithDefaultVal(json_parser, "index", 0);
 								const JSONNode& delta_node = json_parser.nodes[0].getChildNode(json_parser, "delta");
-								const std::string& content_type = delta_node.getChildStringValue(json_parser, "type");
+								const string_view content_type = delta_node.getChildStringValue(json_parser, "type");
 								if(content_type == "text_delta")
 								{
-									const std::string& delta_text = delta_node.getChildStringValue(json_parser, "text");
+									const string_view delta_text = delta_node.getChildStringValue(json_parser, "text");
 
 									this->current_assistant_response.content += delta_text;
 
@@ -709,7 +709,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 								}
 								else if(content_type == "input_json_delta")
 								{
-									const std::string& partial_json = delta_node.getChildStringValue(json_parser, "partial_json");
+									const string_view partial_json = delta_node.getChildStringValue(json_parser, "partial_json");
 									if(block_index >= 0 && (size_t)block_index < current_assistant_response.tool_calls.size() && !current_assistant_response.tool_calls[block_index].isNull())
 										current_assistant_response.tool_calls[block_index]->args_json += partial_json;
 								}
@@ -821,7 +821,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 									if(delta_node.hasChild("content"))
 									{
 										//const std::string role = delta_node.getChildStringValue(json_parser, "role");
-										const std::string& content = delta_node.getChildStringValue(json_parser, "content");
+										const string_view content = delta_node.getChildStringValue(json_parser, "content");
 
 										// conPrint("------Received content:------\n" + content);
 
@@ -963,12 +963,12 @@ void LLMClient::test()
 
 		struct TestLLMClientHandler: public LLMClientHandlerInterface
 		{
-			virtual void responseDataReceived(const std::string& data)
+			virtual void responseDataReceived(const string_view data) override
 			{
-				conPrint("TestLLMClientHandler::responseDataReceived().  data:\n" + data);
+				conPrint("TestLLMClientHandler::responseDataReceived().  data:\n" + toString(data));
 			}
 
-			virtual void toolFunctionCallsReceived(const Reference<AIToolFunctionCalls>& function_calls)
+			virtual void toolFunctionCallsReceived(const Reference<AIToolFunctionCalls>& function_calls) override
 			{
 				conPrint("TestLLMClientHandler::toolFunctionCallsReceived().  function_calls: " + toString(function_calls->calls.size()));
 				last_function_calls = function_calls;
@@ -987,11 +987,11 @@ void LLMClient::test()
 			//	client->appendToolCallResult(result, /*should_send_to_server_immediately=*/true);
 			}
 
-			virtual void responseDone()
+			virtual void responseDone() override
 			{
 				conPrint("TestLLMClientHandler::responseDone()");
 			}
-			virtual void modelIsThinking()
+			virtual void modelIsThinking() override
 			{
 				conPrint("TestLLMClientHandler::modelIsThinking()");
 			}

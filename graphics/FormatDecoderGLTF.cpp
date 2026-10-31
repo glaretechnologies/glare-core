@@ -2189,7 +2189,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 					channel.target_node = target_node.getChildIntValueWithDefaultVal(parser, "node", -1); // NOTE: node is optional.  "When node isn't defined, channel should be ignored"
 					if(channel.target_node != -1)
 					{
-						const std::string target_path = target_node.getChildStringValue(parser, "path");
+						const string_view target_path = target_node.getChildStringValue(parser, "path");
 
 						if(target_path == "translation")
 							channel.target_path = GLTFChannel::Path_translation;
@@ -2200,7 +2200,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 						else if(target_path == "weights")
 							channel.target_path = GLTFChannel::Path_weights;
 						else
-							throw glare::Exception("invalid channel target path: " + target_path);
+							throw glare::Exception("invalid channel target path: " + toString(target_path));
 
 						gltf_anim->channels.push_back(channel);
 					}
@@ -2216,7 +2216,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 					sampler.input  = (int)sampler_node.getChildUIntValue(parser, "input");
 					sampler.output = (int)sampler_node.getChildUIntValue(parser, "output");
 
-					const std::string interpolation = sampler_node.getChildStringValueWithDefaultVal(parser, "interpolation", "LINEAR");
+					const string_view interpolation = sampler_node.getChildStringValueWithDefaultVal(parser, "interpolation", "LINEAR");
 
 					if(interpolation == "LINEAR")
 						sampler.interpolation = GLTFSampler::Interpolation_linear;
@@ -2225,7 +2225,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 					else if(interpolation == "CUBICSPLINE")
 						sampler.interpolation = GLTFSampler::Interpolation_cubic_spline;
 					else
-						throw glare::Exception("invalid interpolation: " + interpolation);
+						throw glare::Exception("invalid interpolation: " + toString(interpolation));
 
 					gltf_anim->samplers.push_back(sampler);
 				}
@@ -2331,7 +2331,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 								const JSONNode& bone_node = parser.nodes[bones_array.child_indices[t]];
 								checkNodeType(bone_node, JSONNode::Type_Object);
 
-								const std::string bone_name = bone_node.getChildStringValue(parser, "bone");
+								const string_view bone_name = bone_node.getChildStringValue(parser, "bone");
 
 								VRMBoneInfo info;
 								info.node_index = bone_node.getChildIntValue(parser, "node");
@@ -2353,12 +2353,12 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 			for(size_t z=0; z<extensions_node.child_indices.size(); ++z)
 			{
-				const std::string& extension = parser.nodes[extensions_node.child_indices[z]].getStringValue();
+				const string_view extension = parser.nodes[extensions_node.child_indices[z]].getStringValue();
 
 				if(extension == "KHR_materials_pbrSpecularGlossiness" || extension == "KHR_materials_emissive_strength")
 				{}
 				else
-					throw glare::Exception("Unsupported extension that file requires: '" + extension + "'");
+					throw glare::Exception("Unsupported extension that file requires: '" + toString(extension) + "'");
 			}
 		}
 

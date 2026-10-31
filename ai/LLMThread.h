@@ -101,7 +101,7 @@ public:
 
 
 	// Internal: LLMClientHandlerInterface interface:
-	virtual void responseDataReceived(const std::string& data) override;
+	virtual void responseDataReceived(const string_view data) override;
 	virtual void toolFunctionCallsReceived(const Reference<AIToolFunctionCalls>& function_calls) override;
 	virtual void responseDone() override;
 

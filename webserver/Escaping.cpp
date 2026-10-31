@@ -209,7 +209,7 @@ const std::string Escaping::HTMLUnescape(const std::string& s)
 }
 
 
-const std::string Escaping::JSONEscape(const std::string& s)
+const std::string Escaping::JSONEscape(const string_view s)
 {
 	return JSONWriteUtils::JSONEscape(s);
 }

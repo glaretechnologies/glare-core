@@ -242,7 +242,7 @@ std::vector<std::string> getChildStringArray(const JSONParser& parser, const JSO
 	std::vector<std::string> res;
 	res.reserve(array_node.child_indices.size());
 	for(uint32 index : array_node.child_indices)
-		res.push_back(parser.nodes[index].getStringValue());
+		res.push_back(toString(parser.nodes[index].getStringValue()));
 	return res;
 }
 

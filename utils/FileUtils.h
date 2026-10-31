@@ -69,7 +69,7 @@ void getDirectoriesFromPath(const std::string& pathname_, std::vector<std::strin
 
 bool isDirectory(const std::string& pathname);
 
-bool isPathAbsolute(const std::string& p);
+bool isPathAbsolute(const string_view p);
 
 // Returns a path to path_b that is relative to dir_path.
 // If path_b is already relative, it just returns path_b.

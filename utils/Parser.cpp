@@ -97,7 +97,7 @@ bool Parser::parseInt(int32& result_out)
 		assert(x <= 2147483640u);
 
 		const unsigned int d = (unsigned int)text[pos] - ASCII_ZERO_UINT;
-		assert(d >= 0 && d <= 9);
+		assert(d <= 9);
 
 		x += d;
 

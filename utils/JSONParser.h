@@ -35,7 +35,7 @@ struct JSONNode
 	Type type;
 
 	// Returns ref to string_v if this node has type Type_String, throws glare::Exception otherwise.
-	const std::string& getStringValue() const;
+	const string_view getStringValue() const;
 	
 	int getIntValue() const;
 	size_t getUIntValue() const;
@@ -57,8 +57,10 @@ struct JSONNode
 
 	bool getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view name, bool default_val) const;
 
-	const std::string& getChildStringValue(const JSONParser& parser, const string_view name) const;
-	const std::string getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view name, const string_view default_val) const;
+	const string_view getChildStringValue(const JSONParser& parser, const string_view name) const;
+
+	// Note that the returned string_view may be the default_val passed in as an argument.  Make sure the used lifetime of the result is not longer than the argument scope!
+	const string_view getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view name, const string_view default_val) const;
 
 	bool hasChildWithStringValueEqualTo(const JSONParser& parser, const string_view name, const string_view target_value) const;
 

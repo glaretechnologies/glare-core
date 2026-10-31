@@ -37,7 +37,7 @@ const std::string JSONNode::typeString(const Type type)
 }
 
 
-const std::string& JSONNode::getStringValue() const
+const string_view JSONNode::getStringValue() const
 {
 	if(type == JSONNode::Type_String)
 		return string_v;
@@ -209,7 +209,7 @@ bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser, const s
 }
 
 
-const std::string& JSONNode::getChildStringValue(const JSONParser& parser, const string_view name) const
+const string_view JSONNode::getChildStringValue(const JSONParser& parser, const string_view name) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -222,7 +222,7 @@ const std::string& JSONNode::getChildStringValue(const JSONParser& parser, const
 }
 
 
-const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view name, const string_view default_val) const
+const string_view JSONNode::getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view name, const string_view default_val) const
 {
 	if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -231,7 +231,7 @@ const std::string JSONNode::getChildStringValueWithDefaultVal(const JSONParser& 
 		if(name_val_pairs[i].name == name && parser.nodes[name_val_pairs[i].value_node_index].type == JSONNode::Type_String)
 			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue();
 
-	return toString(default_val);
+	return default_val;
 }
 
 

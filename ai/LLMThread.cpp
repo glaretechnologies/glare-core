@@ -181,7 +181,7 @@ void LLMThread::kill()
 }
 
 
-void LLMThread::responseDataReceived(const std::string& data)
+void LLMThread::responseDataReceived(const string_view data)
 {
 	// Send AIChatResponseDataMessage message
 	AIChatResponseDataMessage* msg = new AIChatResponseDataMessage();

@@ -921,7 +921,7 @@ void moveFile(const std::string& srcpath, const std::string& dstpath)
 }
 
 
-bool isPathAbsolute(const std::string& p)
+bool isPathAbsolute(const string_view p)
 {
 	// Take into account both Windows and Unix prefixes.
 	// This fixes a bug with network rendering across both Windows and Unix machines: http://www.indigorenderer.com/forum/viewtopic.php?f=5&t=11482

@@ -42,7 +42,7 @@ public:
 	static const std::string HTMLUnescape(const std::string& s);
 
 
-	static const std::string JSONEscape(const std::string& s);
+	static const std::string JSONEscape(const string_view s);
 
 	static const std::string JavascriptEscape(const std::string& s) { return JSONEscape(s); }
 
