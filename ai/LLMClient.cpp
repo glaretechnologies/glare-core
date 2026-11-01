@@ -647,12 +647,12 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 							JSONParser json_parser;
 							json_parser.parseBuffer(value.data(), value.size());
 						
-							const string_view type = json_parser.rootNode().getChildStringValue(json_parser, "type");
+							const string_view type = json_parser.rootNode().getChildStringValue("type");
 							if(type == "content_block_start")
 							{
-								const int block_index = json_parser.rootNode().getChildIntValueWithDefaultVal(json_parser, "index", 0);
-								const JSONNode& content_block_node = json_parser.rootNode().getChildNode(json_parser, "content_block");
-								const string_view content_type = content_block_node.getChildStringValue(json_parser, "type");
+								const int block_index = json_parser.rootNode().getChildIntValueWithDefaultVal("index", 0);
+								const JSONNode& content_block_node = json_parser.rootNode().getChildNode("content_block");
+								const string_view content_type = content_block_node.getChildStringValue("type");
 								if(content_type == "thinking" || content_type == "redacted_thinking")
 								{
 									// Record the thinking block, so that we can send it back to the server as part of the chat history.
@@ -665,16 +665,16 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 									thinking_block.content_block_index = block_index;
 									thinking_block.redacted = (content_type == "redacted_thinking");
 									// For streaming responses these are usually empty in the content_block_start element, with the content arriving in deltas.
-									thinking_block.thinking  = content_block_node.getChildStringValueWithDefaultVal(json_parser, "thinking",  "");
-									thinking_block.signature = content_block_node.getChildStringValueWithDefaultVal(json_parser, "signature", "");
-									thinking_block.data      = content_block_node.getChildStringValueWithDefaultVal(json_parser, "data",      "");
+									thinking_block.thinking  = content_block_node.getChildStringValueWithDefaultVal("thinking",  "");
+									thinking_block.signature = content_block_node.getChildStringValueWithDefaultVal("signature", "");
+									thinking_block.data      = content_block_node.getChildStringValueWithDefaultVal("data",      "");
 									current_assistant_response.thinking_blocks.push_back(thinking_block);
 
 									handler->modelIsThinking();
 								}
 								else if(content_type == "text")
 								{
-									const string_view content_text = content_block_node.getChildStringValue(json_parser, "text");
+									const string_view content_text = content_block_node.getChildStringValue("text");
 									if(!content_text.empty()) // For streaming responses, the text in a content_block_start element is always empty.
 									{
 										this->current_assistant_response.content += content_text;
@@ -689,19 +689,19 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 									if((size_t)block_index >= current_assistant_response.tool_calls.size())
 										current_assistant_response.tool_calls.resize(block_index + 1);
 									Reference<ToolFunctionCall> call = new ToolFunctionCall();
-									call->call_id       = content_block_node.getChildStringValue(json_parser, "id");
-									call->function_name = content_block_node.getChildStringValue(json_parser, "name");
+									call->call_id       = content_block_node.getChildStringValue("id");
+									call->function_name = content_block_node.getChildStringValue("name");
 									current_assistant_response.tool_calls[block_index] = call;
 								}
 							}
 							else if(type == "content_block_delta")
 							{
-								const int block_index = json_parser.rootNode().getChildIntValueWithDefaultVal(json_parser, "index", 0);
-								const JSONNode& delta_node = json_parser.rootNode().getChildNode(json_parser, "delta");
-								const string_view content_type = delta_node.getChildStringValue(json_parser, "type");
+								const int block_index = json_parser.rootNode().getChildIntValueWithDefaultVal("index", 0);
+								const JSONNode& delta_node = json_parser.rootNode().getChildNode("delta");
+								const string_view content_type = delta_node.getChildStringValue("type");
 								if(content_type == "text_delta")
 								{
-									const string_view delta_text = delta_node.getChildStringValue(json_parser, "text");
+									const string_view delta_text = delta_node.getChildStringValue("text");
 
 									this->current_assistant_response.content += delta_text;
 
@@ -709,7 +709,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 								}
 								else if(content_type == "input_json_delta")
 								{
-									const string_view partial_json = delta_node.getChildStringValue(json_parser, "partial_json");
+									const string_view partial_json = delta_node.getChildStringValue("partial_json");
 									if(block_index >= 0 && (size_t)block_index < current_assistant_response.tool_calls.size() && !current_assistant_response.tool_calls[block_index].isNull())
 										current_assistant_response.tool_calls[block_index]->args_json += partial_json;
 								}
@@ -719,7 +719,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 									if(!current_assistant_response.thinking_blocks.empty())
 									{
 										assert(current_assistant_response.thinking_blocks.back().content_block_index == block_index);
-										current_assistant_response.thinking_blocks.back().thinking += delta_node.getChildStringValue(json_parser, "thinking");
+										current_assistant_response.thinking_blocks.back().thinking += delta_node.getChildStringValue("thinking");
 									}
 								}
 								else if(content_type == "signature_delta")
@@ -728,7 +728,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 									if(!current_assistant_response.thinking_blocks.empty())
 									{
 										assert(current_assistant_response.thinking_blocks.back().content_block_index == block_index);
-										current_assistant_response.thinking_blocks.back().signature += delta_node.getChildStringValue(json_parser, "signature");
+										current_assistant_response.thinking_blocks.back().signature += delta_node.getChildStringValue("signature");
 									}
 								}
 							}
@@ -808,7 +808,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 								const JSONNode& root = json_parser.rootNode();
 								checkNodeType(root, JSONNodeType::Type_Object);
 
-								const JSONNode& choices_node = root.getChildArray(json_parser, "choices");
+								const JSONNode& choices_node = root.getChildArray("choices");
 								if(choices_node.numChildren() == 0)
 									throw glare::Exception("Choices array was empty.");
 
@@ -816,12 +816,12 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 								{
 									const JSONNode& choice_node = choices_node.arrayChildrenBegin().getNode(); // Use first (zeroth) choice.
 
-									const JSONNode& delta_node = choice_node.getChildObject(json_parser, "delta");
+									const JSONNode& delta_node = choice_node.getChildObject("delta");
 
 									if(delta_node.hasChild("content"))
 									{
-										//const std::string role = delta_node.getChildStringValue(json_parser, "role");
-										const string_view content = delta_node.getChildStringValue(json_parser, "content");
+										//const std::string role = delta_node.getChildStringValue("role");
+										const string_view content = delta_node.getChildStringValue("content");
 
 										// conPrint("------Received content:------\n" + content);
 
@@ -835,7 +835,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 
 									if(delta_node.hasChild("tool_calls"))
 									{
-										const JSONNode& tool_calls_node = delta_node.getChildArray(json_parser, "tool_calls");
+										const JSONNode& tool_calls_node = delta_node.getChildArray("tool_calls");
 
 										// Tool calls are streamed to us in fragments: the id and function name arrive in the first fragment for a
 										// given index, then the arguments arrive as a series of partial JSON string fragments.  So accumulate the
@@ -846,7 +846,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 
 											int call_index = 0;
 											if(call_node.hasChild("index"))
-												call_index = call_node.getChildIntValueWithDefaultVal(json_parser, "index", 0);
+												call_index = call_node.getChildIntValueWithDefaultVal("index", 0);
 											else
 												call_index = (int)current_assistant_response.tool_calls.size();
 
@@ -863,17 +863,17 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 											ToolFunctionCall* call = current_assistant_response.tool_calls[call_index].ptr();
 
 											if(call_node.hasChild("id"))
-												call->call_id = call_node.getChildStringValue(json_parser, "id"); // Don't append, overwrite instead: assume id arrives atomically.
+												call->call_id = call_node.getChildStringValue("id"); // Don't append, overwrite instead: assume id arrives atomically.
 
 											if(call_node.hasChild("function"))
 											{
-												const JSONNode& function_node = call_node.getChildObject(json_parser, "function");
+												const JSONNode& function_node = call_node.getChildObject("function");
 
 												if(function_node.hasChild("name"))
-													call->function_name = function_node.getChildStringValue(json_parser, "name"); // Don't append, overwrite instead: assume name arrives atomically.
+													call->function_name = function_node.getChildStringValue("name"); // Don't append, overwrite instead: assume name arrives atomically.
 
 												if(function_node.hasChild("arguments"))
-													call->args_json += function_node.getChildStringValue(json_parser, "arguments");
+													call->args_json += function_node.getChildStringValue("arguments");
 											}
 
 											// For Gemini using the OpenAI compatibility API, we need to get the extra_content 'thought_signature' JSON, and pass it back in our chat messages.
@@ -881,16 +881,16 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 											{
 												if(call_node.hasChild("extra_content"))
 												{
-													const JSONNode& extra_content_node = call_node.getChildObject(json_parser, "extra_content");
+													const JSONNode& extra_content_node = call_node.getChildObject("extra_content");
 
 													if(extra_content_node.hasChild("google"))
 													{
-														const JSONNode& google_node = extra_content_node.getChildObject(json_parser, "google");
+														const JSONNode& google_node = extra_content_node.getChildObject("google");
 														
 														if(google_node.hasChild("thought_signature"))
 														{
 															call->extra_content_json = "\"extra_content\": { \"google\": { \"thought_signature\": \"" + 
-																web::Escaping::JSONEscape(google_node.getChildStringValue(json_parser, "thought_signature")) + 
+																web::Escaping::JSONEscape(google_node.getChildStringValue("thought_signature")) + 
 																"\"}}";
 														}
 													}

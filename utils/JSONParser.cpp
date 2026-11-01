@@ -109,7 +109,7 @@ bool JSONNode::hasChild(const string_view name) const
 }
 
 
-const JSONNode JSONNode::getChildNode(const JSONParser& parser_unused, const string_view name) const
+const JSONNode JSONNode::getChildNode(const string_view name) const
 {
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
@@ -146,22 +146,13 @@ const string_view JSONNode::getNameI(uint32 index) const
 }
 
 
-size_t JSONNode::getChildUIntValue(const JSONParser& parser_unused, const string_view name) const
+size_t JSONNode::getChildUIntValue(const string_view name) const
 {
-	/*if(type != JSONNode::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(size_t i=0; i<numNameValPairs(); ++i)
-		if(nameValPairName(parser, i) == name)
-			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getUIntValue();
-
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");*/
-	JSONNode child_node = getChildNode(*parser, name);
-	return child_node.getUIntValue();
+	return getChildNode(name).getUIntValue();
 }
 
 
-size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, size_t default_val) const
+size_t JSONNode::getChildUIntValueWithDefaultVal(const string_view name, size_t default_val) const
 {
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
@@ -176,32 +167,14 @@ size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser_unused
 }
 
 
-int JSONNode::getChildIntValue(const JSONParser& parser_unused, const string_view name) const
+int JSONNode::getChildIntValue(const string_view name) const
 {
-	/*if(type != JSONNode::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(size_t i=0; i<numNameValPairs(); ++i)
-		if(nameValPairName(parser, i) == name)
-			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getIntValue();
-
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");*/
-	JSONNode child_node = getChildNode(*parser, name);
-	return child_node.getIntValue();
+	return getChildNode(name).getIntValue();
 }
 
 
-int JSONNode::getChildIntValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, int default_val) const
+int JSONNode::getChildIntValueWithDefaultVal(const string_view name, int default_val) const
 {
-	/*if(type != JSONNode::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(size_t i=0; i<numNameValPairs(); ++i)
-		if(nameValPairName(parser, i) == name)
-			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getIntValue();
-
-	return default_val;*/
-
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
 	if(node.type != JSONNodeType::Type_Object)
@@ -215,31 +188,14 @@ int JSONNode::getChildIntValueWithDefaultVal(const JSONParser& parser_unused, co
 }
 
 
-double JSONNode::getChildDoubleValue(const JSONParser& parser_unused, const string_view name) const
+double JSONNode::getChildDoubleValue(const string_view name) const
 {
-	/*if(type != JSONNode::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(size_t i=0; i<numNameValPairs(); ++i)
-		if(nameValPairName(parser, i) == name)
-			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getDoubleValue();
-
-	throw glare::Exception("Failed to find child node with name " + toString(name) + ".");*/
-	JSONNode child_node = getChildNode(*parser, name);
-	return child_node.getDoubleValue();
+	return getChildNode(name).getDoubleValue();
 }
 
 
-double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, double default_val) const
+double JSONNode::getChildDoubleValueWithDefaultVal(const string_view name, double default_val) const
 {
-	/*if(type != JSONNode::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(size_t i=0; i<numNameValPairs(); ++i)
-		if(nameValPairName(parser, i) == name)
-			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getDoubleValue();
-
-	return default_val;*/
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
 	if(node.type != JSONNodeType::Type_Object)
@@ -253,16 +209,8 @@ double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser_unus
 }
 
 
-bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, bool default_val) const
+bool JSONNode::getChildBoolValueWithDefaultVal(const string_view name, bool default_val) const
 {
-	/*if(type != JSONNode::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(size_t i=0; i<numNameValPairs(); ++i)
-		if(nameValPairName(parser, i) == name)
-			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getBoolValue();
-
-	return default_val;*/
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
 	if(node.type != JSONNodeType::Type_Object)
@@ -276,35 +224,14 @@ bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser_unused, 
 }
 
 
-const string_view JSONNode::getChildStringValue(const JSONParser& parser_unused, const string_view name) const
+const string_view JSONNode::getChildStringValue(const string_view name) const
 {
-	JSONNode child_node = getChildNode(*parser, name);
-	return child_node.getStringValue(*parser);
-
-	/*const JSONNodeInternal& node = parser->nodes[this->node_index];
-
-	if(node.type != JSONNodeInternal::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(size_t i=0; i<node.numNameValPairs(); ++i)
-		if(node.nameValPairName(*parser, i) == name)
-			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(parser);
-
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");*/
+	return getChildNode(name).getStringValue();
 }
 
 
-const string_view JSONNode::getChildStringValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, const string_view default_val) const
+const string_view JSONNode::getChildStringValueWithDefaultVal(const string_view name, const string_view default_val) const
 {
-	/*if(type != JSONNode::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(size_t i=0; i<numNameValPairs(); ++i)
-		if(nameValPairName(parser, i) == name && parser.nodes[nameValPairValueNodeIndex(parser, i)].type == JSONNode::Type_String)
-			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getStringValue(parser);
-
-	return default_val;*/
-
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
 	if(node.type != JSONNodeType::Type_Object)
@@ -318,7 +245,7 @@ const string_view JSONNode::getChildStringValueWithDefaultVal(const JSONParser& 
 }
 
 
-bool JSONNode::hasChildWithStringValueEqualTo(const JSONParser& parser_unused, const string_view name, const string_view target_value) const
+bool JSONNode::hasChildWithStringValueEqualTo(const string_view name, const string_view target_value) const
 {
 	//JSONNode child_node = getChildNode(*parser, name);
 	//return child_node.getStringValue(parser_unused) == target_value;
@@ -336,7 +263,7 @@ bool JSONNode::hasChildWithStringValueEqualTo(const JSONParser& parser_unused, c
 }
 
 
-bool JSONNode::hasChildWithStringValueCaseInsensitiveEqualTo(const JSONParser& parser_unused, const string_view name, const string_view target_value) const
+bool JSONNode::hasChildWithStringValueCaseInsensitiveEqualTo(const string_view name, const string_view target_value) const
 {
 	assert(::toLowerCase(target_value) == target_value); // target_value should be lower case.
 
@@ -356,9 +283,9 @@ bool JSONNode::hasChildWithStringValueCaseInsensitiveEqualTo(const JSONParser& p
 }
 
 
-const JSONNode JSONNode::getChildObject(const JSONParser& parser_unused, const string_view name) const
+const JSONNode JSONNode::getChildObject(const string_view name) const
 {
-	JSONNode child_node = getChildNode(*parser, name);
+	JSONNode child_node = getChildNode(name);
 	if(parser->nodes[child_node.node_index].type != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected child with name '" + toString(name) + "' to have type object, had type " + JSONNodeInternal::typeString(parser->nodes[child_node.node_index].type));
 
@@ -379,9 +306,9 @@ const JSONNode JSONNode::getChildObject(const JSONParser& parser_unused, const s
 }
 
 
-const JSONNode JSONNode::getChildArray(const JSONParser& parser_unused, const string_view name) const
+const JSONNode JSONNode::getChildArray(const string_view name) const
 {
-	JSONNode child_node = getChildNode(*parser, name);
+	JSONNode child_node = getChildNode(name);
 	if(parser->nodes[child_node.node_index].type != JSONNodeType::Type_Array)
 		throw glare::Exception("Expected child with name '" + toString(name) + "' to have type Array, had type " + JSONNodeInternal::typeString(parser->nodes[child_node.node_index].type));
 
@@ -404,7 +331,7 @@ const JSONNode JSONNode::getChildArray(const JSONParser& parser_unused, const st
 
 
 // Parse the values from an array node like [1.0, 2.0, 3.0]
-void JSONNode::parseDoubleArrayValues(const JSONParser& parser_unused, size_t expected_num_elems, double* values_out) const
+void JSONNode::parseDoubleArrayValues(size_t expected_num_elems, double* values_out) const
 {
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
@@ -875,15 +802,15 @@ std::string JSONParser::errorContext(Parser& p)
 // Container accessors use runtimeCheck on the node type, so are only called on nodes of the matching type.
 static void fuzzTraverseNode(const JSONParser& parser, const JSONNode& node)
 {
-	try { node.getStringValue(parser); } catch(glare::Exception&) {}
-	try { node.getDoubleValue(); }       catch(glare::Exception&) {}
-	try { node.getIntValue(); }          catch(glare::Exception&) {}
-	try { node.getUIntValue(); }         catch(glare::Exception&) {}
-	try { node.getBoolValue(); }         catch(glare::Exception&) {}
+	try { node.getStringValue(); } catch(glare::Exception&) {}
+	try { node.getDoubleValue(); } catch(glare::Exception&) {}
+	try { node.getIntValue(); }    catch(glare::Exception&) {}
+	try { node.getUIntValue(); }   catch(glare::Exception&) {}
+	try { node.getBoolValue(); }   catch(glare::Exception&) {}
 
 	if(node.getType() == JSONNodeType::Type_String)
 	{
-		const string_view s = node.getStringValue(parser);
+		const string_view s = node.getStringValue();
 		volatile size_t sum = 0;
 		for(size_t i=0; i<s.size(); ++i) // Touch every char so ASan checks the string data range.
 			sum = sum + (uint8)s[i];
@@ -901,8 +828,8 @@ static void fuzzTraverseNode(const JSONParser& parser, const JSONNode& node)
 		testAssert(i == num_children);
 
 		std::vector<double> values(num_children);
-		try { node.parseDoubleArrayValues(parser, num_children, values.data()); } catch(glare::Exception&) {}
-		try { node.parseDoubleArrayValues(parser, num_children + 1, values.data()); failTest("Expected excep."); } catch(glare::Exception&) {}
+		try { node.parseDoubleArrayValues(num_children, values.data()); } catch(glare::Exception&) {}
+		try { node.parseDoubleArrayValues(num_children + 1, values.data()); failTest("Expected excep."); } catch(glare::Exception&) {}
 	}
 	else if(node.getType() == JSONNodeType::Type_Object)
 	{
@@ -913,27 +840,27 @@ static void fuzzTraverseNode(const JSONParser& parser, const JSONNode& node)
 		for(auto it = node.objectChildrenBegin(); it != node.objectChildrenEnd(); ++it, ++i)
 		{
 			const string_view name = it.name();
-			testAssert(name == node.getNameI(i));
-			testAssert(it.valueNode().node_index == node.getChildNodeForIndex(i).node_index);
+			testAssert(name == node.getNameI((uint32)i));
+			testAssert(it.valueNode().node_index == node.getChildNodeForIndex((uint32)i).node_index);
 
 			// Lookups by name.  Names may be duplicated, so getChildNode may return an earlier pair's value.
 			testAssert(node.hasChild(name));
-			const JSONNode by_name = node.getChildNode(parser, name);
+			const JSONNode by_name = node.getChildNode(name);
 			testAssert(by_name.node_index <= it.valueNode().node_index);
 
-			try { node.getChildUIntValue(parser, name); }                           catch(glare::Exception&) {}
-			try { node.getChildUIntValueWithDefaultVal(parser, name, 0); }          catch(glare::Exception&) {}
-			try { node.getChildIntValue(parser, name); }                            catch(glare::Exception&) {}
-			try { node.getChildIntValueWithDefaultVal(parser, name, 0); }           catch(glare::Exception&) {}
-			try { node.getChildDoubleValue(parser, name); }                         catch(glare::Exception&) {}
-			try { node.getChildDoubleValueWithDefaultVal(parser, name, 0.0); }      catch(glare::Exception&) {}
-			try { node.getChildBoolValueWithDefaultVal(parser, name, false); }      catch(glare::Exception&) {}
-			try { node.getChildStringValue(parser, name); }                         catch(glare::Exception&) {}
-			try { node.getChildStringValueWithDefaultVal(parser, name, "default"); } catch(glare::Exception&) {}
-			try { node.getChildObject(parser, name); }                              catch(glare::Exception&) {}
-			try { node.getChildArray(parser, name); }                               catch(glare::Exception&) {}
-			node.hasChildWithStringValueEqualTo(parser, name, "a");
-			node.hasChildWithStringValueCaseInsensitiveEqualTo(parser, name, "a");
+			try { node.getChildUIntValue(name); }                            catch(glare::Exception&) {}
+			try { node.getChildUIntValueWithDefaultVal(name, 0); }           catch(glare::Exception&) {}
+			try { node.getChildIntValue(name); }                             catch(glare::Exception&) {}
+			try { node.getChildIntValueWithDefaultVal(name, 0); }            catch(glare::Exception&) {}
+			try { node.getChildDoubleValue(name); }                          catch(glare::Exception&) {}
+			try { node.getChildDoubleValueWithDefaultVal(name, 0.0); }       catch(glare::Exception&) {}
+			try { node.getChildBoolValueWithDefaultVal(name, false); }       catch(glare::Exception&) {}
+			try { node.getChildStringValue(name); }                          catch(glare::Exception&) {}
+			try { node.getChildStringValueWithDefaultVal(name, "default"); } catch(glare::Exception&) {}
+			try { node.getChildObject(name); }                               catch(glare::Exception&) {}
+			try { node.getChildArray(name); }                                catch(glare::Exception&) {}
+			node.hasChildWithStringValueEqualTo(name, "a");
+			node.hasChildWithStringValueCaseInsensitiveEqualTo(name, "a");
 
 			fuzzTraverseNode(parser, it.valueNode());
 		}
@@ -941,8 +868,8 @@ static void fuzzTraverseNode(const JSONParser& parser, const JSONNode& node)
 
 		// Lookups of a name that is probably missing.
 		node.hasChild("__missing__");
-		try { node.getChildNode(parser, "__missing__"); } catch(glare::Exception&) {}
-		try { node.getChildIntValueWithDefaultVal(parser, "__missing__", 0); } catch(glare::Exception&) {}
+		try { node.getChildNode("__missing__"); } catch(glare::Exception&) {}
+		try { node.getChildIntValueWithDefaultVal("__missing__", 0); } catch(glare::Exception&) {}
 	}
 }
 
@@ -979,7 +906,7 @@ static void testStringEscapeSequence(const std::string& encoded_string, const st
 
 		testAssert(root_node.objectChildrenBegin().name() == "the string");
 		testAssert(root_node.objectChildrenBegin().valueNode().getType() == JSONNodeType::Type_String);
-		testAssert(root_node.objectChildrenBegin().valueNode().getStringValue(p) == target_decoding);
+		testAssert(root_node.objectChildrenBegin().valueNode().getStringValue() == target_decoding);
 	}
 	catch(glare::Exception& e)
 	{
@@ -1024,12 +951,12 @@ void JSONParser::test()
 			if(i == 0)
 			{
 				testAssert(name == "key_1");
-				testAssert(val_node.getStringValue(p) == "value_1");
+				testAssert(val_node.getStringValue() == "value_1");
 			}
 			else if(i == 1)
 			{
 				testAssert(name == "key_2");
-				testAssert(val_node.getStringValue(p) == "value_2");
+				testAssert(val_node.getStringValue() == "value_2");
 			}
 			else
 				failTest("expected i==0 or i==1");
@@ -1054,11 +981,11 @@ void JSONParser::test()
 
 		testAssert(root_ob.getNameI(0) == "firstName");
 		testAssert(root_ob.getChildNodeForIndex(0).getType() == JSONNodeType::Type_String);
-		testAssert(root_ob.getChildNodeForIndex(0).getStringValue(p) == "John");
+		testAssert(root_ob.getChildNodeForIndex(0).getStringValue() == "John");
 
 		testAssert(root_ob.getNameI(1) == "lastName");
 		testAssert(root_ob.getChildNodeForIndex(1).getType() == JSONNodeType::Type_String);
-		testAssert(root_ob.getChildNodeForIndex(1).getStringValue(p) == "Smith");
+		testAssert(root_ob.getChildNodeForIndex(1).getStringValue() == "Smith");
 
 		testAssert(root_ob.getNameI(2) == "isAlive");
 		testAssert(root_ob.getChildNodeForIndex(2).getType() == JSONNodeType::Type_Boolean);
@@ -1141,47 +1068,47 @@ void JSONParser::test()
 		const JSONNode root_ob = p.rootNode();
 
 		// hasChildWithStringValueEqualTo
-		testAssert(root_ob.hasChildWithStringValueEqualTo(p, "type", "sale"));
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "type", "Sale")); // Case sensitive
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "type", "sal")); // Target is prefix of value
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "type", "sales")); // Value is prefix of target
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "type", ""));
-		testAssert(root_ob.hasChildWithStringValueEqualTo(p, "addr", "0xAbCd"));
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "addr", "0xabcd"));
-		testAssert(root_ob.hasChildWithStringValueEqualTo(p, "empty", ""));
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "empty", "a"));
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "missing", "sale")); // Missing child
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "missing", ""));
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "num", "1")); // Non-string children
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "null", "null"));
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "ob", ""));
-		testAssert(!root_ob.hasChildWithStringValueEqualTo(p, "arr", "sale"));
+		testAssert(root_ob.hasChildWithStringValueEqualTo("type", "sale"));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("type", "Sale")); // Case sensitive
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("type", "sal")); // Target is prefix of value
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("type", "sales")); // Value is prefix of target
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("type", ""));
+		testAssert(root_ob.hasChildWithStringValueEqualTo("addr", "0xAbCd"));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("addr", "0xabcd"));
+		testAssert(root_ob.hasChildWithStringValueEqualTo("empty", ""));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("empty", "a"));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("missing", "sale")); // Missing child
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("missing", ""));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("num", "1")); // Non-string children
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("null", "null"));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("ob", ""));
+		testAssert(!root_ob.hasChildWithStringValueEqualTo("arr", "sale"));
 
 		// hasChildWithStringValueCaseInsensitiveEqualTo.  target_value must be lowercase.
-		testAssert(root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "type", "sale"));
-		testAssert(root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "addr", "0xabcd")); // Mixed-case value
-		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "addr", "0xabce"));
-		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "addr", "0xabc")); // Target is prefix of value
-		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "addr", "0xabcde")); // Value is prefix of target
-		testAssert(root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "empty", ""));
-		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "empty", "a"));
-		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "missing", "sale")); // Missing child
-		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "num", "1")); // Non-string children
-		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "null", "null"));
-		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo(p, "arr", "sale"));
+		testAssert(root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("type", "sale"));
+		testAssert(root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("addr", "0xabcd")); // Mixed-case value
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("addr", "0xabce"));
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("addr", "0xabc")); // Target is prefix of value
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("addr", "0xabcde")); // Value is prefix of target
+		testAssert(root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("empty", ""));
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("empty", "a"));
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("missing", "sale")); // Missing child
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("num", "1")); // Non-string children
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("null", "null"));
+		testAssert(!root_ob.hasChildWithStringValueCaseInsensitiveEqualTo("arr", "sale"));
 
 		// Calling on a non-object node should throw.
-		const JSONNode& arr_node = root_ob.getChildArray(p, "arr");
+		const JSONNode& arr_node = root_ob.getChildArray("arr");
 		try
 		{
-			arr_node.hasChildWithStringValueEqualTo(p, "type", "sale");
+			arr_node.hasChildWithStringValueEqualTo("type", "sale");
 			failTest("Expected excep to be thrown.");
 		}
 		catch(glare::Exception&)
 		{}
 		try
 		{
-			arr_node.hasChildWithStringValueCaseInsensitiveEqualTo(p, "type", "sale");
+			arr_node.hasChildWithStringValueCaseInsensitiveEqualTo("type", "sale");
 			failTest("Expected excep to be thrown.");
 		}
 		catch(glare::Exception&)
@@ -1205,49 +1132,49 @@ void JSONParser::test()
 		const JSONNode& root_ob = p.rootNode();
 
 		// getIntValue: values are truncated towards zero.
-		testEqual(root_ob.getChildIntValue(p, "zero"), 0);
-		testEqual(root_ob.getChildIntValue(p, "neg_zero"), 0);
-		testEqual(root_ob.getChildIntValue(p, "a"), 27);
-		testEqual(root_ob.getChildIntValue(p, "neg_a"), -27);
-		testEqual(root_ob.getChildIntValue(p, "frac"), 27);
-		testEqual(root_ob.getChildIntValue(p, "neg_frac"), -27);
-		testEqual(root_ob.getChildIntValue(p, "small_neg_frac"), 0);
-		testEqual(root_ob.getChildIntValue(p, "neg_one"), -1);
-		testEqual(root_ob.getChildIntValue(p, "int_max"), std::numeric_limits<int>::max());
-		testEqual(root_ob.getChildIntValue(p, "int_max_frac"), std::numeric_limits<int>::max());
-		testEqual(root_ob.getChildIntValue(p, "int_min"), std::numeric_limits<int>::min());
-		testEqual(root_ob.getChildIntValue(p, "int_min_frac"), std::numeric_limits<int>::min());
-		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "int_max_plus_one"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "int_min_minus_one"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "big"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "huge"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "neg_huge"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue(p, "str"); }, "Expected type Number");
+		testEqual(root_ob.getChildIntValue("zero"), 0);
+		testEqual(root_ob.getChildIntValue("neg_zero"), 0);
+		testEqual(root_ob.getChildIntValue("a"), 27);
+		testEqual(root_ob.getChildIntValue("neg_a"), -27);
+		testEqual(root_ob.getChildIntValue("frac"), 27);
+		testEqual(root_ob.getChildIntValue("neg_frac"), -27);
+		testEqual(root_ob.getChildIntValue("small_neg_frac"), 0);
+		testEqual(root_ob.getChildIntValue("neg_one"), -1);
+		testEqual(root_ob.getChildIntValue("int_max"), std::numeric_limits<int>::max());
+		testEqual(root_ob.getChildIntValue("int_max_frac"), std::numeric_limits<int>::max());
+		testEqual(root_ob.getChildIntValue("int_min"), std::numeric_limits<int>::min());
+		testEqual(root_ob.getChildIntValue("int_min_frac"), std::numeric_limits<int>::min());
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue("int_max_plus_one"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue("int_min_minus_one"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue("big"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue("huge"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue("neg_huge"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValue("str"); }, "Expected type Number");
 
 		// getChildIntValueWithDefaultVal should throw for an out-of-range value, not return the default.
-		testThrowsExcepContainingString([&]() { root_ob.getChildIntValueWithDefaultVal(p, "int_max_plus_one", 0); }, "out of range");
-		testEqual(root_ob.getChildIntValueWithDefaultVal(p, "missing", 123), 123);
+		testThrowsExcepContainingString([&]() { root_ob.getChildIntValueWithDefaultVal("int_max_plus_one", 0); }, "out of range");
+		testEqual(root_ob.getChildIntValueWithDefaultVal("missing", 123), 123);
 
 		// getUIntValue: values are truncated towards zero, negative values are rejected.
-		testEqual(root_ob.getChildUIntValue(p, "zero"), (size_t)0);
-		testEqual(root_ob.getChildUIntValue(p, "neg_zero"), (size_t)0);
-		testEqual(root_ob.getChildUIntValue(p, "a"), (size_t)27);
-		testEqual(root_ob.getChildUIntValue(p, "frac"), (size_t)27);
-		testEqual(root_ob.getChildUIntValue(p, "int_max_plus_one"), (size_t)2147483648u);
+		testEqual(root_ob.getChildUIntValue("zero"), (size_t)0);
+		testEqual(root_ob.getChildUIntValue("neg_zero"), (size_t)0);
+		testEqual(root_ob.getChildUIntValue("a"), (size_t)27);
+		testEqual(root_ob.getChildUIntValue("frac"), (size_t)27);
+		testEqual(root_ob.getChildUIntValue("int_max_plus_one"), (size_t)2147483648u);
 		if(sizeof(size_t) == 8)
-			testEqual(root_ob.getChildUIntValue(p, "big"), (size_t)10000000000000000000ull); // 1e19 is exactly representable as a double.
-		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "neg_a"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "neg_frac"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "small_neg_frac"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "neg_one"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "two_pow_64"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "huge"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "neg_huge"); }, "out of range");
-		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue(p, "str"); }, "Expected type Number");
+			testEqual(root_ob.getChildUIntValue("big"), (size_t)10000000000000000000ull); // 1e19 is exactly representable as a double.
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue("neg_a"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue("neg_frac"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue("small_neg_frac"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue("neg_one"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue("two_pow_64"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue("huge"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue("neg_huge"); }, "out of range");
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValue("str"); }, "Expected type Number");
 
 		// getChildUIntValueWithDefaultVal should throw for an out-of-range value, not return the default.
-		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValueWithDefaultVal(p, "neg_one", 0); }, "out of range");
-		testEqual(root_ob.getChildUIntValueWithDefaultVal(p, "missing", 123), (size_t)123);
+		testThrowsExcepContainingString([&]() { root_ob.getChildUIntValueWithDefaultVal("neg_one", 0); }, "out of range");
+		testEqual(root_ob.getChildUIntValueWithDefaultVal("missing", 123), (size_t)123);
 
 		// Non-finite values.  Set these directly on nodes since they can't be written in JSON.
 		const double non_finite_vals[] = { std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN() };
@@ -1267,20 +1194,19 @@ void JSONParser::test()
 	}
 
 	//--------- Test empty string ----------
-#if 0
 	try
 	{
 		JSONParser p;
 		std::string s = "{ \"a\": \"\" }";
 		p.parseBuffer(s.data(), s.size());
 
-		JSONNode root_ob = p.nodes[0];
-		testAssert(root_ob.type == JSONNode::Type_Object);
+		JSONNode root_ob = p.rootNode();
+		testAssert(root_ob.getType() == JSONNodeType::Type_Object);
 		testAssert(root_ob.numNameValPairs() == 1);
 
-		testAssert(root_ob.nameValPairName(p, 0) == "a");
-		testAssert(p.nodes[root_ob.nameValPairValueNodeIndex(p, 0)].type == JSONNode::Type_String);
-		testAssert(p.nodes[root_ob.nameValPairValueNodeIndex(p, 0)].getStringValue(p) == "");
+		testAssert(root_ob.getNameI(0) == "a");
+		testAssert(root_ob.getChildNodeForIndex(0).getType() == JSONNodeType::Type_String);
+		testAssert(root_ob.getChildNodeForIndex(0).getStringValue() == "");
 	}
 	catch(glare::Exception& e)
 	{
@@ -1294,43 +1220,43 @@ void JSONParser::test()
 		std::string s = "{ \"a\": [1.0, -1.0, 1, 2, 1e20, -1.0E+20, 15.4e-5] }";
 		p.parseBuffer(s.data(), s.size());
 
-		JSONNode root_ob = p.nodes[0];
-		testAssert(root_ob.type == JSONNode::Type_Object);
+		JSONNode root_ob = p.rootNode();
+		testAssert(root_ob.getType() == JSONNodeType::Type_Object);
 		testAssert(root_ob.numNameValPairs() == 1);
 
-		testAssert(root_ob.nameValPairName(p, 0) == "a");
+		testAssert(root_ob.objectChildrenBegin().name() == "a");
 
-		JSONNode& array_node = p.nodes[root_ob.nameValPairValueNodeIndex(p, 0)];
-		testAssert(array_node.type == JSONNode::Type_Array);
-		testEqual(array_node.numNameValPairs(), (size_t)7);
+		JSONNode array_node = root_ob.getChildNodeForIndex(0);
+		testAssert(array_node.getType() == JSONNodeType::Type_Array);
+		testEqual(array_node.numChildren(), (size_t)7);
 
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 0)].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 0)].value.double_v == 1.0);
+		testAssert(array_node.getArrayChildNode(0).getType() == JSONNodeType::Type_Number);
+		testAssert(array_node.getArrayChildNode(0).getDoubleValue() == 1.0);
 
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 1)].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 1)].value.double_v == -1.0);
+		testAssert(array_node.getArrayChildNode(1).getType() == JSONNodeType::Type_Number);
+		testAssert(array_node.getArrayChildNode(1).getDoubleValue() == -1.0);
 
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 2)].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 2)].value.double_v == 1.0);
+		testAssert(array_node.getArrayChildNode(2).getType() == JSONNodeType::Type_Number);
+		testAssert(array_node.getArrayChildNode(2).getDoubleValue() == 1.0);
 
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 3)].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 3)].value.double_v == 2.0);
+		testAssert(array_node.getArrayChildNode(3).getType() == JSONNodeType::Type_Number);
+		testAssert(array_node.getArrayChildNode(3).getDoubleValue() == 2.0);
 
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 4)].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 4)].value.double_v == 1.0e20);
+		testAssert(array_node.getArrayChildNode(4).getType() == JSONNodeType::Type_Number);
+		testAssert(array_node.getArrayChildNode(4).getDoubleValue() == 1.0e20);
 
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 5)].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 5)].value.double_v == -1.0e20);
+		testAssert(array_node.getArrayChildNode(5).getType() == JSONNodeType::Type_Number);
+		testAssert(array_node.getArrayChildNode(5).getDoubleValue() == -1.0e20);
 		
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 6)].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 6)].value.double_v == 15.4e-5);
+		testAssert(array_node.getArrayChildNode(6).getType() == JSONNodeType::Type_Number);
+		testAssert(array_node.getArrayChildNode(6).getDoubleValue() == 15.4e-5);
 
 	}
 	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
-#endif
+
 
 	testStringEscapeSequence("\\\"", "\""); //		\" should decode to "
 	testStringEscapeSequence("\\\\", "\\"); //		backslash backslash should decode to backslash. 

@@ -336,7 +336,7 @@ static GLTFMesh& getMesh(GLTFData& data, size_t mesh_index)
 }
 
 
-static Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour3f& default_val)
+static Colour3f parseColour3ChildArrayWithDefault(const JSONNode& node, const std::string& name, const Colour3f& default_val)
 {
 	if(node.getType() != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -361,7 +361,7 @@ static Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, cons
 }
 
 
-static Colour4f parseColour4ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour4f& default_val)
+static Colour4f parseColour4ChildArrayWithDefault(const JSONNode& node, const std::string& name, const Colour4f& default_val)
 {
 	if(node.getType() != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
@@ -386,15 +386,15 @@ static Colour4f parseColour4ChildArrayWithDefault(const JSONParser& parser, cons
 }
 
 
-static GLTFTextureObject parseTextureIfPresent(const JSONParser& parser, const JSONNode& node, const std::string& name)
+static GLTFTextureObject parseTextureIfPresent(const JSONNode& node, const std::string& name)
 {
 	if(node.hasChild(name))
 	{
-		const JSONNode& tex_node = node.getChildObject(parser, name);
+		const JSONNode& tex_node = node.getChildObject(name);
 
 		GLTFTextureObject tex;
-		tex.index		= tex_node.getChildUIntValueWithDefaultVal(parser, "index", std::numeric_limits<size_t>::max());
-		tex.texCoord	= tex_node.getChildUIntValueWithDefaultVal(parser, "texCoord", 0);
+		tex.index		= tex_node.getChildUIntValueWithDefaultVal("index", std::numeric_limits<size_t>::max());
+		tex.texCoord	= tex_node.getChildUIntValueWithDefaultVal("texCoord", 0);
 		return tex;
 	}
 	else
@@ -1834,7 +1834,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				GLTFBufferRef buffer = new GLTFBuffer();
 				if(buffer_node.hasChild("uri"))
 				{
-					buffer->uri = buffer_node.getChildStringValue(parser, "uri");
+					buffer->uri = buffer_node.getChildStringValue("uri");
 
 					if(hasPrefix(buffer->uri, "data:")) // If this is a data URI (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs)
 					{
@@ -1879,12 +1879,12 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				const JSONNode& view_node = view_node_array.getArrayChildNode(z);
 
 				GLTFBufferViewRef view = new GLTFBufferView();
-				view->buffer =		view_node.getChildUIntValue(parser, "buffer");
-				view->byte_length = view_node.getChildUIntValue(parser, "byteLength");
-				view->byte_offset = view_node.getChildUIntValueWithDefaultVal(parser, "byteOffset", 0);
-				view->byte_stride = view_node.getChildUIntValueWithDefaultVal(parser, "byteStride", 0);
-				view->name =		view_node.getChildStringValueWithDefaultVal(parser, "name", "");
-				view->target =		view_node.getChildUIntValueWithDefaultVal(parser, "target", 0);
+				view->buffer =		view_node.getChildUIntValue("buffer");
+				view->byte_length = view_node.getChildUIntValue("byteLength");
+				view->byte_offset = view_node.getChildUIntValueWithDefaultVal("byteOffset", 0);
+				view->byte_stride = view_node.getChildUIntValueWithDefaultVal("byteStride", 0);
+				view->name =		view_node.getChildStringValueWithDefaultVal("name", "");
+				view->target =		view_node.getChildUIntValueWithDefaultVal("target", 0);
 				data.buffer_views.push_back(view);
 			}
 		}
@@ -1902,11 +1902,11 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				const JSONNode& accessor_node = accessor_node_array.getArrayChildNode(z);
 
 				GLTFAccessorRef accessor = new GLTFAccessor();
-				accessor->buffer_view		= accessor_node.getChildUIntValueWithDefaultVal(parser, "bufferView", 0);
-				accessor->byte_offset		= accessor_node.getChildUIntValueWithDefaultVal(parser, "byteOffset", 0);
-				accessor->component_type	= accessor_node.getChildUIntValue(parser, "componentType");
-				accessor->count				= accessor_node.getChildUIntValue(parser, "count");
-				accessor->type				= accessor_node.getChildStringValue(parser, "type");
+				accessor->buffer_view		= accessor_node.getChildUIntValueWithDefaultVal("bufferView", 0);
+				accessor->byte_offset		= accessor_node.getChildUIntValueWithDefaultVal("byteOffset", 0);
+				accessor->component_type	= accessor_node.getChildUIntValue("componentType");
+				accessor->count				= accessor_node.getChildUIntValue("count");
+				accessor->type				= accessor_node.getChildStringValue("type");
 				data.accessors.push_back(accessor);
 			}
 		}
@@ -1923,17 +1923,17 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			{
 				const JSONNode& image_node = image_node_array.getArrayChildNode(z);
 				GLTFImageRef image = new GLTFImage();
-				image->name = image_node.getChildStringValueWithDefaultVal(parser, "name", "");
+				image->name = image_node.getChildStringValueWithDefaultVal("name", "");
 				if(image_node.hasChild("uri"))
 				{
-					image->uri = image_node.getChildStringValue(parser, "uri");
+					image->uri = image_node.getChildStringValue("uri");
 					if(!hasPrefix(image->uri, "data:")) // If the URI refers to an external file:
 						image->uri = decodeAndCheckExternalURIPath(image->uri, restrict_uris_to_base_dir);
 				}
 				else // Else image is embedded in GLB file:
 				{
-					image->buffer_view = image_node.getChildUIntValue(parser, "bufferView");
-					image->mime_type   = image_node.getChildStringValue(parser, "mimeType");
+					image->buffer_view = image_node.getChildUIntValue("bufferView");
+					image->mime_type   = image_node.getChildStringValue("mimeType");
 				}
 				data.images.push_back(image);
 			}
@@ -1951,8 +1951,8 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			{
 				const JSONNode& texture_node = node_array.getArrayChildNode(z);
 				GLTFTextureRef tex = new GLTFTexture();
-				tex->sampler = texture_node.getChildUIntValueWithDefaultVal(parser, "sampler", std::numeric_limits<size_t>::max());
-				tex->source = texture_node.getChildUIntValueWithDefaultVal(parser, "source", 0); // NOTE: not required for some reason.
+				tex->sampler = texture_node.getChildUIntValueWithDefaultVal("sampler", std::numeric_limits<size_t>::max());
+				tex->source = texture_node.getChildUIntValueWithDefaultVal("source", 0); // NOTE: not required for some reason.
 				data.textures.push_back(tex);
 			}
 		}
@@ -1970,45 +1970,45 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				GLTFMaterialRef mat = new GLTFMaterial();
 
-				if(mat_node.hasChild("name")) mat->name = mat_node.getChildStringValue(parser, "name");
-				mat->alphaMode = mat_node.getChildStringValueWithDefaultVal(parser, "alphaMode", "OPAQUE");
-				mat->doubleSided = mat_node.getChildBoolValueWithDefaultVal(parser, "doubleSided", false);
+				if(mat_node.hasChild("name")) mat->name = mat_node.getChildStringValue("name");
+				mat->alphaMode = mat_node.getChildStringValueWithDefaultVal("alphaMode", "OPAQUE");
+				mat->doubleSided = mat_node.getChildBoolValueWithDefaultVal("doubleSided", false);
 
 				if(mat_node.hasChild("extensions"))
 				{
-					const JSONNode& extensions_node = mat_node.getChildObject(parser, "extensions");
+					const JSONNode& extensions_node = mat_node.getChildObject("extensions");
 					
 					if(extensions_node.hasChild("KHR_materials_pbrSpecularGlossiness"))
 					{
 						mat->KHR_materials_pbrSpecularGlossiness_present = true;
 
-						const JSONNode& pbr_node = extensions_node.getChildObject(parser, "KHR_materials_pbrSpecularGlossiness");
+						const JSONNode& pbr_node = extensions_node.getChildObject("KHR_materials_pbrSpecularGlossiness");
 
-						mat->diffuseFactor = parseColour4ChildArrayWithDefault(parser, pbr_node, "diffuseFactor", Colour4f(1, 1, 1, 1));
-						mat->diffuseTexture = parseTextureIfPresent(parser, pbr_node, "diffuseTexture");
-						mat->specularFactor = parseColour3ChildArrayWithDefault(parser, pbr_node, "specularFactor", Colour3f(1, 1, 1));
-						mat->glossinessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "glossinessFactor", 1.0);
-						mat->specularGlossinessTexture = parseTextureIfPresent(parser, pbr_node, "specularGlossinessTexture");
+						mat->diffuseFactor = parseColour4ChildArrayWithDefault(pbr_node, "diffuseFactor", Colour4f(1, 1, 1, 1));
+						mat->diffuseTexture = parseTextureIfPresent(pbr_node, "diffuseTexture");
+						mat->specularFactor = parseColour3ChildArrayWithDefault(pbr_node, "specularFactor", Colour3f(1, 1, 1));
+						mat->glossinessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal("glossinessFactor", 1.0);
+						mat->specularGlossinessTexture = parseTextureIfPresent(pbr_node, "specularGlossinessTexture");
 					}
 
 					if(extensions_node.hasChild("KHR_materials_emissive_strength"))
 					{
-						const JSONNode& strength_node = extensions_node.getChildObject(parser, "KHR_materials_emissive_strength");
+						const JSONNode& strength_node = extensions_node.getChildObject("KHR_materials_emissive_strength");
 
-						mat->emissiveStrength = (float)strength_node.getChildDoubleValueWithDefaultVal(parser, "emissiveStrength", 1.0);
+						mat->emissiveStrength = (float)strength_node.getChildDoubleValueWithDefaultVal("emissiveStrength", 1.0);
 					}
 				}
 
 				// pbrMetallicRoughness
 				if(mat_node.hasChild("pbrMetallicRoughness"))
 				{
-					const JSONNode& pbr_node = mat_node.getChildObject(parser, "pbrMetallicRoughness");
+					const JSONNode& pbr_node = mat_node.getChildObject("pbrMetallicRoughness");
 
-					mat->baseColorTexture = parseTextureIfPresent(parser, pbr_node, "baseColorTexture");
-					mat->baseColorFactor = parseColour4ChildArrayWithDefault(parser, pbr_node, "baseColorFactor", Colour4f(1, 1, 1, 1));
-					mat->roughnessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "roughnessFactor", 1.0);
-					mat->metallicFactor		= (float)pbr_node.getChildDoubleValueWithDefaultVal(parser, "metallicFactor", 1.0);
-					mat->metallicRoughnessTexture = parseTextureIfPresent(parser, pbr_node, "metallicRoughnessTexture");
+					mat->baseColorTexture = parseTextureIfPresent(pbr_node, "baseColorTexture");
+					mat->baseColorFactor = parseColour4ChildArrayWithDefault(pbr_node, "baseColorFactor", Colour4f(1, 1, 1, 1));
+					mat->roughnessFactor	= (float)pbr_node.getChildDoubleValueWithDefaultVal("roughnessFactor", 1.0);
+					mat->metallicFactor		= (float)pbr_node.getChildDoubleValueWithDefaultVal("metallicFactor", 1.0);
+					mat->metallicRoughnessTexture = parseTextureIfPresent(pbr_node, "metallicRoughnessTexture");
 				}
 				else
 				{
@@ -2018,10 +2018,10 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 					mat->metallicFactor = 1;
 				}
 
-				mat->emissiveTexture = parseTextureIfPresent(parser, mat_node, "emissiveTexture");
-				mat->emissiveFactor = parseColour3ChildArrayWithDefault(parser, mat_node, "emissiveFactor", Colour3f(0, 0, 0));
+				mat->emissiveTexture = parseTextureIfPresent(mat_node, "emissiveTexture");
+				mat->emissiveFactor = parseColour3ChildArrayWithDefault(mat_node, "emissiveFactor", Colour3f(0, 0, 0));
 
-				mat->normalTexture = parseTextureIfPresent(parser, mat_node, "normalTexture");
+				mat->normalTexture = parseTextureIfPresent(mat_node, "normalTexture");
 
 				data.materials.push_back(mat);
 			}
@@ -2042,7 +2042,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				GLTFMeshRef gltf_mesh = new GLTFMesh();
 				
-				const JSONNode& primitives_node_array = mesh_node.getChildArray(parser, "primitives");
+				const JSONNode& primitives_node_array = mesh_node.getChildArray("primitives");
 
 				for(size_t q=0; q<primitives_node_array.numChildren(); ++q)
 				{
@@ -2050,13 +2050,13 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 					GLTFPrimitiveRef primitive = new GLTFPrimitive();
 
-					const JSONNode& attributes_ob = primitive_node.getChildObject(parser, "attributes");
+					const JSONNode& attributes_ob = primitive_node.getChildObject("attributes");
 					for(auto itt = attributes_ob.objectChildrenBegin(); itt != attributes_ob.objectChildrenEnd(); ++itt)
 						primitive->attributes[toString(itt.name())] = itt.valueNode().getUIntValue();
 
-					primitive->indices	= primitive_node.getChildUIntValueWithDefaultVal(parser, "indices", std::numeric_limits<size_t>::max()); // optional
-					primitive->material = primitive_node.getChildUIntValueWithDefaultVal(parser, "material", data.materials.size()); // Optional. Default mat index is index of default material.
-					primitive->mode		= primitive_node.getChildUIntValueWithDefaultVal(parser, "mode", 4); // Optional, default = 4.
+					primitive->indices	= primitive_node.getChildUIntValueWithDefaultVal("indices", std::numeric_limits<size_t>::max()); // optional
+					primitive->material = primitive_node.getChildUIntValueWithDefaultVal("material", data.materials.size()); // Optional. Default mat index is index of default material.
+					primitive->mode		= primitive_node.getChildUIntValueWithDefaultVal("mode", 4); // Optional, default = 4.
 
 					// See if this primitive uses the default material
 					default_mat_used = default_mat_used || (primitive->material == data.materials.size());
@@ -2093,14 +2093,14 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 			{
 				const JSONNode& node_node = node_array.getArrayChildNode(z);
 				GLTFNodeRef node = new GLTFNode();
-				if(node_node.hasChild("name")) node->name = node_node.getChildStringValue(parser, "name");
-				if(node_node.hasChild("mesh")) node->mesh = node_node.getChildUIntValue(parser, "mesh");
-				if(node_node.hasChild("skin")) node->skin = node_node.getChildUIntValue(parser, "skin");
+				if(node_node.hasChild("name")) node->name = node_node.getChildStringValue("name");
+				if(node_node.hasChild("mesh")) node->mesh = node_node.getChildUIntValue("mesh");
+				if(node_node.hasChild("skin")) node->skin = node_node.getChildUIntValue("skin");
 
 				// parse children array
 				if(node_node.hasChild("children"))
 				{
-					const JSONNode& children_array_node = node_node.getChildArray(parser, "children");
+					const JSONNode& children_array_node = node_node.getChildArray("children");
 					for(size_t q=0; q<children_array_node.numChildren(); ++q)
 					{
 						node->children.push_back(children_array_node.getArrayChildNode(q).getUIntValue());
@@ -2109,7 +2109,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				if(node_node.hasChild("rotation"))
 				{
-					const JSONNode& rotation_node = node_node.getChildArray(parser, "rotation");
+					const JSONNode& rotation_node = node_node.getChildArray("rotation");
 					if(rotation_node.numChildren() != 4)
 						throw glare::Exception("Expected 4 elements in rotation array.");
 					float v[4];
@@ -2122,7 +2122,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				if(node_node.hasChild( "scale"))
 				{
-					const JSONNode& scale_node = node_node.getChildArray(parser, "scale");
+					const JSONNode& scale_node = node_node.getChildArray("scale");
 					if(scale_node.numChildren() != 3)
 						throw glare::Exception("Expected 3 elements in scale array.");
 					for(uint32 q=0; q<3; ++q)
@@ -2133,7 +2133,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				if(node_node.hasChild("translation"))
 				{
-					const JSONNode& translation_node = node_node.getChildArray(parser, "translation");
+					const JSONNode& translation_node = node_node.getChildArray("translation");
 					if(translation_node.numChildren() != 3)
 						throw glare::Exception("Expected 3 elements in translation array.");
 					for(uint32 q=0; q<3; ++q)
@@ -2144,7 +2144,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				if(node_node.hasChild("matrix"))
 				{
-					const JSONNode& matrix_node = node_node.getChildArray(parser, "matrix");
+					const JSONNode& matrix_node = node_node.getChildArray("matrix");
 					if(matrix_node.numChildren() != 16)
 						throw glare::Exception("Expected 16 elements in matrix array.");
 
@@ -2172,23 +2172,23 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				Reference<GLTFAnimation> gltf_anim = new GLTFAnimation();
 
-				gltf_anim->name = anim_node.getChildStringValueWithDefaultVal(parser, "name", "");
+				gltf_anim->name = anim_node.getChildStringValueWithDefaultVal("name", "");
 
 				// parse channels array
-				const JSONNode& channels_array_node = anim_node.getChildArray(parser, "channels");
+				const JSONNode& channels_array_node = anim_node.getChildArray("channels");
 				for(size_t q=0; q<channels_array_node.numChildren(); ++q)
 				{
 					const JSONNode& channel_node = channels_array_node.getArrayChildNode(q);
 
 					GLTFChannel channel;
-					channel.sampler = channel_node.getChildIntValue(parser, "sampler");
+					channel.sampler = channel_node.getChildIntValue("sampler");
 
-					const JSONNode& target_node = channel_node.getChildObject(parser, "target");
+					const JSONNode& target_node = channel_node.getChildObject("target");
 
-					channel.target_node = target_node.getChildIntValueWithDefaultVal(parser, "node", -1); // NOTE: node is optional.  "When node isn't defined, channel should be ignored"
+					channel.target_node = target_node.getChildIntValueWithDefaultVal("node", -1); // NOTE: node is optional.  "When node isn't defined, channel should be ignored"
 					if(channel.target_node != -1)
 					{
-						const string_view target_path = target_node.getChildStringValue(parser, "path");
+						const string_view target_path = target_node.getChildStringValue("path");
 
 						if(target_path == "translation")
 							channel.target_path = GLTFChannel::Path_translation;
@@ -2206,16 +2206,16 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				}
 
 				// parse samplers
-				const JSONNode& samplers_array_node = anim_node.getChildArray(parser, "samplers");
+				const JSONNode& samplers_array_node = anim_node.getChildArray("samplers");
 				for(size_t q=0; q<samplers_array_node.numChildren(); ++q)
 				{
 					const JSONNode& sampler_node = samplers_array_node.getArrayChildNode(q);
 
 					GLTFSampler sampler;
-					sampler.input  = (int)sampler_node.getChildUIntValue(parser, "input");
-					sampler.output = (int)sampler_node.getChildUIntValue(parser, "output");
+					sampler.input  = (int)sampler_node.getChildUIntValue("input");
+					sampler.output = (int)sampler_node.getChildUIntValue("output");
 
-					const string_view interpolation = sampler_node.getChildStringValueWithDefaultVal(parser, "interpolation", "LINEAR");
+					const string_view interpolation = sampler_node.getChildStringValueWithDefaultVal("interpolation", "LINEAR");
 
 					if(interpolation == "LINEAR")
 						sampler.interpolation = GLTFSampler::Interpolation_linear;
@@ -2246,13 +2246,13 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				Reference<GLTFSkin> gltf_skin = new GLTFSkin();
 
-				if(skin_node.hasChild("name")) gltf_skin->name = skin_node.getChildStringValue(parser, "name");
+				if(skin_node.hasChild("name")) gltf_skin->name = skin_node.getChildStringValue("name");
 
-				gltf_skin->inverse_bind_matrices = skin_node.getChildIntValueWithDefaultVal(parser, "inverseBindMatrices", -1); // Optional, default is identity matrices
-				gltf_skin->skeleton              = skin_node.getChildIntValueWithDefaultVal(parser, "skeleton",            -1); // Optional.  NOTE: not used currently
+				gltf_skin->inverse_bind_matrices = skin_node.getChildIntValueWithDefaultVal("inverseBindMatrices", -1); // Optional, default is identity matrices
+				gltf_skin->skeleton              = skin_node.getChildIntValueWithDefaultVal("skeleton",            -1); // Optional.  NOTE: not used currently
 
 				// parse joints array
-				const JSONNode& joints_array_node = skin_node.getChildArray(parser, "joints");
+				const JSONNode& joints_array_node = skin_node.getChildArray("joints");
 				for(size_t q=0; q<joints_array_node.numChildren(); ++q)
 				{
 					const int val = joints_array_node.getArrayChildNode(q).getIntValue();
@@ -2278,12 +2278,12 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				GLTFSceneRef scene = new GLTFScene();
 
-				if(scene_node.hasChild("name")) scene->name = scene_node.getChildStringValue(parser, "name");
+				if(scene_node.hasChild("name")) scene->name = scene_node.getChildStringValue("name");
 
 				// parse nodes array
 				if(scene_node.hasChild("nodes"))
 				{
-					const JSONNode& nodes_array_node = scene_node.getChildArray(parser, "nodes");
+					const JSONNode& nodes_array_node = scene_node.getChildArray("nodes");
 					for(size_t q=0; q<nodes_array_node.numChildren(); ++q)
 					{
 						scene->nodes.push_back(nodes_array_node.getArrayChildNode(q).getUIntValue());
@@ -2323,17 +2323,17 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 							const JSONNode& humanoid_node = itq.valueNode();
 							checkNodeType(humanoid_node, JSONNodeType::Type_Object);
 
-							const JSONNode& bones_array = humanoid_node.getChildArray(parser, "humanBones");
+							const JSONNode& bones_array = humanoid_node.getChildArray("humanBones");
 
 							for(size_t t=0; t<bones_array.numChildren(); ++t)
 							{
 								const JSONNode& bone_node = bones_array.getArrayChildNode(t);
 								checkNodeType(bone_node, JSONNodeType::Type_Object);
 
-								const string_view bone_name = bone_node.getChildStringValue(parser, "bone");
+								const string_view bone_name = bone_node.getChildStringValue("bone");
 
 								VRMBoneInfo info;
-								info.node_index = bone_node.getChildIntValue(parser, "node");
+								info.node_index = bone_node.getChildIntValue("node");
 
 								data.vrm_data->human_bones.insert(std::make_pair(bone_name, info));
 							}
@@ -2352,7 +2352,7 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 			for(size_t z=0; z<extensions_node.numChildren(); ++z)
 			{
-				const string_view extension = extensions_node.getArrayChildNode(z).getStringValue(parser);
+				const string_view extension = extensions_node.getArrayChildNode(z).getStringValue();
 
 				if(extension == "KHR_materials_pbrSpecularGlossiness" || extension == "KHR_materials_emissive_strength")
 				{}

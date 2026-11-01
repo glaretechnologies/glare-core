@@ -236,23 +236,23 @@ void extractEntry(const uint8* data, size_t size, const ZipIndex& index, const s
 // meta.json parsing
 //------------------------------------------------------------------------------------------
 
-std::vector<std::string> getChildStringArray(const JSONParser& parser, const JSONNode& node, const string_view name)
+std::vector<std::string> getChildStringArray(const JSONNode& node, const string_view name)
 {
-	const JSONNode& array_node = node.getChildArray(parser, name);
+	const JSONNode& array_node = node.getChildArray(name);
 	std::vector<std::string> res;
 	res.reserve(array_node.numChildren());
 	for(auto it = array_node.arrayChildrenBegin(); it != array_node.arrayChildrenEnd(); ++it)
-		res.push_back(toString(it.getNode().getStringValue(parser)));
+		res.push_back(toString(it.getNode().getStringValue()));
 	return res;
 }
 
 
-std::vector<double> getChildDoubleArray(const JSONParser& parser, const JSONNode& node, const string_view name)
+std::vector<double> getChildDoubleArray(const JSONNode& node, const string_view name)
 {
-	const JSONNode& array_node = node.getChildArray(parser, name);
+	const JSONNode& array_node = node.getChildArray(name);
 	std::vector<double> res(array_node.numChildren());
 	if(!res.empty())
-		array_node.parseDoubleArrayValues(parser, res.size(), res.data());
+		array_node.parseDoubleArrayValues(res.size(), res.data());
 	return res;
 }
 
@@ -345,10 +345,10 @@ GaussianSplatDataRef SOGDecoder::decodeFromBuffer(const void* data_, size_t size
 	const JSONNode& root = json.rootNode();
 
 	//------------------------------ means (positions) ------------------------------
-	const JSONNode& means_node = root.getChildObject(json, "means");
-	const std::vector<double> means_mins = getChildDoubleArray(json, means_node, "mins");
-	const std::vector<double> means_maxs = getChildDoubleArray(json, means_node, "maxs");
-	const std::vector<std::string> means_files = getChildStringArray(json, means_node, "files");
+	const JSONNode& means_node = root.getChildObject("means");
+	const std::vector<double> means_mins = getChildDoubleArray(means_node, "mins");
+	const std::vector<double> means_maxs = getChildDoubleArray(means_node, "maxs");
+	const std::vector<std::string> means_files = getChildStringArray(means_node, "files");
 	if(means_mins.size() != 3 || means_maxs.size() != 3 || means_files.size() != 2)
 		throw glare::Exception("SOGDecoder: malformed 'means' entry in meta.json.");
 
@@ -357,9 +357,9 @@ GaussianSplatDataRef SOGDecoder::decodeFromBuffer(const void* data_, size_t size
 	decodeAttributeImage(data, size, index, means_files[1], mem_allocator, means_u);
 
 	//------------------------------ scales ------------------------------
-	const JSONNode& scales_node = root.getChildObject(json, "scales");
-	const std::vector<double> scales_codebook = getChildDoubleArray(json, scales_node, "codebook");
-	const std::vector<std::string> scales_files = getChildStringArray(json, scales_node, "files");
+	const JSONNode& scales_node = root.getChildObject("scales");
+	const std::vector<double> scales_codebook = getChildDoubleArray(scales_node, "codebook");
+	const std::vector<std::string> scales_files = getChildStringArray(scales_node, "files");
 	if(scales_codebook.size() != 256 || scales_files.size() != 1)
 		throw glare::Exception("SOGDecoder: malformed 'scales' entry in meta.json.");
 
@@ -367,8 +367,8 @@ GaussianSplatDataRef SOGDecoder::decodeFromBuffer(const void* data_, size_t size
 	decodeAttributeImage(data, size, index, scales_files[0], mem_allocator, scales_image);
 
 	//------------------------------ quats (rotations) ------------------------------
-	const JSONNode& quats_node = root.getChildObject(json, "quats");
-	const std::vector<std::string> quats_files = getChildStringArray(json, quats_node, "files");
+	const JSONNode& quats_node = root.getChildObject("quats");
+	const std::vector<std::string> quats_files = getChildStringArray(quats_node, "files");
 	if(quats_files.size() != 1)
 		throw glare::Exception("SOGDecoder: malformed 'quats' entry in meta.json.");
 
@@ -376,9 +376,9 @@ GaussianSplatDataRef SOGDecoder::decodeFromBuffer(const void* data_, size_t size
 	decodeAttributeImage(data, size, index, quats_files[0], mem_allocator, quats_image);
 
 	//------------------------------ sh0 (base colour and opacity) ------------------------------
-	const JSONNode& sh0_node = root.getChildObject(json, "sh0");
-	const std::vector<double> sh0_codebook = getChildDoubleArray(json, sh0_node, "codebook");
-	const std::vector<std::string> sh0_files = getChildStringArray(json, sh0_node, "files");
+	const JSONNode& sh0_node = root.getChildObject("sh0");
+	const std::vector<double> sh0_codebook = getChildDoubleArray(sh0_node, "codebook");
+	const std::vector<std::string> sh0_files = getChildStringArray(sh0_node, "files");
 	if(sh0_codebook.size() != 256 || sh0_files.size() != 1)
 		throw glare::Exception("SOGDecoder: malformed 'sh0' entry in meta.json.");
 
@@ -400,7 +400,7 @@ GaussianSplatDataRef SOGDecoder::decodeFromBuffer(const void* data_, size_t size
 	const size_t num_pixels = means_l.width * means_l.height;
 
 	// 'count' is optional - without it, every pixel of the attribute images is a splat.
-	const size_t count = root.hasChild("count") ? (size_t)root.getChildUIntValue(json, "count") : num_pixels;
+	const size_t count = root.hasChild("count") ? (size_t)root.getChildUIntValue("count") : num_pixels;
 	if(count > num_pixels)
 		throw glare::Exception("SOGDecoder: meta.json 'count' (" + toString(count) + ") exceeds the number of pixels in the attribute images (" + toString(num_pixels) + ").");
 
@@ -508,9 +508,9 @@ SOGDecoder::MetaSummary SOGDecoder::readMetaSummaryFromBuffer(const void* data_,
 	json.parseBuffer((const char*)meta_json_data.data(), meta_json_data.size());
 	const JSONNode& root = json.rootNode();
 
-	const JSONNode& means_node = root.getChildObject(json, "means");
-	const std::vector<double> means_mins = getChildDoubleArray(json, means_node, "mins");
-	const std::vector<double> means_maxs = getChildDoubleArray(json, means_node, "maxs");
+	const JSONNode& means_node = root.getChildObject("means");
+	const std::vector<double> means_mins = getChildDoubleArray(means_node, "mins");
+	const std::vector<double> means_maxs = getChildDoubleArray(means_node, "maxs");
 	if(means_mins.size() != 3 || means_maxs.size() != 3)
 		throw glare::Exception("SOGDecoder: malformed 'means' entry in meta.json.");
 
@@ -523,7 +523,7 @@ SOGDecoder::MetaSummary SOGDecoder::readMetaSummaryFromBuffer(const void* data_,
 		Vec4f(unlog((float)means_maxs[0]), unlog((float)means_maxs[1]), unlog((float)means_maxs[2]), 1.f));
 
 	// 'count' is optional, and working out the real splat count without it would mean decoding an attribute image.
-	summary.num_splats = root.hasChild("count") ? (size_t)root.getChildUIntValue(json, "count") : 0;
+	summary.num_splats = root.hasChild("count") ? (size_t)root.getChildUIntValue("count") : 0;
 
 	return summary;
 }

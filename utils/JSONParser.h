@@ -164,7 +164,7 @@ struct JSONNode
 	inline JSONNodeType getType() const;
 
 	// Returns ref to string_v if this node has type Type_String, throws glare::Exception otherwise.
-	inline string_view getStringValue(const JSONParser& parser) const;
+	inline string_view getStringValue() const;
 
 	// Returns the number value cast to an int if this node has Type_Number, throws glare::Exception otherwise.
 	inline int getIntValue() const;
@@ -184,37 +184,37 @@ struct JSONNode
 
 	//----------------------- For Type_Object -----------------------
 	bool hasChild(const string_view name) const;
-	const JSONNode getChildNode(const JSONParser& parser, const string_view name) const;
+	const JSONNode getChildNode(const string_view name) const;
 	const JSONNode getChildNodeForIndex(uint32 index) const;
 	const string_view getNameI(uint32 index) const;
 
 	inline JSONObjectNodeChildIterator objectChildrenBegin() const;
 	inline JSONObjectNodeChildIterator objectChildrenEnd()   const;
 
-	size_t getChildUIntValue(const JSONParser& parser, const string_view name) const;
-	size_t getChildUIntValueWithDefaultVal(const JSONParser& parser, const string_view name, size_t default_val) const;
+	size_t getChildUIntValue(const string_view name) const;
+	size_t getChildUIntValueWithDefaultVal(const string_view name, size_t default_val) const;
 
-	int getChildIntValue(const JSONParser& parser, const string_view name) const;
-	int getChildIntValueWithDefaultVal(const JSONParser& parser, const string_view name, int default_val) const;
+	int getChildIntValue(const string_view name) const;
+	int getChildIntValueWithDefaultVal(const string_view name, int default_val) const;
 
-	double getChildDoubleValue(const JSONParser& parser, const string_view name) const;
-	double getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view name, double default_val) const;
+	double getChildDoubleValue(const string_view name) const;
+	double getChildDoubleValueWithDefaultVal(const string_view name, double default_val) const;
 
-	bool getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view name, bool default_val) const;
+	bool getChildBoolValueWithDefaultVal(const string_view name, bool default_val) const;
 
-	const string_view getChildStringValue(const JSONParser& parser, const string_view name) const;
+	const string_view getChildStringValue(const string_view name) const;
 
 	// Note that the returned string_view may be the default_val passed in as an argument.  Make sure the used lifetime of the result is not longer than the argument scope!
-	const string_view getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view name, const string_view default_val) const;
+	const string_view getChildStringValueWithDefaultVal(const string_view name, const string_view default_val) const;
 
-	bool hasChildWithStringValueEqualTo(const JSONParser& parser, const string_view name, const string_view target_value) const;
+	bool hasChildWithStringValueEqualTo(const string_view name, const string_view target_value) const;
 
 	// Returns true if this object has a child 'name' with a string value equal to target_value, ignoring case.  target_value must be lowercase.
 	// Returns false if the child is missing or is not a string.
-	bool hasChildWithStringValueCaseInsensitiveEqualTo(const JSONParser& parser, const string_view name, const string_view target_value) const;
+	bool hasChildWithStringValueCaseInsensitiveEqualTo(const string_view name, const string_view target_value) const;
 
-	const JSONNode getChildObject(const JSONParser& parser, const string_view name) const;
-	const JSONNode getChildArray(const JSONParser& parser, const string_view name) const;
+	const JSONNode getChildObject(const string_view name) const;
+	const JSONNode getChildArray(const string_view name) const;
 
 
 	//----------------------- For Type_Array -----------------------
@@ -226,7 +226,7 @@ struct JSONNode
 	inline JSONArrayNodeChildIterator arrayChildrenEnd() const;
 
 	// Parse the values from an array node like [1.0, 2.0, 3.0]
-	void parseDoubleArrayValues(const JSONParser& parser, size_t expected_num_elems, double* values_out) const;
+	void parseDoubleArrayValues(size_t expected_num_elems, double* values_out) const;
 
 
 //private:
@@ -320,7 +320,7 @@ JSONNode JSONNode::getArrayChildNode(size_t index) const { runtimeCheck(getType(
 
 uint32 JSONNode::numNameValPairs() const { return parser->nodes[node_index].numNameValPairs(); }
 
-string_view JSONNode::getStringValue(const JSONParser& parser_unused) const
+string_view JSONNode::getStringValue() const
 {
 	return parser->nodes[this->node_index].getStringValue(parser);
 }
