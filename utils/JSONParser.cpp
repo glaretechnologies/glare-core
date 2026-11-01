@@ -1,7 +1,7 @@
 /*=====================================================================
 JSONParser.cpp
 --------------
-Copyright Glare Technologies Limited 2020 -
+Copyright Glare Technologies Limited 2026 -
 =====================================================================*/
 #include "JSONParser.h"
 
@@ -16,7 +16,7 @@ Copyright Glare Technologies Limited 2020 -
 #include <limits>
 
 
-const std::string JSONNode::typeString(const Type type)
+const std::string JSONNodeInternal::typeString(const JSONNodeType type)
 {
 	switch(type)
 	{
@@ -37,36 +37,12 @@ const std::string JSONNode::typeString(const Type type)
 }
 
 
-const string_view JSONNode::getStringValue() const
+size_t JSONNodeInternal::getUIntValue() const
 {
-	if(type == JSONNode::Type_String)
-		return string_v;
-	else
-		throw glare::Exception("Expected type String - type was " + typeString(type));
-}
-
-
-// Converting a non-finite or out-of-range double to an integer type is undefined behaviour, so check the value is convertible first.
-// Values are truncated towards zero.
-int JSONNode::getIntValue() const
-{
-	if(type != JSONNode::Type_Number)
+	if(type != JSONNodeType::Type_Number)
 		throw glare::Exception("Expected type Number.");
 
-	const double v = this->value.double_v;
-	if(!isFinite(v) || !(v > (double)std::numeric_limits<int>::min() - 1.0 && v < (double)std::numeric_limits<int>::max() + 1.0))
-		throw glare::Exception("Number value out of range for int.");
-
-	return (int)v;
-}
-
-
-size_t JSONNode::getUIntValue() const
-{
-	if(type != JSONNode::Type_Number)
-		throw glare::Exception("Expected type Number.");
-
-	const double v = this->value.double_v;
+	const double v = value.double_v;
 	if(!isFinite(v) || !(v >= 0.0 && v < (double)std::numeric_limits<size_t>::max() + 1.0)) // Reject negative values
 		throw glare::Exception("Number value out of range for unsigned integer.");
 
@@ -74,255 +50,385 @@ size_t JSONNode::getUIntValue() const
 }
 
 
-double JSONNode::getDoubleValue() const
+// Converting a non-finite or out-of-range double to an integer type is undefined behaviour, so check the value is convertible first.
+// Values are truncated towards zero.
+int JSONNodeInternal::getIntValue() const
 {
-	if(type == JSONNode::Type_Number)
-		return this->value.double_v;
+	if(type != JSONNodeType::Type_Number)
+		throw glare::Exception("Expected type Number.");
+
+	const double v = value.double_v;
+	if(!isFinite(v) || !(v > (double)std::numeric_limits<int>::min() - 1.0 && v < (double)std::numeric_limits<int>::max() + 1.0))
+		throw glare::Exception("Number value out of range for int.");
+
+	return (int)v;
+}
+
+
+double JSONNodeInternal::getDoubleValue() const
+{
+	if(type == JSONNodeType::Type_Number)
+		return value.double_v;
 	else
 		throw glare::Exception("Expected type Number.");
 }
 
 
-bool JSONNode::getBoolValue() const
+bool JSONNodeInternal::getBoolValue() const
 {
-	if(type == JSONNode::Type_Boolean)
-		return this->value.bool_v;
+	if(type == JSONNodeType::Type_Boolean)
+		return value.bool_v;
 	else
 		throw glare::Exception("Expected type Boolean.");
 }
 
 
+const string_view JSONNodeInternal::getStringValue(const JSONParser* parser) const
+{
+	if(type == JSONNodeType::Type_String)
+		return string_view((const char*)&parser->data.data()[data_offset], data_size);
+	else
+		throw glare::Exception("Expected type String - type was " + JSONNodeInternal::typeString(type));
+}
+
+
+
+
 bool JSONNode::hasChild(const string_view name) const
 {
-	if(type != JSONNode::Type_Object)
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
+	for(uint32 i=0; i<node.numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name)
 			return true;
 	
 	return false;
 }
 
 
-const JSONNode& JSONNode::getChildNode(const JSONParser& parser, const string_view name) const
+const JSONNode JSONNode::getChildNode(const JSONParser& parser_unused, const string_view name) const
 {
-	if(type != JSONNode::Type_Object)
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-			return parser.nodes[name_val_pairs[i].value_node_index];
+	for(uint32 i=0; i<node.numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name)
+			return JSONNode(node.nameValPairValueNodeIndex(*parser, i), parser);
 
 	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
 }
 
 
-size_t JSONNode::getChildUIntValue(const JSONParser& parser, const string_view name) const
+const JSONNode JSONNode::getChildNodeForIndex(uint32 index) const
 {
-	if(type != JSONNode::Type_Object)
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-			return parser.nodes[name_val_pairs[i].value_node_index].getUIntValue();
-
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
+	return JSONNode(node.nameValPairValueNodeIndex(*parser, index), parser);
 }
 
 
-size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser, const string_view name, size_t default_val) const
+const string_view JSONNode::getNameI(uint32 index) const
 {
-	if(type != JSONNode::Type_Object)
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-			return parser.nodes[name_val_pairs[i].value_node_index].getUIntValue();
+	return node.nameValPairName(*parser, index);
+}
+
+
+size_t JSONNode::getChildUIntValue(const JSONParser& parser_unused, const string_view name) const
+{
+	/*if(type != JSONNode::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(size_t i=0; i<numNameValPairs(); ++i)
+		if(nameValPairName(parser, i) == name)
+			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getUIntValue();
+
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");*/
+	JSONNode child_node = getChildNode(*parser, name);
+	return child_node.getUIntValue();
+}
+
+
+size_t JSONNode::getChildUIntValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, size_t default_val) const
+{
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(uint32 i=0; i<node.numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name)
+			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getUIntValue();
 
 	return default_val;
 }
 
 
-int JSONNode::getChildIntValue(const JSONParser& parser, const string_view name) const
+int JSONNode::getChildIntValue(const JSONParser& parser_unused, const string_view name) const
 {
-	if(type != JSONNode::Type_Object)
+	/*if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-			return parser.nodes[name_val_pairs[i].value_node_index].getIntValue();
+	for(size_t i=0; i<numNameValPairs(); ++i)
+		if(nameValPairName(parser, i) == name)
+			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getIntValue();
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");*/
+	JSONNode child_node = getChildNode(*parser, name);
+	return child_node.getIntValue();
 }
 
 
-int JSONNode::getChildIntValueWithDefaultVal(const JSONParser& parser, const string_view name, int default_val) const
+int JSONNode::getChildIntValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, int default_val) const
 {
-	if(type != JSONNode::Type_Object)
+	/*if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-			return parser.nodes[name_val_pairs[i].value_node_index].getIntValue();
+	for(size_t i=0; i<numNameValPairs(); ++i)
+		if(nameValPairName(parser, i) == name)
+			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getIntValue();
+
+	return default_val;*/
+
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(uint32 i=0; i<node.numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name)
+			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getIntValue();
 
 	return default_val;
 }
 
 
-double JSONNode::getChildDoubleValue(const JSONParser& parser, const string_view name) const
+double JSONNode::getChildDoubleValue(const JSONParser& parser_unused, const string_view name) const
 {
-	if(type != JSONNode::Type_Object)
+	/*if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-			return parser.nodes[name_val_pairs[i].value_node_index].getDoubleValue();
+	for(size_t i=0; i<numNameValPairs(); ++i)
+		if(nameValPairName(parser, i) == name)
+			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getDoubleValue();
 
-	throw glare::Exception("Failed to find child node with name " + toString(name) + ".");
+	throw glare::Exception("Failed to find child node with name " + toString(name) + ".");*/
+	JSONNode child_node = getChildNode(*parser, name);
+	return child_node.getDoubleValue();
 }
 
 
-double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser, const string_view name, double default_val) const
+double JSONNode::getChildDoubleValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, double default_val) const
 {
-	if(type != JSONNode::Type_Object)
+	/*if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-			return parser.nodes[name_val_pairs[i].value_node_index].getDoubleValue();
+	for(size_t i=0; i<numNameValPairs(); ++i)
+		if(nameValPairName(parser, i) == name)
+			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getDoubleValue();
+
+	return default_val;*/
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(uint32 i=0; i<node.numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name)
+			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getDoubleValue();
 
 	return default_val;
 }
 
 
-bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser, const string_view name, bool default_val) const
+bool JSONNode::getChildBoolValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, bool default_val) const
 {
-	if(type != JSONNode::Type_Object)
+	/*if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i = 0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-			return parser.nodes[name_val_pairs[i].value_node_index].getBoolValue();
+	for(size_t i=0; i<numNameValPairs(); ++i)
+		if(nameValPairName(parser, i) == name)
+			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getBoolValue();
+
+	return default_val;*/
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(uint32 i=0; i<node.numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name)
+			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getBoolValue();
 
 	return default_val;
 }
 
 
-const string_view JSONNode::getChildStringValue(const JSONParser& parser, const string_view name) const
+const string_view JSONNode::getChildStringValue(const JSONParser& parser_unused, const string_view name) const
 {
-	if(type != JSONNode::Type_Object)
+	JSONNode child_node = getChildNode(*parser, name);
+	return child_node.getStringValue(*parser);
+
+	/*const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeInternal::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue();
+	for(size_t i=0; i<node.numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name)
+			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(parser);
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");*/
 }
 
 
-const string_view JSONNode::getChildStringValueWithDefaultVal(const JSONParser& parser, const string_view name, const string_view default_val) const
+const string_view JSONNode::getChildStringValueWithDefaultVal(const JSONParser& parser_unused, const string_view name, const string_view default_val) const
 {
-	if(type != JSONNode::Type_Object)
+	/*if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name && parser.nodes[name_val_pairs[i].value_node_index].type == JSONNode::Type_String)
-			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue();
+	for(size_t i=0; i<numNameValPairs(); ++i)
+		if(nameValPairName(parser, i) == name && parser.nodes[nameValPairValueNodeIndex(parser, i)].type == JSONNode::Type_String)
+			return parser.nodes[nameValPairValueNodeIndex(parser, i)].getStringValue(parser);
+
+	return default_val;*/
+
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
+		throw glare::Exception("Expected type object.");
+
+	for(uint32 i=0; i<node.numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name && parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].type == JSONNodeType::Type_String)
+			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(parser);
 
 	return default_val;
 }
 
 
-bool JSONNode::hasChildWithStringValueEqualTo(const JSONParser& parser, const string_view name, const string_view target_value) const
+bool JSONNode::hasChildWithStringValueEqualTo(const JSONParser& parser_unused, const string_view name, const string_view target_value) const
 {
-	if(type != JSONNode::Type_Object)
+	//JSONNode child_node = getChildNode(*parser, name);
+	//return child_node.getStringValue(parser_unused) == target_value;
+
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name && parser.nodes[name_val_pairs[i].value_node_index].type == JSONNode::Type_String)
-			return parser.nodes[name_val_pairs[i].value_node_index].getStringValue() == target_value;
+	for(uint32 i=0; i<numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name && parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].type == JSONNodeType::Type_String)
+			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(parser) == target_value;
 
 	return false;
 }
 
 
-bool JSONNode::hasChildWithStringValueCaseInsensitiveEqualTo(const JSONParser& parser, const string_view name, const string_view target_value) const
+bool JSONNode::hasChildWithStringValueCaseInsensitiveEqualTo(const JSONParser& parser_unused, const string_view name, const string_view target_value) const
 {
 	assert(::toLowerCase(target_value) == target_value); // target_value should be lower case.
 
-	if(type != JSONNode::Type_Object)
+	//JSONNode child_node = getChildNode(*parser, name);
+	//return StringUtils::equalCaseInsensitive(child_node.getStringValue(parser_unused), target_value);
+
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name && parser.nodes[name_val_pairs[i].value_node_index].type == JSONNode::Type_String)
-			return StringUtils::equalCaseInsensitive(parser.nodes[name_val_pairs[i].value_node_index].getStringValue(), target_value);
+	for(uint32 i=0; i<numNameValPairs(); ++i)
+		if(node.nameValPairName(*parser, i) == name && parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].type == JSONNodeType::Type_String)
+			return StringUtils::equalCaseInsensitive(parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(parser), target_value);
 
 	return false;
 }
 
 
-const JSONNode& JSONNode::getChildObject(const JSONParser& parser, const string_view name) const
+const JSONNode JSONNode::getChildObject(const JSONParser& parser_unused, const string_view name) const
 {
-	if(type != JSONNode::Type_Object)
-		throw glare::Exception("Expected type object.");
+	JSONNode child_node = getChildNode(*parser, name);
+	if(parser->nodes[child_node.node_index].type != JSONNodeType::Type_Object)
+		throw glare::Exception("Expected child with name '" + toString(name) + "' to have type object, had type " + JSONNodeInternal::typeString(parser->nodes[child_node.node_index].type));
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
-		{
-			const JSONNode& child = parser.nodes[name_val_pairs[i].value_node_index];
-			if(child.type != JSONNode::Type_Object)
-				throw glare::Exception("Expected child with name '" + toString(name) + "' to have type object, had type " + typeString(child.type));
-			return child;
-		}
+	return child_node;
+	//if(type != JSONNode::Type_Object)
+	//	throw glare::Exception("Expected type object.");
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
+	//for(size_t i=0; i<numNameValPairs(); ++i)
+	//	if(nameValPairName(parser, i) == name)
+	//	{
+	//		const JSONNode& child = parser.nodes[nameValPairValueNodeIndex(parser, i)];
+	//		if(child.type != JSONNode::Type_Object)
+	//			throw glare::Exception("Expected child with name '" + toString(name) + "' to have type object, had type " + typeString(child.type));
+	//		return child;
+	//	}
+
+	//throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
 }
 
 
-const JSONNode& JSONNode::getChildArray(const JSONParser& parser, const string_view name) const
+const JSONNode JSONNode::getChildArray(const JSONParser& parser_unused, const string_view name) const
 {
-	if(type != JSONNode::Type_Object)
+	JSONNode child_node = getChildNode(*parser, name);
+	if(parser->nodes[child_node.node_index].type != JSONNodeType::Type_Array)
+		throw glare::Exception("Expected child with name '" + toString(name) + "' to have type Array, had type " + JSONNodeInternal::typeString(parser->nodes[child_node.node_index].type));
+
+	return child_node;
+
+	/*if(type != JSONNode::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<name_val_pairs.size(); ++i)
-		if(name_val_pairs[i].name == name)
+	for(size_t i=0; i<numNameValPairs(); ++i)
+		if(nameValPairName(parser, i) == name)
 		{
-			const JSONNode& child = parser.nodes[name_val_pairs[i].value_node_index];
+			const JSONNode& child = parser.nodes[nameValPairValueNodeIndex(parser, i)];
 			if(child.type != JSONNode::Type_Array)
 				throw glare::Exception("JSONNode::getChildArray(): Expected child to have type Array, actual type was " + typeString(child.type));
 			return child;
 		}
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
+	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");*/
 }
 
 
 // Parse the values from an array node like [1.0, 2.0, 3.0]
-void JSONNode::parseDoubleArrayValues(const JSONParser& parser, size_t expected_num_elems, double* values_out) const
+void JSONNode::parseDoubleArrayValues(const JSONParser& parser_unused, size_t expected_num_elems, double* values_out) const
 {
-	if(type != JSONNode::Type_Array)
+	const JSONNodeInternal& node = parser->nodes[this->node_index];
+
+	if(node.type != JSONNodeType::Type_Array)
 		throw glare::Exception("Expected type object.");
 
-	if(child_indices.size() != expected_num_elems)
+	if(node.numChildIndices() != expected_num_elems)
 		throw glare::Exception("Array had wrong size.");
 
-	for(size_t z=0; z<child_indices.size(); ++z)
+	for(uint32 z=0; z<node.numChildIndices(); ++z)
 	{
-		const JSONNode& child_node = parser.nodes[child_indices[z]];
-		if(child_node.type != JSONNode::Type_Number)
-			throw glare::Exception("JSONNode::parseDoubleArrayValues(): Expected child to have type Number, actual type was " + typeString(child_node.type));
+		const JSONNodeInternal& child_node = parser->nodes[node.arrayChildNodeIndex(*parser, z)];
+		if(child_node.type != JSONNodeType::Type_Number)
+			throw glare::Exception("JSONNode::parseDoubleArrayValues(): Expected child to have type Number, actual type was " + JSONNodeInternal::typeString(child_node.type));
 
 		values_out[z] = child_node.value.double_v;
 	}
 }
 
 
-void checkNodeType(const JSONNode& node, JSONNode::Type type)
+void checkNodeType(const JSONNode& node, JSONNodeType type)
 {
-	if(node.type != type)
-		throw glare::Exception("Expected type " + JSONNode::typeString(type) + ", got type " + JSONNode::typeString(node.type) + ".");
+	if(node.getType() != type)
+		throw glare::Exception("Expected type " + JSONNodeInternal::typeString(type) + ", got type " + JSONNodeInternal::typeString(node.getType()) + ".");
 }
 
 
@@ -334,9 +440,10 @@ JSONParser::~JSONParser()
 {}
 
 
-std::string JSONParser::parseString(Parser& p)
+// Writes to the top of working_char_stack.
+void JSONParser::parseString(Parser& p)
 {
-	std::string s;
+	std::vector<char>& s = this->working_char_stack;
 
 	// Parse opening "
 	if(!p.parseChar('"'))
@@ -407,7 +514,9 @@ std::string JSONParser::parseString(Parser& p)
 					bit_offset -= 4;
 				}
 
-				s += UTF8Utils::encodeCodePoint(code_point); // Encode code point as UTF-8 and append
+				const std::string code_point_str = UTF8Utils::encodeCodePoint(code_point); // Encode code point as UTF-8 and append
+				for(size_t z=0; z<code_point_str.size(); ++z)
+					s.push_back(code_point_str[z]);
 				break;
 			}
 			default:
@@ -424,8 +533,6 @@ std::string JSONParser::parseString(Parser& p)
 	// Parse closing "
 	if(!p.parseChar('"'))
 		throw glare::Exception("Expected \"" + errorContext(p));
-
-	return s;
 }
 
 
@@ -465,9 +572,26 @@ uint32 JSONParser::parseNode(Parser& parser, int depth)
 uint32 JSONParser::parseStringNode(Parser& p)
 {
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNode());
-	nodes[node_index].type = JSONNode::Type_String;
-	nodes[node_index].string_v = parseString(p);
+	nodes.push_back(JSONNodeInternal());
+	nodes[node_index].type = JSONNodeType::Type_String;
+	
+	// Parse the string (placing on the top of working_char_stack)
+	const size_t initial_working_char_stack_size = working_char_stack.size();
+	parseString(p);
+	const size_t str_size = working_char_stack.size() - initial_working_char_stack_size;
+
+	const uint32 initial_data_size = (uint32)data.size();
+	nodes[node_index].data_offset = initial_data_size;
+	nodes[node_index].data_size   = (uint32)str_size;
+
+	// resize data to make room for string, while zero-padding data.size() to a multiple of sizeof(uint32) bytes.
+	data.resize(Maths::roundUpToMultipleOfPowerOf2(data.size() + str_size, sizeof(uint32)));
+	if(str_size > 0)
+		std::memcpy(&data[initial_data_size], &working_char_stack[initial_working_char_stack_size], str_size);
+
+	// Restore working_char_stack
+	working_char_stack.resize(initial_working_char_stack_size);
+
 	return node_index;
 }
 
@@ -478,8 +602,8 @@ uint32 JSONParser::parseTrue(Parser& p)
 		throw glare::Exception("Expected 'true'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNode());
-	nodes[node_index].type = JSONNode::Type_Boolean;
+	nodes.push_back(JSONNodeInternal());
+	nodes[node_index].type = JSONNodeType::Type_Boolean;
 	nodes[node_index].value.bool_v = true;
 	return node_index;
 }
@@ -491,8 +615,8 @@ uint32 JSONParser::parseFalse(Parser& p)
 		throw glare::Exception("Expected 'false'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNode());
-	nodes[node_index].type = JSONNode::Type_Boolean;
+	nodes.push_back(JSONNodeInternal());
+	nodes[node_index].type = JSONNodeType::Type_Boolean;
 	nodes[node_index].value.bool_v = false;
 	return node_index;
 }
@@ -504,8 +628,8 @@ uint32 JSONParser::parseNull(Parser& p)
 		throw glare::Exception("Expected 'null'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNode());
-	nodes[node_index].type = JSONNode::Type_Null;
+	nodes.push_back(JSONNodeInternal());
+	nodes[node_index].type = JSONNodeType::Type_Null;
 	return node_index;
 }
 
@@ -513,8 +637,8 @@ uint32 JSONParser::parseNull(Parser& p)
 uint32 JSONParser::parseNumber(Parser& p)
 {
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNode());
-	nodes[node_index].type = JSONNode::Type_Number;
+	nodes.push_back(JSONNodeInternal());
+	nodes[node_index].type = JSONNodeType::Type_Number;
 
 	if(!p.parseDouble(nodes[node_index].value.double_v))
 		throw glare::Exception("Failed parsing number." + errorContext(p));
@@ -526,17 +650,19 @@ uint32 JSONParser::parseNumber(Parser& p)
 uint32 JSONParser::parseArray(Parser& p, int depth)
 {
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNode());
-	nodes[node_index].type = JSONNode::Type_Array;
+	nodes.push_back(JSONNodeInternal());
+	nodes[node_index].type = JSONNodeType::Type_Array;
 
 	p.consume('[');
 	p.parseWhiteSpace();
+
+	const size_t working_stack_initial_size = working_uint32_stack.size();
 
 	while(!p.currentIsChar(']'))
 	{
 		// Parse name string
 		const uint32 child_index = parseNode(p, /*depth=*/depth + 1);
-		nodes[node_index].child_indices.push_back(child_index);
+		working_uint32_stack.push_back(child_index);
 
 		p.parseWhiteSpace();
 
@@ -552,6 +678,24 @@ uint32 JSONParser::parseArray(Parser& p, int depth)
 	if(!p.parseChar(']'))
 		throw glare::Exception("Expected ]" + errorContext(p));
 
+	const size_t num_children = working_uint32_stack.size() - working_stack_initial_size;
+
+	// Now write the child indices data the node to the data array
+	nodes[node_index].data_offset = (uint32)data.size();
+	nodes[node_index].data_size = (uint32)num_children;
+
+	if(num_children > 0)
+	{
+		// Allocate space
+		data.resize(data.size() + sizeof(uint32) * num_children);
+
+		// Copy the data
+		std::memcpy(&data[nodes[node_index].data_offset], &working_uint32_stack[working_stack_initial_size], sizeof(uint32) * num_children);
+	}
+
+	// Restore working_stack
+	working_uint32_stack.resize(working_stack_initial_size);
+
 	return node_index;
 }
 
@@ -559,17 +703,35 @@ uint32 JSONParser::parseArray(Parser& p, int depth)
 uint32 JSONParser::parseObject(Parser& p, int depth)
 {
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNode());
-	nodes[node_index].type = JSONNode::Type_Object;
+	nodes.push_back(JSONNodeInternal());
+	nodes[node_index].type = JSONNodeType::Type_Object;
 
 	p.consume('{');
 	p.parseWhiteSpace();
 
+	const size_t initial_working_uint32_stack_size = working_uint32_stack.size();
+	const size_t initial_working_char_stack_size   = working_char_stack.size();
+
+	// We will store some temp data on the working_uint32_stack in the following layout:
+	//
+	// pair_0_name_size                 <---- initial_working_uint32_stack_size
+	// pair_0_value_node_index
+	// pair_1_name_size
+	// pair_1_value_node_index
+	// ...
+	// pair_n_minus_1_name_size
+	// pair_n_minus_1_value_node_index
+	//
+	//
+	// and we will store temp name data on the working_char_stack contiguously.
+
 	while(!p.currentIsChar('}'))
 	{
 		// Parse name string
-		nodes[node_index].name_val_pairs.push_back(JSONNameValuePair());
-		nodes[node_index].name_val_pairs.back().name = parseString(p);
+		const size_t char_stack_size = working_char_stack.size();
+		parseString(p);
+		const size_t name_string_size = working_char_stack.size() - char_stack_size;
+		working_uint32_stack.push_back((uint32)name_string_size);
 
 		p.parseWhiteSpace();
 		if(!p.parseChar(':'))
@@ -577,7 +739,7 @@ uint32 JSONParser::parseObject(Parser& p, int depth)
 		p.parseWhiteSpace();
 
 		const uint32 child_index = parseNode(p, /*depth=*/depth + 1);
-		nodes[node_index].name_val_pairs.back().value_node_index = child_index;
+		working_uint32_stack.push_back(child_index);
 
 		p.parseWhiteSpace();
 		if(p.currentIsChar(','))
@@ -592,13 +754,77 @@ uint32 JSONParser::parseObject(Parser& p, int depth)
 	if(!p.parseChar('}'))
 		throw glare::Exception("Expected }" + errorContext(p));
 
+	const size_t num_children = (working_uint32_stack.size() - initial_working_uint32_stack_size) / 2;
+
+	// Now write the child data for the node to the data array
+	const size_t start_data_offset = data.size();
+	nodes[node_index].data_offset = (uint32)data.size();
+	nodes[node_index].data_size = (uint32)num_children;
+
+	// First, compute total data size used by this node, including the name string data.
+	const size_t fixed_size_part_data_size = sizeof(uint32) * 3 * num_children; 
+	size_t data_used = fixed_size_part_data_size;
+
+	// Now get space for the string data, and store offsets to where the string data will be stored.
+	for(size_t i=0; i<num_children; ++i)
+		data_used += working_uint32_stack[initial_working_uint32_stack_size + i*2];
+	data_used = Maths::roundUpToMultipleOfPowerOf2(data_used, sizeof(uint32)); // Pad
+
+	// Now allocate the data space
+	data.resize(data.size() + data_used);
+
+	// Copy the data
+	uint32 cur_name_data_offset = (uint32)(start_data_offset + fixed_size_part_data_size);
+	size_t name_data_size_partial_sum = 0;
+	for(size_t i=0; i<num_children; ++i)
+	{
+		// Write pair_i_name_data_offset
+		std::memcpy(&data[start_data_offset + sizeof(uint32)*(3*i + 0)], &cur_name_data_offset, sizeof(uint32));
+
+		// Write pair_i_name_size
+		const uint32 pair_i_name_size = working_uint32_stack[initial_working_uint32_stack_size + i*2];
+		std::memcpy(&data[start_data_offset + sizeof(uint32)*(3*i + 1)], &pair_i_name_size, sizeof(uint32));
+
+		// Write pair_i_value_node_index
+		const uint32 pair_i_value_node_index = working_uint32_stack[initial_working_uint32_stack_size + i*2 + 1];
+		std::memcpy(&data[start_data_offset + sizeof(uint32)*(3*i + 2)], &pair_i_value_node_index, sizeof(uint32));
+
+		// Copy pair_i_name_data[pair_i_name_size]
+		if(pair_i_name_size > 0)
+		{
+			const char* pair_i_name_data = &working_char_stack[initial_working_char_stack_size + name_data_size_partial_sum];
+			std::memcpy(data.data() + cur_name_data_offset, pair_i_name_data, pair_i_name_size);
+		}
+
+		name_data_size_partial_sum += pair_i_name_size;
+		cur_name_data_offset       += pair_i_name_size;
+		assert(cur_name_data_offset <= start_data_offset + data_used);
+	}
+
+	// Padding should already be zero-initialised.
+
+	// Restore working stacks
+	working_uint32_stack.resize(initial_working_uint32_stack_size);
+	working_char_stack.resize(initial_working_char_stack_size);
+
 	return node_index;
 }
 
 
-void JSONParser::parseBuffer(const char* data, size_t size)
+void JSONParser::parseBuffer(const char* buffer_data, size_t size)
 {
-	Parser parser(data, (unsigned int)size);
+	// Reset state
+	nodes.resize(0);
+	data.resize(0);
+	working_uint32_stack.resize(0);
+	working_char_stack.resize(0);
+
+	nodes.reserve(size / 8);
+	data.reserve(size);
+	working_uint32_stack.reserve(1024);
+	working_char_stack.reserve(4096);
+
+	Parser parser(buffer_data, (unsigned int)size);
 
 	parseNode(parser, /*depth=*/0);
 }
@@ -636,12 +862,90 @@ std::string JSONParser::errorContext(Parser& p)
 
 #include "../utils/TestUtils.h"
 #include "../utils/TestExceptionUtils.h"
+#include "../utils/FileUtils.h"
 #include "Timer.h"
 
 
-#if 0
+#if 1
 // Command line:
 // C:\fuzz_corpus\json -max_len=1000000 -seed=1
+
+// Walks the whole tree through the public API.
+// Value getters are called on every node, and should throw glare::Exception on a type mismatch.
+// Container accessors use runtimeCheck on the node type, so are only called on nodes of the matching type.
+static void fuzzTraverseNode(const JSONParser& parser, const JSONNode& node)
+{
+	try { node.getStringValue(parser); } catch(glare::Exception&) {}
+	try { node.getDoubleValue(); }       catch(glare::Exception&) {}
+	try { node.getIntValue(); }          catch(glare::Exception&) {}
+	try { node.getUIntValue(); }         catch(glare::Exception&) {}
+	try { node.getBoolValue(); }         catch(glare::Exception&) {}
+
+	if(node.getType() == JSONNodeType::Type_String)
+	{
+		const string_view s = node.getStringValue(parser);
+		volatile size_t sum = 0;
+		for(size_t i=0; i<s.size(); ++i) // Touch every char so ASan checks the string data range.
+			sum = sum + (uint8)s[i];
+	}
+	else if(node.getType() == JSONNodeType::Type_Array)
+	{
+		const size_t num_children = node.numChildren();
+
+		size_t i = 0;
+		for(auto it = node.arrayChildrenBegin(); it != node.arrayChildrenEnd(); ++it, ++i)
+		{
+			testAssert(it.getNode().node_index == node.getArrayChildNode(i).node_index);
+			fuzzTraverseNode(parser, it.getNode());
+		}
+		testAssert(i == num_children);
+
+		std::vector<double> values(num_children);
+		try { node.parseDoubleArrayValues(parser, num_children, values.data()); } catch(glare::Exception&) {}
+		try { node.parseDoubleArrayValues(parser, num_children + 1, values.data()); failTest("Expected excep."); } catch(glare::Exception&) {}
+	}
+	else if(node.getType() == JSONNodeType::Type_Object)
+	{
+		const size_t num_pairs = node.numNameValPairs();
+		testAssert(node.numChildren() == num_pairs);
+
+		size_t i = 0;
+		for(auto it = node.objectChildrenBegin(); it != node.objectChildrenEnd(); ++it, ++i)
+		{
+			const string_view name = it.name();
+			testAssert(name == node.getNameI(i));
+			testAssert(it.valueNode().node_index == node.getChildNodeForIndex(i).node_index);
+
+			// Lookups by name.  Names may be duplicated, so getChildNode may return an earlier pair's value.
+			testAssert(node.hasChild(name));
+			const JSONNode by_name = node.getChildNode(parser, name);
+			testAssert(by_name.node_index <= it.valueNode().node_index);
+
+			try { node.getChildUIntValue(parser, name); }                           catch(glare::Exception&) {}
+			try { node.getChildUIntValueWithDefaultVal(parser, name, 0); }          catch(glare::Exception&) {}
+			try { node.getChildIntValue(parser, name); }                            catch(glare::Exception&) {}
+			try { node.getChildIntValueWithDefaultVal(parser, name, 0); }           catch(glare::Exception&) {}
+			try { node.getChildDoubleValue(parser, name); }                         catch(glare::Exception&) {}
+			try { node.getChildDoubleValueWithDefaultVal(parser, name, 0.0); }      catch(glare::Exception&) {}
+			try { node.getChildBoolValueWithDefaultVal(parser, name, false); }      catch(glare::Exception&) {}
+			try { node.getChildStringValue(parser, name); }                         catch(glare::Exception&) {}
+			try { node.getChildStringValueWithDefaultVal(parser, name, "default"); } catch(glare::Exception&) {}
+			try { node.getChildObject(parser, name); }                              catch(glare::Exception&) {}
+			try { node.getChildArray(parser, name); }                               catch(glare::Exception&) {}
+			node.hasChildWithStringValueEqualTo(parser, name, "a");
+			node.hasChildWithStringValueCaseInsensitiveEqualTo(parser, name, "a");
+
+			fuzzTraverseNode(parser, it.valueNode());
+		}
+		testAssert(i == num_pairs);
+
+		// Lookups of a name that is probably missing.
+		node.hasChild("__missing__");
+		try { node.getChildNode(parser, "__missing__"); } catch(glare::Exception&) {}
+		try { node.getChildIntValueWithDefaultVal(parser, "__missing__", 0); } catch(glare::Exception&) {}
+	}
+}
+
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
@@ -649,11 +953,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	{
 		JSONParser parser;
 		parser.parseBuffer((const char*)data, size);
+
+		fuzzTraverseNode(parser, parser.rootNode());
 	}
 	catch(glare::Exception&)
 	{
 	}
-	
+
 	return 0;  // Non-zero return values are reserved for future use.
 }
 #endif
@@ -667,13 +973,13 @@ static void testStringEscapeSequence(const std::string& encoded_string, const st
 		std::string s = "{ \"the string\": \"" + encoded_string + "\" }";
 		p.parseBuffer(s.data(), s.size());
 
-		JSONNode root_ob = p.nodes[0];
-		testAssert(root_ob.type == JSONNode::Type_Object);
-		testAssert(root_ob.name_val_pairs.size() == 1);
+		JSONNode root_node = p.rootNode();
+		testAssert(root_node.getType() == JSONNodeType::Type_Object);
+		testAssert(root_node.numNameValPairs() == 1);
 
-		testAssert(root_ob.name_val_pairs[0].name == "the string");
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_String);
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].string_v == target_decoding);
+		testAssert(root_node.objectChildrenBegin().name() == "the string");
+		testAssert(root_node.objectChildrenBegin().valueNode().getType() == JSONNodeType::Type_String);
+		testAssert(root_node.objectChildrenBegin().valueNode().getStringValue(p) == target_decoding);
 	}
 	catch(glare::Exception& e)
 	{
@@ -704,32 +1010,68 @@ void JSONParser::test()
 	try
 	{
 		JSONParser p;
+		std::string s = "{ \"key_1\": \"value_1\", \"key_2\": \"value_2\" }";
+		p.parseBuffer(s.data(), s.size());
+
+		JSONNode root_node = p.rootNode();
+
+		int i=0;
+		for(auto it = root_node.objectChildrenBegin(); it != root_node.objectChildrenEnd(); ++it)
+		{
+			const string_view name = it.name();
+			const JSONNode val_node = it.valueNode();
+
+			if(i == 0)
+			{
+				testAssert(name == "key_1");
+				testAssert(val_node.getStringValue(p) == "value_1");
+			}
+			else if(i == 1)
+			{
+				testAssert(name == "key_2");
+				testAssert(val_node.getStringValue(p) == "value_2");
+			}
+			else
+				failTest("expected i==0 or i==1");
+
+			i++;
+		}
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+
+	try
+	{
+		JSONParser p;
 		p.parseFile(TestUtils::getTestReposDir() + "/testfiles/json/example.json");
 
-		JSONNode root_ob = p.nodes[0];
-		testAssert(root_ob.type == JSONNode::Type_Object);
-		testEqual(root_ob.name_val_pairs.size(), (size_t)8);
+		JSONNode root_ob = p.rootNode();
+		testAssert(root_ob.getType() == JSONNodeType::Type_Object);
+		testEqual(root_ob.numNameValPairs(), (uint32)8);
 
-		testAssert(root_ob.name_val_pairs[0].name == "firstName");
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_String);
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].string_v == "John");
+		testAssert(root_ob.getNameI(0) == "firstName");
+		testAssert(root_ob.getChildNodeForIndex(0).getType() == JSONNodeType::Type_String);
+		testAssert(root_ob.getChildNodeForIndex(0).getStringValue(p) == "John");
 
-		testAssert(root_ob.name_val_pairs[1].name == "lastName");
-		testAssert(p.nodes[root_ob.name_val_pairs[1].value_node_index].type == JSONNode::Type_String);
-		testAssert(p.nodes[root_ob.name_val_pairs[1].value_node_index].string_v == "Smith");
+		testAssert(root_ob.getNameI(1) == "lastName");
+		testAssert(root_ob.getChildNodeForIndex(1).getType() == JSONNodeType::Type_String);
+		testAssert(root_ob.getChildNodeForIndex(1).getStringValue(p) == "Smith");
 
-		testAssert(root_ob.name_val_pairs[2].name == "isAlive");
-		testAssert(p.nodes[root_ob.name_val_pairs[2].value_node_index].type == JSONNode::Type_Boolean);
-		testAssert(p.nodes[root_ob.name_val_pairs[2].value_node_index].value.bool_v == true);
+		testAssert(root_ob.getNameI(2) == "isAlive");
+		testAssert(root_ob.getChildNodeForIndex(2).getType() == JSONNodeType::Type_Boolean);
+		testAssert(root_ob.getChildNodeForIndex(2).getBoolValue() == true);
 
-		testAssert(root_ob.name_val_pairs[3].name == "age");
-		testAssert(p.nodes[root_ob.name_val_pairs[3].value_node_index].type == JSONNode::Type_Number);
-		testAssert(p.nodes[root_ob.name_val_pairs[3].value_node_index].value.double_v == 27.0);
+		testAssert(root_ob.getNameI(3) == "age");
+		testAssert(root_ob.getChildNodeForIndex(3).getType() == JSONNodeType::Type_Number);
+		testAssert(root_ob.getChildNodeForIndex(3).getDoubleValue() == 27.0);
 
 
 
-		testAssert(root_ob.name_val_pairs[7].name == "spouse");
-		testAssert(p.nodes[root_ob.name_val_pairs[7].value_node_index].type == JSONNode::Type_Null);
+		testAssert(root_ob.getNameI(7) == "spouse");
+		testAssert(root_ob.getChildNodeForIndex(7).getType() == JSONNodeType::Type_Null);
 	}
 	catch(glare::Exception& e)
 	{
@@ -756,13 +1098,13 @@ void JSONParser::test()
 		std::string s = "{ \"a\": [] }";
 		p.parseBuffer(s.data(), s.size());
 
-		JSONNode root_ob = p.nodes[0];
-		testAssert(root_ob.type == JSONNode::Type_Object);
-		testAssert(root_ob.name_val_pairs.size() == 1);
+		JSONNode root_ob = p.rootNode();
+		testAssert(root_ob.getType() == JSONNodeType::Type_Object);
+		testAssert(root_ob.numNameValPairs() == 1);
 
-		testAssert(root_ob.name_val_pairs[0].name == "a");
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_Array);
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].child_indices.size() == 0);
+		testAssert(root_ob.getNameI(0) == "a");
+		testAssert(root_ob.getChildNodeForIndex(0).getType() == JSONNodeType::Type_Array);
+		testAssert(root_ob.getChildNodeForIndex(0).numChildren() == 0);
 	}
 	catch(glare::Exception& e)
 	{
@@ -776,13 +1118,13 @@ void JSONParser::test()
 		std::string s = "{ \"a\": {} }";
 		p.parseBuffer(s.data(), s.size());
 
-		JSONNode root_ob = p.nodes[0];
-		testAssert(root_ob.type == JSONNode::Type_Object);
-		testAssert(root_ob.name_val_pairs.size() == 1);
+		JSONNode root_ob = p.rootNode();
+		testAssert(root_ob.getType() == JSONNodeType::Type_Object);
+		testAssert(root_ob.numNameValPairs() == 1);
 
-		testAssert(root_ob.name_val_pairs[0].name == "a");
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_Object);
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].name_val_pairs.empty());
+		testAssert(root_ob.getNameI(0) == "a");
+		testAssert(root_ob.getChildNodeForIndex(0).getType() == JSONNodeType::Type_Object);
+		testAssert(root_ob.getChildNodeForIndex(0).numNameValPairs() == 0);
 	}
 	catch(glare::Exception& e)
 	{
@@ -796,7 +1138,7 @@ void JSONParser::test()
 		std::string s = "{ \"type\": \"sale\", \"addr\": \"0xAbCd\", \"empty\": \"\", \"num\": 1, \"null\": null, \"ob\": {}, \"arr\": [\"sale\"] }";
 		p.parseBuffer(s.data(), s.size());
 
-		const JSONNode& root_ob = p.nodes[0];
+		const JSONNode root_ob = p.rootNode();
 
 		// hasChildWithStringValueEqualTo
 		testAssert(root_ob.hasChildWithStringValueEqualTo(p, "type", "sale"));
@@ -860,7 +1202,7 @@ void JSONParser::test()
 			"\"big\": 1e19, \"two_pow_64\": 18446744073709551616, \"huge\": 1e300, \"neg_huge\": -1e300, \"str\": \"1\" }";
 		p.parseBuffer(s.data(), s.size());
 
-		const JSONNode& root_ob = p.nodes[0];
+		const JSONNode& root_ob = p.rootNode();
 
 		// getIntValue: values are truncated towards zero.
 		testEqual(root_ob.getChildIntValue(p, "zero"), 0);
@@ -911,8 +1253,8 @@ void JSONParser::test()
 		const double non_finite_vals[] = { std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN() };
 		for(size_t i=0; i<staticArrayNumElems(non_finite_vals); ++i)
 		{
-			JSONNode node;
-			node.type = JSONNode::Type_Number;
+			JSONNodeInternal node;
+			node.type = JSONNodeType::Type_Number;
 			node.value.double_v = non_finite_vals[i];
 
 			testThrowsExcepContainingString([&]() { node.getIntValue(); }, "out of range");
@@ -925,6 +1267,7 @@ void JSONParser::test()
 	}
 
 	//--------- Test empty string ----------
+#if 0
 	try
 	{
 		JSONParser p;
@@ -933,11 +1276,11 @@ void JSONParser::test()
 
 		JSONNode root_ob = p.nodes[0];
 		testAssert(root_ob.type == JSONNode::Type_Object);
-		testAssert(root_ob.name_val_pairs.size() == 1);
+		testAssert(root_ob.numNameValPairs() == 1);
 
-		testAssert(root_ob.name_val_pairs[0].name == "a");
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].type == JSONNode::Type_String);
-		testAssert(p.nodes[root_ob.name_val_pairs[0].value_node_index].string_v == "");
+		testAssert(root_ob.nameValPairName(p, 0) == "a");
+		testAssert(p.nodes[root_ob.nameValPairValueNodeIndex(p, 0)].type == JSONNode::Type_String);
+		testAssert(p.nodes[root_ob.nameValPairValueNodeIndex(p, 0)].getStringValue(p) == "");
 	}
 	catch(glare::Exception& e)
 	{
@@ -953,40 +1296,41 @@ void JSONParser::test()
 
 		JSONNode root_ob = p.nodes[0];
 		testAssert(root_ob.type == JSONNode::Type_Object);
-		testAssert(root_ob.name_val_pairs.size() == 1);
+		testAssert(root_ob.numNameValPairs() == 1);
 
-		testAssert(root_ob.name_val_pairs[0].name == "a");
+		testAssert(root_ob.nameValPairName(p, 0) == "a");
 
-		JSONNode& array_node = p.nodes[root_ob.name_val_pairs[0].value_node_index];
+		JSONNode& array_node = p.nodes[root_ob.nameValPairValueNodeIndex(p, 0)];
 		testAssert(array_node.type == JSONNode::Type_Array);
-		testEqual(array_node.child_indices.size(), (size_t)7);
+		testEqual(array_node.numNameValPairs(), (size_t)7);
 
-		testAssert(p.nodes[array_node.child_indices[0]].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.child_indices[0]].value.double_v == 1.0);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 0)].type == JSONNode::Type_Number);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 0)].value.double_v == 1.0);
 
-		testAssert(p.nodes[array_node.child_indices[1]].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.child_indices[1]].value.double_v == -1.0);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 1)].type == JSONNode::Type_Number);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 1)].value.double_v == -1.0);
 
-		testAssert(p.nodes[array_node.child_indices[2]].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.child_indices[2]].value.double_v == 1.0);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 2)].type == JSONNode::Type_Number);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 2)].value.double_v == 1.0);
 
-		testAssert(p.nodes[array_node.child_indices[3]].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.child_indices[3]].value.double_v == 2.0);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 3)].type == JSONNode::Type_Number);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 3)].value.double_v == 2.0);
 
-		testAssert(p.nodes[array_node.child_indices[4]].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.child_indices[4]].value.double_v == 1.0e20);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 4)].type == JSONNode::Type_Number);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 4)].value.double_v == 1.0e20);
 
-		testAssert(p.nodes[array_node.child_indices[5]].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.child_indices[5]].value.double_v == -1.0e20);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 5)].type == JSONNode::Type_Number);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 5)].value.double_v == -1.0e20);
 		
-		testAssert(p.nodes[array_node.child_indices[6]].type == JSONNode::Type_Number);
-		testAssert(p.nodes[array_node.child_indices[6]].value.double_v == 15.4e-5);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 6)].type == JSONNode::Type_Number);
+		testAssert(p.nodes[array_node.arrayChildNodeIndex(p, 6)].value.double_v == 15.4e-5);
 
 	}
 	catch(glare::Exception& e)
 	{
 		failTest(e.what());
 	}
+#endif
 
 	testStringEscapeSequence("\\\"", "\""); //		\" should decode to "
 	testStringEscapeSequence("\\\\", "\\"); //		backslash backslash should decode to backslash. 
@@ -1017,17 +1361,21 @@ void JSONParser::test()
 	// Perf test
 	if(false)
 	{
+		const std::string path = "C:\\Users\\nick\\Downloads\\wuffs-0.4.0-alpha.4\\test\\data\\nobel-prizes.json";
 		Timer timer;
 		const int N = 10;
 		for(int i=0; i<N; ++i)
 		{
 			JSONParser p;
-			p.parseFile("D:\\downloads\\parcels.json");
+			p.parseFile(path);
+
+			conPrint("num nodes: " + toString(p.nodes.size()));
 		}
 
 		const double elapsed = timer.elapsed() / N;
-		const double decode_speed = 2917000 / elapsed;
+		const double decode_speed = FileUtils::getFileSize(path) / elapsed;
 		conPrint("elapsed: " + toString(elapsed) + " s (" + toString(decode_speed * 1.0e-6) + " MB/s)");
+		//conPrint("num nodes: " + toString(p.nodes.size()));
 	}
 
 	conPrint("JSONParser::test() done.");

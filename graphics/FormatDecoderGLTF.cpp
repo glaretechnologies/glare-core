@@ -338,21 +338,21 @@ static GLTFMesh& getMesh(GLTFData& data, size_t mesh_index)
 
 static Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour3f& default_val)
 {
-	if(node.type != JSONNode::Type_Object)
+	if(node.getType() != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<node.name_val_pairs.size(); ++i)
-		if(node.name_val_pairs[i].name == name)
+	for(auto it = node.objectChildrenBegin(); it != node.objectChildrenEnd(); ++it)
+		if(it.name() == name)
 		{
-			const JSONNode& array_node = parser.nodes[node.name_val_pairs[i].value_node_index];
-			checkNodeType(array_node, JSONNode::Type_Array);
+			const JSONNode& array_node = it.valueNode();
+			checkNodeType(array_node, JSONNodeType::Type_Array);
 
-			if(array_node.child_indices.size() != 3)
+			if(array_node.numChildren() != 3)
 				throw glare::Exception("Expected 3 elements in array.");
 
 			float v[3];
 			for(size_t q=0; q<3; ++q)
-				v[q] = (float)parser.nodes[array_node.child_indices[q]].getDoubleValue();
+				v[q] = (float)array_node.getArrayChildNode(q).getDoubleValue();
 
 			return Colour3f(v[0], v[1], v[2]);
 		}
@@ -363,21 +363,21 @@ static Colour3f parseColour3ChildArrayWithDefault(const JSONParser& parser, cons
 
 static Colour4f parseColour4ChildArrayWithDefault(const JSONParser& parser, const JSONNode& node, const std::string& name, const Colour4f& default_val)
 {
-	if(node.type != JSONNode::Type_Object)
+	if(node.getType() != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(size_t i=0; i<node.name_val_pairs.size(); ++i)
-		if(node.name_val_pairs[i].name == name)
+	for(auto it = node.objectChildrenBegin(); it != node.objectChildrenEnd(); ++it)
+		if(it.name() == name)
 		{
-			const JSONNode& array_node = parser.nodes[node.name_val_pairs[i].value_node_index];
-			checkNodeType(array_node, JSONNode::Type_Array);
+			const JSONNode& array_node = it.valueNode();
+			checkNodeType(array_node, JSONNodeType::Type_Array);
 
-			if(array_node.child_indices.size() != 4)
+			if(array_node.numChildren() != 4)
 				throw glare::Exception("Expected 4 elements in array.");
 			
 			float v[4];
 			for(size_t q=0; q<4; ++q)
-				v[q] = (float)parser.nodes[array_node.child_indices[q]].getDoubleValue();
+				v[q] = (float)array_node.getArrayChildNode(q).getDoubleValue();
 			
 			return Colour4f(v[0], v[1], v[2], v[3]);
 		}
@@ -1815,21 +1815,21 @@ static std::string decodeAndCheckExternalURIPath(const std::string& uri, bool re
 Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, const std::string gltf_base_dir, const GLTFBufferRef& glb_bin_buffer, bool write_images_to_disk, bool restrict_uris_to_base_dir,
 	GLTFLoadedData& data_out) // throws glare::Exception on failure
 {
-	const JSONNode& root = parser.nodes[0];
-	checkNodeType(root, JSONNode::Type_Object);
+	const JSONNode& root = parser.rootNode();
+	checkNodeType(root, JSONNodeType::Type_Object);
 
 	GLTFData data;
 
 	// Load buffers
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "buffers")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "buffers")
 		{
-			const JSONNode& buffers_node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(buffers_node_array, JSONNode::Type_Array);
+			const JSONNode& buffers_node_array = it.valueNode();
+			checkNodeType(buffers_node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<buffers_node_array.child_indices.size(); ++z)
+			for(auto itz = buffers_node_array.arrayChildrenBegin(); itz != buffers_node_array.arrayChildrenEnd(); ++itz)
 			{
-				const JSONNode& buffer_node = parser.nodes[buffers_node_array.child_indices[z]];
+				const JSONNode& buffer_node = itz.getNode();
 
 				GLTFBufferRef buffer = new GLTFBuffer();
 				if(buffer_node.hasChild("uri"))
@@ -1868,15 +1868,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		}
 
 	// Load buffer views
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "bufferViews")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "bufferViews")
 		{
-			const JSONNode& view_node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(view_node_array, JSONNode::Type_Array);
+			const JSONNode& view_node_array = it.valueNode();
+			checkNodeType(view_node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<view_node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<view_node_array.numChildren(); ++z)
 			{
-				const JSONNode& view_node = parser.nodes[view_node_array.child_indices[z]];
+				const JSONNode& view_node = view_node_array.getArrayChildNode(z);
 
 				GLTFBufferViewRef view = new GLTFBufferView();
 				view->buffer =		view_node.getChildUIntValue(parser, "buffer");
@@ -1891,15 +1891,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 
 	// Load accessors
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "accessors")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "accessors")
 		{
-			const JSONNode& accessor_node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(accessor_node_array, JSONNode::Type_Array);
+			const JSONNode& accessor_node_array = it.valueNode();
+			checkNodeType(accessor_node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<accessor_node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<accessor_node_array.numChildren(); ++z)
 			{
-				const JSONNode& accessor_node = parser.nodes[accessor_node_array.child_indices[z]];
+				const JSONNode& accessor_node = accessor_node_array.getArrayChildNode(z);
 
 				GLTFAccessorRef accessor = new GLTFAccessor();
 				accessor->buffer_view		= accessor_node.getChildUIntValueWithDefaultVal(parser, "bufferView", 0);
@@ -1913,15 +1913,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 
 	// Load images
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "images")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "images")
 		{
-			const JSONNode& image_node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(image_node_array, JSONNode::Type_Array);
+			const JSONNode& image_node_array = it.valueNode();
+			checkNodeType(image_node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<image_node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<image_node_array.numChildren(); ++z)
 			{
-				const JSONNode& image_node = parser.nodes[image_node_array.child_indices[z]];
+				const JSONNode& image_node = image_node_array.getArrayChildNode(z);
 				GLTFImageRef image = new GLTFImage();
 				image->name = image_node.getChildStringValueWithDefaultVal(parser, "name", "");
 				if(image_node.hasChild("uri"))
@@ -1941,15 +1941,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 
 	// Load textures
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "textures")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "textures")
 		{
-			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(node_array, JSONNode::Type_Array);
+			const JSONNode& node_array = it.valueNode();
+			checkNodeType(node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<node_array.numChildren(); ++z)
 			{
-				const JSONNode& texture_node = parser.nodes[node_array.child_indices[z]];
+				const JSONNode& texture_node = node_array.getArrayChildNode(z);
 				GLTFTextureRef tex = new GLTFTexture();
 				tex->sampler = texture_node.getChildUIntValueWithDefaultVal(parser, "sampler", std::numeric_limits<size_t>::max());
 				tex->source = texture_node.getChildUIntValueWithDefaultVal(parser, "source", 0); // NOTE: not required for some reason.
@@ -1958,15 +1958,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		}
 
 	// Load materials
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "materials")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "materials")
 		{
-			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(node_array, JSONNode::Type_Array);
+			const JSONNode& node_array = it.valueNode();
+			checkNodeType(node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<node_array.numChildren(); ++z)
 			{
-				const JSONNode& mat_node = parser.nodes[node_array.child_indices[z]];
+				const JSONNode& mat_node = node_array.getArrayChildNode(z);
 
 				GLTFMaterialRef mat = new GLTFMaterial();
 
@@ -2030,30 +2030,29 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 	// Load meshes	
 	bool default_mat_used = false;
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "meshes")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "meshes")
 		{
-			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(node_array, JSONNode::Type_Array);
+			const JSONNode& node_array = it.valueNode();
+			checkNodeType(node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<node_array.numChildren(); ++z)
 			{
-				const JSONNode& mesh_node = parser.nodes[node_array.child_indices[z]];
+				const JSONNode& mesh_node = node_array.getArrayChildNode(z);
 
 				GLTFMeshRef gltf_mesh = new GLTFMesh();
 				
 				const JSONNode& primitives_node_array = mesh_node.getChildArray(parser, "primitives");
 
-				for(size_t q=0; q<primitives_node_array.child_indices.size(); ++q)
+				for(size_t q=0; q<primitives_node_array.numChildren(); ++q)
 				{
-					const JSONNode& primitive_node = parser.nodes[primitives_node_array.child_indices[q]];
+					const JSONNode& primitive_node = primitives_node_array.getArrayChildNode(q);
 
 					GLTFPrimitiveRef primitive = new GLTFPrimitive();
 
 					const JSONNode& attributes_ob = primitive_node.getChildObject(parser, "attributes");
-					for(size_t t=0; t<attributes_ob.name_val_pairs.size(); ++t)
-						primitive->attributes[attributes_ob.name_val_pairs[t].name] =
-							parser.nodes[attributes_ob.name_val_pairs[t].value_node_index].getUIntValue();
+					for(auto itt = attributes_ob.objectChildrenBegin(); itt != attributes_ob.objectChildrenEnd(); ++itt)
+						primitive->attributes[toString(itt.name())] = itt.valueNode().getUIntValue();
 
 					primitive->indices	= primitive_node.getChildUIntValueWithDefaultVal(parser, "indices", std::numeric_limits<size_t>::max()); // optional
 					primitive->material = primitive_node.getChildUIntValueWithDefaultVal(parser, "material", data.materials.size()); // Optional. Default mat index is index of default material.
@@ -2084,15 +2083,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 
 	// Load nodes	
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "nodes")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "nodes")
 		{
-			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(node_array, JSONNode::Type_Array);
+			const JSONNode& node_array = it.valueNode();
+			checkNodeType(node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<node_array.numChildren(); ++z)
 			{
-				const JSONNode& node_node = parser.nodes[node_array.child_indices[z]];
+				const JSONNode& node_node = node_array.getArrayChildNode(z);
 				GLTFNodeRef node = new GLTFNode();
 				if(node_node.hasChild("name")) node->name = node_node.getChildStringValue(parser, "name");
 				if(node_node.hasChild("mesh")) node->mesh = node_node.getChildUIntValue(parser, "mesh");
@@ -2102,20 +2101,20 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				if(node_node.hasChild("children"))
 				{
 					const JSONNode& children_array_node = node_node.getChildArray(parser, "children");
-					for(size_t q=0; q<children_array_node.child_indices.size(); ++q)
+					for(size_t q=0; q<children_array_node.numChildren(); ++q)
 					{
-						node->children.push_back(parser.nodes[children_array_node.child_indices[q]].getUIntValue());
+						node->children.push_back(children_array_node.getArrayChildNode(q).getUIntValue());
 					}
 				}
 
 				if(node_node.hasChild("rotation"))
 				{
 					const JSONNode& rotation_node = node_node.getChildArray(parser, "rotation");
-					if(rotation_node.child_indices.size() != 4)
+					if(rotation_node.numChildren() != 4)
 						throw glare::Exception("Expected 4 elements in rotation array.");
 					float v[4];
 					for(size_t q=0; q<4; ++q)
-						v[q] = (float)parser.nodes[rotation_node.child_indices[q]].getDoubleValue();
+						v[q] = (float)rotation_node.getArrayChildNode(q).getDoubleValue();
 					node->rotation = Quatf(v[0], v[1], v[2], v[3]);
 				}
 				else
@@ -2124,10 +2123,10 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				if(node_node.hasChild( "scale"))
 				{
 					const JSONNode& scale_node = node_node.getChildArray(parser, "scale");
-					if(scale_node.child_indices.size() != 3)
+					if(scale_node.numChildren() != 3)
 						throw glare::Exception("Expected 3 elements in scale array.");
 					for(uint32 q=0; q<3; ++q)
-						node->scale[q] = (float)parser.nodes[scale_node.child_indices[q]].getDoubleValue();
+						node->scale[q] = (float)scale_node.getArrayChildNode(q).getDoubleValue();
 				}
 				else
 					node->scale = Vec3f(1.f);
@@ -2135,10 +2134,10 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				if(node_node.hasChild("translation"))
 				{
 					const JSONNode& translation_node = node_node.getChildArray(parser, "translation");
-					if(translation_node.child_indices.size() != 3)
+					if(translation_node.numChildren() != 3)
 						throw glare::Exception("Expected 3 elements in translation array.");
 					for(uint32 q=0; q<3; ++q)
-						node->translation[q] = (float)parser.nodes[translation_node.child_indices[q]].getDoubleValue();
+						node->translation[q] = (float)translation_node.getArrayChildNode(q).getDoubleValue();
 				}
 				else
 					node->translation = Vec3f(0.f);
@@ -2146,12 +2145,12 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				if(node_node.hasChild("matrix"))
 				{
 					const JSONNode& matrix_node = node_node.getChildArray(parser, "matrix");
-					if(matrix_node.child_indices.size() != 16)
+					if(matrix_node.numChildren() != 16)
 						throw glare::Exception("Expected 16 elements in matrix array.");
 
 					// GLTF stores matrices in column-major order, like Matrix4f.
 					for(size_t q=0; q<16; ++q)
-						node->matrix.e[q] = (float)parser.nodes[matrix_node.child_indices[q]].getDoubleValue();
+						node->matrix.e[q] = (float)matrix_node.getArrayChildNode(q).getDoubleValue();
 				}
 				else
 					node->matrix = Matrix4f::identity();
@@ -2161,15 +2160,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		}
 
 	// Load animations
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "animations")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "animations")
 		{
-			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(node_array, JSONNode::Type_Array);
+			const JSONNode& node_array = it.valueNode();
+			checkNodeType(node_array, JSONNodeType::Type_Array);
 	
-			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<node_array.numChildren(); ++z)
 			{
-				const JSONNode& anim_node = parser.nodes[node_array.child_indices[z]];
+				const JSONNode& anim_node = node_array.getArrayChildNode(z);
 
 				Reference<GLTFAnimation> gltf_anim = new GLTFAnimation();
 
@@ -2177,9 +2176,9 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				// parse channels array
 				const JSONNode& channels_array_node = anim_node.getChildArray(parser, "channels");
-				for(size_t q=0; q<channels_array_node.child_indices.size(); ++q)
+				for(size_t q=0; q<channels_array_node.numChildren(); ++q)
 				{
-					const JSONNode& channel_node = parser.nodes[channels_array_node.child_indices[q]];
+					const JSONNode& channel_node = channels_array_node.getArrayChildNode(q);
 
 					GLTFChannel channel;
 					channel.sampler = channel_node.getChildIntValue(parser, "sampler");
@@ -2208,9 +2207,9 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				// parse samplers
 				const JSONNode& samplers_array_node = anim_node.getChildArray(parser, "samplers");
-				for(size_t q=0; q<samplers_array_node.child_indices.size(); ++q)
+				for(size_t q=0; q<samplers_array_node.numChildren(); ++q)
 				{
-					const JSONNode& sampler_node = parser.nodes[samplers_array_node.child_indices[q]];
+					const JSONNode& sampler_node = samplers_array_node.getArrayChildNode(q);
 
 					GLTFSampler sampler;
 					sampler.input  = (int)sampler_node.getChildUIntValue(parser, "input");
@@ -2235,15 +2234,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		}
 
 	// Load skins
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "skins")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "skins")
 		{
-			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(node_array, JSONNode::Type_Array);
+			const JSONNode& node_array = it.valueNode();
+			checkNodeType(node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<node_array.numChildren(); ++z)
 			{
-				const JSONNode& skin_node = parser.nodes[node_array.child_indices[z]];
+				const JSONNode& skin_node = node_array.getArrayChildNode(z);
 
 				Reference<GLTFSkin> gltf_skin = new GLTFSkin();
 
@@ -2254,9 +2253,9 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 				// parse joints array
 				const JSONNode& joints_array_node = skin_node.getChildArray(parser, "joints");
-				for(size_t q=0; q<joints_array_node.child_indices.size(); ++q)
+				for(size_t q=0; q<joints_array_node.numChildren(); ++q)
 				{
-					const int val = parser.nodes[joints_array_node.child_indices[q]].getIntValue();
+					const int val = joints_array_node.getArrayChildNode(q).getIntValue();
 					gltf_skin->joints.push_back(val);
 				}
 
@@ -2267,15 +2266,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 
 
 	// Load scenes
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "scenes")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "scenes")
 		{
-			const JSONNode& node_array = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(node_array, JSONNode::Type_Array);
+			const JSONNode& node_array = it.valueNode();
+			checkNodeType(node_array, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<node_array.child_indices.size(); ++z)
+			for(size_t z=0; z<node_array.numChildren(); ++z)
 			{
-				const JSONNode& scene_node = parser.nodes[node_array.child_indices[z]];
+				const JSONNode& scene_node = node_array.getArrayChildNode(z);
 
 				GLTFSceneRef scene = new GLTFScene();
 
@@ -2285,9 +2284,9 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 				if(scene_node.hasChild("nodes"))
 				{
 					const JSONNode& nodes_array_node = scene_node.getChildArray(parser, "nodes");
-					for(size_t q=0; q<nodes_array_node.child_indices.size(); ++q)
+					for(size_t q=0; q<nodes_array_node.numChildren(); ++q)
 					{
-						scene->nodes.push_back(parser.nodes[nodes_array_node.child_indices[q]].getUIntValue());
+						scene->nodes.push_back(nodes_array_node.getArrayChildNode(q).getUIntValue());
 					}
 				}
 
@@ -2296,40 +2295,40 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		}
 
 	// Load 'scene'
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "scene")
-			data.scene = parser.nodes[root.name_val_pairs[i].value_node_index].getUIntValue();
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "scene")
+			data.scene = it.valueNode().getUIntValue();
 
 
 	// Load VRM extension data
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "extensions")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "extensions")
 		{
-			const JSONNode& extensions_node = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(extensions_node, JSONNode::Type_Object);
+			const JSONNode& extensions_node = it.valueNode();
+			checkNodeType(extensions_node, JSONNodeType::Type_Object);
 
-			for(size_t z=0; z<extensions_node.name_val_pairs.size(); ++z)
+			for(auto itz = extensions_node.objectChildrenBegin(); itz != extensions_node.objectChildrenEnd(); ++itz)
 			{
-				if(extensions_node.name_val_pairs[z].name == "VRM")
+				if(itz.name() == "VRM")
 				{
 					data.vrm_data = new GLTFVRMExtension();
 
-					const JSONNode& VRM_node = parser.nodes[extensions_node.name_val_pairs[z].value_node_index];
-					checkNodeType(VRM_node, JSONNode::Type_Object);
+					const JSONNode& VRM_node = itz.valueNode();
+					checkNodeType(VRM_node, JSONNodeType::Type_Object);
 
-					for(size_t q=0; q<VRM_node.name_val_pairs.size(); ++q)
+					for(auto itq = VRM_node.objectChildrenBegin(); itq != VRM_node.objectChildrenEnd(); ++itq)
 					{
-						if(VRM_node.name_val_pairs[q].name == "humanoid")
+						if(itq.name() == "humanoid")
 						{
-							const JSONNode& humanoid_node = parser.nodes[VRM_node.name_val_pairs[q].value_node_index];
-							checkNodeType(humanoid_node, JSONNode::Type_Object);
+							const JSONNode& humanoid_node = itq.valueNode();
+							checkNodeType(humanoid_node, JSONNodeType::Type_Object);
 
 							const JSONNode& bones_array = humanoid_node.getChildArray(parser, "humanBones");
-							
-							for(size_t t=0; t<bones_array.child_indices.size(); ++t)
+
+							for(size_t t=0; t<bones_array.numChildren(); ++t)
 							{
-								const JSONNode& bone_node = parser.nodes[bones_array.child_indices[t]];
-								checkNodeType(bone_node, JSONNode::Type_Object);
+								const JSONNode& bone_node = bones_array.getArrayChildNode(t);
+								checkNodeType(bone_node, JSONNodeType::Type_Object);
 
 								const string_view bone_name = bone_node.getChildStringValue(parser, "bone");
 
@@ -2345,15 +2344,15 @@ Reference<BatchedMesh> FormatDecoderGLTF::loadGivenJSON(JSONParser& parser, cons
 		}
 
 	// Load extensionsRequired, throw exception if we encounter an extension we don't support.
-	for(size_t i=0; i<root.name_val_pairs.size(); ++i)
-		if(root.name_val_pairs[i].name == "extensionsRequired")
+	for(auto it = root.objectChildrenBegin(); it != root.objectChildrenEnd(); ++it)
+		if(it.name() == "extensionsRequired")
 		{
-			const JSONNode& extensions_node = parser.nodes[root.name_val_pairs[i].value_node_index];
-			checkNodeType(extensions_node, JSONNode::Type_Array);
+			const JSONNode& extensions_node = it.valueNode();
+			checkNodeType(extensions_node, JSONNodeType::Type_Array);
 
-			for(size_t z=0; z<extensions_node.child_indices.size(); ++z)
+			for(size_t z=0; z<extensions_node.numChildren(); ++z)
 			{
-				const string_view extension = parser.nodes[extensions_node.child_indices[z]].getStringValue();
+				const string_view extension = extensions_node.getArrayChildNode(z).getStringValue(parser);
 
 				if(extension == "KHR_materials_pbrSpecularGlossiness" || extension == "KHR_materials_emissive_strength")
 				{}

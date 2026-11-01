@@ -240,9 +240,9 @@ std::vector<std::string> getChildStringArray(const JSONParser& parser, const JSO
 {
 	const JSONNode& array_node = node.getChildArray(parser, name);
 	std::vector<std::string> res;
-	res.reserve(array_node.child_indices.size());
-	for(uint32 index : array_node.child_indices)
-		res.push_back(toString(parser.nodes[index].getStringValue()));
+	res.reserve(array_node.numChildren());
+	for(auto it = array_node.arrayChildrenBegin(); it != array_node.arrayChildrenEnd(); ++it)
+		res.push_back(toString(it.getNode().getStringValue(parser)));
 	return res;
 }
 
@@ -250,7 +250,7 @@ std::vector<std::string> getChildStringArray(const JSONParser& parser, const JSO
 std::vector<double> getChildDoubleArray(const JSONParser& parser, const JSONNode& node, const string_view name)
 {
 	const JSONNode& array_node = node.getChildArray(parser, name);
-	std::vector<double> res(array_node.child_indices.size());
+	std::vector<double> res(array_node.numChildren());
 	if(!res.empty())
 		array_node.parseDoubleArrayValues(parser, res.size(), res.data());
 	return res;
@@ -342,7 +342,7 @@ GaussianSplatDataRef SOGDecoder::decodeFromBuffer(const void* data_, size_t size
 
 	JSONParser json;
 	json.parseBuffer((const char*)meta_json_data.data(), meta_json_data.size());
-	const JSONNode& root = json.nodes[0];
+	const JSONNode& root = json.rootNode();
 
 	//------------------------------ means (positions) ------------------------------
 	const JSONNode& means_node = root.getChildObject(json, "means");
@@ -506,7 +506,7 @@ SOGDecoder::MetaSummary SOGDecoder::readMetaSummaryFromBuffer(const void* data_,
 
 	JSONParser json;
 	json.parseBuffer((const char*)meta_json_data.data(), meta_json_data.size());
-	const JSONNode& root = json.nodes[0];
+	const JSONNode& root = json.rootNode();
 
 	const JSONNode& means_node = root.getChildObject(json, "means");
 	const std::vector<double> means_mins = getChildDoubleArray(json, means_node, "mins");

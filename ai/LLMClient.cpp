@@ -647,11 +647,11 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 							JSONParser json_parser;
 							json_parser.parseBuffer(value.data(), value.size());
 						
-							const string_view type = json_parser.nodes[0].getChildStringValue(json_parser, "type");
+							const string_view type = json_parser.rootNode().getChildStringValue(json_parser, "type");
 							if(type == "content_block_start")
 							{
-								const int block_index = json_parser.nodes[0].getChildIntValueWithDefaultVal(json_parser, "index", 0);
-								const JSONNode& content_block_node = json_parser.nodes[0].getChildNode(json_parser, "content_block");
+								const int block_index = json_parser.rootNode().getChildIntValueWithDefaultVal(json_parser, "index", 0);
+								const JSONNode& content_block_node = json_parser.rootNode().getChildNode(json_parser, "content_block");
 								const string_view content_type = content_block_node.getChildStringValue(json_parser, "type");
 								if(content_type == "thinking" || content_type == "redacted_thinking")
 								{
@@ -696,8 +696,8 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 							}
 							else if(type == "content_block_delta")
 							{
-								const int block_index = json_parser.nodes[0].getChildIntValueWithDefaultVal(json_parser, "index", 0);
-								const JSONNode& delta_node = json_parser.nodes[0].getChildNode(json_parser, "delta");
+								const int block_index = json_parser.rootNode().getChildIntValueWithDefaultVal(json_parser, "index", 0);
+								const JSONNode& delta_node = json_parser.rootNode().getChildNode(json_parser, "delta");
 								const string_view content_type = delta_node.getChildStringValue(json_parser, "type");
 								if(content_type == "text_delta")
 								{
@@ -805,16 +805,16 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 								JSONParser json_parser;
 								json_parser.parseBuffer((const char*)value.data(), value.size());
 
-								const JSONNode& root = json_parser.nodes[0];
-								checkNodeType(root, JSONNode::Type_Object);
+								const JSONNode& root = json_parser.rootNode();
+								checkNodeType(root, JSONNodeType::Type_Object);
 
 								const JSONNode& choices_node = root.getChildArray(json_parser, "choices");
-								if(choices_node.child_indices.empty())
+								if(choices_node.numChildren() == 0)
 									throw glare::Exception("Choices array was empty.");
 
 								//for(size_t i=0; i<choices_node.child_indices.size(); ++i)
 								{
-									const JSONNode& choice_node = json_parser.nodes[choices_node.child_indices[0]]; // Use first (zeroth) choice.
+									const JSONNode& choice_node = choices_node.arrayChildrenBegin().getNode(); // Use first (zeroth) choice.
 
 									const JSONNode& delta_node = choice_node.getChildObject(json_parser, "delta");
 
@@ -840,9 +840,9 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 										// Tool calls are streamed to us in fragments: the id and function name arrive in the first fragment for a
 										// given index, then the arguments arrive as a series of partial JSON string fragments.  So accumulate the
 										// calls in current_assistant_response, and only tell the handler about them once the response is complete.
-										for(size_t i=0; i<tool_calls_node.child_indices.size(); ++i)
+										for(auto it=tool_calls_node.arrayChildrenBegin(); it != tool_calls_node.arrayChildrenEnd(); ++it)
 										{
-											const JSONNode& call_node = json_parser.nodes[tool_calls_node.child_indices[i]];
+											const JSONNode call_node = it.getNode();
 
 											int call_index = 0;
 											if(call_node.hasChild("index"))
