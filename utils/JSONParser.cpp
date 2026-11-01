@@ -83,34 +83,34 @@ bool JSONNodeInternal::getBoolValue() const
 }
 
 
-const string_view JSONNodeInternal::getStringValue(const JSONParser* parser) const
+const string_view JSONNodeInternal::getStringValue(const JSONParser& parser) const
 {
 	if(type == JSONNodeType::Type_String)
-		return string_view((const char*)&parser->data.data()[data_offset], data_size);
+		return string_view((const char*)(parser.data.data() + data_offset), data_size);
 	else
 		throw glare::Exception("Expected type String - type was " + JSONNodeInternal::typeString(type));
 }
 
 
-
-
 bool JSONNode::hasChild(const string_view name) const
 {
-	const JSONNodeInternal& node = parser->nodes[this->node_index];
-
-	if(node.type != JSONNodeType::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(uint32 i=0; i<node.numNameValPairs(); ++i)
-		if(node.nameValPairName(*parser, i) == name)
-			return true;
-	
-	return false;
+	JSONNode child_node;
+	return tryGetChildNodeWithName(name, /*child node out=*/child_node);
 }
 
 
 const JSONNode JSONNode::getChildNode(const string_view name) const
 {
+	JSONNode child_node;
+	if(tryGetChildNodeWithName(name, /*child node out=*/child_node))
+		return child_node;
+	else
+		throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
+}
+
+
+bool JSONNode::tryGetChildNodeWithName(const string_view name, JSONNode& child_node_out) const
+{
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
 	if(node.type != JSONNodeType::Type_Object)
@@ -118,9 +118,12 @@ const JSONNode JSONNode::getChildNode(const string_view name) const
 
 	for(uint32 i=0; i<node.numNameValPairs(); ++i)
 		if(node.nameValPairName(*parser, i) == name)
-			return JSONNode(node.nameValPairValueNodeIndex(*parser, i), parser);
+		{
+			child_node_out = JSONNode(node.nameValPairValueNodeIndex(*parser, i), parser);
+			return true;
+		}
 
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
+	return false;
 }
 
 
@@ -154,16 +157,11 @@ size_t JSONNode::getChildUIntValue(const string_view name) const
 
 size_t JSONNode::getChildUIntValueWithDefaultVal(const string_view name, size_t default_val) const
 {
-	const JSONNodeInternal& node = parser->nodes[this->node_index];
-
-	if(node.type != JSONNodeType::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(uint32 i=0; i<node.numNameValPairs(); ++i)
-		if(node.nameValPairName(*parser, i) == name)
-			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getUIntValue();
-
-	return default_val;
+	JSONNode child_node;
+	if(tryGetChildNodeWithName(name, /*child node out=*/child_node))
+		return child_node.getUIntValue();
+	else
+		return default_val;
 }
 
 
@@ -175,16 +173,11 @@ int JSONNode::getChildIntValue(const string_view name) const
 
 int JSONNode::getChildIntValueWithDefaultVal(const string_view name, int default_val) const
 {
-	const JSONNodeInternal& node = parser->nodes[this->node_index];
-
-	if(node.type != JSONNodeType::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(uint32 i=0; i<node.numNameValPairs(); ++i)
-		if(node.nameValPairName(*parser, i) == name)
-			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getIntValue();
-
-	return default_val;
+	JSONNode child_node;
+	if(tryGetChildNodeWithName(name, /*child node out=*/child_node))
+		return child_node.getIntValue();
+	else
+		return default_val;
 }
 
 
@@ -196,31 +189,21 @@ double JSONNode::getChildDoubleValue(const string_view name) const
 
 double JSONNode::getChildDoubleValueWithDefaultVal(const string_view name, double default_val) const
 {
-	const JSONNodeInternal& node = parser->nodes[this->node_index];
-
-	if(node.type != JSONNodeType::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(uint32 i=0; i<node.numNameValPairs(); ++i)
-		if(node.nameValPairName(*parser, i) == name)
-			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getDoubleValue();
-
-	return default_val;
+	JSONNode child_node;
+	if(tryGetChildNodeWithName(name, /*child node out=*/child_node))
+		return child_node.getDoubleValue();
+	else
+		return default_val;
 }
 
 
 bool JSONNode::getChildBoolValueWithDefaultVal(const string_view name, bool default_val) const
 {
-	const JSONNodeInternal& node = parser->nodes[this->node_index];
-
-	if(node.type != JSONNodeType::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(uint32 i=0; i<node.numNameValPairs(); ++i)
-		if(node.nameValPairName(*parser, i) == name)
-			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getBoolValue();
-
-	return default_val;
+	JSONNode child_node;
+	if(tryGetChildNodeWithName(name, /*child node out=*/child_node))
+		return child_node.getBoolValue();
+	else
+		return default_val;
 }
 
 
@@ -232,6 +215,16 @@ const string_view JSONNode::getChildStringValue(const string_view name) const
 
 const string_view JSONNode::getChildStringValueWithDefaultVal(const string_view name, const string_view default_val) const
 {
+	JSONNode child_node;
+	if(tryGetChildNodeWithName(name, /*child node out=*/child_node))
+		return child_node.getStringValue();
+	else
+		return default_val;
+}
+
+
+bool JSONNode::hasChildWithStringValueEqualTo(const string_view name, const string_view target_value) const
+{
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
 	if(node.type != JSONNodeType::Type_Object)
@@ -239,25 +232,7 @@ const string_view JSONNode::getChildStringValueWithDefaultVal(const string_view 
 
 	for(uint32 i=0; i<node.numNameValPairs(); ++i)
 		if(node.nameValPairName(*parser, i) == name && parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].type == JSONNodeType::Type_String)
-			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(parser);
-
-	return default_val;
-}
-
-
-bool JSONNode::hasChildWithStringValueEqualTo(const string_view name, const string_view target_value) const
-{
-	//JSONNode child_node = getChildNode(*parser, name);
-	//return child_node.getStringValue(parser_unused) == target_value;
-
-	const JSONNodeInternal& node = parser->nodes[this->node_index];
-
-	if(node.type != JSONNodeType::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(uint32 i=0; i<numNameValPairs(); ++i)
-		if(node.nameValPairName(*parser, i) == name && parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].type == JSONNodeType::Type_String)
-			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(parser) == target_value;
+			return parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(*parser) == target_value;
 
 	return false;
 }
@@ -267,17 +242,14 @@ bool JSONNode::hasChildWithStringValueCaseInsensitiveEqualTo(const string_view n
 {
 	assert(::toLowerCase(target_value) == target_value); // target_value should be lower case.
 
-	//JSONNode child_node = getChildNode(*parser, name);
-	//return StringUtils::equalCaseInsensitive(child_node.getStringValue(parser_unused), target_value);
-
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
 	if(node.type != JSONNodeType::Type_Object)
 		throw glare::Exception("Expected type object.");
 
-	for(uint32 i=0; i<numNameValPairs(); ++i)
+	for(uint32 i=0; i<node.numNameValPairs(); ++i)
 		if(node.nameValPairName(*parser, i) == name && parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].type == JSONNodeType::Type_String)
-			return StringUtils::equalCaseInsensitive(parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(parser), target_value);
+			return StringUtils::equalCaseInsensitive(parser->nodes[node.nameValPairValueNodeIndex(*parser, i)].getStringValue(*parser), target_value);
 
 	return false;
 }
@@ -286,47 +258,20 @@ bool JSONNode::hasChildWithStringValueCaseInsensitiveEqualTo(const string_view n
 const JSONNode JSONNode::getChildObject(const string_view name) const
 {
 	JSONNode child_node = getChildNode(name);
-	if(parser->nodes[child_node.node_index].type != JSONNodeType::Type_Object)
-		throw glare::Exception("Expected child with name '" + toString(name) + "' to have type object, had type " + JSONNodeInternal::typeString(parser->nodes[child_node.node_index].type));
+	if(child_node.getType() != JSONNodeType::Type_Object)
+		throw glare::Exception("Expected child with name '" + toString(name) + "' to have type object, had type " + JSONNodeInternal::typeString(child_node.getType()));
 
 	return child_node;
-	//if(type != JSONNode::Type_Object)
-	//	throw glare::Exception("Expected type object.");
-
-	//for(size_t i=0; i<numNameValPairs(); ++i)
-	//	if(nameValPairName(parser, i) == name)
-	//	{
-	//		const JSONNode& child = parser.nodes[nameValPairValueNodeIndex(parser, i)];
-	//		if(child.type != JSONNode::Type_Object)
-	//			throw glare::Exception("Expected child with name '" + toString(name) + "' to have type object, had type " + typeString(child.type));
-	//		return child;
-	//	}
-
-	//throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");
 }
 
 
 const JSONNode JSONNode::getChildArray(const string_view name) const
 {
 	JSONNode child_node = getChildNode(name);
-	if(parser->nodes[child_node.node_index].type != JSONNodeType::Type_Array)
-		throw glare::Exception("Expected child with name '" + toString(name) + "' to have type Array, had type " + JSONNodeInternal::typeString(parser->nodes[child_node.node_index].type));
+	if(child_node.getType() != JSONNodeType::Type_Array)
+		throw glare::Exception("Expected child with name '" + toString(name) + "' to have type Array, had type " + JSONNodeInternal::typeString(child_node.getType()));
 
 	return child_node;
-
-	/*if(type != JSONNode::Type_Object)
-		throw glare::Exception("Expected type object.");
-
-	for(size_t i=0; i<numNameValPairs(); ++i)
-		if(nameValPairName(parser, i) == name)
-		{
-			const JSONNode& child = parser.nodes[nameValPairValueNodeIndex(parser, i)];
-			if(child.type != JSONNode::Type_Array)
-				throw glare::Exception("JSONNode::getChildArray(): Expected child to have type Array, actual type was " + typeString(child.type));
-			return child;
-		}
-
-	throw glare::Exception("Failed to find child name/value pair with name '" + toString(name) + "'.");*/
 }
 
 
@@ -336,7 +281,7 @@ void JSONNode::parseDoubleArrayValues(size_t expected_num_elems, double* values_
 	const JSONNodeInternal& node = parser->nodes[this->node_index];
 
 	if(node.type != JSONNodeType::Type_Array)
-		throw glare::Exception("Expected type object.");
+		throw glare::Exception("Expected type array.");
 
 	if(node.numChildIndices() != expected_num_elems)
 		throw glare::Exception("Array had wrong size.");
@@ -474,9 +419,9 @@ uint32 JSONParser::parseNode(Parser& parser, int depth)
 	switch(parser.current())
 	{
 	case '{':
-		return parseObject(parser, /*depth=*/depth + 1);
+		return parseObject(parser, /*depth=*/depth);
 	case '[':
-		return parseArray(parser, /*depth=*/depth + 1);
+		return parseArray(parser, /*depth=*/depth);
 	case '"':
 		return parseStringNode(parser);
 	case 't':
@@ -1052,6 +997,43 @@ void JSONParser::test()
 		testAssert(root_ob.getNameI(0) == "a");
 		testAssert(root_ob.getChildNodeForIndex(0).getType() == JSONNodeType::Type_Object);
 		testAssert(root_ob.getChildNodeForIndex(0).numNameValPairs() == 0);
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
+	//--------- Test parse depth limit ----------
+	try
+	{
+		// Moderately nested input should parse.
+		{
+			const std::string s = std::string(100, '[') + std::string(100, ']');
+			JSONParser p;
+			p.parseBuffer(s.data(), s.size());
+		}
+		{
+			std::string s;
+			for(int i=0; i<100; ++i)
+				s += "{\"a\":";
+			s += "{}" + std::string(100, '}');
+			JSONParser p;
+			p.parseBuffer(s.data(), s.size());
+		}
+
+		// Very deep nesting should throw, not overflow the stack.
+		{
+			const std::string s = std::string(1000000, '[');
+			JSONParser p;
+			testThrowsExcepContainingString([&]() { p.parseBuffer(s.data(), s.size()); }, "depth");
+		}
+		{
+			std::string s;
+			for(int i=0; i<100000; ++i)
+				s += "{\"a\":";
+			JSONParser p;
+			testThrowsExcepContainingString([&]() { p.parseBuffer(s.data(), s.size()); }, "depth");
+		}
 	}
 	catch(glare::Exception& e)
 	{

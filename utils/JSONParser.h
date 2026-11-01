@@ -83,8 +83,8 @@ struct JSONNodeInternal
 	double getDoubleValue() const;
 	bool getBoolValue() const;
 
-	// Returns ref to string_v if this node has type Type_String, throws glare::Exception otherwise.
-	const string_view getStringValue(const JSONParser* parser) const;
+	// Returns string_view if this node has type Type_String, throws glare::Exception otherwise.
+	const string_view getStringValue(const JSONParser& parser) const;
 
 
 	
@@ -144,9 +144,13 @@ struct JSONNodeInternal
 	inline const char* nameValPairNameData(const JSONParser& parser, uint32 name_val_pair_index) const;
 	inline size_t      nameValPairNameSize(const JSONParser& parser, uint32 name_val_pair_index) const;
 
-	string_view nameValPairName(const JSONParser& parser, uint32 name_val_pair_index) const { return string_view(
-		/*chars=*/nameValPairNameData(parser, name_val_pair_index),
-		/*count=*/nameValPairNameSize(parser, name_val_pair_index)); 
+	string_view nameValPairName(const JSONParser& parser, uint32 name_val_pair_index) const
+	{ 
+		runtimeCheck(type == Type_Object && name_val_pair_index < this->data_size); 
+		return string_view(
+			/*chars=*/nameValPairNameData(parser, name_val_pair_index),
+			/*count=*/nameValPairNameSize(parser, name_val_pair_index)
+		);
 	}
 
 	inline uint32 nameValPairValueNodeIndex(const JSONParser& parser, uint32 name_val_pair_index) const;
@@ -160,6 +164,7 @@ struct JSONNodeInternal
 struct JSONNode
 {
 	JSONNode(uint32 node_index_, const JSONParser* parser_) : node_index(node_index_), parser(parser_) {}
+	JSONNode() {}
 
 	inline JSONNodeType getType() const;
 
@@ -185,6 +190,7 @@ struct JSONNode
 	//----------------------- For Type_Object -----------------------
 	bool hasChild(const string_view name) const;
 	const JSONNode getChildNode(const string_view name) const;
+	bool tryGetChildNodeWithName(const string_view name, JSONNode& child_node_out) const;
 	const JSONNode getChildNodeForIndex(uint32 index) const;
 	const string_view getNameI(uint32 index) const;
 
@@ -286,27 +292,25 @@ private:
 
 uint32 JSONNodeInternal::arrayChildNodeIndex(const JSONParser& parser, uint32 i) const
 { 
-	runtimeCheck(type == Type_Array);
+	runtimeCheck(type == Type_Array && i < this->data_size);
 	return *(uint32*)&parser.data[data_offset + sizeof(uint32) * i];
-}
-
-size_t JSONNodeInternal::nameValPairNameSize(const JSONParser& parser, uint32 name_val_pair_index) const
-{ 
-	runtimeCheck(type == Type_Object); 
-	return (size_t)*(uint32*)&parser.data[data_offset + sizeof(uint32) * ((name_val_pair_index * 3) + 1)];
 }
 
 const char* JSONNodeInternal::nameValPairNameData(const JSONParser& parser, uint32 name_val_pair_index) const
 { 
-	runtimeCheck(type == Type_Object);
 	const uint32 pair_i_name_data_offset = *(uint32*)&parser.data[data_offset + sizeof(uint32) * (name_val_pair_index * 3)];
 
 	return (const char*)(parser.data.data() + pair_i_name_data_offset);
 }
 
+size_t JSONNodeInternal::nameValPairNameSize(const JSONParser& parser, uint32 name_val_pair_index) const
+{ 
+	return (size_t)*(uint32*)&parser.data[data_offset + sizeof(uint32) * ((name_val_pair_index * 3) + 1)];
+}
+
 uint32 JSONNodeInternal::nameValPairValueNodeIndex(const JSONParser& parser, uint32 name_val_pair_index) const
 { 
-	runtimeCheck(type == Type_Object);
+	runtimeCheck(type == Type_Object && name_val_pair_index < this->data_size);
 	return *(uint32*)&parser.data[data_offset + sizeof(uint32) * ((name_val_pair_index * 3) + 2)];
 }
 
@@ -316,13 +320,16 @@ JSONNodeType JSONNode::getType() const { return parser->nodes[node_index].type; 
 
 size_t JSONNode::numChildren() const { runtimeCheck(getType() == Type_Array || getType() == Type_Object); return parser->nodes[node_index].data_size; }
 
-JSONNode JSONNode::getArrayChildNode(size_t index) const { runtimeCheck(getType() == Type_Array); return JSONNode(parser->nodes[node_index].arrayChildNodeIndex(*parser, (uint32)index), parser); }
+JSONNode JSONNode::getArrayChildNode(size_t index) const
+{
+	return JSONNode(parser->nodes[node_index].arrayChildNodeIndex(*parser, (uint32)index), parser);
+}
 
 uint32 JSONNode::numNameValPairs() const { return parser->nodes[node_index].numNameValPairs(); }
 
 string_view JSONNode::getStringValue() const
 {
-	return parser->nodes[this->node_index].getStringValue(parser);
+	return parser->nodes[this->node_index].getStringValue(*parser);
 }
 
 int JSONNode::getIntValue() const
