@@ -746,7 +746,7 @@ void JSONParser::parseFile(const std::string& path)
 
 std::string JSONParser::errorContext(Parser& p)
 {
-	const std::string buf(p.getText(), p.getText() + p.getTextSize());
+	const string_view buf(p.getText(), p.getTextSize());
 
 	size_t line_num, col;
 	StringUtils::getPosition(buf, p.currentPos(), line_num, col);

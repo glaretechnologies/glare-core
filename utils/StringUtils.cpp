@@ -1268,7 +1268,7 @@ void getPosition(const string_view str, size_t charindex, size_t& line_num_out, 
 }
 
 
-const std::string getLineFromBuffer(const std::string& str, size_t charindex)
+const std::string getLineFromBuffer(const string_view str, size_t charindex)
 {
 //	assert(charindex < str.size());
 
