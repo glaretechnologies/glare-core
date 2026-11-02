@@ -139,7 +139,7 @@ void SMTPClient::sendEmail(const SendEmailArgs& args)
 
 	TLSConfig client_tls_config;
 
-	tls_config_insecure_noverifycert(client_tls_config.config); // TEMP: try and work out how to remove this call.
+	TLSSocket::setClientConfigCAData(client_tls_config);
 
 	MySocketRef plain_sock = new MySocket(args.servername, 465);
 

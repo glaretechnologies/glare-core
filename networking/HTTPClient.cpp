@@ -69,7 +69,8 @@ void HTTPClient::connect(const std::string& protocol, const std::string& hostnam
 
 			TLSConfig client_tls_config;
 
-			tls_config_insecure_noverifycert(client_tls_config.config); // TEMP: try and work out how to remove this call.
+			// Load the trusted root certificates used to verify servers.
+			TLSSocket::setClientConfigCAData(client_tls_config);
 
 			this->socket = new TLSSocket(plain_socket, client_tls_config.config, hostname);
 		}

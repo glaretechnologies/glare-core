@@ -13,8 +13,6 @@ Copyright Glare Technologies Limited 2024 -
 class URL;
 
 
-
-
 class HTTPClientExcep : public glare::Exception
 {
 public:

@@ -82,7 +82,11 @@ public:
 	~TLSSocket();
 
 
-	static void initTLS(); // Throws MySocketExcep on failure.
+	static void initTLS(const std::string& base_dir_path); // Throws MySocketExcep on failure.
+
+	// Assign the trusted root certificates data used to verify servers to the TLS config.  Only needed for client configs.
+	static void setClientConfigCAData(tls_config* client_config);
+	static void setClientConfigCAData(TLSConfig& client_config);
 
 
 	// Calls shutdown on the socket, then closes the socket handle.

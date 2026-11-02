@@ -20,6 +20,8 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/ConPrint.h"
 #include "../utils/BitUtils.h"
 #include "../utils/OpenSSL.h"
+#include "../utils/FileUtils.h"
+#include "../utils/RuntimeCheck.h"
 #include <vector>
 #include <string.h>
 #include <algorithm>
@@ -163,10 +165,45 @@ TLSSocket::~TLSSocket()
 }
 
 
-void TLSSocket::initTLS()
+static bool TLS_inited = false;
+static std::vector<unsigned char> cert_authority_bundle_data;
+
+
+void TLSSocket::initTLS(const std::string& base_dir_path)
 {
 	if(tls_init() != 0)
 		throw MySocketExcep("tls_init failed.");
+
+	// Load the trusted root certificates used to verify servers.
+	const std::string ca_bundle_path = base_dir_path + "/cert.pem";
+	try
+	{
+		FileUtils::readEntireFile(ca_bundle_path, cert_authority_bundle_data);
+	}
+	catch(glare::Exception& e)
+	{
+		throw MySocketExcep("Failed to read CA certificate bundle: " + e.what());
+	}
+
+	TLS_inited = true;
+}
+
+
+void TLSSocket::setClientConfigCAData(tls_config* client_config)
+{
+	if(!TLS_inited)
+		throw glare::Exception("TLS not inited, need to call initTLS() first");
+
+	runtimeCheck(client_config != nullptr);
+
+	if(tls_config_set_ca_mem(client_config, cert_authority_bundle_data.data(), cert_authority_bundle_data.size()) != 0)
+		throw MySocketExcep("Failed to load CA certificate bundle: " + getTLSConfigErrorString(client_config));
+}
+
+
+void TLSSocket::setClientConfigCAData(TLSConfig& client_config)
+{
+	setClientConfigCAData(client_config.config);
 }
 
 
