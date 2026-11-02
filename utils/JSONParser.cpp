@@ -441,10 +441,31 @@ uint32 JSONParser::parseNode(Parser& parser, int depth)
 }
 
 
+// Since node indices are uint32s, we need to make sure we don't allocate too many nodes such that indices overflow.
+static void pushBackNewNode(std::vector<JSONNodeInternal>& nodes)
+{
+	const size_t MAX_NUM_NODES = 1'000'000'000;
+	if(nodes.size() >= MAX_NUM_NODES)
+		throw glare::Exception("Too many nodes");
+	nodes.push_back(JSONNodeInternal());
+}
+
+
+static const size_t MAX_DATA_SIZE = 2'000'000'000;
+
+// Indices into data are likewise 32 bits, so we need to make sure we don't allocate too much data such that indices overflow.
+static void resizeData(std::vector<uint8>& data, size_t new_size)
+{
+	if(new_size > MAX_DATA_SIZE)
+		throw glare::Exception("Max data size exceeded");
+	data.resize(new_size);
+}
+
+
 uint32 JSONParser::parseStringNode(Parser& p)
 {
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNodeInternal());
+	pushBackNewNode(nodes);
 	nodes[node_index].type = JSONNodeType::Type_String;
 	
 	// Parse the string (placing on the top of working_char_stack)
@@ -457,7 +478,9 @@ uint32 JSONParser::parseStringNode(Parser& p)
 	nodes[node_index].data_size   = (uint32)str_size;
 
 	// resize data to make room for string, while zero-padding data.size() to a multiple of sizeof(uint32) bytes.
-	data.resize(Maths::roundUpToMultipleOfPowerOf2(data.size() + str_size, sizeof(uint32)));
+	if(str_size > MAX_DATA_SIZE) // Avoid overflow
+		throw glare::Exception("String too long");
+	resizeData(data, /*new size=*/Maths::roundUpToMultipleOfPowerOf2(data.size() + str_size, sizeof(uint32)));
 	if(str_size > 0)
 		std::memcpy(&data[initial_data_size], &working_char_stack[initial_working_char_stack_size], str_size);
 
@@ -474,7 +497,7 @@ uint32 JSONParser::parseTrue(Parser& p)
 		throw glare::Exception("Expected 'true'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNodeInternal());
+	pushBackNewNode(nodes);
 	nodes[node_index].type = JSONNodeType::Type_Boolean;
 	nodes[node_index].value.bool_v = true;
 	return node_index;
@@ -487,7 +510,7 @@ uint32 JSONParser::parseFalse(Parser& p)
 		throw glare::Exception("Expected 'false'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNodeInternal());
+	pushBackNewNode(nodes);
 	nodes[node_index].type = JSONNodeType::Type_Boolean;
 	nodes[node_index].value.bool_v = false;
 	return node_index;
@@ -500,7 +523,7 @@ uint32 JSONParser::parseNull(Parser& p)
 		throw glare::Exception("Expected 'null'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNodeInternal());
+	pushBackNewNode(nodes);
 	nodes[node_index].type = JSONNodeType::Type_Null;
 	return node_index;
 }
@@ -509,7 +532,7 @@ uint32 JSONParser::parseNull(Parser& p)
 uint32 JSONParser::parseNumber(Parser& p)
 {
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNodeInternal());
+	pushBackNewNode(nodes);
 	nodes[node_index].type = JSONNodeType::Type_Number;
 
 	if(!p.parseDouble(nodes[node_index].value.double_v))
@@ -522,7 +545,7 @@ uint32 JSONParser::parseNumber(Parser& p)
 uint32 JSONParser::parseArray(Parser& p, int depth)
 {
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNodeInternal());
+	pushBackNewNode(nodes);
 	nodes[node_index].type = JSONNodeType::Type_Array;
 
 	p.consume('[');
@@ -552,6 +575,9 @@ uint32 JSONParser::parseArray(Parser& p, int depth)
 
 	const size_t num_children = working_uint32_stack.size() - working_stack_initial_size;
 
+	if(num_children > 500'000'000) // Avoid overflow when casting down to uint32 and when computing sizeof(uint32) * num_children below.
+		throw glare::Exception("Too many children");
+
 	// Now write the child indices data the node to the data array
 	nodes[node_index].data_offset = (uint32)data.size();
 	nodes[node_index].data_size = (uint32)num_children;
@@ -559,7 +585,8 @@ uint32 JSONParser::parseArray(Parser& p, int depth)
 	if(num_children > 0)
 	{
 		// Allocate space
-		data.resize(data.size() + sizeof(uint32) * num_children);
+		// Since num_children <= 500,000,000 from above, (sizeof(uint32) * num_children) <= 2B, and data.size() <= 2B, so we can't overflow size_t on 32 bit here.
+		resizeData(data, /*new size=*/data.size() + sizeof(uint32) * num_children);
 
 		// Copy the data
 		std::memcpy(&data[nodes[node_index].data_offset], &working_uint32_stack[working_stack_initial_size], sizeof(uint32) * num_children);
@@ -575,7 +602,7 @@ uint32 JSONParser::parseArray(Parser& p, int depth)
 uint32 JSONParser::parseObject(Parser& p, int depth)
 {
 	const uint32 node_index = (uint32)nodes.size();
-	nodes.push_back(JSONNodeInternal());
+	pushBackNewNode(nodes);
 	nodes[node_index].type = JSONNodeType::Type_Object;
 
 	p.consume('{');
@@ -603,6 +630,8 @@ uint32 JSONParser::parseObject(Parser& p, int depth)
 		const size_t char_stack_size = working_char_stack.size();
 		parseString(p);
 		const size_t name_string_size = working_char_stack.size() - char_stack_size;
+		if(name_string_size > 1'000'000'000) // Avoid overflow of uint32
+			throw glare::Exception("String too long");
 		working_uint32_stack.push_back((uint32)name_string_size);
 
 		p.parseWhiteSpace();
@@ -626,7 +655,11 @@ uint32 JSONParser::parseObject(Parser& p, int depth)
 	if(!p.parseChar('}'))
 		throw glare::Exception("Expected }" + errorContext(p));
 
+	const size_t total_name_data_size = working_char_stack.size() - initial_working_char_stack_size;
+
 	const size_t num_children = (working_uint32_stack.size() - initial_working_uint32_stack_size) / 2;
+	if(num_children > 100'000'000) // Avoid overflow when casting down to uint32, and in the sizeof(uint32) * 3 * num_children mul below.
+		throw glare::Exception("Too many children");
 
 	// Now write the child data for the node to the data array
 	const size_t start_data_offset = data.size();
@@ -635,15 +668,14 @@ uint32 JSONParser::parseObject(Parser& p, int depth)
 
 	// First, compute total data size used by this node, including the name string data.
 	const size_t fixed_size_part_data_size = sizeof(uint32) * 3 * num_children; 
-	size_t data_used = fixed_size_part_data_size;
 
-	// Now get space for the string data, and store offsets to where the string data will be stored.
-	for(size_t i=0; i<num_children; ++i)
-		data_used += working_uint32_stack[initial_working_uint32_stack_size + i*2];
-	data_used = Maths::roundUpToMultipleOfPowerOf2(data_used, sizeof(uint32)); // Pad
+	const uint64 data_used_before_padding = (uint64)fixed_size_part_data_size + (uint64)total_name_data_size;
+	const uint64 data_used = Maths::roundUpToMultipleOfPowerOf2<uint64>(data_used_before_padding, sizeof(uint32));
+	if(data_used > MAX_DATA_SIZE)
+		throw glare::Exception("too much data");
 
 	// Now allocate the data space
-	data.resize(data.size() + data_used);
+	resizeData(data, /*new size=*/data.size() + data_used);
 
 	// Copy the data
 	uint32 cur_name_data_offset = (uint32)(start_data_offset + fixed_size_part_data_size);
@@ -696,7 +728,9 @@ void JSONParser::parseBuffer(const char* buffer_data, size_t size)
 	working_uint32_stack.reserve(1024);
 	working_char_stack.reserve(4096);
 
-	Parser parser(buffer_data, (unsigned int)size);
+	Parser parser(buffer_data, size);
+
+	parser.parseWhiteSpace();
 
 	parseNode(parser, /*depth=*/0);
 }
@@ -1003,6 +1037,34 @@ void JSONParser::test()
 		failTest(e.what());
 	}
 
+	//--------- Test leading and/or trailing whitespace ----------
+	try
+	{
+		JSONParser p;
+		std::string s = " {}";
+		p.parseBuffer(s.data(), s.size());
+
+		JSONNode root_ob = p.rootNode();
+		testAssert(root_ob.getType() == JSONNodeType::Type_Object);
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+	try
+	{
+		JSONParser p;
+		std::string s = "{} ";
+		p.parseBuffer(s.data(), s.size());
+
+		JSONNode root_ob = p.rootNode();
+		testAssert(root_ob.getType() == JSONNodeType::Type_Object);
+	}
+	catch(glare::Exception& e)
+	{
+		failTest(e.what());
+	}
+
 	//--------- Test parse depth limit ----------
 	try
 	{
@@ -1269,21 +1331,22 @@ void JSONParser::test()
 	// Perf test
 	if(false)
 	{
-		const std::string path = "C:\\Users\\nick\\Downloads\\wuffs-0.4.0-alpha.4\\test\\data\\nobel-prizes.json";
+		const std::string path = TestUtils::getTestReposDir() + "/testfiles/json/nobel-prizes.json";
 		Timer timer;
 		const int N = 10;
+		size_t num_nodes = 0;
 		for(int i=0; i<N; ++i)
 		{
 			JSONParser p;
 			p.parseFile(path);
 
-			conPrint("num nodes: " + toString(p.nodes.size()));
+			num_nodes = p.nodes.size();
 		}
 
 		const double elapsed = timer.elapsed() / N;
 		const double decode_speed = FileUtils::getFileSize(path) / elapsed;
 		conPrint("elapsed: " + toString(elapsed) + " s (" + toString(decode_speed * 1.0e-6) + " MB/s)");
-		//conPrint("num nodes: " + toString(p.nodes.size()));
+		conPrint("num nodes: " + toString(num_nodes));
 	}
 
 	conPrint("JSONParser::test() done.");
