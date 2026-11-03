@@ -47,10 +47,11 @@ Copyright Glare Technologies Limited 2020 -
 
 // This is a hack so we can recover the internal tls structure, and call SSL_pending on the ssl_conn member.
 
-// Modified from C:\programming\LibreSSL\libressl-2.8.3\tls\tls_internal.h
+// Modified from C:\programming\LibreSSL\libressl-4.4.0\tls\tls_internal.h
 struct glare_tls_error {
 	char *msg;
-	int num;
+	int code;
+	int errno_value;
 	int tls;
 };
 
@@ -73,7 +74,8 @@ struct glare_tls {
 };
 
 // The hacked in structure above may become invalid for different libtls versions.
-static_assert(TLS_API == 20180210 || TLS_API == 20200120, "TLS_API == 20180210 || TLS_API == 20200120"); // Structure is the same in both these versions (2.8.3 and 3.3.3)
+// NOTE: TLS_API doesn't change with every struct change (e.g. tls_error changed between 3.5.2 and 4.3.x with TLS_API staying at 20200120), so check tls_internal.h when updating LibreSSL.
+static_assert(TLS_API == 20260917, "TLS_API == 20260917"); // LibreSSL 4.4.0
 
 
 #if defined(_WIN32)

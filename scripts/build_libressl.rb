@@ -31,7 +31,7 @@
 # 
 # 	cd $env:GLARE_CORE_LIBS/LibreSSL
 # 	
-# Building on Windows: patch the source code by replacing some LibreSSL files: (NOTE: you will need to substitute in the directory of your checked out glare-core source code here) 
+# OLD: Building on Windows: patch the source code by replacing some LibreSSL files: (NOTE: you will need to substitute in the directory of your checked out glare-core source code here) 
 # 	cp n:/glare-core/trunk/libressl_patches/3.5.2/posix_win.c  libressl-3.5.2/crypto/compat/posix_win.c
 # 	cp n:/glare-core/trunk/libressl_patches/3.5.2/tls_config.c libressl-3.5.2/tls/tls_config.c
 #
@@ -69,7 +69,7 @@ LibreSSL build
 
 "
 
-$libressl_version = "3.5.2"
+$libressl_version = "4.4.0"
 $vs_version = 2022
 $configurations = [ :release, :debug ]
 $forcerebuild = false
@@ -138,56 +138,6 @@ def getLibreSSLSource()
 	downloadFileHTTPSIfNotOnDisk($libressl_source_file, "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/#{$libressl_source_file}")
 	
 	extractArchiveIfNotExtraced($libressl_source_file, $libressl_source_name, true)
-	
-	patchSource() if OS.windows?
-end
-
-
-
-# Patch source to fix an issue with closing the socket while it's doing a blocking call.
-# See https://github.com/libressl-portable/portable/issues/266
-# Basically we want to avoid calling read() on a socket.  Instead just return the WSA error code.
-def patchSource()
-	puts "Patching source.."
-	src_dir = $libressl_source_name
-	
-	if File.exist?("#{src_dir}/glare-patch.success")
-		puts "Already patched, skipping."
-		return
-	end
-
-	if $libressl_version == "3.3.5" || $libressl_version == "3.5.2"
-		FileUtils.cp($glare_core_dir + "/libressl_patches/" + $libressl_version + "/posix_win.c",  src_dir + "/crypto/compat/posix_win.c")
-		FileUtils.cp($glare_core_dir + "/libressl_patches/" + $libressl_version + "/tls_config.c", src_dir + "/tls/tls_config.c")
-	else
-		puts "Don't have patches for this version of libressl! (#{$libressl_version})"
-		exit 1
-	end
-	#puts "src_dir: #{src_dir}"
-
-	#path = src_dir + "/crypto/compat/posix_win.c"
-	#puts "Patching '#{path}'..."
-
-	#contents = File.open(path).read()
-
-	#puts "contents: #{contents}"
-
-	#new_content = contents.gsub("(err == WSAENOTSOCK || err == WSAEBADF", "/*GLARE NEWCODE*/0 && (err == WSAENOTSOCK || err == WSAEBADF")
-
-	#if new_content == contents
-	#	puts "Patching failed, failed to find code to be replaced."
-	#	exit(1)
-	#end
-	
-	#FileUtils.cp($cyberspace_trunk_dir + "/libressl_patches/posix_win.c", src_dir + "/crypto/compat/posix_win.c")
-	#FileUtils.cp($cyberspace_trunk_dir + "/libressl_patches/tls_config.c", src_dir + "/tls/tls_config.c")
-
-	#File.open(path, 'w') { |file| file.write(new_content) }
-	
-	FileUtils.touch("#{src_dir}/glare-patch.success")
-
-	#puts "new_content: #{new_content}"
-	puts "Done patching source."
 end
 
 
