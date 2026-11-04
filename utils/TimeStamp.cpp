@@ -326,7 +326,7 @@ std::string TimeStamp::timeDescription() const // Returns a string like '1 hour 
 #if BUILD_TESTS
 
 
-#include <utils/TestUtils.h>
+#include "TestUtils.h"
 
 
 void TimeStamp::test()
