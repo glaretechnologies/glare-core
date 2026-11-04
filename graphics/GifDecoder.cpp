@@ -570,6 +570,8 @@ void GIFDecoder::resizeGIF(const std::string& path, const std::string& dest_path
 		dest_gif_file->SavedImages = (SavedImage*)tryMalloc(sizeof(SavedImage) * gif_file->ImageCount);
 
 		// Giflib currently leaks this memory, so keep a track of it and manually free it.  (See https://sourceforge.net/p/giflib/bugs/156/)
+		// EGifPutScreenDesc also replaces SColorMap with a copy without freeing the original.
+		ColorMapObject* dest_SColorMap = dest_gif_file->SColorMap;
 		int dest_ExtensionBlockCount = dest_gif_file->ExtensionBlockCount;
 		ExtensionBlock* dest_ExtensionBlocks = dest_gif_file->ExtensionBlocks;
 		SavedImage* dest_saved_images = dest_gif_file->SavedImages;
@@ -637,6 +639,10 @@ void GIFDecoder::resizeGIF(const std::string& path, const std::string& dest_path
 
 		if(EGifSpew(dest_gif_file) == GIF_ERROR) // closes file also
 			throw glare::Exception("EGifSpew failed: " + errorString(dest_gif_file->Error));
+
+		// Manually free screen colour map
+		if(dest_SColorMap)
+			GifFreeMapObject(dest_SColorMap);
 
 		// Manually free extension blocks
 		GifFreeExtensions(&dest_ExtensionBlockCount, &dest_ExtensionBlocks);
