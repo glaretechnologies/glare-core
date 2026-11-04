@@ -71,6 +71,7 @@ public:
 	void waitForTasksToComplete();
 
 	// Removes queued tasks, calls cancelTask() on all tasks being currently executed in TaskRunnerThreads, then blocks until all tasks have completed.
+	// Don't enqueue work from another thread while this is executing!
 	void cancelAndWaitForTasksToComplete();
 
 	size_t getNumThreads() const { return threads.size(); }
@@ -102,7 +103,7 @@ public:
 
 
 	TaskRef dequeueTask(); // called by TaskRunnerThread
-	void taskFinished(); // called by TaskRunnerThread
+	void decrementUnfinishedTaskCountAndNotify(); // Decrement num_unfinished_tasks, and if it reaches zero, notify any threads listening on num_unfinished_tasks_cond.
 private:
 	void init(size_t num_threads);
 	void enqueueTaskInternal(Task* task);

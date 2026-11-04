@@ -72,6 +72,8 @@ TaskManager::~TaskManager()
 	// Wait for threads to quit.
 	for(size_t i=0; i<threads.size(); ++i)
 		threads[i]->join();
+
+	removeQueuedTasks();
 }
 
 
@@ -83,6 +85,19 @@ void TaskManager::setThreadPriorities(MyThread::Priority priority)
 #endif
 }
 
+
+/*
+                          TaskManager
+         task_queue_tail /           \ task_queue_head
+                       /               \
+                     /                   \
+                    v   next        next  v
+                   Task <-----Task <------Task
+                  / \        ^  \         ^ \
+           next  v   \      /    \       /   v prev
+                X     ------       -----      X
+                       prev         prev
+*/
 
 void TaskManager::enqueueTaskInternal(Task* task)
 {
@@ -119,7 +134,7 @@ void TaskManager::enqueueTasksInternal(const TaskRef* tasks, size_t num_tasks)
 		for(size_t i=0; i<num_tasks; ++i)
 		{
 			Task* task = tasks[i].ptr();
-			task->incRefCount();
+			task->incRefCount(); // Add queue reference to task
 
 			// Insert at tail of queue linked list
 			if(task_queue_tail)
@@ -206,8 +221,8 @@ void TaskManager::runTaskGroup(TaskGroupRef task_group)
 		return;
 
 	{
-		Lock lock(task_group->num_unfinished_tasks_mutex);
-		task_group->num_unfinished_tasks = (int)task_group->tasks.size();
+		Lock lock(task_group->num_unfinished_group_tasks_mutex);
+		task_group->num_unfinished_group_tasks = (int)task_group->tasks.size();
 	}
 
 	for(size_t i=0; i<task_group->tasks.size(); ++i)
@@ -263,25 +278,29 @@ void TaskManager::runTaskGroup(TaskGroupRef task_group)
 		{
 			task_group->tasks[i]->run(/*thread index=*/threads.size());
 
-			taskFinished();
+			decrementUnfinishedTaskCountAndNotify();
 
 			{
-				Lock lock(task_group->num_unfinished_tasks_mutex);
-				task_group->num_unfinished_tasks--;
+				Lock lock(task_group->num_unfinished_group_tasks_mutex);
+				task_group->num_unfinished_group_tasks--;
 			}
 		}
 	}
 
 	// Block until all group tasks are done, i.e. task_group->num_unfinished_tasks == 0
 	{
-		Lock lock(task_group->num_unfinished_tasks_mutex);
+		Lock lock(task_group->num_unfinished_group_tasks_mutex);
 		while(1)
 		{	
-			if(task_group->num_unfinished_tasks == 0)
+			if(task_group->num_unfinished_group_tasks == 0)
 				break;
-			task_group->num_unfinished_tasks_cond.wait(task_group->num_unfinished_tasks_mutex);
+			task_group->num_unfinished_group_tasks_cond.wait(task_group->num_unfinished_group_tasks_mutex);
 		}
 	}
+
+	// Se the tasks' task_group pointers to null, in case tasks are re-submitted with addTask, in which case task_group would be invalid.
+	for(size_t i=0; i<task_group->tasks.size(); ++i)
+		task_group->tasks[i]->task_group = nullptr;
 }
 
 
@@ -305,14 +324,19 @@ void TaskManager::removeQueuedTasks()
 	while(task_queue_head)
 	{
 		TaskRef task = task_queue_head; // Make a reference that can destroy the object if needed.
+		task->in_queue = false;
 		task->removedFromQueue();
 		task_queue_head->decRefCount(); // Remove queue reference
 		task_queue_head = task_queue_head->next;
 
+		decrementUnfinishedTaskCountAndNotify();
+
+		if(task->task_group)
 		{
-			Lock lock2(num_unfinished_tasks_mutex);
-			num_unfinished_tasks--;
-			assert(num_unfinished_tasks >= 0);
+			Lock lock(task->task_group->num_unfinished_group_tasks_mutex);
+			task->task_group->num_unfinished_group_tasks--;
+			if(task->task_group->num_unfinished_group_tasks == 0)
+				task->task_group->num_unfinished_group_tasks_cond.notify();
 		}
 	}
 	task_queue_tail = NULL;
@@ -384,20 +408,19 @@ TaskRef TaskManager::dequeueTask() // called by TaskRunnerThread
 }
 
 
-void TaskManager::taskFinished() // called by TaskRunnerThread
+void TaskManager::decrementUnfinishedTaskCountAndNotify() // called by TaskRunnerThread
 {
-	//conPrint("taskFinished()");
+	//conPrint("decrementUnfinishedTaskCountAndNotify()");
 	//conPrint("num_unfinished_tasks: " + toString(num_unfinished_tasks));
 
-	int new_num_unfinished_tasks;
+	int old_num_unfinished_tasks;
 	{
 		Lock lock(num_unfinished_tasks_mutex);
-		num_unfinished_tasks--;
-		assert(num_unfinished_tasks >= 0);
-		new_num_unfinished_tasks = num_unfinished_tasks;
+		old_num_unfinished_tasks = num_unfinished_tasks--;
+		assert(old_num_unfinished_tasks >= 1);
 	}
 	
-	if(new_num_unfinished_tasks == 0)
+	if(old_num_unfinished_tasks == 1) // If the old count was 1, then the new count is zero.
 		num_unfinished_tasks_cond.notifyAll(); // There could be multiple threads waiting on this condition, so use notifyAll().
 }
 

@@ -41,6 +41,17 @@ public:
 };
 
 
+class DestructionCountingTestTask : public Task
+{
+public:
+	DestructionCountingTestTask(AtomicInt& destruction_count_) : destruction_count(destruction_count_) {}
+	virtual ~DestructionCountingTestTask() { destruction_count++; }
+	virtual void run(size_t /*thread_index*/) {}
+
+	AtomicInt& destruction_count;
+};
+
+
 class LongRunningTestTask : public Task
 {
 public:
@@ -101,7 +112,7 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		conPrint("ForLoopTask::run(), begin: " + toString(begin) + ", end: " + toString(end));
+		// conPrint("ForLoopTask::run(), begin: " + toString(begin) + ", end: " + toString(end));
 
 		for(size_t i = begin; i < end; ++i)
 		{
@@ -127,7 +138,7 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		conPrint("ForLoopTask::run(), begin: " + toString(begin) + ", end: " + toString(end));
+		// conPrint("ForLoopTask::run(), begin: " + toString(begin) + ", end: " + toString(end));
 
 		for(size_t i = begin; i < end; ++i)
 		{
@@ -147,7 +158,7 @@ public:
 
 	virtual void run(size_t thread_index)
 	{
-		conPrint("ForLoopTask::run(), begin: " + toString(begin) + ", end: " + toString(end) + ", stride: + " + toString(stride));
+		// conPrint("ForLoopTask::run(), begin: " + toString(begin) + ", end: " + toString(end) + ", stride: + " + toString(stride));
 
 		for(size_t i = begin; i < end; i += stride)
 		{
@@ -257,7 +268,7 @@ void testForLoopTaskRun(TaskManager& task_manager, size_t N)
 
 void TaskTests::test()
 {
-	conPrint("TaskTests");
+	conPrint("TaskTests::test()");
 
 	{
 		TaskManager m;
@@ -265,6 +276,21 @@ void TaskTests::test()
 
 	{
 		TaskManager m(0);
+	}
+
+	// Destroying a zero-worker manager must release every queued task's queue reference.
+	{
+		AtomicInt destruction_count(0);
+		const int num_tasks = 3; // Exercise a queue with multiple linked nodes.
+		{
+			TaskManager m(0);
+			for(int i=0; i<num_tasks; ++i)
+				m.addTask(new DestructionCountingTestTask(destruction_count));
+
+			testAssert(destruction_count == 0);
+			// Deliberately do not drain the queue or retain any task references.
+		}
+		testAssert(destruction_count == num_tasks);
 	}
 
 	{
@@ -505,12 +531,35 @@ void TaskTests::test()
 
 		m.runTaskGroup(group);
 
-		Lock lock(group->num_unfinished_tasks_mutex);
-		testAssert(group->num_unfinished_tasks == 0);
+		Lock lock(group->num_unfinished_group_tasks_mutex);
+		testAssert(group->num_unfinished_group_tasks == 0);
 		testAssert(m.getNumUnfinishedTasks() == 0);
 		testAssert(exec_counter == N);
 	}
 
+
+
+	// A task retained after its group is destroyed must be safe to submit independently.
+	{
+		AtomicInt exec_counter(0);
+		TaskRef retained_task = new TestTask(exec_counter);
+		TaskManager m(1); // Ensure the independent submission runs on a worker.
+
+		{
+			TaskGroupRef group = new TaskGroup();
+			group->tasks.push_back(retained_task);
+			m.runTaskGroup(group); // A single-task group runs on the calling thread.
+			testAssert(exec_counter == 1);
+		}
+
+		// Fail deterministically before the worker can dereference a dangling group pointer.
+		testAssert(retained_task->task_group == nullptr);
+
+		m.addTask(retained_task);
+		m.waitForTasksToComplete();
+		testAssert(exec_counter == 2);
+		testAssert(m.getNumUnfinishedTasks() == 0);
+	}
 
 
 	// Perf test - fixed size allocator vs global allocator
@@ -547,7 +596,7 @@ void TaskTests::test()
 		}
 	}*/
 
-	conPrint("TaskTests done.");
+	conPrint("TaskTests::test() done.");
 }
 
 

@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "MyThread.h"
+#include "Mutex.h"
 
 
 namespace glare
@@ -45,7 +46,8 @@ private:
 
 	// std::vector<TaskTimes>* task_times;
 
-	Reference<Task> current_task;
+	Mutex current_task_mutex;
+	Reference<Task> current_task GUARDED_BY(current_task_mutex);
 };
 
 

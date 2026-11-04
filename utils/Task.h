@@ -68,9 +68,9 @@ class TaskGroup : public ::ThreadSafeRefCounted
 public:
 	std::vector<TaskRef> tasks;
 
-	Condition num_unfinished_tasks_cond;
-	mutable ::Mutex num_unfinished_tasks_mutex;
-	int num_unfinished_tasks	GUARDED_BY(num_unfinished_tasks_mutex);
+	Condition num_unfinished_group_tasks_cond;
+	mutable ::Mutex num_unfinished_group_tasks_mutex;
+	int num_unfinished_group_tasks	GUARDED_BY(num_unfinished_group_tasks_mutex);
 };
 
 typedef Reference<TaskGroup> TaskGroupRef;

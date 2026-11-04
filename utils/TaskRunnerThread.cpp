@@ -67,7 +67,10 @@ void TaskRunnerThread::run()
 		if(task->is_quit_runner_task)
 			break; // All tasks are finished, terminate thread by returning from run().
 
-		this->current_task = task;
+		{
+			Lock lock(current_task_mutex);
+			this->current_task = task;
+		}
 
 #if TASK_STATS
 		task_times->push_back(TaskTimes());
@@ -77,33 +80,41 @@ void TaskRunnerThread::run()
 		// Execute the task
 		task->run(thread_index);
 
-		if(task->task_group)
-		{
-			int new_num_unfinished_group_tasks;
-			{
-				Lock lock(task->task_group->num_unfinished_tasks_mutex);
-				task->task_group->num_unfinished_tasks--;
-				new_num_unfinished_group_tasks = task->task_group->num_unfinished_tasks;
-			}
-			
-			if(new_num_unfinished_group_tasks == 0)
-				task->task_group->num_unfinished_tasks_cond.notify();
-		}
-
 		TASK_STATS_DO(task_times->back().finish_time = Clock::getCurTimeRealSec());
 
-		this->current_task = NULL;
+		{
+			Lock lock(current_task_mutex);
+			this->current_task = nullptr;
+		}
 
 		// Inform the task manager that we have executed the task.
-		manager->taskFinished();
+		manager->decrementUnfinishedTaskCountAndNotify();
+
+		if(task->task_group)
+		{
+			int old_num_unfinished_group_tasks;
+			TaskGroupRef task_group = task->task_group; // Hold a reference to the task group here until we execute task_group->num_unfinished_tasks_cond.notify(); below.
+			// This makes sure the task group is not destroyed by some other thread after we decrement task_group->num_unfinished_group_tasks.
+			{
+				Lock lock(task_group->num_unfinished_group_tasks_mutex);
+				old_num_unfinished_group_tasks = task_group->num_unfinished_group_tasks--;
+			}
+
+			if(old_num_unfinished_group_tasks == 1)
+				task_group->num_unfinished_group_tasks_cond.notify();
+		}
 	}
 }
 
 
 void TaskRunnerThread::cancelTasks()
 {
-	Reference<Task> cur_task = this->current_task;
-	if(cur_task.nonNull())
+	TaskRef cur_task;
+	{
+		Lock lock(current_task_mutex);
+		cur_task = this->current_task;
+	}
+	if(cur_task)
 		cur_task->cancelTask();
 }
 
