@@ -152,8 +152,8 @@ public:
 				// Accept connection
 				MySocketRef plain_worker_sock = listener.acceptConnection();
 
-				struct tls* worker_tls_context = NULL;
-				if(tls_accept_socket(tls_context, &worker_tls_context, (int)plain_worker_sock->getSocketHandle()) != 0)
+				TLSContextRef worker_tls_context = new TLSContext();
+				if(tls_accept_socket(tls_context, &worker_tls_context->context, (int)plain_worker_sock->getSocketHandle()) != 0)
 					throw MySocketExcep("tls_accept_socket failed: " + getTLSErrorString(tls_context));
 
 				TLSSocketRef worker_tls_socket = new TLSSocket(plain_worker_sock, worker_tls_context);

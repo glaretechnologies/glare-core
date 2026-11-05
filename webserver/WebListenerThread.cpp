@@ -23,8 +23,8 @@ namespace web
 {
 
 
-WebListenerThread::WebListenerThread(int listenport_, Reference<SharedRequestHandler> shared_request_handler_, struct tls_config* tls_configuration_)
-:	listenport(listenport_), shared_request_handler(shared_request_handler_), tls_configuration(tls_configuration_)
+WebListenerThread::WebListenerThread(int listenport_, Reference<SharedRequestHandler> shared_request_handler_, const Reference<CurrentTLSServerContextPointer>& current_tls_context_ptr_)
+:	listenport(listenport_), shared_request_handler(shared_request_handler_), current_tls_context_ptr(current_tls_context_ptr_)
 {
 }
 
@@ -71,16 +71,6 @@ void WebListenerThread::doRun()
 
 		int next_thread_id = 0;
 		
-		struct tls* tls_context = NULL;
-		if(tls_configuration)
-		{
-			tls_context = tls_server();
-			if(!tls_context)
-				throw MySocketExcep("Failed to create tls_context.");
-			if(tls_configure(tls_context, tls_configuration) == -1)
-				throw MySocketExcep("tls_configure failed: " + getTLSErrorString(tls_context));
-		}
-
 		while(!should_quit)
 		{
 			try
@@ -93,11 +83,16 @@ void WebListenerThread::doRun()
 
 				SocketInterfaceRef use_socket = plain_worker_sock;
 				TLSSocketRef worker_tls_socket;
-				if(tls_context)
+				if(current_tls_context_ptr)
 				{
-					struct tls* worker_tls_context = NULL;
-					if(tls_accept_socket(tls_context, &worker_tls_context, (int)plain_worker_sock->getSocketHandle()) != 0)
-						throw MySocketExcep("tls_accept_socket failed: " + getTLSErrorString(tls_context));
+					// Get the current TLSContext that should be used by the listener.  This may change occasionally when the TLS configuration changes (new keys etc.)
+					TLSContextRef cur_listener_context = current_tls_context_ptr->getCurrentContext();
+
+					TLSContextRef worker_tls_context = new TLSContext();
+					if(tls_accept_socket(cur_listener_context->context, &worker_tls_context->context, (int)plain_worker_sock->getSocketHandle()) != 0)
+						throw MySocketExcep("tls_accept_socket failed: " + getTLSErrorString(cur_listener_context->context));
+
+					worker_tls_context->server_context = cur_listener_context;
 
 					worker_tls_socket = new TLSSocket(plain_worker_sock, worker_tls_context);
 					use_socket = worker_tls_socket;
@@ -111,7 +106,7 @@ void WebListenerThread::doRun()
 					next_thread_id,
 					use_socket,
 					request_handler,
-					tls_context != NULL // tls_connection
+					current_tls_context_ptr.nonNull() // tls_connection
 				);
 
 				next_thread_id++;

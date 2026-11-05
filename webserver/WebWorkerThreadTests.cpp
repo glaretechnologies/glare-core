@@ -26,6 +26,7 @@ Copyright Glare Technologies Limited 2021 -
 #include <Exception.h>
 #include <networking/MySocket.h>
 #include <networking/HTTPClient.h>
+#include <networking/TLSSocket.h>
 #include <Lock.h>
 #include <StringUtils.h>
 #include <PlatformUtils.h>
@@ -812,7 +813,7 @@ void WebWorkerThreadTests::test()
 
 	ThreadManager thread_manager;
 	Reference<WebListenerThread> listener_thread = new WebListenerThread(port, shared_request_handler.getPointer(), 
-		NULL // tls_configuration
+		nullptr // current_tls_context_ptr
 	);
 	thread_manager.addThread(listener_thread);
 

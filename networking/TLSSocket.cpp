@@ -21,6 +21,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/BitUtils.h"
 #include "../utils/OpenSSL.h"
 #include "../utils/FileUtils.h"
+#include "../utils/Lock.h"
 #include "../utils/RuntimeCheck.h"
 #include <vector>
 #include <string.h>
@@ -102,10 +103,41 @@ TLSConfig::~TLSConfig()
 }
 
 
+TLSContextRef CurrentTLSServerContextPointer::getCurrentContext()
+{
+	Lock lock(cur_context_mutex);
+	return cur_context;
+}
+
+
+void CurrentTLSServerContextPointer::setCurrentContext(TLSContextRef new_context)
+{
+	Lock lock(cur_context_mutex);
+	cur_context = new_context;
+}
+
+
+TLSContext::~TLSContext()
+{
+	if(context != nullptr)
+		tls_free(context); // Free TLS context.
+}
+
+
+
 std::string getTLSErrorString(struct tls* tls_context)
 {
 	const char* err = tls_error(tls_context); // tls_error can return NULL
 	return err ? std::string(err) : std::string("[No error reported from TLS lib]");
+}
+
+
+std::string getTLSErrorString(TLSContextRef context)
+{
+	if(context && context->context)
+		return getTLSErrorString(context->context);
+	else
+		return std::string("[context was null]");
 }
 
 
@@ -120,20 +152,20 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, c
 {
 	plain_socket = plain_socket_;
 
-	tls_context = tls_client();
-	if(!tls_context)
+	tls_context = new TLSContext(tls_client());
+	if(!tls_context->context)
 		throw MySocketExcep("Failed to create tls_context.");
 
-	if(tls_configure(tls_context, client_tls_config) != 0)
-		throw MySocketExcep("tls_configure failed: " + getTLSErrorString(tls_context));
+	if(tls_configure(tls_context->context, client_tls_config) != 0)
+		throw MySocketExcep("tls_configure failed: " + getTLSErrorString(tls_context->context));
 
-	if(tls_connect_socket(tls_context, (int)plain_socket->getSocketHandle(), servername.c_str()) != 0)
-		throw MySocketExcep("tls_connect_socket failed: " + getTLSErrorString(tls_context));
+	if(tls_connect_socket(tls_context->context, (int)plain_socket->getSocketHandle(), servername.c_str()) != 0)
+		throw MySocketExcep("tls_connect_socket failed: " + getTLSErrorString(tls_context->context));
 
 	//Timer timer;
 	// Calling tls_handshake explicitly is optional, but it's nice to get any handshake error messages now, instead of in a later read or write call.
-	if(tls_handshake(tls_context) != 0)
-		throw MySocketExcep("tls_handshake failed: " + getTLSErrorString(tls_context));
+	if(tls_handshake(tls_context->context) != 0)
+		throw MySocketExcep("tls_handshake failed: " + getTLSErrorString(tls_context->context));
 	//conPrint("Client TLS handshake took " + timer.elapsedStringNSigFigs(4));
 
 	//conPrint("tls_conn_cipher: " + std::string(tls_conn_cipher(tls_context)));
@@ -141,8 +173,10 @@ TLSSocket::TLSSocket(MySocketRef plain_socket_, tls_config* client_tls_config, c
 }
 
 
-TLSSocket::TLSSocket(MySocketRef plain_socket_, struct tls* tls_context_)
+TLSSocket::TLSSocket(MySocketRef plain_socket_, Reference<TLSContext> tls_context_)
 {
+	runtimeCheck(tls_context_.nonNull());
+
 	plain_socket = plain_socket_;
 
 	tls_context = tls_context_;
@@ -160,10 +194,10 @@ TLSSocket::~TLSSocket()
 	if(plain_socket->socketHandleValid())
 	{
 		// "tls_close() closes a connection after use. Only the TLS layer will be shut down and the caller is responsible for closing the file descriptors" (https://sortix.org/man/man3/tls_close.3.html)
-		tls_close(tls_context);
+		tls_close(tls_context->context);
 	}
 
-	tls_free(tls_context); // Free TLS context.
+	tls_context = nullptr; // Free TLS context.
 }
 
 
@@ -224,12 +258,12 @@ void TLSSocket::write(const void* data, size_t datalen, FractionListener* frac)
 		const size_t num_bytes_to_write = std::min(MAX_READ_OR_WRITE_SIZE, datalen);
 		assert(num_bytes_to_write > 0);
 
-		const ssize_t num_bytes_written = tls_write(tls_context, data, num_bytes_to_write);
+		const ssize_t num_bytes_written = tls_write(tls_context->context, data, num_bytes_to_write);
 		if(num_bytes_written == TLS_WANT_POLLIN || num_bytes_written == TLS_WANT_POLLOUT)
 			continue;
 
 		if(num_bytes_written == SOCKET_ERROR)
-			throw MySocketExcep("write failed: " + getTLSErrorString(tls_context));
+			throw MySocketExcep("write failed: " + getTLSErrorString(tls_context->context));
 
 		datalen -= num_bytes_written;
 		data = (void*)((uint8*)data + num_bytes_written); // Advance data pointer
@@ -244,12 +278,12 @@ size_t TLSSocket::readSomeBytes(void* buffer, size_t max_num_bytes)
 {
 	while(1)
 	{
-		const ssize_t num_bytes_read = tls_read(tls_context, buffer, max_num_bytes);
+		const ssize_t num_bytes_read = tls_read(tls_context->context, buffer, max_num_bytes);
 		if(num_bytes_read == TLS_WANT_POLLIN || num_bytes_read == TLS_WANT_POLLOUT)
 			continue;
 
 		if(num_bytes_read == SOCKET_ERROR) // Connection was reset/broken
-			throw MySocketExcep("Read failed, error: " + getTLSErrorString(tls_context));
+			throw MySocketExcep("Read failed, error: " + getTLSErrorString(tls_context->context));
 
 		return (size_t)num_bytes_read;
 	}
@@ -298,11 +332,11 @@ void TLSSocket::readTo(void* buffer, size_t readlen, FractionListener* frac)
 		//------------------------------------------------------------------------
 		//do the read
 		//------------------------------------------------------------------------
-		const ssize_t num_bytes_read = tls_read(tls_context, buffer, num_bytes_to_read);
+		const ssize_t num_bytes_read = tls_read(tls_context->context, buffer, num_bytes_to_read);
 		if(num_bytes_read == TLS_WANT_POLLIN || num_bytes_read == TLS_WANT_POLLOUT)
 			continue;
 		else if(num_bytes_read == SOCKET_ERROR) // Connection was reset/broken
-			throw MySocketExcep("Read failed, error: " + getTLSErrorString(tls_context));
+			throw MySocketExcep("Read failed, error: " + getTLSErrorString(tls_context->context));
 		else if(num_bytes_read == 0) // Connection was closed gracefully
 			throw MySocketExcep("Connection Closed.", MySocketExcep::ExcepType_ConnectionClosedGracefully);
 
@@ -328,11 +362,11 @@ void TLSSocket::waitForGracefulDisconnect()
 	while(1)
 	{
 		char buf[1024];
-		const ssize_t num_bytes_read = tls_read(tls_context, buf, sizeof(buf));
+		const ssize_t num_bytes_read = tls_read(tls_context->context, buf, sizeof(buf));
 		if(num_bytes_read == TLS_WANT_POLLIN || num_bytes_read == TLS_WANT_POLLOUT)
 			continue;
 		else if(num_bytes_read == SOCKET_ERROR) // Connection was reset/broken
-			throw MySocketExcep("Read failed, error: " + getTLSErrorString(tls_context));
+			throw MySocketExcep("Read failed, error: " + getTLSErrorString(tls_context->context));
 		else if(num_bytes_read == 0) // Connection was closed gracefully
 		{
 			// conPrint("\tConnection was closed gracefully.");
@@ -393,7 +427,7 @@ uint32 TLSSocket::readUInt32()
 bool TLSSocket::readable(double timeout_s)
 {
 	// "SSL_pending() returns the number of bytes which have been processed, buffered and are available inside ssl for immediate read." - https://www.openssl.org/docs/man1.1.0/man3/SSL_pending.html
-	if(SSL_pending(((glare_tls*)tls_context)->ssl_conn) > 0)
+	if(SSL_pending(((glare_tls*)tls_context->context)->ssl_conn) > 0)
 		return true;
 	return plain_socket->readable(timeout_s);
 }
@@ -403,7 +437,7 @@ bool TLSSocket::readable(double timeout_s)
 // Returns true if the socket was readable, false if the event_fd was signalled.
 bool TLSSocket::readable(EventFD& event_fd)
 {	
-	if(SSL_pending(((glare_tls*)tls_context)->ssl_conn) > 0)
+	if(SSL_pending(((glare_tls*)tls_context->context)->ssl_conn) > 0)
 		return true;
 	return plain_socket->readable(event_fd);
 }

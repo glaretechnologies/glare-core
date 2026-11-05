@@ -14,7 +14,7 @@ Copyright Glare Technologies Limited 2021 -
 class PrintOutput;
 class ThreadMessageSink;
 class MySocket;
-struct tls_config;
+class CurrentTLSServerContextPointer;
 
 
 namespace web
@@ -32,7 +32,7 @@ WebListenerThread
 class WebListenerThread : public MessageableThread
 {
 public:
-	WebListenerThread(int listenport, Reference<SharedRequestHandler> shared_request_handler, struct ::tls_config* tls_configuration);
+	WebListenerThread(int listenport, Reference<SharedRequestHandler> shared_request_handler, const Reference<CurrentTLSServerContextPointer>& current_tls_context_ptr);
 
 	virtual ~WebListenerThread();
 
@@ -49,7 +49,7 @@ private:
 
 	Reference<SharedRequestHandler> shared_request_handler;
 
-	struct tls_config* tls_configuration;
+	Reference<CurrentTLSServerContextPointer> current_tls_context_ptr;
 
 	Reference<MySocket> m_sock;
 	glare::AtomicInt should_quit;
