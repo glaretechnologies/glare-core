@@ -49,8 +49,6 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLShader.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLShader.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLCircularBuffer.cpp 
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/OpenGLCircularBuffer.h
-${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShaderFileWatcherThread.cpp 
-${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ShaderFileWatcherThread.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/IrradianceProbes.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/IrradianceProbes.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/CloudNoise.cpp

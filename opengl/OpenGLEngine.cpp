@@ -20,7 +20,6 @@ Copyright Glare Technologies Limited 2023 -
 #include "OpenGLMeshRenderData.h"
 #include "GaussianSplatRenderer.h"
 #include "SSRBlurPyramid.h"
-#include "ShaderFileWatcherThread.h"
 #include "AsyncTextureLoader.h"
 #include "Query.h"
 #include "TimestampQuery.h"
@@ -37,6 +36,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../graphics/imformatdecoder.h"
 #include "../graphics/CompressedImage.h"
 #include "../indigo/TextureServer.h"
+#include "../utils/FileWatcherThread.h"
 #include "../utils/TestUtils.h"
 #include "../maths/vec3.h"
 #include "../maths/GeometrySampling.h"
@@ -2639,9 +2639,17 @@ void OpenGLEngine::initialise(const std::string& data_dir_, Reference<TextureSer
 
 #if BUILD_TESTS && !defined(EMSCRIPTEN)
 		{
-			std::vector<std::string> watch_dirs(1, data_dir);
-			ContainerUtils::append(watch_dirs, this->additional_shader_dirs);
-			thread_manager.addThread(new ShaderFileWatcherThread(watch_dirs, this));
+			FileWatcherThread::WatchGroup group;
+			group.dirs.push_back(FileWatcherThread::WatchDir(data_dir));
+			for(size_t i=0; i<this->additional_shader_dirs.size(); ++i)
+				group.dirs.push_back(FileWatcherThread::WatchDir(this->additional_shader_dirs[i]));
+
+			group.on_change_func = [this]() { this->shaderFileChanged(); };
+
+			FileWatcherThread::FileWatcherThreadArgs args;
+			args.watch_groups.push_back(group);
+
+			thread_manager.addThread(new FileWatcherThread(args));
 		}
 #endif
 
