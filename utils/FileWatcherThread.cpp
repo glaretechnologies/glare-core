@@ -48,7 +48,9 @@ FileWatcherThread::~FileWatcherThread()
 #if defined(_WIN32)
 static HANDLE makeWaitHandleForDir(const std::string& dir, bool watch_subtree)
 {
-	HANDLE wait_handle = FindFirstChangeNotification(StringUtils::UTF8ToPlatformUnicodeEncoding(dir).c_str(), /*watch subtree=*/watch_subtree, FILE_NOTIFY_CHANGE_LAST_WRITE);
+	HANDLE wait_handle = FindFirstChangeNotification(StringUtils::UTF8ToPlatformUnicodeEncoding(dir).c_str(), /*watch subtree=*/watch_subtree,
+		FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_FILE_NAME // FILE_NOTIFY_CHANGE_FILE_NAME = file created, deleted or renamed.
+	);
 	if(wait_handle == INVALID_HANDLE_VALUE)
 		throw glare::Exception("FindFirstChangeNotification failed: " + PlatformUtils::getLastErrorString());
 	return wait_handle;
@@ -58,7 +60,7 @@ static HANDLE makeWaitHandleForDir(const std::string& dir, bool watch_subtree)
 #else // else on Linux:
 static int makeWatchDescriptorForDir(int inotify_fd, const std::string& dir)
 {
-	const int watch_descriptor = inotify_add_watch(inotify_fd, dir.c_str(), IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVED_TO);
+	const int watch_descriptor = inotify_add_watch(inotify_fd, dir.c_str(), IN_CLOSE_WRITE | IN_CREATE | IN_DELETE | IN_MOVED_TO);
 	if(watch_descriptor == -1)
 		throw glare::Exception("inotify_add_watch failed: " + PlatformUtils::getLastErrorString());
 	return watch_descriptor;
