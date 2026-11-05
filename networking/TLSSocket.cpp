@@ -205,20 +205,23 @@ static bool TLS_inited = false;
 static std::vector<unsigned char> cert_authority_bundle_data;
 
 
-void TLSSocket::initTLS(const std::string& base_dir_path)
+void TLSSocket::initTLS(const std::string& base_dir_path, bool client_support)
 {
 	if(tls_init() != 0)
 		throw MySocketExcep("tls_init failed.");
 
 	// Load the trusted root certificates used to verify servers.
-	const std::string ca_bundle_path = base_dir_path + "/cert.pem";
-	try
+	if(client_support)
 	{
-		FileUtils::readEntireFile(ca_bundle_path, cert_authority_bundle_data);
-	}
-	catch(glare::Exception& e)
-	{
-		throw MySocketExcep("Failed to read CA certificate bundle: " + e.what());
+		const std::string ca_bundle_path = base_dir_path + "/cert.pem";
+		try
+		{
+			FileUtils::readEntireFile(ca_bundle_path, cert_authority_bundle_data);
+		}
+		catch(glare::Exception& e)
+		{
+			throw MySocketExcep("Failed to read CA certificate bundle: " + e.what());
+		}
 	}
 
 	TLS_inited = true;
@@ -231,6 +234,9 @@ void TLSSocket::setClientConfigCAData(tls_config* client_config)
 		throw glare::Exception("TLS not inited, need to call initTLS() first");
 
 	runtimeCheck(client_config != nullptr);
+
+	if(cert_authority_bundle_data.empty())
+		throw MySocketExcep("cert_authority_bundle_data was empty, initTLS() called with client_support=false");
 
 	if(tls_config_set_ca_mem(client_config, cert_authority_bundle_data.data(), cert_authority_bundle_data.size()) != 0)
 		throw MySocketExcep("Failed to load CA certificate bundle: " + getTLSConfigErrorString(client_config));

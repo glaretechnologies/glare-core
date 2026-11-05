@@ -134,11 +134,11 @@ public:
 			if(tls_config_set_key_file(server_tls_config.config, (TestUtils::getTestReposDir() + "/testfiles/tls/key.pem").c_str()) != 0)
 				throw MySocketExcep("tls_config_set_key_file failed: " + getTLSConfigErrorString(server_tls_config.config));
 
-			struct tls* tls_context = tls_server();
-			if(!tls_context)
+			TLSContextRef tls_context = new TLSContext(tls_server());
+			if(!tls_context->context)
 				throw MySocketExcep("Failed to create tls_context.");
-			if(tls_configure(tls_context, server_tls_config.config) == -1)
-				throw MySocketExcep("tls_configure failed: " + getTLSErrorString(tls_context));
+			if(tls_configure(tls_context->context, server_tls_config.config) == -1)
+				throw MySocketExcep("tls_configure failed: " + getTLSErrorString(tls_context->context));
 
 
 
@@ -153,7 +153,7 @@ public:
 				MySocketRef plain_worker_sock = listener.acceptConnection();
 
 				TLSContextRef worker_tls_context = new TLSContext();
-				if(tls_accept_socket(tls_context, &worker_tls_context->context, (int)plain_worker_sock->getSocketHandle()) != 0)
+				if(tls_accept_socket(tls_context->context, &worker_tls_context->context, (int)plain_worker_sock->getSocketHandle()) != 0)
 					throw MySocketExcep("tls_accept_socket failed: " + getTLSErrorString(tls_context));
 
 				TLSSocketRef worker_tls_socket = new TLSSocket(plain_worker_sock, worker_tls_context);
@@ -166,7 +166,7 @@ public:
 			}
 			while(loop);
 
-			tls_free(tls_context);
+			tls_context = nullptr;
 		}
 		catch(MySocketExcep& e)
 		{

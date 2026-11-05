@@ -47,9 +47,9 @@ public:
 	TLSConfig(); // Allocates new tls_config.  Throws MySocketExcep on failure to alloc config.
 	~TLSConfig(); // Frees tls_config (note that tls_config is reference-counted however)
 
-	tls_config* config;
-private:
 	GLARE_DISABLE_COPY(TLSConfig);
+
+	tls_config* config;
 };
 
 
@@ -59,6 +59,8 @@ public:
 	TLSContext() : context(nullptr) {}
 	TLSContext(struct tls* context_) : context(context_) {}
 	~TLSContext();
+
+	GLARE_DISABLE_COPY(TLSContext);
 
 	Reference<TLSContext> server_context;
 
@@ -70,11 +72,15 @@ typedef Reference<TLSContext> TLSContextRef;
 class CurrentTLSServerContextPointer : public ThreadSafeRefCounted
 {
 public:
+	CurrentTLSServerContextPointer(){}
+
 	TLSContextRef getCurrentContext();  // Thread-safe
 	void setCurrentContext(TLSContextRef new_context); // Thread-safe
 
+	GLARE_DISABLE_COPY(CurrentTLSServerContextPointer);
+private:
 	Mutex cur_context_mutex;
-	TLSContextRef cur_context;
+	TLSContextRef cur_context GUARDED_BY(cur_context_mutex);
 };
 
 
@@ -151,8 +157,8 @@ public:
 
 	~TLSSocket();
 
-
-	static void initTLS(const std::string& base_dir_path); // Throws MySocketExcep on failure.
+	// If client_support is true, loads the trusted root certificate bundle from base_dir_path/cert.pem, which is needed for client TLS connections.
+	static void initTLS(const std::string& base_dir_path, bool client_support = true); // Throws MySocketExcep on failure.
 
 	// Assign the trusted root certificates data used to verify servers to the TLS config.  Only needed for client configs.
 	static void setClientConfigCAData(tls_config* client_config);
