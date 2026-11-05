@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2026 -
 #include <RuntimeCheck.h>
 #include <SimpleCredentials.h>
 #include <EventFD.h>
+#include <OpenSSL.h>
 
 
 LLMThread::LLMThread(const std::string& AI_model_id_, const Settings& settings_, const SimpleCredentials* credentials_, ThreadSafeQueue<ThreadMessageRef>* out_msg_queue_)
@@ -172,6 +173,8 @@ void LLMThread::doRun()
 	{
 		conPrint("LLMThread: glare::Exception: " + e.what());
 	}
+
+	OpenSSL::threadCleanup();
 }
 
 

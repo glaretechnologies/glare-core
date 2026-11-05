@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/Parser.h"
 #include "../utils/Exception.h"
 #include "../utils/RuntimeCheck.h"
+#include "../utils/OpenSSL.h"
 #include "../maths/CheckedMaths.h"
 #include <tls.h>
 #include <cstring>
@@ -810,6 +811,7 @@ void HTTPClient::test()
 			client.downloadFile("http://www.cbloom.com/rants.html", data);
 			//conPrint(data);
 		}
+
 		{
 			HTTPClient client;
 			client.setAsNotIndependentlyHeapAllocated();
@@ -844,6 +846,9 @@ void HTTPClient::test()
 
 	for(size_t i=0; i<threads.size(); ++i)
 		threads[i]->join();*/
+
+	// Remove some OpenSSL state
+	OpenSSL::threadCleanup();
 }
 
 

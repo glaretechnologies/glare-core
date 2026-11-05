@@ -15,6 +15,7 @@ Copyright Glare Technologies Limited 2026 -
 #include <RuntimeCheck.h>
 #include <Lock.h>
 #include <ResponseUtils.h>
+#include <OpenSSL.h>
 #ifdef __linux__
 #include <unistd.h>
 #include <sys/inotify.h>
@@ -218,6 +219,8 @@ void FileWatcherThread::doRun()
 
 		conPrint("FileWatcherThread error: " + e.what());
 	}
+
+	OpenSSL::threadCleanup();
 }
 
 

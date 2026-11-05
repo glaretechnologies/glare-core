@@ -17,6 +17,7 @@ Copyright Glare Technologies Limited 2020 -
 #include "../utils/StringUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/SocketBufferOutStream.h"
+#include "../utils/OpenSSL.h"
 #include <cstring>
 #include <tls.h>
 #include <openssl/err.h>
@@ -49,10 +50,10 @@ public:
 			failTest("TestServerSocketThread excep: " + e.what());
 		}
 
-		// Remove thread-local error state, to avoid leakin git.
-		// NOTE: have to destroy socket first, before calling ERR_remove_thread_state()
+		// Remove thread-local error state, to avoid leaking it.
+		// NOTE: have to destroy socket first, before calling OpenSSL::threadCleanup()
 		socket = NULL;
-		ERR_remove_thread_state(/*thread id=*/NULL); // Set thread ID to null to use current thread.
+		OpenSSL::threadCleanup();
 	}
 
 	TLSSocketRef socket;
@@ -106,7 +107,7 @@ public:
 		if(!succeeded)
 			failTest("TestClientThread: failed to connect to server");
 
-		ERR_remove_thread_state(NULL);
+		OpenSSL::threadCleanup();
 	}
 
 	std::string server_hostname;
@@ -172,6 +173,8 @@ public:
 		{
 			failTest("TestListenerThread excep: " + e.what());
 		}
+
+		OpenSSL::threadCleanup();
 	}
 
 	bool loop;
@@ -236,6 +239,8 @@ public:
 			failTest("tls_configure failed.");
 
 		tls_free(tls_context);
+
+		OpenSSL::threadCleanup();
 	}
 
 	struct tls_config* config;

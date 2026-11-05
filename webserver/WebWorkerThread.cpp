@@ -17,6 +17,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <SHA256.h>
 #include <Base64.h>
 #include <Exception.h>
+#include <OpenSSL.h>
 #include <networking/MySocket.h>
 #include <Lock.h>
 #include <StringUtils.h>
@@ -26,7 +27,6 @@ Copyright Glare Technologies Limited 2024 -
 #include <MemMappedFile.h>
 #include <RuntimeCheck.h>
 #include <maths/CheckedMaths.h>
-#include <openssl/err.h>
 
 
 namespace web
@@ -850,9 +850,9 @@ void WorkerThread::doRun()
 	}
 
 	// Remove thread-local OpenSSL error state, to avoid leaking it.
-	// NOTE: have to destroy socket first, before calling ERR_remove_thread_state(), otherwise memory will just be reallocated.
+	// NOTE: have to destroy socket first, before calling OpenSSL::threadCleanup(), otherwise memory will just be reallocated.
 	socket = NULL;
-	ERR_remove_thread_state(/*thread id=*/NULL); // Set thread ID to null to use current thread.
+	OpenSSL::threadCleanup();
 }
 
 
