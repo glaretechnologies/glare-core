@@ -1109,15 +1109,15 @@ const std::string getCanonicalPath(const std::string& p)
 	HandleWrapper file = CreateFile(
 		StringUtils::UTF8ToPlatformUnicodeEncoding(p).c_str(),
 		0, // dwDesiredAccess - We can get away with no read or write access here since we just want to operate on metadata.  This helps with e.g. avoiding virus-scanning slowdowns.  Was GENERIC_READ.
-		FILE_SHARE_READ, // dwShareMode
-		NULL, // lpSecurityAttributes 
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, // dwShareMode - Don't fail if something else has the file open, as we only read metadata.
+		NULL, // lpSecurityAttributes
 		OPEN_EXISTING, // OPEN_EXISTING = Opens a file or device, only if it exists.
-		FILE_ATTRIBUTE_NORMAL, // dwFlagsAndAttributes
+		FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS, // dwFlagsAndAttributes - FILE_FLAG_BACKUP_SEMANTICS is needed to open directories, so this works on directories as well as files.
 		NULL // hTemplateFile
 	);
 
 	if(file.handle == INVALID_HANDLE_VALUE)
-		throw FileUtilsExcep("Failed to open file while getting canonical name for file: '" + p + "': " + PlatformUtils::getLastErrorString());
+		throw FileUtilsExcep("Failed to open file or directory while getting canonical name for: '" + p + "': " + PlatformUtils::getLastErrorString());
 
 	const DWORD BUF_SIZE = 1024;
 	const DWORD FLAGS = VOLUME_NAME_DOS; // VOLUME_NAME_DOS is the default.
@@ -1405,6 +1405,15 @@ void doUnitTests()
 		testAssert(canonical_path == getCanonicalPath(TestUtils::getTestReposDir() + "/testfiles/Sphere.obj"));
 		testAssert(canonical_path == getCanonicalPath(TestUtils::getTestReposDir() + "/TESTFILES/Sphere.OBJ"));
 #endif
+
+		// Test on a directory
+		const std::string canonical_dir_path = getCanonicalPath(TestUtils::getTestReposDir() + "/testfiles");
+		conPrint("canonical_dir_path: '" + canonical_dir_path + "'");
+		testAssert(getDirectory(canonical_path) == canonical_dir_path);
+#if defined(_WIN32) || defined(__APPLE__) // If we are on a case-insensitive filesystem:
+		testAssert(canonical_dir_path == getCanonicalPath(TestUtils::getTestReposDir() + "/TESTFILES"));
+#endif
+
 		Timer timer;
 		const int N = 10;
 		for(int i=0; i<N; ++i)
