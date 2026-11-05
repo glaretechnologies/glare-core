@@ -25,6 +25,7 @@ Copyright Glare Technologies Limited 2021 -
 	#include <time.h>
 	#include <unistd.h>
 	#include <string.h> // for strncpy
+	#include <pthread.h>
 
 	#ifndef __APPLE__
 		#include <sys/sysinfo.h>
