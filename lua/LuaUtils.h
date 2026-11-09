@@ -60,7 +60,8 @@ public:
 	static std::string getString(lua_State* state, int index);
 	static const char* getStringPointerAndLen(lua_State* state, int index, size_t& len_out);
 	
-	static std::string getStringArg(lua_State* state, int index); // Same as getString except exception message calls the value an argument.
+	static std::string getStringArg(lua_State* state, int arg_index); // Same as getString except exception message calls the value an argument.
+	static string_view getStringArgAsStringView(lua_State* state, int arg_index); // Same as getString except exception message calls the value an argument.
 	static std::string getTableStringField(lua_State* state, int table_index, const char* key);
 	static std::string getTableStringFieldWithEmptyDefault(lua_State* state, int table_index, const char* key);
 

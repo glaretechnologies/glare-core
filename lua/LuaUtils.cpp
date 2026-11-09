@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include "../utils/RuntimeCheck.h"
 #include "../maths/mathstypes.h"
 #include <lualib.h>
 #include <Luau/Common.h>
@@ -335,10 +336,7 @@ const char* LuaUtils::getStringConstCharPtr(lua_State* state, int index)
 	if(s)
 		return s;
 	else
-	{
-		assert(0);  // Shouldn't get here
-		throw glare::Exception("Value was not a string");
-	}
+		runtimeCheckFailed("Value was not a string"); // Shouldn't get here
 }
 
 const char* LuaUtils::getStringAndAtom(lua_State* state, int index, int& atom_out)
@@ -350,10 +348,7 @@ const char* LuaUtils::getStringAndAtom(lua_State* state, int index, int& atom_ou
 	if(s)
 		return s;
 	else
-	{
-		assert(0);  // Shouldn't get here
-		throw glare::Exception("Value was not a string");
-	}
+		runtimeCheckFailed("Value was not a string"); // Shouldn't get here
 }
 
 std::string LuaUtils::getString(lua_State* state, int index)
@@ -383,20 +378,31 @@ const char* LuaUtils::getStringPointerAndLen(lua_State* state, int index, size_t
 }
 
 
-std::string LuaUtils::getStringArg(lua_State* state, int index)
+std::string LuaUtils::getStringArg(lua_State* state, int arg_index)
 {
-	if(!lua_isstring(state, index))
-		throw glare::Exception("Argument " + toString(index) + " was not a string (argument had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
+	if(!lua_isstring(state, arg_index))
+		throw glare::Exception("Argument " + toString(arg_index) + " was not a string (argument had type " + luaTypeString(state, lua_type(state, arg_index)) + ")" + errorContextString(state));
 
 	size_t len;
-	const char* s = lua_tolstring(state, index, &len);
+	const char* s = lua_tolstring(state, arg_index, &len);
 	if(s)
 		return std::string(s, len);
 	else
-	{
-		assert(0);  // Shouldn't get here
-		throw glare::Exception("Value was not a string");
-	}
+		runtimeCheckFailed("Value was not a string"); // Shouldn't get here
+}
+
+
+string_view LuaUtils::getStringArgAsStringView(lua_State* state, int arg_index)
+{
+	if(!lua_isstring(state, arg_index))
+		throw glare::Exception("Argument " + toString(arg_index) + " was not a string (argument had type " + luaTypeString(state, lua_type(state, arg_index)) + ")" + errorContextString(state));
+
+	size_t len;
+	const char* s = lua_tolstring(state, arg_index, &len);
+	if(s)
+		return string_view(s, len);
+	else
+		runtimeCheckFailed("Value was not a string"); // Shouldn't get here
 }
 
 
