@@ -91,6 +91,7 @@ typedef cl_mem (CL_API_CALL *clCreateFromGLTexture2D_TYPE) (cl_context context, 
 typedef cl_mem (CL_API_CALL *clCreateFromGLBuffer_TYPE) (cl_context context, cl_mem_flags flags, /*GLuint*/unsigned int bufobj, cl_int * errcode_ret);
 typedef cl_int (CL_API_CALL *clEnqueueAcquireGLObjects_TYPE) (cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 typedef cl_int (CL_API_CALL *clEnqueueReleaseGLObjects_TYPE) (cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+typedef cl_event (CL_API_CALL *clCreateEventFromGLsyncKHR_TYPE) (cl_context context, cl_GLsync sync, cl_int *errcode_ret); // cl_khr_gl_event
 #endif
 
 }
@@ -179,6 +180,7 @@ public:
 	clCreateFromGLBuffer_TYPE clCreateFromGLBuffer;
 	clEnqueueAcquireGLObjects_TYPE clEnqueueAcquireGLObjects;
 	clEnqueueReleaseGLObjects_TYPE clEnqueueReleaseGLObjects;
+	clCreateEventFromGLsyncKHR_TYPE clCreateEventFromGLsyncKHR; // May be NULL.  Only usable on devices with supports_GL_event set.
 
 	cl_context_properties current_gl_context;
 	cl_context_properties current_DC;

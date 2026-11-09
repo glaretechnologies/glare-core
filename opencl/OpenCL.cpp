@@ -185,6 +185,7 @@ void OpenCL::libraryInit()
 
 #if OPENCL_OPENGL_INTEROP
 	// Get interop functions using clGetExtensionFunctionAddress
+	clCreateEventFromGLsyncKHR = NULL;
 	if(clGetExtensionFunctionAddress != NULL)
 	{
 		clGetGLContextInfoKHR = (clGetGLContextInfoKHR_TYPE)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
@@ -193,6 +194,7 @@ void OpenCL::libraryInit()
 		clCreateFromGLBuffer = (clCreateFromGLBuffer_TYPE)clGetExtensionFunctionAddress("clCreateFromGLBuffer");
 		clEnqueueAcquireGLObjects = (clEnqueueAcquireGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueAcquireGLObjects");
 		clEnqueueReleaseGLObjects = (clEnqueueReleaseGLObjects_TYPE)clGetExtensionFunctionAddress("clEnqueueReleaseGLObjects");
+		clCreateEventFromGLsyncKHR = (clCreateEventFromGLsyncKHR_TYPE)clGetExtensionFunctionAddress("clCreateEventFromGLsyncKHR");
 	}
 	current_gl_context = 0;
 	current_DC = 0;
@@ -459,8 +461,11 @@ void OpenCL::queryDevices()
 
 #if OPENCL_OPENGL_INTEROP
 				opencl_device->supports_GL_interop = device_OpenGL_interop;
+				// Don't require device_OpenGL_interop here, as the CL_DEVICES_FOR_GL_CONTEXT_KHR query can fail (e.g. on AMD) even though interop works.
+				opencl_device->supports_GL_event = StringUtils::containsString(device_extensions, "cl_khr_gl_event") && (clCreateEventFromGLsyncKHR != NULL);
 #else
 				opencl_device->supports_GL_interop = false;
+				opencl_device->supports_GL_event = false;
 #endif
 				opencl_device->supports_doubles = double_fp_capabilities != 0;
 
