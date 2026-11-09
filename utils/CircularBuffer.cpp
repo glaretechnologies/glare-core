@@ -570,6 +570,18 @@ void circularBufferTest()
 
 
 	{
+		Reference<TestCircBufferStruct> t = new TestCircBufferStruct();
+		testAssert(t->getRefCount() == 1);
+
+		CircularBuffer<Reference<TestCircBufferStruct>> buf;
+		buf.push_back(t);
+		buf.pop_back();
+		testAssert(buf.size() == 0);
+		testAssert(t->getRefCount() == 1);
+	}
+
+
+	{
 		CircularBuffer<int> buf;
 
 		// Make a queue (0, 1, 2, ... n-2, n-1)
