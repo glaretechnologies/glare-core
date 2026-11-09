@@ -58,6 +58,8 @@ static HANDLE makeWaitHandleForDir(const std::string& dir, bool watch_subtree)
 }
 #elif defined(OSX)
  // TODO
+#elif defined(EMSCRIPTEN)
+
 #else // else on Linux:
 static int makeWatchDescriptorForDir(int inotify_fd, const std::string& dir)
 {
@@ -123,6 +125,11 @@ void FileWatcherThread::doRun()
 #elif defined(OSX)
 		
 		// TODO
+
+#elif defined(EMSCRIPTEN)
+		
+		// Web/emscripten: don't support file watching.
+		runtimeCheckFailed("FileWatcherThread not supported on Emscripten");
 
 #else // else on Linux:
 
