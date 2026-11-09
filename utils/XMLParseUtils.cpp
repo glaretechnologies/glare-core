@@ -257,9 +257,9 @@ bool XMLParseUtils::parseBoolDirectly(pugi::xml_node elem)
 	Parser parser(child_text, std::strlen(child_text));
 	parser.parseWhiteSpace();
 	bool res;
-	if(parser.parseCString("true"))
+	if(parser.parseString("true"))
 		res = true;
-	else if(parser.parseCString("false"))
+	else if(parser.parseString("false"))
 		res = false;
 	else
 		throw glare::Exception("Invalid boolean value (Should be 'true' or 'false')." + elemContext(elem));

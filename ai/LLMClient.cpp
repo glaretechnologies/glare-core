@@ -624,14 +624,14 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 					// Note: should we handle server-sent-event comments? (begins with ':', see https://developer.mozilla.org/en-US/docs/Web/API/Server-sent%5Fevents/Using%5Fserver-sent%5Fevents)
 
 					// Handle event name if present (anthropic)
-					if(parser.parseCString("event:"))
+					if(parser.parseString("event:"))
 					{
 						parser.parseWhiteSpace();
 						string_view event_name;
 						parser.parseIdentifier(event_name);
 						parser.parseWhiteSpace(); // Parse newline
 					}
-					if(parser.parseCString("data:"))
+					if(parser.parseString("data:"))
 					{
 						parser.parseWhiteSpace();
 
@@ -769,7 +769,7 @@ void LLMClient::handleData(ArrayRef<uint8> chunk, const HTTPClient::ResponseInfo
 						}
 						else // else if cur_ai_model.provider != AIModel::Provider_Anthropic:
 						{
-							if(parser.parseCString("[DONE]"))
+							if(parser.parseString("[DONE]"))
 							{
 								// conPrint("=======Received [DONE]======");
 

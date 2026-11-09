@@ -1427,7 +1427,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 		
 		// Try parsing as a data URI, e.g. "uri":"data:image/png;base64,iVBORw0KGgoAAAANSU...
 		Parser parser(image.uri);
-		if(parser.parseCString("data:"))  // If this is a data URI (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs)
+		if(parser.parseString("data:"))  // If this is a data URI (see https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs)
 		{
 			// parse mime type
 			string_view mime_type;
@@ -1435,7 +1435,7 @@ static void processImage(GLTFData& data, GLTFImage& image, const std::string& gl
 				throw glare::Exception("Failed to parse mime type from image URI");
 
 			// Parse "base64,"
-			if(!parser.parseCString(";base64,"))
+			if(!parser.parseString(";base64,"))
 				throw glare::Exception("Failed to parse base64 encoding type string from image URI");
 
 			const std::string data_base64(image.uri.begin() + parser.currentPos(), image.uri.end());

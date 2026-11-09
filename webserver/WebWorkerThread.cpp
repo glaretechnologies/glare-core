@@ -60,7 +60,7 @@ void WorkerThread::parseRanges(const string_view field_value, std::vector<web::R
 	Parser parser(field_value.data(), field_value.size());
 
 	// Parse unit.  Just accept 'bytes' for now
-	if(!parser.parseCString("bytes="))
+	if(!parser.parseString("bytes="))
 		return;
 
 	while(!parser.eof())
@@ -259,7 +259,7 @@ WorkerThread::HandleRequestResult WorkerThread::handleSingleRequest(size_t reque
 		throw WebsiteExcep("Parse error");
 
 	//------------- Parse HTTP version ---------------
-	if(!parser.parseCString("HTTP/"))
+	if(!parser.parseString("HTTP/"))
 		throw WebsiteExcep("Failed to parse HTTP version");
 		
 	uint32 major_version;

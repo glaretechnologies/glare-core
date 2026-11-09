@@ -493,7 +493,7 @@ uint32 JSONParser::parseStringNode(Parser& p)
 
 uint32 JSONParser::parseTrue(Parser& p)
 {
-	if(!p.parseCString("true"))
+	if(!p.parseString("true"))
 		throw glare::Exception("Expected 'true'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
@@ -506,7 +506,7 @@ uint32 JSONParser::parseTrue(Parser& p)
 
 uint32 JSONParser::parseFalse(Parser& p)
 {
-	if(!p.parseCString("false"))
+	if(!p.parseString("false"))
 		throw glare::Exception("Expected 'false'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();
@@ -519,7 +519,7 @@ uint32 JSONParser::parseFalse(Parser& p)
 
 uint32 JSONParser::parseNull(Parser& p)
 {
-	if(!p.parseCString("null"))
+	if(!p.parseString("null"))
 		throw glare::Exception("Expected 'null'" + errorContext(p));
 
 	const uint32 node_index = (uint32)nodes.size();

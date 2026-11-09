@@ -543,30 +543,16 @@ bool Parser::parseNonWSToken(string_view& token_out)
 }
 
 
-bool Parser::parseString(const std::string& s)
+bool Parser::parseString(const string_view s)
 {
 	const size_t initial_pos = currentPos();
+
+	if((initial_pos > textsize) || (s.length() > (textsize - initial_pos)))
+		return false;
 
 	for(size_t i=0; i<s.length(); ++i)
 	{
-		if(eof() || current() != s[i])
-		{
-			currentpos = initial_pos;
-			return false;
-		}
-		advance();
-	}
-	return true;
-}
-
-
-bool Parser::parseCString(const char* const s)
-{
-	const size_t initial_pos = currentPos();
-
-	for(size_t i=0; s[i] != 0; ++i)
-	{
-		if(eof() || current() != s[i])
+		if(current() != s[i])
 		{
 			currentpos = initial_pos;
 			return false;
@@ -1281,48 +1267,84 @@ void Parser::doUnitTests()
 	{
 		const std::string s = "Hello World";
 		{
-		Parser p(s.c_str(), s.size());
+		Parser p(s);
 		testAssert(p.parseString("Hello World"));
 		testAssert(p.eof());
 		}
 		{
-		Parser p(s.c_str(), s.size());
+		Parser p(s);
 		testAssert(p.parseString("Hello"));
 		testAssert(p.currentPos() == 5);
 		}
 		{
-		Parser p(s.c_str(), s.size());
+		Parser p(s);
 		testAssert(!p.parseString("AHello"));
 		testAssert(p.currentPos() == 0);
 		}
 		{
-		Parser p(s.c_str(), s.size());
+		Parser p(s);
 		testAssert(!p.parseString("Hello World AA"));
 		testAssert(p.currentPos() == 0);
 		}
 	}
-
-	//================== parseCString =======================
 	{
-		const std::string s = "Hello World";
+		const std::string s = "abc";
 		{
-		Parser p(s.c_str(), s.size());
-		testAssert(p.parseCString("Hello World"));
-		testAssert(p.eof());
+		Parser p(s);
+		testAssert(p.parseString(""));
+		testAssert(p.currentPos() == 0);
+		}
+		// Check parsing "" at end of string
+		{
+		Parser p(s);
+		testAssert(p.parseString("abc"));
+		testAssert(p.parseString(""));
+		testAssert(p.currentPos() == 3);
 		}
 		{
-		Parser p(s.c_str(), s.size());
-		testAssert(p.parseCString("Hello"));
-		testAssert(p.currentPos() == 5);
+		Parser p(s);
+		testAssert(p.parseString("a"));
+		testAssert(p.currentPos() == 1);
 		}
 		{
-		Parser p(s.c_str(), s.size());
-		testAssert(!p.parseCString("AHello"));
+		Parser p(s);
+		testAssert(p.parseString("ab"));
+		testAssert(p.currentPos() == 2);
+		}
+		{
+		Parser p(s);
+		testAssert(p.parseString("abc"));
+		testAssert(p.currentPos() == 3);
+		}
+
+		// Test with initial currentpos != 0
+		{
+		Parser p(s);
+		p.advance();
+		testAssert(p.parseString("bc"));
+		testAssert(p.currentPos() == 3);
+		}
+		// Test with initial currentpos != 0
+		{
+		Parser p(s);
+		p.advance();
+		testAssert(!p.parseString("bcz"));
+		testAssert(p.currentPos() == 1);
+		}
+
+		{
+		Parser p(s);
+		testAssert(!p.parseString("z"));
 		testAssert(p.currentPos() == 0);
 		}
 		{
-		Parser p(s.c_str(), s.size());
-		testAssert(!p.parseCString("Hello World AA"));
+		Parser p(s);
+		testAssert(!p.parseString("zz"));
+		testAssert(p.currentPos() == 0);
+		}
+		{
+		Parser p(s);
+		testAssert(!p.parseString("abcd"));
 		testAssert(p.currentPos() == 0);
 		}
 	}

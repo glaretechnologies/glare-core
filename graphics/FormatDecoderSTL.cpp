@@ -34,7 +34,7 @@ void FormatDecoderSTL::loadModelFromBuffer(const uint8* data, size_t buffer_size
 
 		Parser parser((const char*)data, buffer_size);
 
-		if(!parser.parseCString("solid"))
+		if(!parser.parseString("solid"))
 			throw glare::Exception("Invalid file, expected 'solid'");
 		parser.advancePastLine();
 		parser.parseSpacesAndTabs();
@@ -46,7 +46,7 @@ void FormatDecoderSTL::loadModelFromBuffer(const uint8* data, size_t buffer_size
 		while(token == "facet")
 		{
 			parser.parseSpacesAndTabs();
-			if(!parser.parseCString("normal"))
+			if(!parser.parseString("normal"))
 				throw glare::Exception("Invalid file, expected 'normal'");
 			parser.parseSpacesAndTabs();
 
@@ -60,10 +60,10 @@ void FormatDecoderSTL::loadModelFromBuffer(const uint8* data, size_t buffer_size
 
 			parser.parseWhiteSpace();
 			
-			if(!parser.parseCString("outer"))
+			if(!parser.parseString("outer"))
 				throw glare::Exception("Invalid file, expected 'outer'");
 			parser.parseSpacesAndTabs();
-			if(!parser.parseCString("loop"))
+			if(!parser.parseString("loop"))
 				throw glare::Exception("Invalid file, expected 'loop'");
 			parser.parseWhiteSpace();
 			
@@ -79,7 +79,7 @@ void FormatDecoderSTL::loadModelFromBuffer(const uint8* data, size_t buffer_size
 
 			for(int v=0; v<3; ++v)
 			{
-				if(!parser.parseCString("vertex"))
+				if(!parser.parseString("vertex"))
 					throw glare::Exception("Invalid file, expected 'vertex'");
 
 				parser.parseSpacesAndTabs();
@@ -98,10 +98,10 @@ void FormatDecoderSTL::loadModelFromBuffer(const uint8* data, size_t buffer_size
 				mesh.vert_positions.push_back(vert * scale);
 			}
 
-			if(!parser.parseCString("endloop"))
+			if(!parser.parseString("endloop"))
 				throw glare::Exception("Invalid file, expected 'endloop'");
 			parser.parseWhiteSpace();
-			if(!parser.parseCString("endfacet"))
+			if(!parser.parseString("endfacet"))
 				throw glare::Exception("Invalid file, expected 'endfacet'");
 			parser.parseWhiteSpace();
 
