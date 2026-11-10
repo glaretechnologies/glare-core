@@ -88,6 +88,15 @@ static void glareLuaInterrupt(lua_State* state, int gc)
 }
 
 
+// We need to define this to pass the userdata pointer from parent states to child states for coroutines, which have their own state.
+static void glareLuaUserThread(lua_State* parent, lua_State* child)
+{
+	// Luau passes a null parent when destroying a thread.
+	if(parent)
+		lua_setthreaddata(child, lua_getthreaddata(parent));
+}
+
+
 // Adapted from luaB_print in C:\programming\luau\0.627\VM\src\lbaselib.cpp
 // We will supply our own implementation so print() calls don't output to stdout.
 static int glareLuaPrint(lua_State* L)
@@ -306,7 +315,8 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 		lua_pop(state, 1); // Pop metatable from stack
 		//--------------------------- End create Vec2 Metatable ---------------------------
 
-		lua_callbacks(state)->interrupt = glareLuaInterrupt;
+		lua_callbacks(state)->interrupt  = glareLuaInterrupt;
+		lua_callbacks(state)->userthread = glareLuaUserThread;
 	}
 	catch(std::exception& e)
 	{

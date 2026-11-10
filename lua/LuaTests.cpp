@@ -107,7 +107,7 @@ static int testMethod(lua_State* state)
 }
 
 
-// C++ implemenetation of __index.  Used when a table field is read from.
+// C++ implementation of __index.  Used when a table field is read from.
 static int glareLuaIndexMetaMethod(lua_State* state)
 {
 	testAssert(lua_istable(state, 1));
@@ -141,7 +141,7 @@ static int glareLuaIndexMetaMethod(lua_State* state)
 }
 
 
-// C++ implemenetation of __namecall.  Used when a table method is called.
+// C++ implementation of __namecall.  Used when a table method is called.
 #if 0
 static int glareLuaNameCallMetaMethod(lua_State* state)
 {
@@ -170,7 +170,7 @@ static int glareLuaNameCallMetaMethod(lua_State* state)
 #endif
 
 
-// C++ implemenetation of __newindex.  Used when a value is assigned to a table field.
+// C++ implementation of __newindex.  Used when a value is assigned to a table field.
 static int glareLuaNewIndexMetaMethod(lua_State* state)
 {
 	testAssert(lua_istable(state, 1));
@@ -198,12 +198,19 @@ static int glareLuaNewIndexMetaMethod(lua_State* state)
 // Command line:
 // C:\fuzz_corpus\lua C:\code\glare-core\testfiles\lua\fuzz_seeds
 
+extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+{
+	LuaVM::staticInit();
+	return 0;
+}
+
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try
 	{
-		LuaVM vm;
-		vm.max_total_mem_allowed = 1024 * 1024;
+		LuaVMOptions vm_options;
+		vm_options.max_total_mem_allowed = 1024 * 1024;
+		LuaVM vm(vm_options);
 		
 		LuaScriptOptions options;
 		options.max_num_interrupts = 64000;
@@ -212,7 +219,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 		LuaScript script(&vm, options, src);
 		script.exec();
 	}
-	catch(glare::Exception& e)
+	catch(glare::Exception& )
 	{
 		//conPrint("Excep: " + e.what());
 	}
@@ -251,6 +258,28 @@ void LuaTests::test()
 
 	try
 	{
+		//==========================  Test very long chained assignment ==========================
+		// Is crashing the Lua parser currently.
+		try
+		{
+			LuaVM vm;
+	
+			const std::string src = " sulr	,eah,e__e	,e,ho	,e,h_e	,e,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,ete,ho	,e,h__ehi,hi_e	,i	"
+				",e,h__e	,e,hi,hi_e	,i_ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,ete,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,etohi,ho	"
+				",e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	,i	,e,h__e	,e,ho	,e,h_h,e	,e,h__e	,e,hi,hi_e	,i,i,hi_,i,hi_e	,i,"
+				"etohi,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	,i	,e,h__e	,e,ho	,e,h_h,eo	,e_,haehi__iter,i	,e,h__e	,"
+				"e,ho	,e,h__ehi,hi_e	,i	,e_e	,i,i,hi_,i,hi_e	,i,etohi,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	,i	,e,"
+				"h__e	,e,ho	,e,h_h,e	,e,h__e	,e,hi,hi_e	,i,i,hi_,i,hi_e	,i,etohi,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	"
+				",i	,e,h__e	,e,ho	,e,h_h,eo	,e_,haehi__iter,i	,e,h__e	,e,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,etohi,ho	,e,h__ehi,hi	,i"
+				",e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_e	,i	,e,h__e	,e,hi,hi_esort	,i,i,hi_e	,i,etohi,hi_e	,i	,i,hi_e	,i5Li_e	,i_es = unpack{1, 4, 9, 13/ 81}\n ";
+			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
 		//========================== Test creating and destroying VM ==========================
 		try
 		{
@@ -495,6 +524,18 @@ void LuaTests::test()
 		catch(glare::Exception& e)
 		{
 			failTest("Failed:" + e.what());
+		}
+
+		//========================== Test accessing lua_state->userdata from a coroutine ==========================
+		// Vec2 construction needs the owning LuaScript on the coroutine's own lua_State.
+		{
+			LuaVM vm;
+			const std::string src =
+				"local make_vec = coroutine.wrap(function() return Vec2(3, 4) end)\n"
+				"local v = make_vec()\n"
+				"assert(v.x == 3 and v.y == 4)";
+			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
 		}
 
 		//========================== Test maximum memory usage hit during initial state alloc ==========================
