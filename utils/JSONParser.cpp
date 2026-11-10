@@ -772,7 +772,7 @@ std::string JSONParser::errorContext(Parser& p)
 #include "Timer.h"
 
 
-#if 1
+#if 0
 // Command line:
 // C:\fuzz_corpus\json -max_len=1000000 -seed=1
 
