@@ -445,6 +445,9 @@ void LuaTests::test()
 				"assert(v1 == v1)                                \n" // Check equality operator
 				"assert(v1 + v2 == Vec3d(11, 22, 33))            \n" // Check equality operator
 				"local v6 = v3 + v1     assert(v6 == Vec3d(21, 42, 63))     \n" // Check operators work on Vec3d returned from operator.
+				"assert(v2 * 2 == Vec3d(2, 4, 6))                \n" // Check scalar multiplication
+				"assert(2 * v2 == Vec3d(2, 4, 6))                \n"
+				"assert((v1 + v2) * 0.5 == Vec3d(5.5, 11, 16.5)) \n"
 				"";
 			LuaScript script(&vm, options, src);
 			script.exec();
@@ -455,11 +458,75 @@ void LuaTests::test()
 			failTest("Failed:" + e.what());
 		}
 
-		//========================== Test maximum memory usage ==========================
+		//========================== Test Vec2 type ==========================
 		try
 		{
 			LuaVM vm;
-			vm.max_total_mem_allowed = 500000;
+
+			PrinterTestLuaScriptOutputHandler output_handler;
+			LuaScriptOptions options;
+			options.script_output_handler = &output_handler;
+
+			{
+			const std::string src = "local v1 = Vec2(10, 20) print(v1.y)";
+			LuaScript script(&vm, options, src);
+			script.exec();
+			testAssert(output_handler.buf == "20");
+			}
+			{
+			const std::string src =
+				"local v1 = Vec2(10, 20)         \n"
+				"local v2 = Vec2(1, 2)           \n"
+				"local v3 = v1 + v2     assert(v3.x == 11.0 and v3.y == 22.0)     \n"
+				"local v4 = v1 - v2     assert(v4.x == 9.0  and v4.y == 18.0)     \n"
+				"local v5 = -v1         assert(v5.x == -10.0 and v5.y == -20.0)   \n" // Check unary minus
+				"assert(v1 == Vec2(10, 20))                      \n" // Check equality operator
+				"assert(v1 ~= Vec2(10, 21))                      \n"
+				"assert(v1 + v2 == Vec2(11, 22))                 \n"
+				"local v6 = v3 + v1     assert(v6 == Vec2(21, 42))     \n" // Check operators work on Vec2 returned from operator.
+				"assert(v2 * 2 == Vec2(2, 4))                    \n" // Check scalar multiplication
+				"assert(2 * v2 == Vec2(2, 4))                    \n"
+				"assert((v1 + v2) * 0.5 == Vec2(5.5, 11))        \n"
+				"";
+			LuaScript script(&vm, options, src);
+			script.exec();
+			}
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
+		//========================== Test maximum memory usage hit during initial state alloc ==========================
+		// Allow the initial state allocation, then hit the limit while lua_newstate is initialising it.
+		{
+			size_t initial_state_size = 0;
+			const auto measure_initial_allocation = [](void* userdata, void*, size_t, size_t new_size) -> void* {
+				*static_cast<size_t*>(userdata) = new_size;
+				return nullptr;
+			};
+			lua_State* probe = lua_newstate(measure_initial_allocation, &initial_state_size);
+			testAssert(probe == nullptr && initial_state_size > 0);
+
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = (int64)initial_state_size;
+			try
+			{
+				LuaVM vm(vm_options);
+				failTest("Expected lua_newstate to fail during initialisation.");
+			}
+			catch(glare::Exception& e)
+			{
+				testAssert(e.what() == "lua_newstate failed.");
+			}
+		}
+
+		//========================== Test maximum memory usage ==========================
+		try
+		{
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = 500000;
+			LuaVM vm(vm_options);
 
 			LuaScriptOptions options;
 
@@ -478,8 +545,9 @@ void LuaTests::test()
 		//========================== Test maximum memory calling a Lua function ==========================
 		try
 		{
-			LuaVM vm;
-			vm.max_total_mem_allowed = 500000;
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = 500000;
+			LuaVM vm(vm_options);
 
 			LuaScriptOptions options;
 
@@ -503,8 +571,9 @@ void LuaTests::test()
 		//========================== Test maximum memory calling a Lua function with recovery ==========================
 		try
 		{
-			LuaVM vm;
-			vm.max_total_mem_allowed = 500000;
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = 500000;
+			LuaVM vm(vm_options);
 
 			LuaScriptOptions options;
 
@@ -893,8 +962,9 @@ void LuaTests::test()
 		//========================== Test LuaScriptOutputHandler ==========================
 		try
 		{
-			LuaVM vm;
-			vm.max_total_mem_allowed = 500000;
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = 500000;
+			LuaVM vm(vm_options);
 
 			LuaScriptOptions options;
 			options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
@@ -917,8 +987,9 @@ void LuaTests::test()
 		//========================== Test calling back into a C function ==========================
 		try
 		{
-			LuaVM vm;
-			vm.max_total_mem_allowed = 500000;
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = 500000;
+			LuaVM vm(vm_options);
 
 			LuaScriptOptions options;
 			options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
@@ -936,8 +1007,9 @@ void LuaTests::test()
 		// See https://github.com/luau-lang/luau/issues/1277, should be fixed now with setting LuauRecursionLimit workaround.
 		try
 		{
-			LuaVM vm;
-			vm.max_total_mem_allowed = 500000;
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = 500000;
+			LuaVM vm(vm_options);
 
 			LuaScriptOptions options;
 			options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
@@ -957,8 +1029,9 @@ void LuaTests::test()
 		// Tests issue where thread remained on Lua stack after creation, resulting in stack overflow.
 		try
 		{
-			LuaVM vm;
-			vm.max_total_mem_allowed = 500000;
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = 500000;
+			LuaVM vm(vm_options);
 
 			for(int i=0; i<1000; ++i)
 			{
@@ -978,8 +1051,9 @@ void LuaTests::test()
 		// This will cause an exception to be thrown from the LuaScript constructor; make sure we are not leaking anything.
 		try
 		{
-			LuaVM vm;
-			vm.max_total_mem_allowed = 500000;
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = 500000;
+			LuaVM vm(vm_options);
 
 			for(int i=0; i<1000; ++i)
 			{
@@ -1005,8 +1079,9 @@ void LuaTests::test()
 		//========================== Test creating a table with a metatable and __index and __newindex metamethod ==========================
 		try
 		{
-			LuaVM vm;
-			vm.max_total_mem_allowed = 500000;
+			LuaVMOptions vm_options;
+			vm_options.max_total_mem_allowed = 500000;
+			LuaVM vm(vm_options);
 
 			LuaScriptOptions options;
 			//options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));

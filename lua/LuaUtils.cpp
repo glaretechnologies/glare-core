@@ -521,6 +521,15 @@ Vec3d LuaUtils::getVec3d(lua_State* state, int index)
 }
 
 
+Vec2d LuaUtils::getVec2(lua_State* state, int index)
+{
+	const double x = getTableNumberField(state, index, "x");
+	const double y = getTableNumberField(state, index, "y");
+
+	return Vec2d(x, y);
+}
+
+
 Matrix2f LuaUtils::getMatrix2f(lua_State* state, int table_index)
 {
 	const double x = getTableNumberArrayElem(state, table_index, /*elem index=*/1);
@@ -547,6 +556,30 @@ Vec3d LuaUtils::getTableVec3dField(lua_State* state, int table_index, const char
 	{
 		lua_pop(state, 1);
 		throw glare::Exception("Could not find table with key '" + std::string(key) + "'" + errorContextString(state));
+	}
+}
+
+
+Vec2f LuaUtils::getTableVec2fFieldWithDefault(lua_State* state, int table_index, const char* key, const Vec2f& default_val)
+{
+	checkValueIsTable(state, table_index);
+
+	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call).  Returns the type of the pushed value.
+	if(value_type == LUA_TTABLE)
+	{
+		const Vec2d v = getVec2(state, /*index=*/-1);
+		lua_pop(state, 1); // Pop field
+		return Vec2f((float)v.x, (float)v.y);
+	}
+	else if(value_type == LUA_TNIL)
+	{
+		lua_pop(state, 1); // Pop field
+		return default_val;
+	}
+	else
+	{
+		lua_pop(state, 1); // Pop field
+		throw glare::Exception("Field '" + std::string(key) + "' must be a table like {x=1, y=2}" + errorContextString(state));
 	}
 }
 
@@ -645,6 +678,21 @@ void LuaUtils::pushVec3d(lua_State* state, const Vec3d& v)
 
 	// Assign Vec3d metatable to the table
 	lua_getref(state, lua_script->Vec3dMetaTable_ref); // Push Vec3dMetaTable onto stack
+	lua_setmetatable(state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
+}
+
+
+void LuaUtils::pushVec2(lua_State* state, const Vec2d& v)
+{
+	lua_createtable(state, /*num array elems=*/0, /*num non-array elems=*/2);
+
+	setNumberAsTableField(state, "x", v.x);
+	setNumberAsTableField(state, "y", v.y);
+
+	LuaScript* lua_script = static_cast<LuaScript*>(lua_getthreaddata(state));
+
+	// Assign Vec2 metatable to the table
+	lua_getref(state, lua_script->Vec2MetaTable_ref); // Push Vec2MetaTable onto stack
 	lua_setmetatable(state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
 }
 

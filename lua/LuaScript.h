@@ -76,7 +76,7 @@ public:
 	LuaScript(LuaVM* lua_vm, const LuaScriptOptions& options, const std::string& script_src);
 	~LuaScript();
 
-	void exec(); // Excecute top-level Lua code.
+	void exec(); // Execute top-level Lua code.
 
 	// An exception is thrown if num_interrupts >= options.max_num_interrupts.  
 	// This function can be called before executing some Lua code in this script. (e.g. before calling a Lua function)
@@ -95,4 +95,5 @@ public:
 	void* userdata;
 
 	int Vec3dMetaTable_ref;
+	int Vec2MetaTable_ref;
 };

@@ -25,6 +25,10 @@ struct LuaCFunction
 
 struct LuaVMOptions
 {
+	LuaVMOptions();
+
+	int64 max_total_mem_allowed; // Default val = std::numeric_limits<int64>::max()
+
 	// Functions to set as globals on the VM, in addition to the built-in ones.  They are set after the built-ins and before the VM
 	// is sandboxed, so unlike LuaScriptOptions::c_funcs they can replace a built-in such as print.
 	std::vector<LuaCFunction> c_funcs;
@@ -35,6 +39,21 @@ struct LuaVMOptions
 LuaVM
 -----
 A wrapper around lua_State.
+
+Vector types
+------------
+Luau has support for a single built-in vector type, with configurable name, see 
+compile_options.vectorCtor = "Vec3f";
+compile_options.vectorType = "Vec3f";
+in LuaScript::LuaScript().
+
+We will also create a 'class' (really metatable and constructor) called Vec3d.
+We will define operators on it so Vec3ds can be added, subtracted with '+', '-' etc.
+
+We will define a Vec2 class as well, leaving off the 'f' suffix since there is no Vec2f class.
+
+See 'Create Vec3d Metatable' code in LuaVM::LuaVM().
+
 =====================================================================*/
 class LuaVM
 {
@@ -48,19 +67,21 @@ public:
 	void finishInitAndSandbox();
 
 	// Assumes table is on top of stack.
+	// Important: Luau does not copy the debugname, the pointer lifetime has to encompass the lifetime of the VM.
 	void setCFunctionAsTableField(lua_CFunction fn, const char* debugname, const char* field_key);
 
 	lua_State* state;
 
 	LuaVMOptions options; // Kept because Luau stores the debugname a function was registered with, without copying it.
 
-	int64 total_allocated;
+	int64 total_allocated; // Current number of bytes allocated in this VM.
 	int64 total_allocated_high_water_mark;
-	int64 max_total_mem_allowed;
 
-	bool init_finished;
+	bool init_finished; // has finishInitAndSandbox() been called?
 
-	int Vec3dMetaTable_ref;
+	int Vec3dMetaTable_ref; // reference to the Vec3d metatable, to stop it being garbage-collected, and for assigning to Vec3d tables.
+	int Vec2MetaTable_ref;
 
-	static bool static_init_called;
+private:
+	static bool static_init_called; // Has staticInit() been called?
 };

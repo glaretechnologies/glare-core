@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2024 -
 #pragma once
 
 
+#include "../maths/vec2.h"
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
 #include <lualib.h>
@@ -74,13 +75,16 @@ public:
 	// Convert a Vec3d on the Lua stack at the given index to a Vec3d.  Does not alter Lua stack.
 	static Vec3f getVec3f(lua_State* state, int index);
 	static Vec3d getVec3d(lua_State* state, int index);
+	static Vec2d getVec2(lua_State* state, int index); // Reads a Vec2, or any table with x and y number fields.  Does not alter Lua stack.
 	static Matrix2f getMatrix2f(lua_State* state, int index);
 	static Vec3d getTableVec3dField(lua_State* state, int table_index, const char* key);
+	static Vec2f getTableVec2fFieldWithDefault(lua_State* state, int table_index, const char* key, const Vec2f& default_val); // Reads a field like {x=1, y=2}.  Throws glare::Exception if the field is present but not of that form.
 	static Vec3f getTableVec3fFieldWithDefault(lua_State* state, int table_index, const char* key, const Vec3f& default_val);
 	static Matrix2f getTableMatrix2fFieldWithDefault(lua_State* state, int table_index, const char* key, const Matrix2f& default_val);
 
 	static void pushVec3f(lua_State* state, const Vec3f& v);
 	static void pushVec3d(lua_State* state, const Vec3d& v);
+	static void pushVec2(lua_State* state, const Vec2d& v); // Pushes a table {x=, y=} with the Vec2 metatable.
 	static void pushMatrix2f(lua_State* state, const Matrix2f& m);
 	static inline void pushString(lua_State* state, const string_view s);
 	

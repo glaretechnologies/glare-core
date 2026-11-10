@@ -17,6 +17,11 @@ Copyright Glare Technologies Limited 2024 -
 #include <limits>
 
 
+LuaVMOptions::LuaVMOptions()
+:	max_total_mem_allowed(std::numeric_limits<int64>::max())
+{}
+
+
 static void* glareLuaAlloc(void* user_data, void* ptr, size_t original_size, size_t new_size)
 {
 	LuaVM* lua_vm = (LuaVM*)user_data;
@@ -26,7 +31,7 @@ static void* glareLuaAlloc(void* user_data, void* ptr, size_t original_size, siz
 		lua_vm->total_allocated -= (int64)original_size;
 
 		free(ptr);
-		return NULL;
+		return nullptr;
 	}
 	else
 	{
@@ -34,8 +39,13 @@ static void* glareLuaAlloc(void* user_data, void* ptr, size_t original_size, siz
 		{
 			const int64 new_total_allocated = lua_vm->total_allocated + (int64)new_size;
 
-			if(new_total_allocated > lua_vm->max_total_mem_allowed)
-				throw glare::Exception("Tried to allocate more Lua memory than max total allowed amount of " + toString(lua_vm->max_total_mem_allowed) + " B");
+			if(new_total_allocated > lua_vm->options.max_total_mem_allowed)
+			{
+				if(lua_vm->state == nullptr) // If we are in lua_newstate(), then return null instead of throwing, so lua_newstate() can clean up partially allocated data.
+					return nullptr;
+				else
+					throw glare::Exception("Tried to allocate more Lua memory than max total allowed amount of " + toString(lua_vm->options.max_total_mem_allowed) + " B");
+			}
 
 			lua_vm->total_allocated = new_total_allocated;
 			lua_vm->total_allocated_high_water_mark = myMax(lua_vm->total_allocated_high_water_mark, new_total_allocated);
@@ -47,8 +57,13 @@ static void* glareLuaAlloc(void* user_data, void* ptr, size_t original_size, siz
 			// Realloc behaviour
 			const int64 new_total_allocated = lua_vm->total_allocated + ((int64)new_size - (int64)original_size);
 
-			if(new_total_allocated > lua_vm->max_total_mem_allowed)
-				throw glare::Exception("Tried to allocate more Lua memory than max total allowed amount of " + toString(lua_vm->max_total_mem_allowed) + " B");
+			if(new_total_allocated > lua_vm->options.max_total_mem_allowed)
+			{
+				if(lua_vm->state == nullptr) // If we are in lua_newstate(), then return null instead of throwing, so lua_newstate() can clean up partially allocated data.
+					return nullptr;
+				else
+					throw glare::Exception("Tried to allocate more Lua memory than max total allowed amount of " + toString(lua_vm->options.max_total_mem_allowed) + " B");
+			}
 
 			lua_vm->total_allocated = new_total_allocated;
 			lua_vm->total_allocated_high_water_mark = myMax(lua_vm->total_allocated_high_water_mark, new_total_allocated);
@@ -132,6 +147,24 @@ static int Vec3dUnaryMinus(lua_State* state)
 	return 1; // Return number of results left on stack
 }
 
+// Supports Vec3d * number and number * Vec3d.
+static int Vec3dMul(lua_State* state)
+{
+	if(lua_type(state, /*index=*/1) == LUA_TNUMBER)
+	{
+		const double s = lua_tonumber(state, /*index=*/1);
+		const Vec3d v = LuaUtils::getVec3d(state, /*index=*/2);
+		LuaUtils::pushVec3d(state, v * s);
+	}
+	else
+	{
+		const Vec3d v = LuaUtils::getVec3d(state, /*index=*/1);
+		const double s = LuaUtils::getDoubleArg(state, /*index=*/2);
+		LuaUtils::pushVec3d(state, v * s);
+	}
+	return 1; // Return number of results left on stack
+}
+
 static int Vec3dEqualityOperator(lua_State* state)
 {
 	const Vec3d v_a = LuaUtils::getVec3d(state, /*index=*/1);
@@ -141,15 +174,75 @@ static int Vec3dEqualityOperator(lua_State* state)
 }
 
 
+static int Vec2Constructor(lua_State* state)
+{
+	Vec2d v;
+	v.x = LuaUtils::getDoubleArg(state, /*index=*/1);
+	v.y = LuaUtils::getDoubleArg(state, /*index=*/2);
+
+	LuaUtils::pushVec2(state, v);
+
+	return 1; // Return number of results left on stack
+}
+
+static int Vec2Add(lua_State* state)
+{
+	const Vec2d v_a = LuaUtils::getVec2(state, /*index=*/1);
+	const Vec2d v_b = LuaUtils::getVec2(state, /*index=*/2);
+	LuaUtils::pushVec2(state, v_a + v_b);
+	return 1; // Return number of results left on stack
+}
+
+static int Vec2Sub(lua_State* state)
+{
+	const Vec2d v_a = LuaUtils::getVec2(state, /*index=*/1);
+	const Vec2d v_b = LuaUtils::getVec2(state, /*index=*/2);
+	LuaUtils::pushVec2(state, v_a - v_b);
+	return 1; // Return number of results left on stack
+}
+
+static int Vec2UnaryMinus(lua_State* state)
+{
+	const Vec2d v_a = LuaUtils::getVec2(state, /*index=*/1);
+	LuaUtils::pushVec2(state, -v_a);
+	return 1; // Return number of results left on stack
+}
+
+// Supports Vec2 * number and number * Vec2.
+static int Vec2Mul(lua_State* state)
+{
+	if(lua_type(state, /*index=*/1) == LUA_TNUMBER)
+	{
+		const double s = lua_tonumber(state, /*index=*/1);
+		const Vec2d v = LuaUtils::getVec2(state, /*index=*/2);
+		LuaUtils::pushVec2(state, v * s);
+	}
+	else
+	{
+		const Vec2d v = LuaUtils::getVec2(state, /*index=*/1);
+		const double s = LuaUtils::getDoubleArg(state, /*index=*/2);
+		LuaUtils::pushVec2(state, v * s);
+	}
+	return 1; // Return number of results left on stack
+}
+
+static int Vec2EqualityOperator(lua_State* state)
+{
+	const Vec2d v_a = LuaUtils::getVec2(state, /*index=*/1);
+	const Vec2d v_b = LuaUtils::getVec2(state, /*index=*/2);
+	lua_pushboolean(state, v_a == v_b);
+	return 1; // Return number of results left on stack
+}
+
+
 bool LuaVM::static_init_called = false;
 
 
 LuaVM::LuaVM(const LuaVMOptions& options_)
-:	state(NULL),
+:	state(nullptr),
 	options(options_),
 	total_allocated(0),
 	total_allocated_high_water_mark(0),
-	max_total_mem_allowed(std::numeric_limits<int64>::max()),
 	init_finished(false)
 {
 	runtimeCheck(static_init_called);
@@ -169,6 +262,9 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 		lua_pushcfunction(state, Vec3dConstructor, /*debugname=*/"Vec3d");
 		lua_setglobal(state, "Vec3d");
 
+		lua_pushcfunction(state, Vec2Constructor, /*debugname=*/"Vec2");
+		lua_setglobal(state, "Vec2");
+
 		// Set the caller's global functions.  These come after the built-ins above so they can replace one.
 		for(size_t i=0; i<options.c_funcs.size(); ++i)
 		{
@@ -177,13 +273,14 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 		}
 
 		//--------------------------- Create Vec3d Metatable ---------------------------
-		lua_createtable(state, /*num array elems=*/0, /*num non-array elems=*/4); // Create metatable
+		lua_createtable(state, /*num array elems=*/0, /*num non-array elems=*/6); // Create metatable
 			
 		LuaUtils::setNumberAsTableField(state, "uid", 1); // Set metatable UID (for serialisation)
 
 		setCFunctionAsTableField(Vec3dAdd,              /*debugname=*/"Vec3dAdd",              /*key=*/"__add");
 		setCFunctionAsTableField(Vec3dSub,              /*debugname=*/"Vec3dSub",              /*key=*/"__sub");
 		setCFunctionAsTableField(Vec3dUnaryMinus,       /*debugname=*/"Vec3dUnaryMinus",       /*key=*/"__unm");
+		setCFunctionAsTableField(Vec3dMul,              /*debugname=*/"Vec3dMul",              /*key=*/"__mul");
 		setCFunctionAsTableField(Vec3dEqualityOperator, /*debugname=*/"Vec3dEqualityOperator", /*key=*/"__eq");
 
 		lua_setreadonly(state, /*index=*/-1, /*enabled=*/1); // Set metatable as read-only.
@@ -192,11 +289,38 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 		lua_pop(state, 1); // Pop metatable from stack
 		//--------------------------- End create Vec3d Metatable ---------------------------
 
+		//--------------------------- Create Vec2 Metatable ---------------------------
+		lua_createtable(state, /*num array elems=*/0, /*num non-array elems=*/6); // Create metatable
+
+		LuaUtils::setNumberAsTableField(state, "uid", 2); // Set metatable UID (for serialisation)
+
+		setCFunctionAsTableField(Vec2Add,              /*debugname=*/"Vec2Add",              /*key=*/"__add");
+		setCFunctionAsTableField(Vec2Sub,              /*debugname=*/"Vec2Sub",              /*key=*/"__sub");
+		setCFunctionAsTableField(Vec2UnaryMinus,       /*debugname=*/"Vec2UnaryMinus",       /*key=*/"__unm");
+		setCFunctionAsTableField(Vec2Mul,              /*debugname=*/"Vec2Mul",              /*key=*/"__mul");
+		setCFunctionAsTableField(Vec2EqualityOperator, /*debugname=*/"Vec2EqualityOperator", /*key=*/"__eq");
+
+		lua_setreadonly(state, /*index=*/-1, /*enabled=*/1); // Set metatable as read-only.
+
+		Vec2MetaTable_ref = lua_ref(state, /*index=*/-1); // Get reference to metatable.  Does not pop.
+		lua_pop(state, 1); // Pop metatable from stack
+		//--------------------------- End create Vec2 Metatable ---------------------------
+
 		lua_callbacks(state)->interrupt = glareLuaInterrupt;
 	}
 	catch(std::exception& e)
 	{
+		if(state)
+			lua_close(state);
+
 		throw glare::Exception(e.what());
+	}
+	catch(glare::Exception& e)
+	{
+		if(state)
+			lua_close(state);
+
+		throw e;
 	}
 }
 
