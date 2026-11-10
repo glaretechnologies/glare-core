@@ -1,0 +1,5 @@
+local n = bit32.replace(0, 0xab, 8, 8)
+assert(bit32.extract(n, 8, 8) == 0xab)
+assert(bit32.rrotate(bit32.lrotate(n, 31), 31) == n)
+assert(bit32.arshift(0x80000000, 31) == 0xffffffff)
+assert(bit32.countrz(n) == 8)

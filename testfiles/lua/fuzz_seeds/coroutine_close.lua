@@ -1,0 +1,7 @@
+local co = coroutine.create(function()
+    return pcall(function() coroutine.yield('paused') end)
+end)
+local ok, value = coroutine.resume(co)
+assert(ok and value == 'paused')
+assert(coroutine.close(co))
+assert(coroutine.status(co) == 'dead' and not coroutine.resume(co))

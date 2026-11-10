@@ -1,0 +1,8 @@
+local b = buffer.create(16)
+buffer.writei16(b, 1, -257)
+buffer.writef64(b, 3, 1.25)
+buffer.copy(b, 4, b, 3, 8)
+assert(buffer.readi16(b, 1) == -257 and buffer.readf64(b, 4) == 1.25)
+buffer.fill(b, 0, 65, 3)
+assert(buffer.readstring(buffer.fromstring(buffer.tostring(b)), 0, 3) == 'AAA')
+assert(not pcall(buffer.readu32, b, 13))

@@ -1,0 +1,1 @@
+coroutine.wrap(print)("hello")

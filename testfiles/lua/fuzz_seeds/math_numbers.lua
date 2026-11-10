@@ -1,0 +1,8 @@
+local n = tonumber('ff', 16)
+local m, e = math.frexp(n)
+assert(math.ldexp(m, e) == 255)
+local whole, frac = math.modf(-2.5)
+assert(whole == -2 and frac == -0.5)
+local nan = math.sqrt(-1)
+assert(nan ~= nan and 1 / 0 == math.huge)
+math.noise(m, e, frac)
