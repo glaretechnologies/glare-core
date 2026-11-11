@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <string>
 #include <vector>
 #include <limits>
+#include <unordered_set>
 class LuaScript;
 
 
@@ -82,10 +83,24 @@ public:
 	// This function can be called before executing some Lua code in this script. (e.g. before calling a Lua function)
 	void resetExecutionTimeCounter() { num_interrupts = 0; }
 
+
+	struct LuaFuncRefAndPtr
+	{
+		LuaVM::LuaValueRef ref;
+		const void* func_ptr;
+	};
+	LuaFuncRefAndPtr getRefToFunction(const char* func_name);
+
+	LuaVM::LuaValueRef getRefToFunctionOnStack(lua_State* calling_state, int stack_index);
+
+	void freeRefToFunction(LuaVM::LuaValueRef ref);
+
+
+
 	LuaVM* lua_vm;
 
 	lua_State* thread_state;
-	int thread_ref;
+	LuaVM::LuaValueRef thread_ref;
 
 	size_t num_interrupts;
 	LuaScriptOptions options;
@@ -94,6 +109,9 @@ public:
 
 	void* userdata;
 
-	int Vec3dMetaTable_ref;
-	int Vec2MetaTable_ref;
+	LuaVM::LuaValueRef Vec3dMetaTable_ref;
+	LuaVM::LuaValueRef Vec2MetaTable_ref;
+
+private:
+	std::unordered_set<LuaVM::LuaValueRef, LuaVM::LuaValueRefHasher> lua_func_references;
 };

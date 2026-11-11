@@ -142,25 +142,6 @@ bool LuaUtils::isFunctionDefined(lua_State* state, const char* func_name)
 }
 
 
-LuaUtils::LuaFuncRefAndPtr LuaUtils::getRefToFunction(lua_State* state, const char* func_name)
-{
-	lua_getglobal(state, func_name); // Push function onto stack (or nil if it isn't defined)
-	
-	LuaFuncRefAndPtr res;
-	res.ref = LUA_NOREF;
-	res.func_ptr = nullptr;
-
-	if(lua_isfunction(state, -1)) // If function was defined
-	{
-		res.ref = lua_ref(state, /*index=*/-1); // Get reference to func (does not pop)
-		res.func_ptr = lua_topointer(state, /*index=*/-1); // Get pointer to func (does not pop)
-	}
-	
-	lua_pop(state, 1);
-	return res;
-}
-
-
 static std::string errorContextString(lua_State* state)
 {
 	return "\n" + LuaUtils::getCallStackAsString(state);
@@ -677,7 +658,7 @@ void LuaUtils::pushVec3d(lua_State* state, const Vec3d& v)
 	LuaScript* lua_script = static_cast<LuaScript*>(lua_getthreaddata(state));
 
 	// Assign Vec3d metatable to the table
-	lua_getref(state, lua_script->Vec3dMetaTable_ref); // Push Vec3dMetaTable onto stack
+	lua_getref(state, lua_script->Vec3dMetaTable_ref.ref); // Push Vec3dMetaTable onto stack
 	lua_setmetatable(state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
 }
 
@@ -692,7 +673,7 @@ void LuaUtils::pushVec2(lua_State* state, const Vec2d& v)
 	LuaScript* lua_script = static_cast<LuaScript*>(lua_getthreaddata(state));
 
 	// Assign Vec2 metatable to the table
-	lua_getref(state, lua_script->Vec2MetaTable_ref); // Push Vec2MetaTable onto stack
+	lua_getref(state, lua_script->Vec2MetaTable_ref.ref); // Push Vec2MetaTable onto stack
 	lua_setmetatable(state, -2); // "Pops a table from the stack and sets it as the new metatable for the value at the given acceptable index."
 }
 

@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
 #include <lualib.h>
+//#include "LuaVM.h"
 
 
 /*=====================================================================
@@ -28,12 +29,6 @@ public:
 	static int freeStackCapacity(lua_State* state);
 
 	static bool isFunctionDefined(lua_State* state, const char* func_name);
-	struct LuaFuncRefAndPtr
-	{
-		int ref;
-		const void* func_ptr;
-	};
-	static LuaFuncRefAndPtr getRefToFunction(lua_State* state, const char* func_name);
 
 	// Assumes table is on top of stack.
 	// Important: Luau does not copy the debugname, the pointer lifetime has to encompass the lifetime of the VM.

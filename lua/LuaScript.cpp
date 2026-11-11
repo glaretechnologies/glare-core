@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <Luau/Compiler.h>
 #include "Luau/BytecodeBuilder.h"
 #include "Luau/ParseResult.h"
+#include <cassert>
 
 
 LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std::string& script_src)
@@ -22,7 +23,6 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 	options(options_),
 	num_interrupts(0),
 	script_output_handler(options_.script_output_handler),
-	thread_ref(LUA_NOREF),
 	userdata(options_.userdata)
 {
 	try
@@ -38,7 +38,7 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 		if(!thread_state)
 			throw glare::Exception("lua_newthread failed");
 
-		thread_ref = lua_ref(lua_vm->state, /*stack index=*/-1); // Get reference to thread to prevent it being garbage collected, see https://github.com/luau-lang/luau/discussions/774 and https://github.com/luau-lang/luau/issues/247
+		thread_ref = lua_vm->createReferenceToLuaValue(lua_vm->state, /*stack index=*/-1); // Get reference to thread to prevent it being garbage collected, see https://github.com/luau-lang/luau/discussions/774 and https://github.com/luau-lang/luau/issues/247
 		// lua_ref in Luau doesn't pop item from stack (see https://github.com/luau-lang/luau/issues/247#issuecomment-983042025)
 
 		lua_pop(lua_vm->state, 1); // Pop thread from shared lua_vm stack.
@@ -90,8 +90,7 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 	catch(Luau::ParseErrors& e)
 	{
 		// If we throw an exception in the constructor, the destructor isn't called, so we need to make sure to release the thread reference.
-		if(thread_ref != LUA_NOREF)
-			lua_unref(lua_vm->state, thread_ref);
+		lua_vm->destroyReferenceToLuaValue(lua_vm->state, thread_ref);
 
 		LuaScriptExcepWithLocation loc_excep(e.what());
 		loc_excep.chunkname = options.chunkname;
@@ -103,8 +102,7 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 	catch(Luau::ParseError& e)
 	{
 		// If we throw an exception in the constructor, the destructor isn't called, so we need to make sure to release the thread reference.
-		if(thread_ref != LUA_NOREF)
-			lua_unref(lua_vm->state, thread_ref);
+		lua_vm->destroyReferenceToLuaValue(lua_vm->state, thread_ref);
 
 		LuaScriptExcepWithLocation loc_excep(e.what());
 		loc_excep.chunkname = options.chunkname;
@@ -115,16 +113,14 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 	catch(glare::Exception& e)
 	{
 		// If we throw an exception in the constructor, the destructor isn't called, so we need to make sure to release the thread reference.
-		if(thread_ref != LUA_NOREF)
-			lua_unref(lua_vm->state, thread_ref);
+		lua_vm->destroyReferenceToLuaValue(lua_vm->state, thread_ref);
 
 		throw e; // Re-throw
 	}
 	catch(std::exception& e)
 	{
 		// If we throw an exception in the constructor, the destructor isn't called, so we need to make sure to release the thread reference.
-		if(thread_ref != LUA_NOREF)
-			lua_unref(lua_vm->state, thread_ref);
+		lua_vm->destroyReferenceToLuaValue(lua_vm->state, thread_ref);
 
 		throw glare::Exception(e.what());
 	}
@@ -133,8 +129,11 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 
 LuaScript::~LuaScript()
 {
-	if(thread_ref != LUA_NOREF)
-		lua_unref(lua_vm->state, thread_ref);
+	// Remove all 'leaked' (unfreed) function references from the LuaVM.
+	for(auto it = lua_func_references.begin(); it != lua_func_references.end(); ++it)
+		lua_vm->destroyReferenceToLuaValue(lua_vm->state, *it);
+
+	lua_vm->destroyReferenceToLuaValue(lua_vm->state, thread_ref);
 }
 
 
@@ -149,6 +148,66 @@ void LuaScript::exec()
 	{
 		throw glare::Exception(e.what());
 	}
+}
+
+
+LuaScript::LuaFuncRefAndPtr LuaScript::getRefToFunction(const char* func_name)
+{
+	lua_getglobal(thread_state, func_name); // Push function onto stack (or nil if it isn't defined)
+
+	LuaFuncRefAndPtr res;
+	assert(res.ref.ref == LUA_NOREF);
+	res.func_ptr = nullptr;
+
+	if(lua_isfunction(thread_state, -1)) // If function was defined
+	{
+		res.ref = lua_vm->createReferenceToLuaValue(thread_state, /*index=*/-1); // Get reference to func (does not pop)
+		res.func_ptr = lua_topointer(thread_state, /*index=*/-1); // Get pointer to func (does not pop)
+
+		// Add to tracking set for this LuaScript
+		if(res.ref.ref > LUA_REFNIL)
+			lua_func_references.insert(res.ref);
+	}
+
+	lua_pop(thread_state, 1);
+	return res;
+}
+
+
+LuaVM::LuaValueRef LuaScript::getRefToFunctionOnStack(lua_State* calling_state, int stack_index)
+{
+	LuaVM::LuaValueRef res = lua_vm->createReferenceToLuaValue(calling_state, stack_index);
+
+	// Add to tracking set for this LuaScript
+	if(res.ref > LUA_REFNIL)
+		lua_func_references.insert(res);
+
+	return res;
+}
+
+
+void LuaScript::freeRefToFunction(LuaVM::LuaValueRef ref)
+{
+	if(ref.ref <= LUA_REFNIL)
+		return;
+
+	// Check and remove from tracking set for this LuaScript
+	#ifndef NDEBUG
+	if(lua_func_references.count(ref) == 0)
+	{
+		conPrint("============================ Error: LuaScript: tried to destroy a LuaValueRef that was not in lua_func_references (destroyed twice?) ============================");
+		#if defined(_WIN32)
+		__debugbreak();
+		#else
+		assert(false);
+		#endif
+	}
+	#endif
+
+	lua_func_references.erase(ref);
+
+
+	lua_vm->destroyReferenceToLuaValue(thread_state, ref);
 }
 
 

@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/Platform.h"
 #include <string>
 #include <vector>
+#include <set>
 struct lua_State;
 typedef int (*lua_CFunction)(lua_State* L);
 
@@ -70,6 +71,28 @@ public:
 	// Important: Luau does not copy the debugname, the pointer lifetime has to encompass the lifetime of the VM.
 	void setCFunctionAsTableField(lua_CFunction fn, const char* debugname, const char* field_key);
 
+	struct LuaValueRef
+	{
+		LuaValueRef() : ref(/*LUA_NOREF=*/-1) {}
+		bool operator <  (LuaValueRef other) const { return ref < other.ref; }
+		bool operator == (LuaValueRef other) const { return ref == other.ref; }
+		int ref;
+	};
+	struct LuaValueRefHasher
+	{
+		size_t operator () (LuaValueRef ref) const
+		{
+			std::hash<int> h;
+			return h(ref.ref);
+		}
+	};
+
+	LuaValueRef createReferenceToLuaValue(lua_State* calling_state, int index);
+	void destroyReferenceToLuaValue(lua_State* calling_state, LuaValueRef reference); // Has no effect if the reference is LUA_NOREF or LUA_REFNIL.
+
+
+	int getNumLuaValueReferences() const { return num_references; }
+
 	lua_State* state;
 
 	LuaVMOptions options; // Kept because Luau stores the debugname a function was registered with, without copying it.
@@ -79,9 +102,14 @@ public:
 
 	bool init_finished; // has finishInitAndSandbox() been called?
 
-	int Vec3dMetaTable_ref; // reference to the Vec3d metatable, to stop it being garbage-collected, and for assigning to Vec3d tables.
-	int Vec2MetaTable_ref;
+	LuaVM::LuaValueRef Vec3dMetaTable_ref; // reference to the Vec3d metatable, to stop it being garbage-collected, and for assigning to Vec3d tables.
+	LuaVM::LuaValueRef Vec2MetaTable_ref;
 
 private:
 	static bool static_init_called; // Has staticInit() been called?
+
+#ifndef NDEBUG
+	std::set<LuaVM::LuaValueRef> debug_references;
+#endif
+	int num_references;
 };

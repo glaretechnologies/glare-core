@@ -252,7 +252,8 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 	options(options_),
 	total_allocated(0),
 	total_allocated_high_water_mark(0),
-	init_finished(false)
+	init_finished(false),
+	num_references(0)
 {
 	runtimeCheck(static_init_called);
 
@@ -294,7 +295,7 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 
 		lua_setreadonly(state, /*index=*/-1, /*enabled=*/1); // Set metatable as read-only.
 
-		Vec3dMetaTable_ref = lua_ref(state, /*index=*/-1); // Get reference to metatable.  Does not pop.
+		Vec3dMetaTable_ref = createReferenceToLuaValue(state, /*index=*/-1); // Get reference to metatable.  Does not pop.
 		lua_pop(state, 1); // Pop metatable from stack
 		//--------------------------- End create Vec3d Metatable ---------------------------
 
@@ -311,7 +312,7 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 
 		lua_setreadonly(state, /*index=*/-1, /*enabled=*/1); // Set metatable as read-only.
 
-		Vec2MetaTable_ref = lua_ref(state, /*index=*/-1); // Get reference to metatable.  Does not pop.
+		Vec2MetaTable_ref = createReferenceToLuaValue(state, /*index=*/-1); // Get reference to metatable.  Does not pop.
 		lua_pop(state, 1); // Pop metatable from stack
 		//--------------------------- End create Vec2 Metatable ---------------------------
 
@@ -338,7 +339,25 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 LuaVM::~LuaVM()
 {
 	if(state)
+	{
+		destroyReferenceToLuaValue(state, Vec3dMetaTable_ref);
+		destroyReferenceToLuaValue(state, Vec2MetaTable_ref);
+
+		// Check there are no outstanding references leaked.
+#ifndef NDEBUG
+		if(!debug_references.empty())
+		{
+			conPrint("============================ Error: there are " + toString(debug_references.size()) + " leaked references to Lua objects on LuaVM shutdown ============================");
+			#if defined(_WIN32)
+			__debugbreak();
+			#else
+			assert(false);
+			#endif
+		}
+#endif
+
 		lua_close(state);
+	}
 }
 
 
@@ -379,4 +398,45 @@ void LuaVM::setCFunctionAsTableField(lua_CFunction fn, const char* debugname, co
 
 	lua_pushcfunction(state, fn, debugname);
 	lua_rawsetfield(state, /*table_index=*/-2, field_key); // pops value (function) from stack
+}
+
+
+LuaVM::LuaValueRef LuaVM::createReferenceToLuaValue(lua_State* calling_state, int index)
+{
+	LuaValueRef ref;
+	ref.ref = lua_ref(calling_state, index);
+
+	if(ref.ref > LUA_REFNIL)
+	{
+		#ifndef NDEBUG
+		debug_references.insert(ref);
+		#endif
+		num_references++;
+	}
+
+	return ref;
+}
+
+
+void LuaVM::destroyReferenceToLuaValue(lua_State* calling_state, LuaValueRef reference)
+{
+	if(reference.ref <= LUA_REFNIL)
+		return;
+
+#ifndef NDEBUG
+	if(debug_references.count(reference) == 0)
+	{
+		conPrint("============================ Error: tried to destroy a LuaValueRef that was not in references (destroyed twice?) ============================");
+		#if defined(_WIN32)
+		__debugbreak();
+		#else
+		assert(false);
+		#endif
+	}
+	debug_references.erase(reference);
+#endif
+
+	lua_unref(calling_state, reference.ref);
+
+	num_references--;
 }
