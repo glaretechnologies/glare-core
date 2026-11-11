@@ -258,29 +258,6 @@ void LuaTests::test()
 
 	try
 	{
-		//==========================  Test very long chained assignment ==========================
-		// Is crashing the Lua parser currently.
-		if(0)
-		try
-		{
-			LuaVM vm;
-	
-			const std::string src = " sulr	,eah,e__e	,e,ho	,e,h_e	,e,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,ete,ho	,e,h__ehi,hi_e	,i	"
-				",e,h__e	,e,hi,hi_e	,i_ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,ete,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,etohi,ho	"
-				",e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	,i	,e,h__e	,e,ho	,e,h_h,e	,e,h__e	,e,hi,hi_e	,i,i,hi_,i,hi_e	,i,"
-				"etohi,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	,i	,e,h__e	,e,ho	,e,h_h,eo	,e_,haehi__iter,i	,e,h__e	,"
-				"e,ho	,e,h__ehi,hi_e	,i	,e_e	,i,i,hi_,i,hi_e	,i,etohi,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	,i	,e,"
-				"h__e	,e,ho	,e,h_h,e	,e,h__e	,e,hi,hi_e	,i,i,hi_,i,hi_e	,i,etohi,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	"
-				",i	,e,h__e	,e,ho	,e,h_h,eo	,e_,haehi__iter,i	,e,h__e	,e,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,etohi,ho	,e,h__ehi,hi	,i"
-				",e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_e	,i	,e,h__e	,e,hi,hi_esort	,i,i,hi_e	,i,etohi,hi_e	,i	,i,hi_e	,i5Li_e	,i_es = unpack{1, 4, 9, 13/ 81}\n ";
-			LuaScript script(&vm, LuaScriptOptions(), src);
-			script.exec();
-		}
-		catch(glare::Exception& e)
-		{
-			failTest("Failed:" + e.what());
-		}
-
 		//========================== Test creating and destroying VM ==========================
 		try
 		{
@@ -1443,6 +1420,28 @@ void LuaTests::test()
 		catch(glare::Exception& e)
 		{
 			failTest("Failed:" + e.what());
+		}
+
+
+		//==========================  Test very long chained assignment ==========================
+		// Was crashing the Lua parser.
+		try
+		{
+			LuaVM vm;
+	
+			const std::string src = " sulr	,eah,e__e	,e,ho	,e,h_e	,e,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,ete,ho	,e,h__ehi,hi_e	,i	"
+				",e,h__e	,e,hi,hi_e	,i_ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,ete,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,etohi,ho	"
+				",e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	,i	,e,h__e	,e,ho	,e,h_h,e	,e,h__e	,e,hi,hi_e	,i,i,hi_,i,hi_e	,i,"
+				"etohi,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	,i	,e,h__e	,e,ho	,e,h_h,eo	,e_,haehi__iter,i	,e,h__e	,"
+				"e,ho	,e,h__ehi,hi_e	,i	,e_e	,i,i,hi_,i,hi_e	,i,etohi,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	,i	,e,"
+				"h__e	,e,ho	,e,h_h,e	,e,h__e	,e,hi,hi_e	,i,i,hi_,i,hi_e	,i,etohi,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_,haehi,hi_e	"
+				",i	,e,h__e	,e,ho	,e,h_h,eo	,e_,haehi__iter,i	,e,h__e	,e,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,etohi,ho	,e,h__ehi,hi	,i"
+				",e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,eto	,e_e	,i	,e,h__e	,e,hi,hi_esort	,i,i,hi_e	,i,etohi,hi_e	,i	,i,hi_e	,i5Li_e	,i_es = unpack{1, 4, 9, 13/ 81}\n ";
+			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
+		}
+		catch(glare::Exception& e)
+		{
 		}
 
 
