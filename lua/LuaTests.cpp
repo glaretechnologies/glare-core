@@ -638,9 +638,9 @@ void LuaTests::test()
 
 			failTest("Expected excep.");
 		}
-		catch(glare::Exception& e)
+		catch(std::exception& e)
 		{
-			conPrint("Got expected excep: " + e.what());
+			conPrint("Got expected excep: " + std::string(e.what()));
 		}
 
 		//========================== Test maximum memory calling a Lua function with recovery ==========================
@@ -672,9 +672,9 @@ void LuaTests::test()
 
 					failTest("Expected excep.");
 				}
-				catch(glare::Exception& e)
+				catch(std::exception& e)
 				{
-					conPrint("Got expected excep: " + e.what());
+					conPrint("Got expected excep: " + std::string(e.what()));
 				}
 			}
 
@@ -1440,7 +1440,7 @@ void LuaTests::test()
 			LuaScript script(&vm, LuaScriptOptions(), src);
 			script.exec();
 		}
-		catch(glare::Exception& e)
+		catch(glare::Exception& )
 		{
 		}
 

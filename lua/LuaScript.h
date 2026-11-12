@@ -82,6 +82,11 @@ public:
 	// An exception is thrown if num_interrupts >= options.max_num_interrupts.  
 	// This function can be called before executing some Lua code in this script. (e.g. before calling a Lua function)
 	void resetExecutionTimeCounter() { num_interrupts = 0; }
+	void addExecutionTimeToVMAndResetCounter()
+	{
+		lua_vm->total_num_interrupts += num_interrupts;
+		num_interrupts = 0;
+	}
 
 
 	struct LuaFuncRefAndPtr

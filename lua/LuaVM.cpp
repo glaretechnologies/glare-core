@@ -41,10 +41,12 @@ static void* glareLuaAlloc(void* user_data, void* ptr, size_t original_size, siz
 
 			if(new_total_allocated > lua_vm->options.max_total_mem_allowed)
 			{
-				if(lua_vm->state == nullptr) // If we are in lua_newstate(), then return null instead of throwing, so lua_newstate() can clean up partially allocated data.
-					return nullptr;
-				else
-					throw glare::Exception("Tried to allocate more Lua memory than max total allowed amount of " + toString(lua_vm->options.max_total_mem_allowed) + " B");
+				lua_vm->num_mem_allocation_failures++;
+
+				// Return null instead of throwing a glare::Exception here, for a couple of reasons:
+				// If we are in lua_newstate(), then return null instead of throwing, so lua_newstate() can clean up partially allocated data.
+				// It also plays nicer with the Lua GC.
+				return nullptr;
 			}
 
 			lua_vm->total_allocated = new_total_allocated;
@@ -59,10 +61,12 @@ static void* glareLuaAlloc(void* user_data, void* ptr, size_t original_size, siz
 
 			if(new_total_allocated > lua_vm->options.max_total_mem_allowed)
 			{
-				if(lua_vm->state == nullptr) // If we are in lua_newstate(), then return null instead of throwing, so lua_newstate() can clean up partially allocated data.
-					return nullptr;
-				else
-					throw glare::Exception("Tried to allocate more Lua memory than max total allowed amount of " + toString(lua_vm->options.max_total_mem_allowed) + " B");
+				lua_vm->num_mem_allocation_failures++;
+
+				// Return null instead of throwing a glare::Exception here, for a couple of reasons:
+				// If we are in lua_newstate(), then return null instead of throwing, so lua_newstate() can clean up partially allocated data.
+				// It also plays nicer with the Lua GC.
+				return nullptr;
 			}
 
 			lua_vm->total_allocated = new_total_allocated;
@@ -252,6 +256,8 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 	options(options_),
 	total_allocated(0),
 	total_allocated_high_water_mark(0),
+	num_mem_allocation_failures(0),
+	total_num_interrupts(0),
 	init_finished(false),
 	num_references(0)
 {

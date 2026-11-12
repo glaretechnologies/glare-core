@@ -98,7 +98,12 @@ public:
 	LuaVMOptions options; // Kept because Luau stores the debugname a function was registered with, without copying it.
 
 	int64 total_allocated; // Current number of bytes allocated in this VM.
+	
+	// Stats tracking:
 	int64 total_allocated_high_water_mark;
+	uint64 num_mem_allocation_failures;
+	uint64 total_num_interrupts; // Total num interrupts that occurred while executing LuaScripts that use this LuaVM.
+	
 
 	bool init_finished; // has finishInitAndSandbox() been called?
 
