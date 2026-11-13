@@ -509,7 +509,7 @@ void GLUI::setDebugOverlayEnabled(bool enabled)
 	if(enabled)
 	{
 		GLUITextView::CreateArgs args;
-		debug_overlay = new GLUITextView(*this, "debug overlay", Vec2f(0.f), args);
+		debug_overlay = new GLUITextView(*this, "debug overlay", args);
 		this->addWidget(debug_overlay);
 	}
 	else

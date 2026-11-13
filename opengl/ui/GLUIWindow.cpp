@@ -46,7 +46,7 @@ GLUIWindow::GLUIWindow(GLUI& glui_, const CreateArgs& args_)
 		text_view_args.z = m_z - 0.01f;
 		text_view_args.font_size_px = (int)(GLUI::getDefaultFontSizePx() * 1.5f);
 
-		title_text = new GLUITextView(*glui, args.title, Vec2f(0), text_view_args);
+		title_text = new GLUITextView(*glui, args.title, text_view_args);
 
 		glui->addWidget(title_text);
 	}

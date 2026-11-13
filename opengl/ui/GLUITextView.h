@@ -27,6 +27,8 @@ public:
 	{
 		CreateArgs();
 
+		Vec2f botleft; // Initial bottom left position
+
 		GLUIWidget::SizingType sizing_type_x; // Will be SizingType_FixedSizePx by default, but fixed_size will be max(fixed_size, computeTextDimsWithPadding())
 		GLUIWidget::SizingType sizing_type_y;
 		Vec2f fixed_size; // x component used if sizing_type_x == SizingType_FixedSizePx, likewise for y component.
@@ -48,7 +50,7 @@ public:
 		float z;
 	};
 
-	GLUITextView(GLUI& glui, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
+	GLUITextView(GLUI& glui, const std::string& text, const CreateArgs& args);
 	~GLUITextView();
 	
 	void setText(const string_view new_text);

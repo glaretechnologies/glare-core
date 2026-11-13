@@ -101,7 +101,8 @@ void GLUITextButton::makeTextView(bool visible)
 	text_args.text_selectable = false;
 	text_args.font_size_px = args.font_size_px;
 	text_args.z = m_z;
-	text_view = new GLUITextView(*glui, button_text, m_botleft, text_args);
+	text_args.botleft = m_botleft;
+	text_view = new GLUITextView(*glui, button_text, text_args);
 	text_view->setVisible(visible);
 	glui->addWidget(text_view);
 

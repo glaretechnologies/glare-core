@@ -19,7 +19,8 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/RuntimeCheck.h"
 
 
-GLUITextView::CreateArgs::CreateArgs():
+GLUITextView::CreateArgs::CreateArgs()
+:	botleft(0, 0),
 	background_colour(0.f),
 	background_alpha(1),
 	background_corner_radius_px(0),
@@ -38,7 +39,7 @@ GLUITextView::CreateArgs::CreateArgs():
 }
 
 
-GLUITextView::GLUITextView(GLUI& glui_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args_)
+GLUITextView::GLUITextView(GLUI& glui_, const std::string& text_, const CreateArgs& args_)
 {
 	this->clip_rect = Rect2f(Vec2f(-1.0e10f), Vec2f(1.0e10f));
 
@@ -75,7 +76,7 @@ GLUITextView::GLUITextView(GLUI& glui_, const std::string& text_, const Vec2f& b
 
 	opengl_engine->addOverlayObject(selection_overlay_ob);
 
-	this->rect = Rect2f(botleft_, botleft_ + Vec2f(0.1f));
+	this->rect = Rect2f(args.botleft, args.botleft + Vec2f(0.1f));
 
 	setText(text_); // Sets rect
 

@@ -74,7 +74,7 @@ GLUIDropDownList::GLUIDropDownList(GLUI& glui_, const CreateArgs& args_)
 		//text = new GLUILineEdit(*glui, Vec2f(0.f), text_args);
 		//text->setText(this->getCurrentValue());
 		
-		text = new GLUITextView(*glui, /*text=*/this->getCurrentValue(), Vec2f(0.f), text_args);
+		text = new GLUITextView(*glui, /*text=*/this->getCurrentValue(), text_args);
 	}
 	
 	updateWidgetTransforms();
