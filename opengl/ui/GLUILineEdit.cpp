@@ -33,7 +33,7 @@ GLUILineEdit::CreateArgs::CreateArgs()
 {}
 
 
-GLUILineEdit::GLUILineEdit(GLUI& glui_, const Vec2f& botleft_, const CreateArgs& args_)
+GLUILineEdit::GLUILineEdit(GLUI& glui_,const CreateArgs& args_)
 {
 	glui = &glui_;
 
@@ -56,7 +56,7 @@ GLUILineEdit::GLUILineEdit(GLUI& glui_, const Vec2f& botleft_, const CreateArgs&
 	this->last_background_dims = Vec2f(0);
 
 	const Vec2f dims = computeDims(Vec2f(glui->getUIWidthForDevIndepPixelWidth(120.f), (float)args.font_size_px + (float)args.padding_px*2));
-	this->rect = Rect2f(botleft_, botleft_ + dims);
+	this->rect = Rect2f(Vec2f(0), dims);
 	
 	// Create background quad to go behind text
 	background_overlay_ob = new OverlayObject();

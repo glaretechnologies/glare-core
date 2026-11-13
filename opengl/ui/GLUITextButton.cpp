@@ -182,11 +182,11 @@ void GLUITextButton::handleMousePress(MouseEvent& event)
 				event.accepted = true;
 		}
 
-		if(handler_func)
+		if(on_pressed)
 		{
 			GLUICallbackEvent callback_event;
 			callback_event.widget = this;
-			handler_func(callback_event);
+			on_pressed(callback_event);
 			if(callback_event.accepted)
 				event.accepted = true;
 		}

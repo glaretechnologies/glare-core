@@ -39,7 +39,7 @@ public:
 		float z;
 	};
 
-	GLUILineEdit(GLUI& glui, const Vec2f& botleft, const CreateArgs& args);
+	GLUILineEdit(GLUI& glui, const CreateArgs& args);
 	~GLUILineEdit(); // Removed overlay objects from opengl engine.
 
 	virtual void think(GLUI& glui) override;

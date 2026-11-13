@@ -96,7 +96,7 @@ GLUISpinBox::GLUISpinBox(GLUI& glui_, const CreateArgs& args_)
 		le_args.fixed_size.x         = fixed_size.x - BUTTON_W_PX - BUTTON_PADDING_PX*2;
 		le_args.sizing_type_x        = GLUIWidget::SizingType_FixedSizePx;
 		le_args.z                    = m_z;
-		line_edit = new GLUILineEdit(glui_, Vec2f(0.f), le_args);
+		line_edit = new GLUILineEdit(glui_, le_args);
 		line_edit->on_enter_pressed = line_edit->on_losing_keyboard_focus = [this]()
 		{
 			try

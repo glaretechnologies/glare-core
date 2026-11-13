@@ -263,7 +263,7 @@ void GLUIDropDownList::openButtonPressed()
 			but_args.sizing_type_x     = GLUIWidget::SizingType_Expanding;
 
 			GLUITextButtonRef button = new GLUITextButton(*glui, /*button text=*/args.options[i], but_args);
-			button->handler_func = [this](GLUICallbackEvent& event) { this->optionButtonPressed(event); };
+			button->on_pressed = [this](GLUICallbackEvent& event) { this->optionButtonPressed(event); };
 
 			options_grid->setCellWidget((int)(i / MAX_NUM_ROWS), (int)(i % MAX_NUM_ROWS), button);
 		}
