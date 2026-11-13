@@ -58,6 +58,7 @@ public:
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
+	virtual void handleMouseDoubleClick(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 
 	virtual void viewportResized() override;

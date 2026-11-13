@@ -44,6 +44,9 @@ public:
 		Colour3f mouseover_background_colour;
 		Colour3f mouseover_text_colour;
 
+		Colour3f pressed_background_colour; // Used while the mouse button is held down after pressing on the button.
+		Colour3f pressed_text_colour;
+
 		float z;
 	};
 
@@ -51,6 +54,8 @@ public:
 	~GLUITextButton();
 
 	virtual void handleMousePress(MouseEvent& event) override;
+	virtual void handleMouseRelease(MouseEvent& event) override;
+	virtual void handleMouseDoubleClick(MouseEvent& event) override;
 	virtual void doHandleMouseMoved(MouseEvent& event) override;
 	virtual void viewportResized() override;
 
@@ -81,6 +86,16 @@ public:
 private:
 	GLARE_DISABLE_COPY(GLUITextButton);
 
+	void updateColours(bool mouse_in_rect);
+
+	enum ColourState
+	{
+		ColourState_Normal,
+		ColourState_MouseOver,
+		ColourState_Toggled,
+		ColourState_Pressed
+	};
+
 	GLUITextViewRef text_view;
 
 	CreateArgs args;
@@ -88,6 +103,8 @@ private:
 	std::string button_text;
 
 	bool toggled;
+	bool pressed; // True between a mouse press on the button and the following mouse release.
+	ColourState colour_state; // Which set of colours the text view currently has.
 };
 
 

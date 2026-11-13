@@ -41,6 +41,7 @@ GLUIImage::GLUIImage(GLUI& glui_, const std::string& tex_path, const std::string
 		overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, tex_params);
 	}
 	overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
+	overlay_ob->material.tex_translation = Vec2f(0, 1);
 
 	Vec2f botleft(0.f);
 	Vec2f dims(0.1f);
@@ -76,6 +77,13 @@ void GLUIImage::setAlpha(float alpha)
 void GLUIImage::setMouseOverColour(Colour3f colour_)
 {
 	mouseover_colour = colour_;
+}
+
+
+void GLUIImage::setTexture(const OpenGLTextureRef& tex)
+{
+	if(overlay_ob)
+		overlay_ob->material.albedo_texture = tex;
 }
 
 

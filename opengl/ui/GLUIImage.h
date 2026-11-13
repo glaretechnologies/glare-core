@@ -34,6 +34,8 @@ public:
 	void setAlpha(float alpha);
 	void setMouseOverColour(Colour3f colour_);
 
+	void setTexture(const OpenGLTextureRef& tex);
+
 	void setDims(const Vec2f& dims);
 	void setTransform(const Vec2f& botleft, const Vec2f& dims, float rotation, float z = -0.9f);
 

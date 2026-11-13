@@ -31,13 +31,18 @@ GLUITextButton::CreateArgs::CreateArgs()
 	toggled_text_colour   = toLinearSRGB(Colour3f(0.1f));
 	mouseover_text_colour = toLinearSRGB(Colour3f(0.1f));
 
+	pressed_background_colour = toLinearSRGB(Colour3f(0.6f));
+	pressed_text_colour       = toLinearSRGB(Colour3f(0.1f));
+
 	z = 0.f;
 }
 
 
 GLUITextButton::GLUITextButton(GLUI& glui_, const std::string& button_text_, const Vec2f& botleft, const CreateArgs& args_)
 :	handler(NULL),
-	toggled(false)
+	toggled(false),
+	pressed(false),
+	colour_state(ColourState_Normal)
 {
 	glui = &glui_;
 	opengl_engine = glui_.opengl_engine.ptr();
@@ -77,6 +82,9 @@ void GLUITextButton::handleMousePress(MouseEvent& event)
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inOpenRectangle(coords))
 	{
+		pressed = true;
+		updateColours(/*mouse_in_rect=*/true);
+
 		if(handler)
 		{
 			GLUICallbackEvent callback_event;
@@ -98,36 +106,70 @@ void GLUITextButton::handleMousePress(MouseEvent& event)
 }
 
 
+void GLUITextButton::handleMouseRelease(MouseEvent& event)
+{
+	if(pressed)
+	{
+		pressed = false;
+		updateColours(rect.inOpenRectangle(glui->UICoordsForOpenGLCoords(event.gl_coords)));
+	}
+}
+
+
+// The second click of a double-click arrives as a double-click event instead of a press event, so treat it as a press.
+// A release event follows, which clears pressed.
+void GLUITextButton::handleMouseDoubleClick(MouseEvent& event)
+{
+	handleMousePress(event);
+}
+
+
 void GLUITextButton::doHandleMouseMoved(MouseEvent& mouse_event)
 {
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
 
-	if(rect.inOpenRectangle(coords)) // If mouse over widget:
-	{
-		if(toggled)
-		{
-			text_view->setBackgroundColour(args.toggled_background_colour);
-			text_view->setTextColour(args.toggled_text_colour);
-		}
-		else
-		{
-			text_view->setBackgroundColour(args.mouseover_background_colour);
-			text_view->setTextColour(args.mouseover_text_colour);
-		}
-
+	const bool mouse_in_rect = rect.inOpenRectangle(coords);
+	if(mouse_in_rect)
 		mouse_event.accepted = true;
-	}
-	else
+
+	updateColours(mouse_in_rect);
+}
+
+
+// The pressed colours take priority over the toggled colours, which take priority over the mouse-over colours.
+// The button stays pressed if the mouse moves off it while the mouse button is held down, as with GLUIButton.
+// Only sets the text view colours when the colour state changes, since this is called on every mouse move.
+void GLUITextButton::updateColours(bool mouse_in_rect)
+{
+	const ColourState new_state =
+		pressed ? ColourState_Pressed :
+		(toggled ? ColourState_Toggled : 
+		(mouse_in_rect ? ColourState_MouseOver : ColourState_Normal));
+
+	if(new_state != colour_state)
 	{
-		if(toggled)
+		colour_state = new_state;
+
+		conPrint("GLUITextButton::updateColours: updating col...");
+
+		switch(new_state)
 		{
-			text_view->setBackgroundColour(args.toggled_background_colour);
-			text_view->setTextColour(args.toggled_text_colour);
-		}
-		else
-		{
+		case ColourState_Normal:
 			text_view->setBackgroundColour(args.background_colour);
 			text_view->setTextColour(args.text_colour);
+			break;
+		case ColourState_MouseOver:
+			text_view->setBackgroundColour(args.mouseover_background_colour);
+			text_view->setTextColour(args.mouseover_text_colour);
+			break;
+		case ColourState_Toggled:
+			text_view->setBackgroundColour(args.toggled_background_colour);
+			text_view->setTextColour(args.toggled_text_colour);
+			break;
+		case ColourState_Pressed:
+			text_view->setBackgroundColour(args.pressed_background_colour);
+			text_view->setTextColour(args.pressed_text_colour);
+			break;
 		}
 	}
 }
@@ -160,6 +202,10 @@ void GLUITextButton::rebuild()
 	glui->addWidget(text_view);
 
 	this->rect = text_view->getRect(); // getBackgroundRect();
+
+	// The new text view has the normal colours.  Reapply the colours for the current state.
+	colour_state = ColourState_Normal;
+	updateColours(rect.inOpenRectangle(glui->getLastMouseUICoords()));
 }
 
 
@@ -224,9 +270,7 @@ void GLUITextButton::setToggled(bool toggled_)
 {
 	this->toggled = toggled_;
 
-	// NOTE: ignoring mouseover state
-	text_view->setBackgroundColour(toggled ? args.toggled_background_colour : args.background_colour);
-	text_view->setTextColour(toggled ? args.toggled_text_colour : args.text_colour);
+	updateColours(rect.inOpenRectangle(glui->getLastMouseUICoords()));
 }
 
 

@@ -139,6 +139,14 @@ void GLUIButton::handleMouseRelease(MouseEvent& event)
 }
 
 
+// The second click of a double-click arrives as a double-click event instead of a press event, so treat it as a press.
+// A release event follows, which clears pressed.
+void GLUIButton::handleMouseDoubleClick(MouseEvent& event)
+{
+	handleMousePress(event);
+}
+
+
 void GLUIButton::doHandleMouseMoved(MouseEvent& mouse_event)
 {
 	if(!overlay_ob->draw) // If not visible:
