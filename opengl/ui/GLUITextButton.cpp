@@ -126,6 +126,9 @@ void GLUITextButton::handleMouseDoubleClick(MouseEvent& event)
 
 void GLUITextButton::doHandleMouseMoved(MouseEvent& mouse_event)
 {
+	if(!isVisible())
+		return;
+
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
 
 	const bool mouse_in_rect = rect.inOpenRectangle(coords);
@@ -149,8 +152,6 @@ void GLUITextButton::updateColours(bool mouse_in_rect)
 	if(new_state != colour_state)
 	{
 		colour_state = new_state;
-
-		conPrint("GLUITextButton::updateColours: updating col...");
 
 		switch(new_state)
 		{
