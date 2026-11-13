@@ -47,10 +47,22 @@ public:
 		Colour3f pressed_background_colour; // Used while the mouse button is held down after pressing on the button.
 		Colour3f pressed_text_colour;
 
+		float corner_radius_px; // Radius of the rounded corners of the background, outline and shadow.  Square corners if zero.
+
+		float border_width_px; // Width of the outline around the button, which lies outside of the button rect.  No outline if zero.
+		Colour3f border_colour;
+		Colour3f mouseover_border_colour;
+
+		// The drop shadow is drawn as shadow_num_layers translucent black shapes, each 1 pixel bigger than the previous,
+		// which add up to a soft edge.  No shadow if shadow_num_layers is zero.
+		int shadow_num_layers;
+		float shadow_offset_px; // How far the shadow is offset downwards from the button.
+		float shadow_layer_alpha; // Opacity of each shadow layer.
+
 		float z;
 	};
 
-	GLUITextButton(GLUI& glui, const std::string& button_text, const Vec2f& botleft, const CreateArgs& args);
+	GLUITextButton(GLUI& glui, const std::string& button_text, const CreateArgs& args);
 	~GLUITextButton();
 
 	virtual void handleMousePress(MouseEvent& event) override;
@@ -87,6 +99,9 @@ private:
 	GLARE_DISABLE_COPY(GLUITextButton);
 
 	void updateColours(bool mouse_in_rect);
+	void makeTextView(bool visible);
+	void addDecoration(const Colour3f& colour, float alpha, float expand_px, const Vec2f& offset_px, float z_offset);
+	void updateDecorationTransforms();
 
 	enum ColourState
 	{
@@ -97,6 +112,18 @@ private:
 	};
 
 	GLUITextViewRef text_view;
+
+	// A shape drawn behind the text view background, for the outline and drop shadow layers.
+	struct Decoration
+	{
+		OverlayObjectRef ob;
+		float expand_px; // How far the shape extends past the text view background on each side.
+		Vec2f offset_px; // Offset of the shape from the text view background.  +y is up.
+		float z_offset; // z relative to the button z.  The text view background is at +0.001, larger values are further back.
+		Vec2f last_mesh_dims; // Dims of the current rounded-corner mesh, so it is only rebuilt when the dims change.
+	};
+	std::vector<Decoration> decorations;
+	int border_decoration_index; // Index of the outline in decorations, or -1 if there is no outline.
 
 	CreateArgs args;
 	Vec2f m_botleft;

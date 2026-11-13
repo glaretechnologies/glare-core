@@ -262,7 +262,7 @@ void GLUIDropDownList::openButtonPressed()
 			but_args.mouseover_text_colour       = this->args.text_colour;
 			but_args.sizing_type_x     = GLUIWidget::SizingType_Expanding;
 
-			GLUITextButtonRef button = new GLUITextButton(*glui, /*button text=*/args.options[i], Vec2f(0.f), but_args);
+			GLUITextButtonRef button = new GLUITextButton(*glui, /*button text=*/args.options[i], but_args);
 			button->handler_func = [this](GLUICallbackEvent& event) { this->optionButtonPressed(event); };
 
 			options_grid->setCellWidget((int)(i / MAX_NUM_ROWS), (int)(i % MAX_NUM_ROWS), button);

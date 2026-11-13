@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "GLUI.h"
 #include <graphics/SRGBUtils.h>
 #include "../OpenGLMeshRenderData.h"
+#include "../MeshPrimitiveBuilding.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
@@ -34,12 +35,23 @@ GLUITextButton::CreateArgs::CreateArgs()
 	pressed_background_colour = toLinearSRGB(Colour3f(0.6f));
 	pressed_text_colour       = toLinearSRGB(Colour3f(0.1f));
 
+	corner_radius_px = 4.f;
+
+	border_width_px         = 1.f;
+	border_colour           = toLinearSRGB(Colour3f(0.6f));
+	mouseover_border_colour = toLinearSRGB(Colour3f(0.35f));
+
+	shadow_num_layers  = 4;
+	shadow_offset_px   = 2.f;
+	shadow_layer_alpha = 0.07f;
+
 	z = 0.f;
 }
 
 
-GLUITextButton::GLUITextButton(GLUI& glui_, const std::string& button_text_, const Vec2f& botleft, const CreateArgs& args_)
+GLUITextButton::GLUITextButton(GLUI& glui_, const std::string& button_text_, const CreateArgs& args_)
 :	handler(NULL),
+	border_decoration_index(-1),
 	toggled(false),
 	pressed(false),
 	colour_state(ColourState_Normal)
@@ -49,20 +61,21 @@ GLUITextButton::GLUITextButton(GLUI& glui_, const std::string& button_text_, con
 	tooltip = args_.tooltip;
 	args = args_;
 	m_z = args_.z;
-	m_botleft = botleft;
+	m_botleft = Vec2f(0.f);
 	button_text = button_text_;
 
-	GLUITextView::CreateArgs text_args;
-	text_args.background_colour = args.background_colour;
-	text_args.text_colour = args.text_colour;
-	text_args.padding_px = 8;
-	text_args.text_selectable = false;
-	text_args.font_size_px = args.font_size_px;
-	text_args.z = args_.z;
-	text_view = new GLUITextView(glui_, button_text, botleft, text_args);
-	glui->addWidget(text_view);
+	// Drop shadow layers, furthest back.  Each layer extends 1 pixel further than the previous one, past the outline.
+	for(int i=0; i<args.shadow_num_layers; ++i)
+		addDecoration(/*colour=*/Colour3f(0.f), /*alpha=*/args.shadow_layer_alpha, /*expand_px=*/args.border_width_px + (float)(i + 1), /*offset_px=*/Vec2f(0, -args.shadow_offset_px), /*z_offset=*/0.003f);
 
-	this->rect = text_view->getRect();// getBackgroundRect();
+	// Outline, just behind the text view background.
+	if(args.border_width_px > 0)
+	{
+		border_decoration_index = (int)decorations.size();
+		addDecoration(/*colour=*/args.border_colour, /*alpha=*/1.f, /*expand_px=*/args.border_width_px, /*offset_px=*/Vec2f(0.f), /*z_offset=*/0.002f);
+	}
+
+	makeTextView(/*visible=*/true);
 
 	this->setFixedDimsPx(max(fixed_size, Vec2f(glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().x), glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().y))));
 }
@@ -71,6 +84,81 @@ GLUITextButton::GLUITextButton(GLUI& glui_, const std::string& button_text_, con
 GLUITextButton::~GLUITextButton()
 {
 	checkRemoveAndDeleteWidget(glui, text_view);
+
+	for(size_t i=0; i<decorations.size(); ++i)
+		checkRemoveOverlayObAndSetRefToNull(opengl_engine, decorations[i].ob);
+}
+
+
+// Creates text_view with the normal colours, adds it to the GLUI, and sets rect from it.
+void GLUITextButton::makeTextView(bool visible)
+{
+	GLUITextView::CreateArgs text_args;
+	text_args.background_colour = args.background_colour;
+	text_args.background_corner_radius_px = args.corner_radius_px;
+	text_args.text_colour = args.text_colour;
+	text_args.padding_px = 8;
+	text_args.text_selectable = false;
+	text_args.font_size_px = args.font_size_px;
+	text_args.z = m_z;
+	text_view = new GLUITextView(*glui, button_text, m_botleft, text_args);
+	text_view->setVisible(visible);
+	glui->addWidget(text_view);
+
+	this->rect = text_view->getRect(); // getBackgroundRect();
+
+	updateDecorationTransforms();
+}
+
+
+void GLUITextButton::addDecoration(const Colour3f& colour, float alpha, float expand_px, const Vec2f& offset_px, float z_offset)
+{
+	Decoration decoration;
+	decoration.ob = new OverlayObject();
+	decoration.ob->mesh_data = opengl_engine->getUnitQuadMeshData();
+	decoration.ob->material.albedo_linear_rgb = colour;
+	decoration.ob->material.alpha = alpha;
+	decoration.expand_px = expand_px;
+	decoration.offset_px = offset_px;
+	decoration.z_offset = z_offset;
+	decoration.last_mesh_dims = Vec2f(-1.f);
+
+	opengl_engine->addOverlayObject(decoration.ob);
+
+	decorations.push_back(decoration);
+}
+
+
+// Positions the outline and shadow shapes around the text view background.  Rounded-corner meshes are rebuilt if their dims changed.
+void GLUITextButton::updateDecorationTransforms()
+{
+	const Rect2f background_rect = text_view->getRect();
+	const float y_scale = opengl_engine->getViewPortAspectRatio(); // scale from GL UI to opengl coords
+	const bool use_rounded_corners = args.corner_radius_px > 0;
+
+	for(size_t i=0; i<decorations.size(); ++i)
+	{
+		Decoration& decoration = decorations[i];
+
+		const float expand = glui->getUIWidthForDevIndepPixelWidth(decoration.expand_px);
+		const Vec2f min  = background_rect.getMin() + glui->getUIWidthForDevIndepPixelWidths(decoration.offset_px) - Vec2f(expand);
+		const Vec2f dims = background_rect.getWidths() + Vec2f(2 * expand);
+		const float z = m_z + decoration.z_offset;
+
+		decoration.ob->ob_to_world_matrix = Matrix4f::translationMatrix(min.x, min.y * y_scale, z) *
+			(use_rounded_corners ? Matrix4f::scaleMatrix(1, y_scale, 1) : // For rounded corner geometry
+				Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1));
+
+		if(use_rounded_corners && (decoration.last_mesh_dims != dims))
+		{
+			// The corners are centred on the same points as the background corners, so the shape extends evenly around the background.
+			decoration.ob->mesh_data = MeshPrimitiveBuilding::makeRoundedCornerRect(*opengl_engine->vert_buf_allocator, /*i=*/Vec4f(1,0,0,0), /*j=*/Vec4f(0,1,0,0),
+				/*w=*/dims.x, /*h=*/dims.y,
+				/*corner radius=*/glui->getUIWidthForDevIndepPixelWidth(args.corner_radius_px + decoration.expand_px), /*tris_per_corner=*/8);
+
+			decoration.last_mesh_dims = dims;
+		}
+	}
 }
 
 
@@ -172,6 +260,9 @@ void GLUITextButton::updateColours(bool mouse_in_rect)
 			text_view->setTextColour(args.pressed_text_colour);
 			break;
 		}
+
+		if(border_decoration_index >= 0)
+			decorations[border_decoration_index].ob->material.albedo_linear_rgb = (new_state == ColourState_MouseOver) ? args.mouseover_border_colour : args.border_colour;
 	}
 }
 
@@ -181,6 +272,8 @@ void GLUITextButton::viewportResized()
 	text_view->viewportResized();
 
 	this->rect = text_view->getRect(); // getBackgroundRect();
+
+	updateDecorationTransforms();
 }
 
 
@@ -191,21 +284,12 @@ void GLUITextButton::rebuild()
 	glui->removeWidget(text_view);
 	text_view = nullptr;
 
-	GLUITextView::CreateArgs text_args;
-	text_args.background_colour = args.background_colour;
-	text_args.text_colour = args.text_colour;
-	text_args.padding_px = 8;
-	text_args.text_selectable = false;
-	text_args.font_size_px = args.font_size_px;
-	text_args.z = m_z;
-	text_view = new GLUITextView(*glui, button_text, m_botleft, text_args);
-	text_view->setVisible(old_visible);
-	glui->addWidget(text_view);
-
-	this->rect = text_view->getRect(); // getBackgroundRect();
+	makeTextView(old_visible);
 
 	// The new text view has the normal colours.  Reapply the colours for the current state.
 	colour_state = ColourState_Normal;
+	if(border_decoration_index >= 0)
+		decorations[border_decoration_index].ob->material.albedo_linear_rgb = args.border_colour;
 	updateColours(rect.inOpenRectangle(glui->getLastMouseUICoords()));
 }
 
@@ -219,6 +303,8 @@ void GLUITextButton::setText(const std::string& new_text)
 	text_view->setText(button_text);
 
 	this->rect = text_view->getRect();
+
+	updateDecorationTransforms();
 
 	this->setFixedDimsPx(max(args.fixed_size, Vec2f(glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().x), glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().y))));
 }
@@ -236,6 +322,8 @@ void GLUITextButton::setPos(const Vec2f& botleft)
 	text_view->setPos(botleft/* + Vec2f(text_view->getPaddingWidth())*/);
 
 	rect = text_view->getRect(); // getBackgroundRect();
+
+	updateDecorationTransforms();
 }
 
 
@@ -250,6 +338,8 @@ void GLUITextButton::setAvailableRegionDims(const Vec2f& available_dims)
 
 	rect = Rect2f::fromMinAndSpan(this->getRect().getMin(), dims);
 	text_view->setFixedDimsUICoords(dims);
+
+	updateDecorationTransforms();
 }
 
 
@@ -258,12 +348,17 @@ void GLUITextButton::setZ(float new_z)
 	this->m_z = new_z;
 
 	text_view->setZ(new_z);
+
+	updateDecorationTransforms();
 }
 
 
 void GLUITextButton::setClipRegion(const Rect2f& clip_rect)
 {
 	text_view->setClipRegion(clip_rect);
+
+	for(size_t i=0; i<decorations.size(); ++i)
+		decorations[i].ob->clip_region = glui->OpenGLRectCoordsForUICoords(clip_rect);
 }
 
 
@@ -278,6 +373,9 @@ void GLUITextButton::setToggled(bool toggled_)
 void GLUITextButton::setVisible(bool visible)
 {
 	text_view->setVisible(visible);
+
+	for(size_t i=0; i<decorations.size(); ++i)
+		decorations[i].ob->draw = visible;
 }
 
 
