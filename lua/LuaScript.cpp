@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "LuaVM.h"
+#include "LuaUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
@@ -183,6 +184,25 @@ LuaVM::LuaValueRef LuaScript::getRefToFunctionOnStack(lua_State* calling_state, 
 		lua_func_references.insert(res);
 
 	return res;
+}
+
+
+LuaVM::LuaValueRef LuaScript::getOptionalRefToFunctionInTable(lua_State* calling_state, int table_index, const char* key)
+{
+	const int value_type = lua_rawgetfield(calling_state, table_index, key); // Push value onto stack
+	if(!(value_type == LUA_TNIL || value_type == LUA_TFUNCTION))
+	{
+		lua_pop(calling_state, 1); // Pop value
+		throw glare::Exception("'" + std::string(key) + "' must be a function" + "\n" + LuaUtils::getCallStackAsString(calling_state));
+	}
+
+	LuaVM::LuaValueRef val_ref;
+	if(value_type == LUA_TFUNCTION)
+		val_ref = getRefToFunctionOnStack(calling_state, /*index=*/-1);
+	// else if value_type == LUA_TNIL, just leave val_ref as the default LUA_NOREF.
+
+	lua_pop(calling_state, 1); // Pop function value
+	return val_ref;
 }
 
 

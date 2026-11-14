@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/FileUtils.h"
 #include "../utils/PlatformUtils.h"
 #include "../utils/Timer.h"
+#include "../utils/StringUtils.h"
 #include <lualib.h>
 #include <luacode.h>
 
@@ -282,6 +283,30 @@ void LuaTests::test()
 			failTest("Failed:" + e.what());
 		}
 	
+		//========================== Test getRefToFunctionOnStack ==========================
+		{
+			LuaVM vm;
+			LuaScript script(&vm, LuaScriptOptions(), "function double(x) return x * 2 end");
+			script.exec();
+			lua_State* state = script.thread_state;
+			const int initial_refs = vm.getNumLuaValueReferences();
+
+			lua_getglobal(state, "double"); // Push the double function
+			const LuaVM::LuaValueRef ref = script.getRefToFunctionOnStack(state, /*stack_index=*/-1); // Does not pop
+			lua_pop(state, 1); // Pop function
+			testAssert(ref.ref > LUA_REFNIL && vm.getNumLuaValueReferences() == initial_refs + 1);
+
+			// Check the ref refers to the double function by calling it: double(21) should return 42.
+			lua_getref(state, ref.ref); // Push function
+			lua_pushnumber(state, 21); // Push arg
+			lua_call(state, /*nargs=*/1, /*nresults=*/1); // Pops function and arg, pushes result
+			testAssert(lua_tonumber(state, -1) == 42);
+			lua_pop(state, 1); // Pop result
+
+			script.freeRefToFunction(ref);
+			testAssert(vm.getNumLuaValueReferences() == initial_refs);
+		}
+
 		// A function referenced from a child coroutine can be retrieved and released through the script's root state.
 		{
 			LuaVM vm;
@@ -336,6 +361,99 @@ void LuaTests::test()
 			testAssert(lua_isnil(root, -1));
 			lua_pop(root, 2);
 			testAssert(lua_gettop(root) == root_top && lua_gettop(child) == child_top);
+		}
+
+		//========================== Test getOptionalRefToFunctionInTable ==========================
+		{
+			LuaVM vm;
+			const std::string src =
+				"opts = {\n"
+				"    onChange = function(x) return x * 2 end,\n"
+				"    notFunc = 5,\n"
+				"    strField = 'abc',\n"
+				"    tableField = {},\n"
+				"}\n"
+				"withMeta = setmetatable({}, {__index = {onChange = function() end}})";
+			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
+			lua_State* state = script.thread_state;
+			const int initial_top = lua_gettop(state);
+			const int initial_refs = vm.getNumLuaValueReferences();
+
+			lua_getglobal(state, "opts"); // Push opts table, at index initial_top + 1
+			const int opts_index = lua_gettop(state);
+
+			// Function field: returns a valid, tracked ref, and leaves the stack unchanged.
+			{
+				const LuaVM::LuaValueRef ref = script.getOptionalRefToFunctionInTable(state, opts_index, "onChange");
+				testAssert(ref.ref > LUA_REFNIL);
+				testAssert(vm.getNumLuaValueReferences() == initial_refs + 1);
+				testAssert(lua_gettop(state) == opts_index);
+
+				// Check the ref refers to the onChange function by calling it: onChange(21) should return 42.
+				lua_getref(state, ref.ref); // Push function
+				testAssert(lua_isfunction(state, -1));
+				lua_pushnumber(state, 21); // Push arg
+				lua_call(state, /*nargs=*/1, /*nresults=*/1); // Pops function and arg, pushes result
+				testAssert(lua_tonumber(state, -1) == 42);
+				lua_pop(state, 1); // Pop result
+
+				script.freeRefToFunction(ref);
+				testAssert(vm.getNumLuaValueReferences() == initial_refs);
+				testAssert(lua_gettop(state) == opts_index);
+			}
+
+			// Negative (relative) table index.
+			{
+				lua_pushnil(state); // Push a dummy value so the table is at -2.
+				const LuaVM::LuaValueRef ref = script.getOptionalRefToFunctionInTable(state, /*table_index=*/-2, "onChange");
+				testAssert(ref.ref > LUA_REFNIL);
+				testAssert(lua_gettop(state) == opts_index + 1); // Stack is unchanged: opts table, then the dummy nil.
+				lua_pop(state, 1); // Pop dummy nil
+
+				script.freeRefToFunction(ref);
+				testAssert(vm.getNumLuaValueReferences() == initial_refs);
+			}
+
+			// Missing field: returns LUA_NOREF and creates no ref.
+			{
+				const LuaVM::LuaValueRef ref = script.getOptionalRefToFunctionInTable(state, opts_index, "noSuchField");
+				testAssert(ref.ref == LUA_NOREF);
+				testAssert(vm.getNumLuaValueReferences() == initial_refs);
+				testAssert(lua_gettop(state) == opts_index);
+
+				script.freeRefToFunction(ref); // Should do nothing for LUA_NOREF.
+				testAssert(vm.getNumLuaValueReferences() == initial_refs);
+			}
+
+			// Non-function fields: throw, with the key name in the message, and create no ref.
+			const char* bad_keys[] = { "notFunc", "strField", "tableField" };
+			for(size_t i=0; i<staticArrayNumElems(bad_keys); ++i)
+			{
+				try
+				{
+					script.getOptionalRefToFunctionInTable(state, opts_index, bad_keys[i]);
+					failTest("Expected exception for key " + std::string(bad_keys[i]));
+				}
+				catch(glare::Exception& e)
+				{
+					testAssert(StringUtils::containsString(e.what(), "'" + std::string(bad_keys[i]) + "' must be a function"));
+				}
+				testAssert(vm.getNumLuaValueReferences() == initial_refs);
+				testAssert(lua_gettop(state) == opts_index); // Stack is unchanged: field value was popped before throwing.
+			}
+
+			lua_settop(state, initial_top); // Pop opts table
+
+			// The lookup is raw, so a function only reachable through __index is not found.
+			{
+				lua_getglobal(state, "withMeta"); // Push withMeta table
+				const LuaVM::LuaValueRef ref = script.getOptionalRefToFunctionInTable(state, /*table_index=*/-1, "onChange");
+				testAssert(ref.ref == LUA_NOREF);
+				testAssert(vm.getNumLuaValueReferences() == initial_refs);
+				testAssert(lua_gettop(state) == initial_top + 1); // Stack is unchanged: just the withMeta table.
+				lua_pop(state, 1); // Pop withMeta table
+			}
 		}
 
 		//========================== Test with a simple script ==========================

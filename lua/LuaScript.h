@@ -94,9 +94,13 @@ public:
 		LuaVM::LuaValueRef ref;
 		const void* func_ptr;
 	};
-	LuaFuncRefAndPtr getRefToFunction(const char* func_name);
+	LuaFuncRefAndPtr getRefToFunction(const char* func_name); // Get a reference to a global function looked up by name
 
 	LuaVM::LuaValueRef getRefToFunctionOnStack(lua_State* calling_state, int stack_index);
+
+	// If no table field with the given key found, return LuaVM::LuaValueRef() (i.e. LUA_NOREF)
+	LuaVM::LuaValueRef getOptionalRefToFunctionInTable(lua_State* calling_state, int table_index, const char* key);
+
 
 	void freeRefToFunction(LuaVM::LuaValueRef ref);
 
