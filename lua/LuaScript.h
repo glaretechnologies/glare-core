@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "LuaVM.h" // For LuaCFunction
 #include <utils/Exception.h>
+#include <utils/Reference.h>
 #include <Luau/Location.h>
 #include <string>
 #include <vector>
@@ -106,7 +107,7 @@ public:
 
 
 
-	LuaVM* lua_vm;
+	Reference<LuaVM> lua_vm;
 
 	lua_State* thread_state;
 	LuaVM::LuaValueRef thread_ref;

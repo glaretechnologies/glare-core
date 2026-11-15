@@ -346,6 +346,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	try
 	{
 		LuaVM vm;
+		vm.setAsNotIndependentlyHeapAllocated();
 		vm.max_total_mem_allowed = 16 * 1024 * 1024;
 
 		LuaScriptOptions script_options;
@@ -406,6 +407,7 @@ void LuaSerialisation::test()
 	try
 	{
 		LuaVM vm;
+		vm.setAsNotIndependentlyHeapAllocated();
 	
 		const std::string src = "t = { x = 123.0, b=true, s = 'abc', v1d = {x=7, y=8, z=9}, v1f = Vec3f(7, 8, 9), m1 = {10, 11, 12, 13} }  " 
 			"t2 = { 100, 200, 300, 'a' }          "
@@ -766,6 +768,7 @@ void LuaSerialisation::test()
 		BufferOutStream serialised;
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			const std::string src =
 				"deep_table = { a = { b = { c = { d = { e = { f = { g = { a = { b = { c = { d = { e = { f = { g = { a = { b = { c = { d = { e = { f = { g = 1.0} } } } } } } }}}}}}}}}}}}}}"
 				"";
@@ -783,6 +786,7 @@ void LuaSerialisation::test()
 		// Deserialise it
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			const std::string src = "";
 			LuaScript script(&vm, LuaScriptOptions(), src);
 			script.exec();

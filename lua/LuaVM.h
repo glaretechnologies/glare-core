@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 #include "../utils/Platform.h"
+#include "../utils/ThreadSafeRefCounted.h"
 #include <string>
 #include <vector>
 #include <set>
@@ -56,7 +57,7 @@ We will define a Vec2 class as well, leaving off the 'f' suffix since there is n
 See 'Create Vec3d Metatable' code in LuaVM::LuaVM().
 
 =====================================================================*/
-class LuaVM
+class LuaVM : public ThreadSafeRefCounted
 {
 public:
 	LuaVM(const LuaVMOptions& options = LuaVMOptions());

@@ -212,6 +212,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 		LuaVMOptions vm_options;
 		vm_options.max_total_mem_allowed = 1024 * 1024;
 		LuaVM vm(vm_options);
+		vm.setAsNotIndependentlyHeapAllocated();
 		
 		LuaScriptOptions options;
 		options.max_num_interrupts = 64000;
@@ -263,6 +264,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 		}
 		catch(glare::Exception& e)
 		{
@@ -273,6 +275,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 	
 			const std::string src = "";
 			LuaScript script(&vm, LuaScriptOptions(), src);
@@ -286,6 +289,7 @@ void LuaTests::test()
 		//========================== Test getRefToFunctionOnStack ==========================
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			LuaScript script(&vm, LuaScriptOptions(), "function double(x) return x * 2 end");
 			script.exec();
 			lua_State* state = script.thread_state;
@@ -310,6 +314,7 @@ void LuaTests::test()
 		// A function referenced from a child coroutine can be retrieved and released through the script's root state.
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			const std::string src =
 				"weak = setmetatable({}, {__mode = 'v'})\n"
 				"co = coroutine.create(function()\n"
@@ -366,6 +371,7 @@ void LuaTests::test()
 		//========================== Test getOptionalRefToFunctionInTable ==========================
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			const std::string src =
 				"opts = {\n"
 				"    onChange = function(x) return x * 2 end,\n"
@@ -460,6 +466,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 	
 			const std::string src = "print('hello')";
 			LuaScript script(&vm, LuaScriptOptions(), src);
@@ -474,6 +481,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			const std::string src = "print('hello'";
 			LuaScript script(&vm, LuaScriptOptions(), src);
@@ -491,6 +499,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			try
 			{
@@ -519,6 +528,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			PrinterTestLuaScriptOutputHandler output_handler;
 			LuaScriptOptions options;
@@ -544,6 +554,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			PrinterTestLuaScriptOutputHandler output_handler;
 			LuaScriptOptions options;
@@ -583,6 +594,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			PrinterTestLuaScriptOutputHandler output_handler;
 			LuaScriptOptions options;
@@ -603,6 +615,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			PrinterTestLuaScriptOutputHandler output_handler;
 			LuaScriptOptions options;
@@ -643,6 +656,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			PrinterTestLuaScriptOutputHandler output_handler;
 			LuaScriptOptions options;
@@ -682,6 +696,7 @@ void LuaTests::test()
 		// Vec2 construction needs the owning LuaScript on the coroutine's own lua_State.
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			const std::string src =
 				"local make_vec = coroutine.wrap(function() return Vec2(3, 4) end)\n"
 				"local v = make_vec()\n"
@@ -706,6 +721,7 @@ void LuaTests::test()
 			try
 			{
 				LuaVM vm(vm_options);
+				vm.setAsNotIndependentlyHeapAllocated();
 				failTest("Expected lua_newstate to fail during initialisation.");
 			}
 			catch(glare::Exception& e)
@@ -720,6 +736,7 @@ void LuaTests::test()
 			LuaVMOptions vm_options;
 			vm_options.max_total_mem_allowed = 500000;
 			LuaVM vm(vm_options);
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			LuaScriptOptions options;
 
@@ -741,6 +758,7 @@ void LuaTests::test()
 			LuaVMOptions vm_options;
 			vm_options.max_total_mem_allowed = 500000;
 			LuaVM vm(vm_options);
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			LuaScriptOptions options;
 
@@ -767,6 +785,7 @@ void LuaTests::test()
 			LuaVMOptions vm_options;
 			vm_options.max_total_mem_allowed = 500000;
 			LuaVM vm(vm_options);
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			LuaScriptOptions options;
 
@@ -827,6 +846,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			LuaScriptOptions options;
 			options.max_num_interrupts = 10000;
@@ -847,6 +867,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			LuaScriptOptions options;
 			options.max_num_interrupts = 10000;
 
@@ -873,6 +894,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			LuaScriptOptions options;
 			options.max_num_interrupts = 10000;
 
@@ -919,6 +941,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			LuaScriptOptions options;
 			options.max_num_interrupts = 10000;
 
@@ -974,6 +997,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			LuaScriptOptions options;
 			options.max_num_interrupts = 10000;
 
@@ -1021,6 +1045,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			const std::string src = "assert(false, 'assert failed')";
 			LuaScript script(&vm, LuaScriptOptions(), src);
@@ -1037,6 +1062,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			const std::string src = "error('error called woop woop')";
 			LuaScript script(&vm, LuaScriptOptions(), src);
@@ -1053,6 +1079,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			const std::string src = "function f(x) return x + 1 end    local y = f(1)  print(tostring(y))";
 
@@ -1074,6 +1101,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			const std::string src = "function f(x) return x + 1 end";
 
@@ -1125,6 +1153,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			LuaScriptOptions options;
 			options.c_funcs.push_back(LuaCFunction(testCallStackPrintFunc, "testCallStackPrintFunc"));
@@ -1158,6 +1187,7 @@ void LuaTests::test()
 			LuaVMOptions vm_options;
 			vm_options.max_total_mem_allowed = 500000;
 			LuaVM vm(vm_options);
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			LuaScriptOptions options;
 			options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
@@ -1183,6 +1213,7 @@ void LuaTests::test()
 			LuaVMOptions vm_options;
 			vm_options.max_total_mem_allowed = 500000;
 			LuaVM vm(vm_options);
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			LuaScriptOptions options;
 			options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
@@ -1203,6 +1234,7 @@ void LuaTests::test()
 			LuaVMOptions vm_options;
 			vm_options.max_total_mem_allowed = 500000;
 			LuaVM vm(vm_options);
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			LuaScriptOptions options;
 			options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
@@ -1225,6 +1257,7 @@ void LuaTests::test()
 			LuaVMOptions vm_options;
 			vm_options.max_total_mem_allowed = 500000;
 			LuaVM vm(vm_options);
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			for(int i=0; i<1000; ++i)
 			{
@@ -1247,6 +1280,7 @@ void LuaTests::test()
 			LuaVMOptions vm_options;
 			vm_options.max_total_mem_allowed = 500000;
 			LuaVM vm(vm_options);
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			for(int i=0; i<1000; ++i)
 			{
@@ -1275,6 +1309,7 @@ void LuaTests::test()
 			LuaVMOptions vm_options;
 			vm_options.max_total_mem_allowed = 500000;
 			LuaVM vm(vm_options);
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			LuaScriptOptions options;
 			//options.c_funcs.push_back(LuaCFunction(testFunc, "testFunc"));
@@ -1336,6 +1371,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			LuaScriptOptions options;
 			TestLuaScriptOutputHandler handler;
 			options.script_output_handler = &handler;
@@ -1415,6 +1451,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			LuaScriptOptions options;
 			TestLuaScriptOutputHandler handler;
 			options.script_output_handler = &handler;
@@ -1486,6 +1523,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 			LuaScriptOptions options;
 			TestLuaScriptOutputHandler handler;
 			options.script_output_handler = &handler;
@@ -1546,6 +1584,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 	
 			const std::string src = " sulr	,eah,e__e	,e,ho	,e,h_e	,e,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,ete,ho	,e,h__ehi,hi_e	,i	"
 				",e,h__e	,e,hi,hi_e	,i_ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,ete,ho	,e,h__ehi,hi_e	,i	,e,h__e	,e,hi,hi_e	,i,i,hi_e	,i,etohi,ho	"
@@ -1567,6 +1606,7 @@ void LuaTests::test()
 		try
 		{
 			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
 
 			const std::string src = FileUtils::readEntireFileTextMode("C:\\code\\glare-core\\lua\\test.luau");
 			LuaScript script(&vm, LuaScriptOptions(), src);
