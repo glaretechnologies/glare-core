@@ -50,14 +50,13 @@ public:
 	
 	// Get a const char* pointer to a string value on the Lua stack.  Only valid for the lifetime of the stack object.
 	// Throws exception if value on stack is not a string.
-	static const char* getStringConstCharPtr(lua_State* state, int index);
 	static const char* getStringAndAtom(lua_State* state, int index, int& atom_out);
 	// Convert a Lua string on the stack at index into a std::string
 	static std::string getString(lua_State* state, int index);
-	static const char* getStringPointerAndLen(lua_State* state, int index, size_t& len_out);
+	static string_view getStringAsStringView(lua_State* state, int index);
 	
 	static std::string getStringArg(lua_State* state, int arg_index); // Same as getString except exception message calls the value an argument.
-	static string_view getStringArgAsStringView(lua_State* state, int arg_index); // Same as getString except exception message calls the value an argument.
+	static string_view getStringArgAsStringView(lua_State* state, int arg_index); // Same as getStringAsStringView except exception message calls the value an argument.
 	static std::string getTableStringField(lua_State* state, int table_index, const char* key);
 	static std::string getTableStringFieldWithEmptyDefault(lua_State* state, int table_index, const char* key);
 

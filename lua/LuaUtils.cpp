@@ -307,83 +307,57 @@ bool LuaUtils::getTableBoolFieldWithDefault(lua_State* state, int table_index, c
 }
 
 
-const char* LuaUtils::getStringConstCharPtr(lua_State* state, int index)
-{
-	if(!lua_isstring(state, index))
-		throw glare::Exception("Value was not a string (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
-
-	size_t len;
-	const char* s = lua_tolstring(state, index, &len);
-	if(s)
-		return s;
-	else
-		runtimeCheckFailed("Value was not a string"); // Shouldn't get here
-}
-
 const char* LuaUtils::getStringAndAtom(lua_State* state, int index, int& atom_out)
 {
-	if(!lua_isstring(state, index))
-		throw glare::Exception("Value was not a string (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
-
 	const char* s = lua_tostringatom(state, index, &atom_out);
 	if(s)
 		return s;
 	else
-		runtimeCheckFailed("Value was not a string"); // Shouldn't get here
+		throw glare::Exception("Value was not a string (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
 }
+
 
 std::string LuaUtils::getString(lua_State* state, int index)
 {
-	if(!lua_isstring(state, index))
-		throw glare::Exception("Value was not a string (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
-
 	size_t len;
 	const char* s = lua_tolstring(state, index, &len);
 	if(s)
 		return std::string(s, len);
 	else
-		runtimeCheckFailed("Value was not a string");
+		throw glare::Exception("Value was not a string (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
 }
 
 
-const char* LuaUtils::getStringPointerAndLen(lua_State* state, int index, size_t& len_out)
+string_view LuaUtils::getStringAsStringView(lua_State* state, int index)
 {
-	if(!lua_isstring(state, index))
-		throw glare::Exception("Value was not a string (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
-
-	const char* s = lua_tolstring(state, index, &len_out);
+	size_t len;
+	const char* s = lua_tolstring(state, index, &len);
 	if(s)
-		return s;
+		return string_view(s, len);
 	else
-		runtimeCheckFailed("Value was not a string");
+		throw glare::Exception("Value was not a string (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
 }
 
 
 std::string LuaUtils::getStringArg(lua_State* state, int arg_index)
 {
-	if(!lua_isstring(state, arg_index))
-		throw glare::Exception("Argument " + toString(arg_index) + " was not a string (argument had type " + luaTypeString(state, lua_type(state, arg_index)) + ")" + errorContextString(state));
-
 	size_t len;
 	const char* s = lua_tolstring(state, arg_index, &len);
 	if(s)
 		return std::string(s, len);
 	else
-		runtimeCheckFailed("Value was not a string"); // Shouldn't get here
+		throw glare::Exception("Argument " + toString(arg_index) + " was not a string (argument had type " + luaTypeString(state, lua_type(state, arg_index)) + ")" + errorContextString(state));
 }
 
 
 string_view LuaUtils::getStringArgAsStringView(lua_State* state, int arg_index)
 {
-	if(!lua_isstring(state, arg_index))
-		throw glare::Exception("Argument " + toString(arg_index) + " was not a string (argument had type " + luaTypeString(state, lua_type(state, arg_index)) + ")" + errorContextString(state));
-
 	size_t len;
 	const char* s = lua_tolstring(state, arg_index, &len);
 	if(s)
 		return string_view(s, len);
 	else
-		runtimeCheckFailed("Value was not a string"); // Shouldn't get here
+		throw glare::Exception("Argument " + toString(arg_index) + " was not a string (argument had type " + luaTypeString(state, lua_type(state, arg_index)) + ")" + errorContextString(state));
 }
 
 
@@ -956,22 +930,6 @@ void LuaUtils::test()
 			// Test getString on a non-existent value
 			lua_getglobal(script.thread_state, "dklfgjhdfkjgh"); // Pushes onto the stack the value of the global name. Returns the type of that value.
 			testExceptionExpected([&]() { getString(script.thread_state, /*table index=*/-1); });
-			lua_pop(script.thread_state, 1); // Pop nil
-
-
-			//----------------------------------- Test getStringConstCharPtr -----------------------------------
-			lua_getglobal(script.thread_state, "s2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
-			testAssert(::stringEqual(getStringConstCharPtr(script.thread_state, /*table index=*/-1), "abc"));
-			lua_pop(script.thread_state, 1); // Pop s2
-
-			// Test getStringConstCharPtr on a value that is not a string
-			lua_getglobal(script.thread_state, "t2"); // Pushes onto the stack the value of the global name. Returns the type of that value.
-			testExceptionExpected([&]() { getStringConstCharPtr(script.thread_state, /*table index=*/-1); });
-			lua_pop(script.thread_state, 1); // Pop t2
-
-			// Test getStringConstCharPtr on a non-existent value
-			lua_getglobal(script.thread_state, "dklfgjhdfkjgh"); // Pushes onto the stack the value of the global name. Returns the type of that value.
-			testExceptionExpected([&]() { getStringConstCharPtr(script.thread_state, /*table index=*/-1); });
 			lua_pop(script.thread_state, 1); // Pop nil
 
 
