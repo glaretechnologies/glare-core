@@ -17,6 +17,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/StringUtils.h"
 #include <lualib.h>
 #include <luacode.h>
+#include <cstring>
 
 
 
@@ -252,6 +253,39 @@ public:
 	}
 	std::string buf;
 };
+
+
+static double doubleFromBits(uint64 bits) { double d; std::memcpy(&d, &bits, sizeof(d)); return d; }
+
+
+// Inserts the keys of the outer table from a LuaSerialisation fuzzer crash input, in the same order.  One of the keys is NaN.
+static int insertKeysIncludingNaN(lua_State* state)
+{
+	struct Entry { double key; bool nil_value; };
+	const Entry entries[] = {
+		{ doubleFromBits(0x3FF000000000001Dull), false }, // 1.0000000000000064
+		{ 0.0,  false },
+		{ 9.0,  false },
+		{ 16.0, false },
+		{ doubleFromBits(0xFFFFFFF600000000ull), false }, // NaN
+		{ 1.0,  false },
+		{ 2.0,  true  },
+		{ 4.0,  false },
+		{ doubleFromBits(0x4010000001000000ull), false }, // 4.000000014901161
+	};
+
+	lua_newtable(state); // Push table
+	for(size_t i=0; i<staticArrayNumElems(entries); ++i)
+	{
+		lua_pushnumber(state, entries[i].key); // Push key
+		if(entries[i].nil_value)
+			lua_pushnil(state); // Push nil value
+		else
+			lua_pushnumber(state, 1.0); // Push value
+		lua_settable(state, -3); // t[key] = value, pops key and value
+	}
+	return 0;
+}
 
 
 void LuaTests::test()
@@ -518,6 +552,75 @@ void LuaTests::test()
 				LuaScript script(&vm, LuaScriptOptions(), src);
 				script.exec();
 			}
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
+		//========================== Test NaN table keys are rejected ==========================
+		// Luau's NaN check (luai_numisnan) is a float comparison, which fast-math builds can optimise away, letting NaN keys corrupt the table.
+		// The solution is to use /fp:precise on the Luau source files.
+		try
+		{
+			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
+
+			const std::string src =
+				"assert(not pcall(function() local t = {}   t[0/0] = 1 end))\n"
+				"assert(not pcall(function() local t = {}   rawset(t, 0/0, 1) end))\n"
+				"assert(not pcall(function() local t = {}   t[Vec3f(0/0, 0, 0)] = 1 end))";
+			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
+		}
+		catch(glare::Exception& e)
+		{
+			failTest("Failed:" + e.what());
+		}
+
+		// Insert a NaN key followed by more keys that resize the table.  If the NaN check is optimised away, the NaN key is inserted and
+		// a later insert hits LUAU_ASSERT(gnext(n) == 0) in newcollidingkey when the table is resized.
+		{
+			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
+
+			lua_pushcfunction(vm.state, insertKeysIncludingNaN, "insertKeysIncludingNaN"); // Push function
+			const int status = lua_pcall(vm.state, /*nargs=*/0, /*nresults=*/0, /*errfunc=*/0); // Pops function, pushes error message on error
+			testAssert(status == LUA_ERRRUN);
+			testAssert(StringUtils::containsString(lua_tostring(vm.state, -1), "table index is NaN"));
+			lua_pop(vm.state, 1); // Pop error message
+		}
+
+		// Same key sequence as above, from a script.  The keys are made from their bits with the buffer library.
+		// The inserts go through a function so the keys are variables, and the compiler doesn't presize the table or use SETTABLEN.
+		try
+		{
+			LuaVM vm;
+			vm.setAsNotIndependentlyHeapAllocated();
+
+			const std::string src =
+				"local function f64(lo, hi)\n"
+				"	local b = buffer.create(8)\n"
+				"	buffer.writeu32(b, 0, lo)\n"
+				"	buffer.writeu32(b, 4, hi)\n"
+				"	return buffer.readf64(b, 0)\n"
+				"end\n"
+				"local ok, err = pcall(function()\n"
+				"	local t = {}\n"
+				"	local function set(k, v) t[k] = v end\n"
+				"	set(f64(0x0000001D, 0x3FF00000), 1) -- 1.0000000000000064\n"
+				"	set(0, 1)\n"
+				"	set(9, 1)\n"
+				"	set(16, 1)\n"
+				"	set(f64(0x00000000, 0xFFFFFFF6), 1) -- NaN\n"
+				"	set(1, 1)\n"
+				"	set(2, nil)\n"
+				"	set(4, 1)\n"
+				"	set(f64(0x01000000, 0x40100000), 1) -- 4.000000014901161\n"
+				"end)\n"
+				"assert(not ok and string.find(err, 'table index is NaN'))";
+			LuaScript script(&vm, LuaScriptOptions(), src);
+			script.exec();
 		}
 		catch(glare::Exception& e)
 		{
