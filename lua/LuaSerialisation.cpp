@@ -20,7 +20,8 @@ static const uint8 GLARE_LUA_NIL		= 5;
 
 
 static void serialiseValue(lua_State* state, int stack_index, int depth, const LuaSerialisation::SerialisationOptions& options, BufferOutStream& serialised);
-static void deserialiseValue(lua_State* state, HashMap<uint32, LuaVM::LuaValueRef>& metatable_uid_to_ref_map, BufferViewInStream& serialised);
+static void deserialiseValue(lua_State* state, HashMap<uint32, LuaVM::LuaValueRef>& metatable_uid_to_ref_map, BufferViewInStream& serialised,
+	int depth, const LuaSerialisation::DeserialisationOptions& options);
 
 
 static void serialiseString(lua_State* state, int stack_index, const LuaSerialisation::SerialisationOptions& options, BufferOutStream& serialised)
@@ -233,7 +234,8 @@ static void deserialiseNil(lua_State* state, BufferViewInStream& serialised)
 }
 
 
-static void deserialiseTable(lua_State* state, HashMap<uint32, LuaVM::LuaValueRef>& metatable_uid_to_ref_map, BufferViewInStream& serialised)
+static void deserialiseTable(lua_State* state, HashMap<uint32, LuaVM::LuaValueRef>& metatable_uid_to_ref_map, BufferViewInStream& serialised,
+	int depth, const LuaSerialisation::DeserialisationOptions& options)
 {
 	const uint32 metatable_uid = serialised.readUInt32();
 	LuaVM::LuaValueRef metatable_ref;
@@ -249,18 +251,22 @@ static void deserialiseTable(lua_State* state, HashMap<uint32, LuaVM::LuaValueRe
 
 	// Read number of elements
 	const uint32 num_elems = serialised.readUInt32();
+	if(num_elems > options.max_table_entries)
+		throw glare::Exception("Table exceeds max_table_entries");
+	if(num_elems > (serialised.size() - serialised.getReadIndex()) / 2) // Each entry needs at least a key tag and a value tag.
+		throw glare::Exception("Truncated serialised table");
 
 	if(!lua_checkstack(state, /*size=*/2)) // Make sure there is space for the table and metatable
 		throw glare::Exception("Failed to alloc lua stack space");
 
-	lua_createtable(state, /*num array elems hint=*/num_elems, /*num other elems hint=*/num_elems);
+	lua_newtable(state);
 	for(uint32 i=0; i<num_elems; ++i)
 	{
 		// Deserialise key to top of lua stack
-		deserialiseValue(state, metatable_uid_to_ref_map, serialised);
+		deserialiseValue(state, metatable_uid_to_ref_map, serialised, depth + 1, options);
 
 		// Deserialise value to top of lua stack
-		deserialiseValue(state, metatable_uid_to_ref_map, serialised);
+		deserialiseValue(state, metatable_uid_to_ref_map, serialised, depth + 1, options);
 
 		// Set as a table (key, value) pair
 		// key is at -2, value is at -1, so table is at -3.
@@ -277,8 +283,12 @@ static void deserialiseTable(lua_State* state, HashMap<uint32, LuaVM::LuaValueRe
 
 
 // Pushes the deserialised Lua value onto the top of the Lua stack
-static void deserialiseValue(lua_State* state, HashMap<uint32, LuaVM::LuaValueRef>& metatable_uid_to_ref_map, BufferViewInStream& serialised)
+static void deserialiseValue(lua_State* state, HashMap<uint32, LuaVM::LuaValueRef>& metatable_uid_to_ref_map, BufferViewInStream& serialised,
+	int depth, const LuaSerialisation::DeserialisationOptions& options)
 {
+	if(depth > options.max_depth)
+		throw glare::Exception("Call depth exceeded while deserialising Lua value.");
+
 	const int t = serialised.readUInt8();
 	switch (t)
 	{
@@ -292,7 +302,7 @@ static void deserialiseValue(lua_State* state, HashMap<uint32, LuaVM::LuaValueRe
 			deserialiseNumber(state, serialised);
 			break;
 		case GLARE_LUA_TABLE:
-			deserialiseTable(state, metatable_uid_to_ref_map, serialised);
+			deserialiseTable(state, metatable_uid_to_ref_map, serialised, depth, options);
 			break;		
 		case GLARE_LUA_VECTOR:
 			deserialiseVector(state, serialised);
@@ -317,12 +327,13 @@ void LuaSerialisation::serialise(lua_State* state, int stack_index, const Serial
 }
 
 
-void LuaSerialisation::deserialise(lua_State* state, HashMap<uint32, LuaVM::LuaValueRef>& metatable_uid_to_ref_map, BufferViewInStream& serialised)
+void LuaSerialisation::deserialise(lua_State* state, HashMap<uint32, LuaVM::LuaValueRef>& metatable_uid_to_ref_map, BufferViewInStream& serialised,
+	const DeserialisationOptions& options)
 {
 	// Read version
 	/*const uint32 version =*/ serialised.readUInt32();
 
-	deserialiseValue(state, metatable_uid_to_ref_map, serialised);
+	deserialiseValue(state, metatable_uid_to_ref_map, serialised, /*depth=*/0, options);
 }
 
 
@@ -338,6 +349,7 @@ void LuaSerialisation::deserialise(lua_State* state, HashMap<uint32, LuaVM::LuaV
 
 //========================== Fuzzing ==========================
 #if 0
+// Fuzz serialisation of a lua value, then deserialisation.
 // Command line:
 // C:\fuzz_corpus\lua_serialisation C:\code\glare-core\testfiles\lua\serialisation_fuzz_seeds
 
@@ -345,9 +357,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
 	try
 	{
-		LuaVM vm;
+		LuaVMOptions options;
+		options.max_total_mem_allowed = 16 * 1024 * 1024;
+		LuaVM vm(options);
 		vm.setAsNotIndependentlyHeapAllocated();
-		vm.max_total_mem_allowed = 16 * 1024 * 1024;
 
 		LuaScriptOptions script_options;
 		script_options.max_num_interrupts = 1000;
@@ -383,6 +396,84 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 	}
 
 	return 0; // Non-zero return values are reserved for future use.
+}
+#endif
+
+// Fuzz deserialisation from the raw byte serialisation format.
+// Command line:
+// C:\fuzz_corpus\lua_deserialisation_raw C:\code\glare-core\testfiles\lua\deserialisation_raw_fuzz_seeds -max_len=100000
+#if 0
+extern "C" int LLVMFuzzerInitialize(int*, char***)
+{
+	LuaVM::staticInit();
+
+	return 0;
+}
+
+
+struct DeserialisationFuzzInput
+{
+	BufferViewInStream stream;
+	HashMap<uint32, LuaVM::LuaValueRef> metatables;
+};
+
+
+/*static int fuzzDeserialise(lua_State* state)
+{
+	auto* input = static_cast<DeserialisationFuzzInput*>(lua_touserdata(state, 1));
+	const int initial_top = lua_gettop(state);
+	try
+	{
+		LuaSerialisation::deserialise(state, input->metatables, input->stream);
+	}
+	catch(const glare::Exception&) // Invalid or truncated stream.
+	{
+		return 0;
+	}
+	testAssert(lua_gettop(state) == initial_top + 1);
+	return 0;
+}*/
+
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+{
+	LuaVMOptions options;
+	options.max_total_mem_allowed = 16 * 1024 * 1024;
+	LuaVM vm(options);
+	vm.setAsNotIndependentlyHeapAllocated();
+
+	DeserialisationFuzzInput input{
+		BufferViewInStream(ArrayRef<uint8>(data, size)),
+		HashMap<uint32, LuaVM::LuaValueRef>(std::numeric_limits<uint32>::max())
+	};
+	input.metatables.insert(std::make_pair(1u, vm.Vec3dMetaTable_ref));
+	input.metatables.insert(std::make_pair(2u, vm.Vec2MetaTable_ref));
+
+	// Luau itself can reject invalid keys or reach the VM memory cap.
+	//const int status = lua_cpcall(vm.state, fuzzDeserialise, &input);
+	//testAssert(status == LUA_OK || status == LUA_ERRRUN || status == LUA_ERRMEM);
+
+	const int initial_top = lua_gettop(vm.state);
+	try
+	{
+		LuaSerialisation::deserialise(vm.state, input.metatables, input.stream);
+	}
+	catch(glare::Exception& )
+	{
+		lua_settop(vm.state, initial_top);
+		return 0;
+	}
+	catch(std::exception& )
+	{
+		// Lua will throw std::exceptions
+		lua_settop(vm.state, initial_top);
+		return 0;
+	}
+
+	testAssert(lua_gettop(vm.state) == initial_top + 1);
+	lua_settop(vm.state, initial_top);
+
+	return 0;
 }
 #endif
 //========================== End fuzzing ==========================
@@ -736,6 +827,26 @@ void LuaSerialisation::test()
 			lua_pop(script.thread_state, 1); // pop nil
 		}
 
+		// A malformed table count must be rejected before creating the table.
+		{
+			HashMap<uint32, LuaVM::LuaValueRef> metatables(std::numeric_limits<uint32>::max());
+			const int initial_top = lua_gettop(script.thread_state);
+			auto check_table_header = [&](uint32 count, const char* expected_error) {
+				BufferOutStream bytes;
+				bytes.writeUInt32(1);
+				bytes.writeUInt8(GLARE_LUA_TABLE);
+				bytes.writeUInt32(std::numeric_limits<uint32>::max()); // No metatable
+				bytes.writeUInt32(count);
+				BufferViewInStream stream(ArrayRef<uint8>(bytes.buf.data(), bytes.buf.size()));
+				testThrowsExcepContainingString([&]() {
+					deserialise(script.thread_state, metatables, stream);
+				}, expected_error);
+				testAssert(lua_gettop(script.thread_state) == initial_top);
+			};
+			check_table_header(std::numeric_limits<uint32>::max(), "max_table_entries");
+			check_table_header(1, "Truncated serialised table");
+		}
+
 		// Test trying to serialise a function fails with an exception thrown.
 		{
 			lua_getglobal(script.thread_state, "someFunc"); // push onto stack
@@ -796,7 +907,17 @@ void LuaSerialisation::test()
 			printVar(LuaUtils::freeStackCapacity(script.thread_state));
 
 			BufferViewInStream instream(ArrayRef<uint8>(serialised.buf.data(), serialised.buf.size()));
-			deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
+			const int initial_top = lua_gettop(script.thread_state);
+			testThrowsExcepContainingString([&]() {
+				deserialise(script.thread_state, metatable_uid_to_ref_map, instream);
+			}, "Call depth exceeded");
+			lua_settop(script.thread_state, initial_top);
+
+			instream.setReadIndex(0);
+			DeserialisationOptions options;
+			options.max_depth = 100;
+			options.max_table_entries = 1; // Each table in the chain contains exactly one entry.
+			deserialise(script.thread_state, metatable_uid_to_ref_map, instream, options);
 
 			printVar(LuaUtils::freeStackCapacity(script.thread_state));
 		}
