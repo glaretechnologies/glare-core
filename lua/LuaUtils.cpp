@@ -150,10 +150,9 @@ static std::string errorContextString(lua_State* state)
 
 static std::string luaTypeString(lua_State* state, int type)
 {
-	// Check type enum value is in bounds of luaT_typenames
-	assert(type >= 0 && type < 11);
-	if(type < 0 || type >= 11)
-		throw glare::Exception("Internal error, invalid type");
+	// Check type enum value is in bounds of what lua_typename accepts.
+	runtimeCheck(type >= LUA_TNONE && type < LUA_T_COUNT);
+
 	return std::string(lua_typename(state, type));
 }
 
