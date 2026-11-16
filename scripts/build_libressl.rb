@@ -69,7 +69,7 @@ LibreSSL build
 
 "
 
-$libressl_version = "4.4.0"
+$libressl_version = "4.4.1"
 $vs_version = 2022
 $configurations = [ :release, :debug ]
 $forcerebuild = false
