@@ -151,21 +151,23 @@ void GLUIDropDownList::setValue(const std::string& new_val)
 }
 
 
-//void GLUIDropDownList::setValueNoEvent(double new_val)
-//{
-//	const double clamped = myClamp(new_val, args.min_value, args.max_value);
-//	if(clamped == cur_value)
-//		return;
-//
-//	cur_value = clamped;
-//	updateOverlayTransforms();
-//}
+void GLUIDropDownList::setValueNoEvent(const std::string& new_val)
+{
+	for(size_t i=0; i<args.options.size(); ++i)
+		if(new_val == args.options[i])
+		{
+			this->cur_index = i;
+			this->text->setText(getCurrentValue());
+			updateWidgetTransforms();
+			return;
+		}
+}
 
 
 void GLUIDropDownList::handleMousePress(MouseEvent& event)
 {
-	//if(!background_ob->draw)
-	//	return;
+	if(!isVisible()) // If this widget is hidden:
+		return;
 
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(rect.inOpenRectangle(coords))
@@ -209,8 +211,8 @@ void GLUIDropDownList::handleMouseDoubleClick(MouseEvent& event)
 
 void GLUIDropDownList::doHandleMouseMoved(MouseEvent& event)
 {
-	//if(!background_ob->draw)
-	//	return;
+	if(!isVisible()) // If this widget is hidden:
+		return;
 
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	updateButtonColours(coords);
@@ -261,6 +263,10 @@ void GLUIDropDownList::openButtonPressed()
 			but_args.text_colour                 = this->args.text_colour;
 			but_args.mouseover_text_colour       = this->args.text_colour;
 			but_args.sizing_type_x     = GLUIWidget::SizingType_Expanding;
+			// Plain buttons, so the options look like a single list.
+			but_args.corner_radius_px  = 0;
+			but_args.border_width_px   = 0;
+			but_args.shadow_num_layers = 0;
 
 			GLUITextButtonRef button = new GLUITextButton(*glui, /*button text=*/args.options[i], but_args);
 			button->on_pressed = [this](GLUICallbackEvent& event) { this->optionButtonPressed(event); };
@@ -415,6 +421,9 @@ void GLUIDropDownList::setVisible(bool visible)
 {
 	open_button_overlay_ob->draw  = visible;
 	text->setVisible(visible);
+
+	if(!visible)
+		checkRemoveAndDeleteWidget(glui, options_grid); // Close options grid if open
 }
 
 

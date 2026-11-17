@@ -56,8 +56,9 @@ public:
 	~GLUIDropDownList();
 
 	std::string getCurrentValue() const { return cur_index < args.options.size() ? args.options[cur_index] : std::string(); }
+	const std::vector<std::string>& getOptions() const { return args.options; }
 	void setValue(const std::string& new_val);        // fires handler.
-	//void setValueNoEvent(const std::string& new_val); // no handler call.
+	void setValueNoEvent(const std::string& new_val); // no handler call.  Does nothing if new_val is not one of the options.
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;
