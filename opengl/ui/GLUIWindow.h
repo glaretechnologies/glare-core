@@ -67,7 +67,8 @@ public:
 	GLUIWindow(GLUI& glui, const CreateArgs& args);
 	virtual ~GLUIWindow();
 
-	void setBodyWidget(const GLUIWidgetRef body_widget);
+	void setBodyWidget(const GLUIWidgetRef body_widget); // body_widget may be null, to remove the body widget.  A previous body widget is detached but stays in the GL UI.
+	const GLUIWidgetRef& getBodyWidget() const { return body_widget; }
 
 	virtual void handleMousePress(MouseEvent& event) override;
 	virtual void handleMouseRelease(MouseEvent& event) override;

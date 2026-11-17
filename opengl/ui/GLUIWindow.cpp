@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2026 -
 
 
 #include "GLUI.h"
+#include "../../maths/mathstypes.h"
 
 
 GLUIWindow::CreateArgs::CreateArgs()
@@ -87,12 +88,18 @@ GLUIWindow::~GLUIWindow()
 
 void GLUIWindow::setBodyWidget(const GLUIWidgetRef body_widget_)
 {
+	if(body_widget && (body_widget != body_widget_))
+		body_widget->setParent(nullptr); // Detach the old body widget.  It stays in the GL UI.
+
 	body_widget = body_widget_;
 
-	body_widget->setParent(this);
-	body_widget->setZ(m_z - 0.01f);
+	if(body_widget)
+	{
+		body_widget->setParent(this);
+		body_widget->setZ(m_z - 0.01f);
 
-	glui->addWidget(body_widget); // Add body_widget to GL UI if not already added.
+		glui->addWidget(body_widget); // Add body_widget to GL UI if not already added.
+	}
 
 	recomputeLayout();
 }
@@ -190,8 +197,10 @@ void GLUIWindow::recomputeLayout()
 	const float title_bar_h = glui->getUIWidthForDevIndepPixelWidth(title_bar_h_px);
 	const float padding     = glui->getUIWidthForDevIndepPixelWidth(args.padding_px);
 
-	const float w =               body_widget->getDims().x + padding * 2;
-	const float h = title_bar_h + body_widget->getDims().y + padding * 2;
+	const Vec2f body_dims = body_widget ? body_widget->getDims() : Vec2f(0.f);
+	const float min_title_w = title_text->getDims().x + (close_button->getDims().x + glui->getUIWidthForDevIndepPixelWidth(2)) * 2; // Wide enough that the centred title doesn't overlap the close button.
+	const float w = myMax(body_dims.x + padding * 2, min_title_w);
+	const float h = title_bar_h + body_dims.y + padding * 2;
 
 	const Vec2f dims(w, h);
 
