@@ -24,7 +24,7 @@ HTTPClient::HTTPClient()
 	max_socket_buffer_size(1 << 16),
 	keepalive_socket(false),
 	connected_port(-1),
-	enable_TCP_nodelay(false)
+	do_cert_verification(true)
 {}
 
 
@@ -64,14 +64,18 @@ void HTTPClient::connect(const std::string& protocol, const std::string& hostnam
 			MySocketRef plain_socket = new MySocket();
 			this->socket = plain_socket; // Store in this->socket so we can interrupt in kill() while connecting.
 			plain_socket->connect(hostname, (port == -1) ? 443 : port);
-			if(enable_TCP_nodelay) 
-				plain_socket->setNoDelayEnabled(true);
 			plain_socket->setTimeout(/*timeout (seconds)=*/60.0);
 
 			TLSConfig client_tls_config;
 
 			// Load the trusted root certificates used to verify servers.
 			TLSSocket::setClientConfigCAData(client_tls_config);
+
+			if(!do_cert_verification)
+			{
+				tls_config_insecure_noverifycert(client_tls_config.config);
+				tls_config_insecure_noverifyname(client_tls_config.config);
+			}
 
 			this->socket = new TLSSocket(plain_socket, client_tls_config.config, hostname);
 		}

@@ -83,7 +83,7 @@ public:
 	size_t max_socket_buffer_size; // Maximum size that the internal buffer socket_buffer can be resized to.  Chunked transfer encoding will 
 	// fail with an error message if a chunk exceeds this size.
 
-	bool enable_TCP_nodelay;
+	bool do_cert_verification; // Verify the server's TLS certificate and hostname?  Default value is true.  Takes effect on the next connection.
 
 	SocketInterfaceRef test_socket;
 
