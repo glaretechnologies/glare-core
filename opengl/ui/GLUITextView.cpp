@@ -78,7 +78,10 @@ GLUITextView::GLUITextView(GLUI& glui_, const std::string& text_, const CreateAr
 
 	this->rect = Rect2f(args.botleft, args.botleft + Vec2f(0.1f));
 
-	setText(text_); // Sets rect
+	setText(text_); // Sets rect, if text_ is non-empty.
+
+	if(text_.empty())
+		this->rect = recomputeRect(); // setText() does nothing if text_ is empty, as it equals the initial empty text, so explicitly recompute rect.
 
 	updateOverlayObTransforms();
 }
