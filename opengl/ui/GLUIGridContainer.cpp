@@ -457,6 +457,20 @@ bool GLUIGridContainer::isInserted(GLUIWidgetRef widget) const
 }
 
 
+void GLUIGridContainer::removeWidget(GLUIWidgetRef widget)
+{
+	for(size_t y=0; y<cell_widgets.getHeight(); ++y)
+	for(size_t x=0; x<cell_widgets.getWidth(); ++x)
+		if(widget && (cell_widgets.elem(x, y) == widget))
+		{
+			widget->setParent(nullptr);
+			cell_widgets.elem(x, y) = nullptr;
+			recomputeLayout();
+			return;
+		}
+}
+
+
 void GLUIGridContainer::addWidgetOnNewRow(GLUIWidgetRef widget)
 {
 	setCellWidget(0, (int)cell_widgets.getHeight(), widget);

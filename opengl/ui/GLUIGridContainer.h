@@ -79,6 +79,9 @@ public:
 
 	bool isInserted(GLUIWidgetRef widget) const;
 
+	// Removes the widget from its cell, if it is in the grid, and clears its parent.  Doesn't remove the widget from the GLUI.
+	void removeWidget(GLUIWidgetRef widget);
+
 	void addWidgetOnNewRow(GLUIWidgetRef widget); // Adds new row at bottom of grid.
 
 	void clear(); // Remove all widgets from grid, resize cell_widgets to zero.
