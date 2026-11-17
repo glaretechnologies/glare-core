@@ -57,6 +57,7 @@ GLUIButton::GLUIButton(GLUI& glui_, const std::string& tex_path, const CreateArg
 	if(!tex_path.empty())
 		overlay_ob->material.albedo_texture = opengl_engine->getTexture(tex_path, tex_params);
 	overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1);
+	overlay_ob->material.tex_translation = Vec2f(0, 1);
 
 
 	const Vec2f botleft(0.f);
