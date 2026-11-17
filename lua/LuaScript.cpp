@@ -11,11 +11,63 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include "../utils/Parser.h"
+#include "../utils/Timer.h"
 #include <lualib.h>
 #include <Luau/Compiler.h>
 #include "Luau/BytecodeBuilder.h"
 #include "Luau/ParseResult.h"
+#include "Luau/Parser.h"
+#include "Luau/Ast.h"
 #include <cassert>
+#include <algorithm>
+#include <unordered_set>
+
+
+// Collects calls to global functions, like foo(), and the globals the script defines, by assignment or with 'function foo()'.
+class GlobalCallCollector : public Luau::AstVisitor
+{
+public:
+	struct GlobalCall
+	{
+		std::string name;
+		int line; // 1-based
+	};
+
+	virtual bool visit(Luau::AstExprCall* node) override
+	{
+		if(Luau::AstExprGlobal* global = node->func->as<Luau::AstExprGlobal>())
+			calls.push_back(GlobalCall({std::string(global->name.value), (int)node->location.begin.line + 1})); // Luau lines are 0-based.
+		return true; // Visit children
+	}
+
+	virtual bool visit(Luau::AstStatAssign* node) override
+	{
+		for(size_t i=0; i<node->vars.size; ++i)
+			if(Luau::AstExprGlobal* global = node->vars.data[i]->as<Luau::AstExprGlobal>())
+				defined_globals.insert(global->name.value);
+		return true;
+	}
+
+	virtual bool visit(Luau::AstStatCompoundAssign* node) override
+	{
+		if(Luau::AstExprGlobal* global = node->var->as<Luau::AstExprGlobal>())
+			defined_globals.insert(global->name.value);
+		return true;
+	}
+
+	virtual bool visit(Luau::AstStatFunction* node) override
+	{
+		if(Luau::AstExprGlobal* global = node->name->as<Luau::AstExprGlobal>())
+			defined_globals.insert(global->name.value);
+		return true;
+	}
+
+	std::vector<GlobalCall> calls;
+	std::unordered_set<std::string> defined_globals;
+};
+
+
 
 
 LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std::string& script_src)
@@ -62,7 +114,19 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 		Luau::ParseOptions parse_options;
 		Luau::BytecodeBuilder bytecode_builder(/*encoder*/NULL);
 
-		Luau::compileOrThrow(bytecode_builder, script_src, compile_options, parse_options);
+		// Parse, then compile from the parse result, so that we can also walk the AST to find calls to undefined global functions.
+		// This is what Luau::compileOrThrow(bytecode_builder, script_src, ...) does.
+		Luau::Allocator allocator;
+		Luau::AstNameTable names(allocator);
+		Luau::ParseResult parse_result = Luau::Parser::parse(script_src.c_str(), script_src.size(), names, allocator, parse_options);
+		if(!parse_result.errors.empty())
+			throw Luau::ParseErrors(parse_result.errors);
+
+		GlobalCallCollector global_call_collector;
+		if(options.find_calls_to_undefined_globals)
+			parse_result.root->visit(&global_call_collector);
+
+		Luau::compileOrThrow(bytecode_builder, parse_result, names, compile_options);
 
 		const std::string bytecode = bytecode_builder.getBytecode();
 
@@ -86,6 +150,29 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 		{
 			lua_pushcfunction(thread_state, options.c_funcs[i].func, /*debugname=*/options.c_funcs[i].func_name.c_str());
 			lua_setglobal(thread_state, options.c_funcs[i].func_name.c_str());
+		}
+
+		// Record calls to global functions that are neither defined by the script nor globals in the VM, such as a misspelt function name.
+		// The VM globals include Luau's built-in functions as well as ours, so ask the VM whether each called name is a global.
+		// global_call_collector.calls is empty if options.find_calls_to_undefined_globals is false.
+		if(options.find_calls_to_undefined_globals)
+		{
+			//Timer timer;
+			for(size_t i=0; i<global_call_collector.calls.size(); ++i) // For each call of a function:
+			{
+				const GlobalCallCollector::GlobalCall& call = global_call_collector.calls[i];
+				if(global_call_collector.defined_globals.count(call.name) > 0) // If the script defines this global:
+					continue;
+				if(compile_options.vectorCtor && (call.name == compile_options.vectorCtor)) // The vector constructor is compiled to a builtin, and isn't a global.
+					continue;
+
+				// Query the lua state itself for this function name, to see if it is a global function (might be a built-in function)
+				const int type = lua_getglobal(thread_state, call.name.c_str()); // Push global value (nil if not defined)
+				lua_pop(thread_state, 1); // Pop global value
+				if(type == LUA_TNIL)
+					calls_to_undefined_globals.push_back(GlobalFuncCall({call.name, call.line}));
+			}
+			//conPrint("building calls_to_undefined_globals took " + timer.elapsedStringMS());
 		}
 	}
 	catch(Luau::ParseErrors& e)
@@ -140,6 +227,23 @@ LuaScript::~LuaScript()
 
 void LuaScript::exec()
 {
+	// Warn about calls to undefined global functions, once per function name.  Calling one would fail with just "attempt to call a nil value", which doesn't say what the name was.
+	// A global created in some other way, e.g. by a function the script calls, would be warned about wrongly, so these are warnings, not errors.
+	if(script_output_handler)
+	{
+		const size_t max_num_warnings = 10;
+		std::unordered_set<std::string> warned_names;
+		for(size_t i=0; i<calls_to_undefined_globals.size() && warned_names.size() < max_num_warnings; ++i)
+		{
+			const GlobalFuncCall& call = calls_to_undefined_globals[i];
+			if(warned_names.insert(call.name).second)
+			{
+				const std::string msg = "Warning: line " + toString(call.line) + ": call to undefined function '" + call.name + "'";
+				script_output_handler->printFromLuaScript(this, msg.data(), msg.size());
+			}
+		}
+	}
+
 	try
 	{
 		// Execute script main code
@@ -147,8 +251,44 @@ void LuaScript::exec()
 	}
 	catch(std::exception& e)
 	{
-		throw glare::Exception(e.what());
+		throw glare::Exception(improveErrorMessage(e.what()));
 	}
+}
+
+
+std::string LuaScript::improveErrorMessage(const std::string& msg) const
+{
+	// Runtime error messages look like '[string "script"]:42: attempt to call a nil value'.  Get the line number before the error text.
+	const std::string call_nil_error = ": attempt to call a nil value";
+	const size_t error_pos = msg.find(call_nil_error);
+	if(error_pos == std::string::npos)
+		return msg;
+
+	if(error_pos == 0)
+		return msg;
+	const size_t line_colon_pos = msg.rfind(':', error_pos - 1); // Position of the ':' before the line number
+	if(line_colon_pos == std::string::npos)
+		return msg;
+
+	Parser parser(msg);
+	parser.setCurrentPos(line_colon_pos + 1);
+	uint32 line;
+	if(!parser.parseUnsignedInt(line) || (parser.currentPos() != error_pos))
+		return msg;
+
+	std::vector<std::string> names; // Undefined functions called on the error line
+	for(size_t i=0; i<calls_to_undefined_globals.size(); ++i)
+		if(((uint32)calls_to_undefined_globals[i].line == line) && (std::find(names.begin(), names.end(), calls_to_undefined_globals[i].name) == names.end()))
+			names.push_back(calls_to_undefined_globals[i].name);
+
+	if(names.empty())
+		return msg;
+
+	std::string names_str;
+	for(size_t i=0; i<names.size(); ++i)
+		names_str += ((i == 0) ? "'" : " or '") + names[i] + "'";
+
+	return msg + " (probably because " + names_str + " is not defined)";
 }
 
 

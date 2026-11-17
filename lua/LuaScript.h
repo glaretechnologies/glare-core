@@ -28,7 +28,7 @@ public:
 
 struct LuaScriptOptions
 {
-	LuaScriptOptions() : max_num_interrupts(std::numeric_limits<size_t>::max()), script_output_handler(NULL), userdata(NULL) {}
+	LuaScriptOptions() : max_num_interrupts(std::numeric_limits<size_t>::max()), script_output_handler(NULL), userdata(NULL), find_calls_to_undefined_globals(true) {}
 
 	size_t max_num_interrupts;
 
@@ -41,6 +41,10 @@ struct LuaScriptOptions
 	LuaScriptOutputHandler* script_output_handler;
 	
 	void* userdata;
+
+	// If true, the script is checked for calls to undefined global functions when loaded.  exec() warns about them, and improveErrorMessage() names them.
+	// Set to false to skip the check, e.g. for scripts whose output nobody will see.
+	bool find_calls_to_undefined_globals;
 };
 
 
@@ -105,6 +109,10 @@ public:
 
 	void freeRefToFunction(LuaVM::LuaValueRef ref);
 
+	// If msg is an "attempt to call a nil value" error on a line that calls an undefined global function, returns msg with a note naming the function.
+	// Otherwise returns msg.  Only uses the text of msg, as the Lua state may not be usable after an error.
+	std::string improveErrorMessage(const std::string& msg) const;
+
 
 
 	Reference<LuaVM> lua_vm;
@@ -124,4 +132,13 @@ public:
 
 private:
 	std::unordered_set<LuaVM::LuaValueRef, LuaVM::LuaValueRefHasher> lua_func_references;
+
+	// Calls to global functions that are neither defined by the script nor globals in the VM when the script is loaded, such as a misspelt function name.
+	// Used by improveErrorMessage().
+	struct GlobalFuncCall
+	{
+		std::string name;
+		int line; // 1-based
+	};
+	std::vector<GlobalFuncCall> calls_to_undefined_globals;
 };
