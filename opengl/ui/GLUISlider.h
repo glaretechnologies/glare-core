@@ -8,9 +8,11 @@ Copyright Glare Technologies Limited 2025 -
 
 #include "GLUIWidget.h"
 #include "GLUICallbackHandler.h"
+#include "../graphics/colour3.h"
 
 
 class GLUI;
+struct OverlayObject;
 
 
 /*=====================================================================
@@ -77,8 +79,8 @@ private:
 	Rect2f computeKnobRect();
 	void handleClickOnTrack(const Vec2f mouse_ui_coords);
 
-	OverlayObjectRef track_ob;
-	OverlayObjectRef knob_ob;
+	Reference<OverlayObject> track_ob;
+	Reference<OverlayObject> knob_ob;
 
 	CreateArgs args;
 

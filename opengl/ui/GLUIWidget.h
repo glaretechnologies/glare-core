@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
-#include "../OpenGLEngine.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../maths/vec2.h"
@@ -19,6 +18,7 @@ class MouseWheelEvent;
 class KeyEvent;
 class MouseEvent;
 class TextInputEvent;
+class OpenGLEngine;
 
 
 /*=====================================================================
