@@ -271,6 +271,16 @@ double LuaUtils::getTableNumberFieldWithDefault(lua_State* state, int table_inde
 }
 
 
+bool LuaUtils::tableHasField(lua_State* state, int table_index, const char* key)
+{
+	checkValueIsTable(state, table_index);
+
+	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
+	lua_pop(state, 1); // Pop field value
+	return value_type != LUA_TNIL;
+}
+
+
 bool LuaUtils::tableHasBoolField(lua_State* state, int table_index, const char* key)
 {
 	checkValueIsTable(state, table_index);
@@ -731,6 +741,20 @@ void LuaUtils::test()
 			// Test getTableNumberFieldWithDefault on a value that is not a table.
 			lua_pushnumber(script.thread_state, 123.0);
 			testExceptionExpected([&]() { getTableNumberFieldWithDefault(script.thread_state, /*table index=*/-1, "x", /*default val=*/-1.0); });
+			lua_pop(script.thread_state, 1); // Pop 123.0
+
+			testAssert(lua_gettop(script.thread_state) == initial_stack_size); // Check stack has been returned to initial size
+
+
+			//----------------------------------- Test tableHasField -----------------------------------
+			testAssert(tableHasField(script.thread_state, /*table index=*/-1, "x"));
+			testAssert(tableHasField(script.thread_state, /*table index=*/-1, "s"));
+			testAssert(tableHasField(script.thread_state, /*table index=*/-1, "b"));
+			testAssert(!tableHasField(script.thread_state, /*table index=*/-1, "xsdfsdf"));
+
+			// Test tableHasField on a value that is not a table.
+			lua_pushnumber(script.thread_state, 123.0); // Push 123.0
+			testExceptionExpected([&]() { tableHasField(script.thread_state, /*table index=*/-1, "x"); });
 			lua_pop(script.thread_state, 1); // Pop 123.0
 
 			testAssert(lua_gettop(script.thread_state) == initial_stack_size); // Check stack has been returned to initial size

@@ -10,7 +10,6 @@ Copyright Glare Technologies Limited 2024 -
 #include "../maths/vec3.h"
 #include "../maths/Matrix2.h"
 #include <lualib.h>
-//#include "LuaVM.h"
 
 
 /*=====================================================================
@@ -41,6 +40,8 @@ public:
 	static void setStringAsTableField(lua_State* state, const char* field_key, const std::string& s);
 	
 	static void* getTableLightUserDataField(lua_State* state, int table_index, const char* key);
+
+	static bool tableHasField(lua_State* state, int table_index, const char* key); // Returns true if the field is not nil.
 
 	static double getTableNumberField(lua_State* state, int table_index, const char* key);
 	static double getTableNumberFieldWithDefault(lua_State* state, int table_index, const char* key, double default_val);
