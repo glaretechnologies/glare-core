@@ -193,10 +193,8 @@ void* LuaUtils::getTableLightUserDataField(lua_State* state, int table_index, co
 }
 
 
-double LuaUtils::getTableNumberField(lua_State* state, int table_index, const char* key)
+static inline double getTableNumberFieldNoTableCheck(lua_State* state, int table_index, const char* key)
 {
-	checkValueIsTable(state, table_index);
-
 	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
 	// lua_tonumber will update in-place a non-number value (such as a string) on the stack, which we don't want to do.
 	// So just throw an error if the value is not a number.
@@ -219,10 +217,16 @@ double LuaUtils::getTableNumberField(lua_State* state, int table_index, const ch
 }
 
 
-double LuaUtils::getTableNumberArrayElem(lua_State* state, int table_index, const int elem_index)
+double LuaUtils::getTableNumberField(lua_State* state, int table_index, const char* key)
 {
 	checkValueIsTable(state, table_index);
 
+	return getTableNumberFieldNoTableCheck(state, table_index, key);
+}
+
+
+static inline double getTableNumberArrayElemNoTableCheck(lua_State* state, int table_index, const int elem_index)
+{
 	const int value_type = lua_rawgeti(state, table_index, elem_index); // Push value onto stack
 	// lua_tonumber will update in-place a non-number value (such as a string) on the stack, which we don't want to do.
 	// So just throw an error if the value is not a number.
@@ -242,6 +246,14 @@ double LuaUtils::getTableNumberArrayElem(lua_State* state, int table_index, cons
 		lua_pop(state, 1);
 		throw glare::Exception("Value at table index " + toString(elem_index) + " is not a number (value has type " + luaTypeString(state, value_type) + ")" + errorContextString(state));
 	}
+}
+
+
+double LuaUtils::getTableNumberArrayElem(lua_State* state, int table_index, const int elem_index)
+{
+	checkValueIsTable(state, table_index);
+
+	return getTableNumberArrayElemNoTableCheck(state, table_index, elem_index);
 }
 
 
@@ -470,19 +482,15 @@ Vec3f LuaUtils::getVec3f(lua_State* state, int index)
 		return Vec3f(data[0], data[1], data[2]);
 	else
 		throw glare::Exception("Value was not a Vec3f (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
-
-	/*const float x = (float)getTableNumberField(state, index, "x");
-	const float y = (float)getTableNumberField(state, index, "y");
-	const float z = (float)getTableNumberField(state, index, "z");
-	
-	return Vec3f(x, y, z);*/
 }
 
 Vec3d LuaUtils::getVec3d(lua_State* state, int index)
 {
-	const double x = getTableNumberField(state, index, "x");
-	const double y = getTableNumberField(state, index, "y");
-	const double z = getTableNumberField(state, index, "z");
+	checkValueIsTable(state, index);
+
+	const double x = getTableNumberFieldNoTableCheck(state, index, "x");
+	const double y = getTableNumberFieldNoTableCheck(state, index, "y");
+	const double z = getTableNumberFieldNoTableCheck(state, index, "z");
 	
 	return Vec3d(x, y, z);
 }
@@ -490,8 +498,10 @@ Vec3d LuaUtils::getVec3d(lua_State* state, int index)
 
 Vec2d LuaUtils::getVec2(lua_State* state, int index)
 {
-	const double x = getTableNumberField(state, index, "x");
-	const double y = getTableNumberField(state, index, "y");
+	checkValueIsTable(state, index);
+
+	const double x = getTableNumberFieldNoTableCheck(state, index, "x");
+	const double y = getTableNumberFieldNoTableCheck(state, index, "y");
 
 	return Vec2d(x, y);
 }
@@ -499,10 +509,12 @@ Vec2d LuaUtils::getVec2(lua_State* state, int index)
 
 Matrix2f LuaUtils::getMatrix2f(lua_State* state, int table_index)
 {
-	const double x = getTableNumberArrayElem(state, table_index, /*elem index=*/1);
-	const double y = getTableNumberArrayElem(state, table_index, /*elem index=*/2);
-	const double z = getTableNumberArrayElem(state, table_index, /*elem index=*/3);
-	const double w = getTableNumberArrayElem(state, table_index, /*elem index=*/4);
+	checkValueIsTable(state, table_index);
+
+	const double x = getTableNumberArrayElemNoTableCheck(state, table_index, /*elem index=*/1);
+	const double y = getTableNumberArrayElemNoTableCheck(state, table_index, /*elem index=*/2);
+	const double z = getTableNumberArrayElemNoTableCheck(state, table_index, /*elem index=*/3);
+	const double w = getTableNumberArrayElemNoTableCheck(state, table_index, /*elem index=*/4);
 
 	return Matrix2f((float)x, (float)y, (float)z, (float)w);
 }
@@ -606,10 +618,10 @@ Matrix2f LuaUtils::getTableMatrix2fFieldWithDefault(lua_State* state, int table_
 	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call).  Returns the type of the pushed value.
 	if(value_type == LUA_TTABLE)
 	{
-		const double x = getTableNumberArrayElem(state, -1, /*elem index=*/1);
-		const double y = getTableNumberArrayElem(state, -1, /*elem index=*/2);
-		const double z = getTableNumberArrayElem(state, -1, /*elem index=*/3);
-		const double w = getTableNumberArrayElem(state, -1, /*elem index=*/4);
+		const double x = getTableNumberArrayElemNoTableCheck(state, -1, /*elem index=*/1);
+		const double y = getTableNumberArrayElemNoTableCheck(state, -1, /*elem index=*/2);
+		const double z = getTableNumberArrayElemNoTableCheck(state, -1, /*elem index=*/3);
+		const double w = getTableNumberArrayElemNoTableCheck(state, -1, /*elem index=*/4);
 
 		lua_pop(state, 1); // Pop field
 		return Matrix2f((float)x, (float)y, (float)z, (float)w);
