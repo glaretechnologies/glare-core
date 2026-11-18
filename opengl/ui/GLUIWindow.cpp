@@ -44,6 +44,7 @@ GLUIWindow::GLUIWindow(GLUI& glui_, const CreateArgs& args_)
 		GLUITextView::CreateArgs text_view_args;
 		text_view_args.background_alpha = 0;
 		text_view_args.text_colour = args.title_text_colour;
+		text_view_args.text_selectable = false; // Clicking the title shouldn't take keyboard focus.
 		text_view_args.z = m_z - 0.01f;
 		text_view_args.font_size_px = (int)(GLUI::getDefaultFontSizePx() * 1.5f);
 
