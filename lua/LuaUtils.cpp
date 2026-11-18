@@ -286,9 +286,8 @@ bool LuaUtils::tableHasBoolField(lua_State* state, int table_index, const char* 
 	checkValueIsTable(state, table_index);
 
 	const int value_type = lua_rawgetfield(state, table_index, key); // Push field value onto stack (use lua_rawgetfield to avoid metamethod call)
-	const bool is_bool = value_type == LUA_TBOOLEAN;
 	lua_pop(state, 1);
-	return is_bool;
+	return value_type == LUA_TBOOLEAN;
 }
 
 
@@ -444,8 +443,10 @@ bool LuaUtils::getBool(lua_State* state, int index)
 
 float LuaUtils::getFloat(lua_State* state, int index)
 {
-	if(lua_isnumber(state, index))
-		return (float)lua_tonumber(state, index);
+	int isnum;
+	const double val = lua_tonumberx(state, index, &isnum);
+	if(isnum)
+		return (float)val;
 	else
 		throw glare::Exception("Value was not a number (value had type " + luaTypeString(state, lua_type(state, index)) + ")" + errorContextString(state));
 }
@@ -453,8 +454,10 @@ float LuaUtils::getFloat(lua_State* state, int index)
 
 double LuaUtils::getDoubleArg(lua_State* state, int index)
 {
-	if(lua_isnumber(state, index))
-		return lua_tonumber(state, index);
+	int isnum;
+	const double val = lua_tonumberx(state, index, &isnum);
+	if(isnum)
+		return val;
 	else
 		throw glare::Exception("Argument " + toString(index) + " was not a number (argument had type '" + luaTypeString(state, lua_type(state, index)) + "')" + errorContextString(state));
 }
