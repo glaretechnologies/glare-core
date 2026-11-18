@@ -72,7 +72,7 @@ public:
 
 	// To get click events:
 	void addWidget(const GLUIWidgetRef& widget) { widgets.insert(widget); }
-	void removeWidget(const GLUIWidgetRef& widget) { widgets.erase(widget); }
+	void removeWidget(const GLUIWidgetRef& widget);
 
 	void removeAllWidgets();
 
@@ -121,6 +121,8 @@ public:
 	glare::StackAllocator* stack_allocator;
 private:
 	GLARE_DISABLE_COPY(GLUI);
+
+	void removeKeyboardFocusForWidgetBeingRemoved();
 
 	TextRendererFontFaceSizeSetRef fonts;
 	TextRendererFontFaceSizeSetRef emoji_fonts;

@@ -381,10 +381,34 @@ void GLUI::viewportResized(int /*w*/, int /*h*/)
 }
 
 
+void GLUI::removeWidget(const GLUIWidgetRef& widget)
+{
+	if(widget == key_focus_widget)
+		removeKeyboardFocusForWidgetBeingRemoved();
+
+	widgets.erase(widget);
+}
+
+
 void GLUI::removeAllWidgets()
 {
+	if(key_focus_widget)
+		removeKeyboardFocusForWidgetBeingRemoved();
+
 	widgets.clear();
 }
+
+
+// Unlike setKeyboardFocusWidget(NULL), doesn't call handleLosingKeyboardFocus() on the widget, as it is being removed.
+// This is to avoid handlers like GLUILineEdit::on_losing_keyboard_focus firing as an object is removed from the GLUI and destroyed.
+void GLUI::removeKeyboardFocusForWidgetBeingRemoved()
+{
+	key_focus_widget = nullptr;
+
+	if(callbacks)
+		callbacks->stopTextInput();
+}
+
 
 float GLUI::getViewportMinMaxY()
 {

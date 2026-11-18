@@ -259,6 +259,9 @@ void GLUISpinBox::handleMouseRelease(MouseEvent& event)
 
 void GLUISpinBox::handleMouseDoubleClick(MouseEvent& event)
 {
+	if(!background_ob->draw)
+		return;
+
 	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
 	if(!rect.inOpenRectangle(coords))
 		return;
@@ -378,6 +381,10 @@ void GLUISpinBox::setVisible(bool visible)
 	decrement_ob->draw  = visible;
 	increment_ob->draw  = visible;
 	line_edit->setVisible(visible);
+
+	// Stop a hidden line edit receiving key presses.  This applies any typed value, as for other ways of losing focus.
+	if(!visible && (glui->getKeyboardFocusWidget() == line_edit))
+		glui->setKeyboardFocusWidget(nullptr);
 }
 
 
