@@ -109,8 +109,6 @@ public:
 
 	virtual std::string className() const override { return "GLUICollapsableGroupBox"; }
 
-	GLUICallbackHandler* handler; // For close event
-
 private:
 	GLARE_DISABLE_COPY(GLUICollapsableGroupBox);
 

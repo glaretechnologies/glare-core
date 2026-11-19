@@ -33,7 +33,6 @@ GLUISlider::CreateArgs::CreateArgs()
 
 
 GLUISlider::GLUISlider(GLUI& glui_, const CreateArgs& args_)
-:	handler(nullptr)
 {
 	glui = &glui_;
 	opengl_engine = glui_.opengl_engine.ptr();

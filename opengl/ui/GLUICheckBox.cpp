@@ -24,8 +24,7 @@ GLUICheckBox::CreateArgs::CreateArgs()
 
 
 GLUICheckBox::GLUICheckBox(GLUI& glui_, const std::string& tick_texture_path, const CreateArgs& args_)
-:	handler(NULL),
-	checked(args_.checked),
+:	checked(args_.checked),
 	pressed(false),
 	enabled(args_.enabled)
 {

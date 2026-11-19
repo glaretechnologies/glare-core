@@ -77,8 +77,6 @@ public:
 
 	virtual std::string className() const override { return "GLUIButton"; }
 
-	GLUICallbackHandler* handler;
-
 	bool toggleable;
 	bool toggled;
 	bool pressed;

@@ -21,7 +21,6 @@ GLUICollapsableGroupBox::CreateArgs::CreateArgs()
 
 
 GLUICollapsableGroupBox::GLUICollapsableGroupBox(GLUI& glui_, const CreateArgs& args_)
-:	handler(nullptr)
 {
 	glui = &glui_;
 	opengl_engine = glui_.opengl_engine.ptr();

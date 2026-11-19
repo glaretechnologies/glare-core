@@ -70,8 +70,6 @@ public:
 
 	virtual std::string className() const override { return "GLUISlider"; }
 
-	GLUICallbackHandler* handler;
-
 private:
 	GLARE_DISABLE_COPY(GLUISlider);
 	void updateOverlayTransforms();

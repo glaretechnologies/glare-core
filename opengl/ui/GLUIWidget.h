@@ -14,6 +14,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 class GLUI;
+class GLUICallbackHandler;
 class GLUIMouseWheelEvent;
 class KeyEvent;
 class GLUIMouseEvent;
@@ -36,6 +37,11 @@ public:
 	virtual void handleMousePress(GLUIMouseEvent& /*event*/) {}
 	virtual void handleMouseRelease(GLUIMouseEvent& /*event*/) {}
 	virtual void handleMouseDoubleClick(GLUIMouseEvent& /*event*/) {}
+
+	// Called on a right mouse button press over the widget, before handleMousePress().  Accept the event to stop the press being processed further, e.g. if a context menu was opened.
+	// The default implementation calls handler->contextMenuRequestedEventOccurred() if handler is set.  If the handler doesn't accept the event, passes the request to the parent widget, if any.
+	virtual void contextMenuRequested(GLUIMouseEvent& event);
+
 	void handleMouseWheelEvent(GLUIMouseWheelEvent& event);
 	void handleKeyPressedEvent(KeyEvent& key_event);
 	void handleTextInputEvent(TextInputEvent& text_input_event);
@@ -102,6 +108,8 @@ public:
 	std::string client_data;
 
 	std::string tooltip;
+
+	GLUICallbackHandler* handler; // Receives events from the widget, e.g. button presses and context menu requests.  May be null.
 
 	Rect2f rect;
 	float m_z; // z=-1 is the near clip plane, z=1 is the far clip plane.

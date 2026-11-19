@@ -20,7 +20,6 @@ static const Colour3f default_mouseover_colour = toLinearSRGB(Colour3f(0.9f));
 
 
 GLUIImage::GLUIImage(GLUI& glui_, const std::string& tex_path, const std::string& tooltip_, float z_)
-:	handler(NULL)
 {
 	glui = &glui_;
 	opengl_engine = glui_.opengl_engine.ptr();

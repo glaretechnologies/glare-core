@@ -100,8 +100,6 @@ public:
 
 	virtual std::string className() const override { return "GLUIWindow"; }
 
-	GLUICallbackHandler* handler; // For close event
-
 	std::function<void()> on_contained_widget_changed_size;
 	std::function<void()> on_close_window;
 private:

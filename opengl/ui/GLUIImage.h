@@ -56,7 +56,6 @@ public:
 
 	OverlayObjectRef overlay_ob;
 
-	GLUICallbackHandler* handler;
 private:
 	void updateOverlayTransform();
 	GLARE_DISABLE_COPY(GLUIImage);

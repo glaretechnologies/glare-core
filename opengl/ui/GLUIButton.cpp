@@ -35,8 +35,7 @@ GLUIButton::CreateArgs::CreateArgs()
 
 
 GLUIButton::GLUIButton(GLUI& glui_, const std::string& tex_path, const CreateArgs& args_)
-:	handler(NULL),
-	toggleable(false),
+:	toggleable(false),
 	toggled(false),
 	pressed(false)
 {

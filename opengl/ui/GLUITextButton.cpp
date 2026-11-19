@@ -50,8 +50,7 @@ GLUITextButton::CreateArgs::CreateArgs()
 
 
 GLUITextButton::GLUITextButton(GLUI& glui_, const std::string& button_text_, const CreateArgs& args_)
-:	handler(NULL),
-	border_decoration_index(-1),
+:	border_decoration_index(-1),
 	toggled(false),
 	pressed(false),
 	colour_state(ColourState_Normal)

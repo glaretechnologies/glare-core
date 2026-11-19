@@ -93,7 +93,6 @@ public:
 
 	virtual std::string className() const override { return "GLUITextButton"; }
 
-	GLUICallbackHandler* handler; // Calls handler->eventOccurred(GLUICallbackEvent&) on button presses.
 	std::function<void(GLUICallbackEvent&)> on_pressed;
 private:
 	GLARE_DISABLE_COPY(GLUITextButton);

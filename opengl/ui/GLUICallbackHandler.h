@@ -32,6 +32,15 @@ public:
 };
 
 
+class GLUICallbackContextMenuEvent : public GLUICallbackEvent
+{
+public:
+	GLUICallbackContextMenuEvent() {}
+
+	Vec2f ui_coords; // Mouse position, e.g. for positioning the context menu.
+};
+
+
 class GLUISliderValueChangedEvent : public GLUICallbackEvent
 {
 public:
@@ -70,6 +79,7 @@ public:
 	virtual void closeWindowEventOccurred(GLUICallbackEvent& /*event*/) {}
 
 	virtual void mouseWheelEventOccurred(GLUICallbackMouseWheelEvent& /*event*/) {}
+	virtual void contextMenuRequestedEventOccurred(GLUICallbackContextMenuEvent& /*event*/) {} // Right mouse button pressed over event.widget.  Accept the event if a context menu was opened.
 
 	virtual void sliderValueChangedEventOccurred(GLUISliderValueChangedEvent& /*event*/) {}
 

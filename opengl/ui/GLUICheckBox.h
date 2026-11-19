@@ -68,7 +68,6 @@ public:
 
 	virtual std::string className() const override { return "GLUICheckBox"; }
 
-	GLUICallbackHandler* handler;
 	std::function<void()> on_checked_changed;
 
 	bool checked;

@@ -232,6 +232,31 @@ void GLUI::handleMousePress(MouseEvent& event)
 
 	getSortedWidgetsAtEventPos(widgets, glui_event.ui_coords, temp_widgets);
 
+	// A right-click is first sent to the visible widgets under the mouse as a context menu request, nearest widget first.
+	if(glui_event.button == MouseButton::Right)
+	{
+		for(size_t i=0; i<temp_widgets.size(); ++i)
+		{
+			if(temp_widgets[i]->isVisible())
+			{
+				// Hold a reference to the old focus widget, so that it can't be destroyed and a new widget, e.g. a new context menu, created at the same address while handling the request.
+				const GLUIWidgetRef old_key_focus_widget = key_focus_widget;
+
+				temp_widgets[i]->contextMenuRequested(glui_event);
+				if(glui_event.accepted)
+				{
+					event.accepted = true;
+
+					if(key_focus_widget == old_key_focus_widget) // If the handler didn't give keyboard focus to a widget, such as a context menu:
+						setKeyboardFocusWidget(NULL); // Remove keyboard focus from any widgets that had it.
+
+					temp_widgets.clear();
+					return;
+				}
+			}
+		}
+	}
+
 	for(size_t i=0; i<temp_widgets.size(); ++i)
 	{
 		temp_widgets[i]->handleMousePress(glui_event);

@@ -7,10 +7,12 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "GLUI.h"
+#include "GLUICallbackHandler.h"
 
 
 GLUIWidget::GLUIWidget()
-:	m_z(0.f),
+:	handler(nullptr),
+	m_z(0.f),
 	sizing_type_x(SizingType_Expanding),
 	sizing_type_y(SizingType_Expanding),
 	fixed_size(100, 100),
@@ -29,6 +31,26 @@ GLUIWidget::~GLUIWidget()
 void GLUIWidget::handleMouseMoved(GLUIMouseEvent& mouse_event)
 {
 	doHandleMouseMoved(mouse_event);
+}
+
+
+void GLUIWidget::contextMenuRequested(GLUIMouseEvent& event)
+{
+	if(handler)
+	{
+		GLUICallbackContextMenuEvent context_menu_event;
+		context_menu_event.widget = this;
+		context_menu_event.ui_coords = event.ui_coords;
+		handler->contextMenuRequestedEventOccurred(context_menu_event);
+		if(context_menu_event.accepted)
+		{
+			event.accepted = true;
+			return;
+		}
+	}
+
+	if(m_parent)
+		m_parent->contextMenuRequested(event);
 }
 
 
