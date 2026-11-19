@@ -79,27 +79,26 @@ GLUISlider::~GLUISlider()
 }
 
 
-void GLUISlider::handleMousePress(MouseEvent& event)
+void GLUISlider::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!track_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(event.ui_coords))
 	{
 		const Rect2f knob_rect = computeKnobRect();
-		if(knob_rect.inOpenRectangle(coords))
+		if(knob_rect.inOpenRectangle(event.ui_coords))
 		{
 			// conPrint("grabbed knob!");
 
 			knob_grabbed = true;
-			knob_grab_x = coords.x;
+			knob_grab_x = event.ui_coords.x;
 			knob_grab_value = cur_value;
-			updateKnobColour(coords);
+			updateKnobColour(event.ui_coords);
 		}
 		else
 		{
-			handleClickOnTrack(coords);
+			handleClickOnTrack(event.ui_coords);
 		}
 
 		event.accepted = true;
@@ -107,27 +106,25 @@ void GLUISlider::handleMousePress(MouseEvent& event)
 }
 
 
-void GLUISlider::handleMouseRelease(MouseEvent& event)
+void GLUISlider::handleMouseRelease(GLUIMouseEvent& event)
 {
 	if(knob_grabbed)
 	{
 		knob_grabbed = false;
 
-		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-		updateKnobColour(coords);
+		updateKnobColour(event.ui_coords);
 	}
 }
 
 
-void GLUISlider::handleMouseDoubleClick(MouseEvent& event)
+void GLUISlider::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!track_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(event.ui_coords))
 	{
-		handleClickOnTrack(coords);
+		handleClickOnTrack(event.ui_coords);
 		event.accepted = true;
 	}
 }
@@ -162,17 +159,15 @@ void GLUISlider::handleClickOnTrack(const Vec2f coords)
 }
 
 
-void GLUISlider::doHandleMouseMoved(MouseEvent& mouse_event)
+void GLUISlider::doHandleMouseMoved(GLUIMouseEvent& mouse_event)
 {
 	if(!track_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
-
 	if(knob_grabbed)
 	{
 		// Move knob
-		float delta_x = coords.x - knob_grab_x;
+		float delta_x = mouse_event.ui_coords.x - knob_grab_x;
 		const float knob_w = glui->getUIWidthForDevIndepPixelWidth(10);
 		const float use_track_w = myMax(0.f, this->rect.getWidths().x - knob_w);
 
@@ -195,17 +190,16 @@ void GLUISlider::doHandleMouseMoved(MouseEvent& mouse_event)
 		mouse_event.accepted = true;
 	}
 
-	updateKnobColour(coords);
+	updateKnobColour(mouse_event.ui_coords);
 }
 
 
-void GLUISlider::doHandleMouseWheelEvent(MouseWheelEvent& event)
+void GLUISlider::doHandleMouseWheelEvent(GLUIMouseWheelEvent& event)
 {
 	if(!track_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(event.ui_coords))
 	{
 		cur_value = myClamp(cur_value + (args.max_value - args.min_value) * 0.0025 * args.scroll_speed * event.angle_delta.y, args.min_value, args.max_value);
 

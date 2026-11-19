@@ -49,8 +49,8 @@ public:
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
-	virtual void doHandleMouseMoved(MouseEvent& event) override;
-	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
+	virtual void doHandleMouseMoved(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseWheelEvent(GLUIMouseWheelEvent& event) override;
 
 	virtual std::string className() const override { return "GLUIImage"; }
 

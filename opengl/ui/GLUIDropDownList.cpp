@@ -164,13 +164,12 @@ void GLUIDropDownList::setValueNoEvent(const std::string& new_val)
 }
 
 
-void GLUIDropDownList::handleMousePress(MouseEvent& event)
+void GLUIDropDownList::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!isVisible()) // If this widget is hidden:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(event.ui_coords))
 	{
 		event.accepted = true;
 
@@ -182,7 +181,7 @@ void GLUIDropDownList::handleMousePress(MouseEvent& event)
 	else
 	{
 		// Click is complete outside widget.  
-		if(options_grid && options_grid->getRect().inOpenRectangle(coords))
+		if(options_grid && options_grid->getRect().inOpenRectangle(event.ui_coords))
 		{}
 		else
 			checkRemoveAndDeleteWidget(glui, options_grid); // User didn't click on options grid, so close it if open
@@ -190,18 +189,17 @@ void GLUIDropDownList::handleMousePress(MouseEvent& event)
 }
 
 
-void GLUIDropDownList::handleMouseRelease(MouseEvent& event)
+void GLUIDropDownList::handleMouseRelease(GLUIMouseEvent& event)
 {
 	/*if(open_button_pressed)
 	{
 		open_button_pressed = false;
-		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-		updateButtonColours(coords);
+		updateButtonColours(event.ui_coords);
 	}*/
 }
 
 
-void GLUIDropDownList::handleMouseDoubleClick(MouseEvent& event)
+void GLUIDropDownList::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	// A mouse double-click event is another press and release.
 	handleMousePress(event);
@@ -209,15 +207,14 @@ void GLUIDropDownList::handleMouseDoubleClick(MouseEvent& event)
 }
 
 
-void GLUIDropDownList::doHandleMouseMoved(MouseEvent& event)
+void GLUIDropDownList::doHandleMouseMoved(GLUIMouseEvent& event)
 {
 	if(!isVisible()) // If this widget is hidden:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	updateButtonColours(coords);
+	updateButtonColours(event.ui_coords);
 
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
@@ -339,13 +336,12 @@ void GLUIDropDownList::setNewCurrentIndex(size_t new_cur_index)
 }
 
 
-void GLUIDropDownList::doHandleMouseWheelEvent(MouseWheelEvent& event)
+void GLUIDropDownList::doHandleMouseWheelEvent(GLUIMouseWheelEvent& event)
 {
 	if(!open_button_overlay_ob->draw) // If this widget is hidden:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(event.ui_coords))
 	{
 		if(event.angle_delta.y > 0.0)
 		{

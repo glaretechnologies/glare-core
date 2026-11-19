@@ -219,23 +219,22 @@ void GLUISpinBox::setValueNoEvent(double new_val)
 }
 
 
-void GLUISpinBox::handleMousePress(MouseEvent& event)
+void GLUISpinBox::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!background_ob->draw)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(!rect.inOpenRectangle(coords))
+	if(!rect.inOpenRectangle(event.ui_coords))
 		return;
 
-	if(decrementButtonRect().inOpenRectangle(coords))
+	if(decrementButtonRect().inOpenRectangle(event.ui_coords))
 	{
 		decrement_pressed = true;
 		decrement_ob->material.albedo_linear_rgb = args.pressed_button_colour;
 		changeValue(-args.step);
 		event.accepted = true;
 	}
-	else if(incrementButtonRect().inOpenRectangle(coords))
+	else if(incrementButtonRect().inOpenRectangle(event.ui_coords))
 	{
 		increment_pressed = true;
 		increment_ob->material.albedo_linear_rgb = args.pressed_button_colour;
@@ -245,34 +244,32 @@ void GLUISpinBox::handleMousePress(MouseEvent& event)
 }
 
 
-void GLUISpinBox::handleMouseRelease(MouseEvent& event)
+void GLUISpinBox::handleMouseRelease(GLUIMouseEvent& event)
 {
 	if(decrement_pressed || increment_pressed)
 	{
 		decrement_pressed = false;
 		increment_pressed = false;
-		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-		updateButtonColours(coords);
+		updateButtonColours(event.ui_coords);
 	}
 }
 
 
-void GLUISpinBox::handleMouseDoubleClick(MouseEvent& event)
+void GLUISpinBox::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!background_ob->draw)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(!rect.inOpenRectangle(coords))
+	if(!rect.inOpenRectangle(event.ui_coords))
 		return;
 
 	// A mouse double-click event is another press and release.
-	if(decrementButtonRect().inOpenRectangle(coords))
+	if(decrementButtonRect().inOpenRectangle(event.ui_coords))
 	{
 		changeValue(-args.step);
 		event.accepted = true;
 	}
-	else if(incrementButtonRect().inOpenRectangle(coords))
+	else if(incrementButtonRect().inOpenRectangle(event.ui_coords))
 	{
 		changeValue(args.step);
 		event.accepted = true;
@@ -283,20 +280,19 @@ void GLUISpinBox::handleMouseDoubleClick(MouseEvent& event)
 	{
 		decrement_pressed = false;
 		increment_pressed = false;
-		updateButtonColours(coords);
+		updateButtonColours(event.ui_coords);
 	}
 }
 
 
-void GLUISpinBox::doHandleMouseMoved(MouseEvent& event)
+void GLUISpinBox::doHandleMouseMoved(GLUIMouseEvent& event)
 {
 	if(!background_ob->draw)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	updateButtonColours(coords);
+	updateButtonColours(event.ui_coords);
 
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
@@ -331,13 +327,12 @@ void GLUISpinBox::updateButtonColours(const Vec2f& mouse_ui_coords)
 }
 
 
-void GLUISpinBox::doHandleMouseWheelEvent(MouseWheelEvent& event)
+void GLUISpinBox::doHandleMouseWheelEvent(GLUIMouseWheelEvent& event)
 {
 	if(!background_ob->draw)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(event.ui_coords))
 	{
 		changeValue(args.step * event.angle_delta.y * 0.1);
 		event.accepted = true;

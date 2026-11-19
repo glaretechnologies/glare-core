@@ -106,51 +106,47 @@ void GLUIWindow::setBodyWidget(const GLUIWidgetRef body_widget_)
 }
 
 
-void GLUIWindow::handleMousePress(MouseEvent& event)
+void GLUIWindow::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUIWindow::handleMouseRelease(MouseEvent& /*event*/)
+void GLUIWindow::handleMouseRelease(GLUIMouseEvent& /*event*/)
 {
 }
 
 
-void GLUIWindow::handleMouseDoubleClick(MouseEvent& event)
+void GLUIWindow::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUIWindow::doHandleMouseMoved(MouseEvent& event)
+void GLUIWindow::doHandleMouseMoved(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUIWindow::doHandleMouseWheelEvent(MouseWheelEvent& event)
+void GLUIWindow::doHandleMouseWheelEvent(GLUIMouseWheelEvent& event)
 {
 	if(!background_overlay_ob->draw || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 

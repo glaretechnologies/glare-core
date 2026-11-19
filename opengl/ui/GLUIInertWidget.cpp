@@ -50,51 +50,47 @@ GLUIInertWidget::~GLUIInertWidget()
 }
 
 
-void GLUIInertWidget::handleMousePress(MouseEvent& event)
+void GLUIInertWidget::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUIInertWidget::handleMouseRelease(MouseEvent& event)
+void GLUIInertWidget::handleMouseRelease(GLUIMouseEvent& event)
 {
 }
 
 
-void GLUIInertWidget::handleMouseDoubleClick(MouseEvent& event)
+void GLUIInertWidget::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUIInertWidget::doHandleMouseMoved(MouseEvent& event)
+void GLUIInertWidget::doHandleMouseMoved(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUIInertWidget::doHandleMouseWheelEvent(MouseWheelEvent& event)
+void GLUIInertWidget::doHandleMouseWheelEvent(GLUIMouseWheelEvent& event)
 {
 	if(!background_overlay_ob->draw)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 

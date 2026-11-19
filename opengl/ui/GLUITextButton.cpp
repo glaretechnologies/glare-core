@@ -174,13 +174,12 @@ void GLUITextButton::updateDecorationTransforms()
 }
 
 
-void GLUITextButton::handleMousePress(MouseEvent& event)
+void GLUITextButton::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!isVisible())
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if((event.button == MouseButton::Left) && rect.inOpenRectangle(event.ui_coords)) // Only the left button presses the button.
 	{
 		pressed = true;
 		updateColours(/*mouse_in_rect=*/true);
@@ -206,32 +205,30 @@ void GLUITextButton::handleMousePress(MouseEvent& event)
 }
 
 
-void GLUITextButton::handleMouseRelease(MouseEvent& event)
+void GLUITextButton::handleMouseRelease(GLUIMouseEvent& event)
 {
 	if(pressed)
 	{
 		pressed = false;
-		updateColours(rect.inOpenRectangle(glui->UICoordsForOpenGLCoords(event.gl_coords)));
+		updateColours(rect.inOpenRectangle(event.ui_coords));
 	}
 }
 
 
 // The second click of a double-click arrives as a double-click event instead of a press event, so treat it as a press.
 // A release event follows, which clears pressed.
-void GLUITextButton::handleMouseDoubleClick(MouseEvent& event)
+void GLUITextButton::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	handleMousePress(event);
 }
 
 
-void GLUITextButton::doHandleMouseMoved(MouseEvent& mouse_event)
+void GLUITextButton::doHandleMouseMoved(GLUIMouseEvent& mouse_event)
 {
 	if(!isVisible())
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
-
-	const bool mouse_in_rect = rect.inOpenRectangle(coords);
+	const bool mouse_in_rect = rect.inOpenRectangle(mouse_event.ui_coords);
 	if(mouse_in_rect)
 		mouse_event.accepted = true;
 

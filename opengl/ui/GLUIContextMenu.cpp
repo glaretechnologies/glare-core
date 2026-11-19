@@ -130,28 +130,28 @@ void GLUIContextMenu::itemClicked(size_t item_index)
 
 
 // Accept mouse events on the menu, so they don't go through to whatever is behind it.
-void GLUIContextMenu::handleMousePress(MouseEvent& event)
+void GLUIContextMenu::handleMousePress(GLUIMouseEvent& event)
 {
-	if(grid && rect.inClosedRectangle(glui->UICoordsForOpenGLCoords(event.gl_coords)))
+	if(grid && rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUIContextMenu::handleMouseDoubleClick(MouseEvent& event)
+void GLUIContextMenu::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	handleMousePress(event);
 }
 
 
-void GLUIContextMenu::doHandleMouseMoved(MouseEvent& event)
+void GLUIContextMenu::doHandleMouseMoved(GLUIMouseEvent& event)
 {
 	handleMousePress(event);
 }
 
 
-void GLUIContextMenu::doHandleMouseWheelEvent(MouseWheelEvent& event)
+void GLUIContextMenu::doHandleMouseWheelEvent(GLUIMouseWheelEvent& event)
 {
-	if(grid && rect.inClosedRectangle(glui->UICoordsForOpenGLCoords(event.gl_coords)))
+	if(grid && rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 

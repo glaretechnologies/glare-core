@@ -14,9 +14,9 @@ Copyright Glare Technologies Limited 2021 -
 
 
 class GLUI;
-class MouseWheelEvent;
+class GLUIMouseWheelEvent;
 class KeyEvent;
-class MouseEvent;
+class GLUIMouseEvent;
 class TextInputEvent;
 class OpenGLEngine;
 
@@ -32,11 +32,11 @@ public:
 	GLUIWidget();
 	virtual ~GLUIWidget();
 
-	void handleMouseMoved(MouseEvent& mouse_event);
-	virtual void handleMousePress(MouseEvent& /*event*/) {}
-	virtual void handleMouseRelease(MouseEvent& /*event*/) {}
-	virtual void handleMouseDoubleClick(MouseEvent& /*event*/) {}
-	void handleMouseWheelEvent(MouseWheelEvent& event);
+	void handleMouseMoved(GLUIMouseEvent& mouse_event);
+	virtual void handleMousePress(GLUIMouseEvent& /*event*/) {}
+	virtual void handleMouseRelease(GLUIMouseEvent& /*event*/) {}
+	virtual void handleMouseDoubleClick(GLUIMouseEvent& /*event*/) {}
+	void handleMouseWheelEvent(GLUIMouseWheelEvent& event);
 	void handleKeyPressedEvent(KeyEvent& key_event);
 	void handleTextInputEvent(TextInputEvent& text_input_event);
 	virtual void handleLosingKeyboardFocus() {}
@@ -44,8 +44,8 @@ public:
 	virtual void handleCutEvent(std::string& /*clipboard_contents_out*/) {}
 	virtual void handleCopyEvent(std::string& /*clipboard_contents_out*/) {}
 
-	virtual void doHandleMouseMoved(MouseEvent& /*mouse_event*/) {}
-	virtual void doHandleMouseWheelEvent(MouseWheelEvent& /*event*/) {}
+	virtual void doHandleMouseMoved(GLUIMouseEvent& /*mouse_event*/) {}
+	virtual void doHandleMouseWheelEvent(GLUIMouseWheelEvent& /*event*/) {}
 	virtual void doHandleKeyPressedEvent(KeyEvent& /*key_event*/) {}
 	virtual void doHandleTextInputEvent(TextInputEvent& /*text_input_event*/) {}
 

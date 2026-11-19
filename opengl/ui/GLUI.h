@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2021 -
 
 
 #include "GLUIWidget.h"
+#include "GLUIEvents.h"
 #include "FontCharTexCache.h"
 #include "../OpenGLEngine.h"
 #include "graphics/TextRenderer.h"
@@ -18,7 +19,6 @@ Copyright Glare Technologies Limited 2021 -
 #include <set>
 
 
-class GLUIMouseWheelEvent;
 class GLUICallbacks;
 class GLUITextView;
 namespace glare { class StackAllocator; }

@@ -48,11 +48,11 @@ public:
 	GLUISlider(GLUI& glui, const CreateArgs& args);
 	~GLUISlider();
 
-	virtual void handleMousePress(MouseEvent& event) override;
-	virtual void handleMouseRelease(MouseEvent& event) override;
-	virtual void handleMouseDoubleClick(MouseEvent& event) override;
-	virtual void doHandleMouseMoved(MouseEvent& event) override;
-	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
+	virtual void handleMousePress(GLUIMouseEvent& event) override;
+	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
+	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseMoved(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseWheelEvent(GLUIMouseWheelEvent& event) override;
 
 	double getValue() const { return cur_value; }
 	void setValue(double new_val); // Set value and emit a value changed event.

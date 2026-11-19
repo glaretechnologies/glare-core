@@ -77,10 +77,10 @@ public:
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
-	virtual void handleMousePress(MouseEvent& event) override;
-	virtual void handleMouseRelease(MouseEvent& event) override;
-	virtual void handleMouseDoubleClick(MouseEvent& event) override;
-	virtual void doHandleMouseMoved(MouseEvent& event) override;
+	virtual void handleMousePress(GLUIMouseEvent& event) override;
+	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
+	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseMoved(GLUIMouseEvent& event) override;
 	virtual void handleLosingKeyboardFocus() override;
 	virtual void viewportResized() override;
 

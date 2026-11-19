@@ -26,13 +26,13 @@ GLUIWidget::~GLUIWidget()
 }
 
 
-void GLUIWidget::handleMouseMoved(MouseEvent& mouse_event)
+void GLUIWidget::handleMouseMoved(GLUIMouseEvent& mouse_event)
 {
 	doHandleMouseMoved(mouse_event);
 }
 
 
-void GLUIWidget::handleMouseWheelEvent(MouseWheelEvent& event)
+void GLUIWidget::handleMouseWheelEvent(GLUIMouseWheelEvent& event)
 {
 	doHandleMouseWheelEvent(event);
 }

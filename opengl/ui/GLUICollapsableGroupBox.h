@@ -78,13 +78,13 @@ public:
 
 	void setBodyWidget(const GLUIWidgetRef body_widget);
 
-	virtual void handleMousePress(MouseEvent& event) override;
-	virtual void handleMouseRelease(MouseEvent& event) override;
-	virtual void handleMouseDoubleClick(MouseEvent& event) override;
+	virtual void handleMousePress(GLUIMouseEvent& event) override;
+	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
+	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
 
 
-	virtual void doHandleMouseMoved(MouseEvent& /*mouse_event*/) override;
-	virtual void doHandleMouseWheelEvent(MouseWheelEvent& /*event*/) override;
+	virtual void doHandleMouseMoved(GLUIMouseEvent& /*mouse_event*/) override;
+	virtual void doHandleMouseWheelEvent(GLUIMouseWheelEvent& /*event*/) override;
 	virtual void doHandleKeyPressedEvent(KeyEvent& /*key_event*/) override;
 
 	virtual bool isVisible() override;

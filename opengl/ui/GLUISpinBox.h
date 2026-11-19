@@ -69,11 +69,11 @@ public:
 	void setValue(double new_val);        // Clamps, updates display, fires handler.
 	void setValueNoEvent(double new_val); // Clamps and updates display, no handler call.
 
-	virtual void handleMousePress(MouseEvent& event) override;
-	virtual void handleMouseRelease(MouseEvent& event) override;
-	virtual void handleMouseDoubleClick(MouseEvent& event) override;
-	virtual void doHandleMouseMoved(MouseEvent& event) override;
-	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
+	virtual void handleMousePress(GLUIMouseEvent& event) override;
+	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
+	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseMoved(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseWheelEvent(GLUIMouseWheelEvent& event) override;
 	virtual void handleLosingKeyboardFocus() override;
 
 	virtual void setPos(const Vec2f& botleft) override;

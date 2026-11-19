@@ -15,9 +15,9 @@ Copyright Glare Technologies Limited 2025 -
 
 
 class GLUI;
-class MouseWheelEvent;
+class GLUIMouseWheelEvent;
 class KeyEvent;
-class MouseEvent;
+class GLUIMouseEvent;
 class TextInputEvent;
 
 
@@ -46,13 +46,13 @@ public:
 	GLUIInertWidget(GLUI& glui, const CreateArgs& args);
 	virtual ~GLUIInertWidget();
 
-	virtual void handleMousePress(MouseEvent& event) override;
-	virtual void handleMouseRelease(MouseEvent& event) override;
-	virtual void handleMouseDoubleClick(MouseEvent& event) override;
+	virtual void handleMousePress(GLUIMouseEvent& event) override;
+	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
+	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
 
 
-	virtual void doHandleMouseMoved(MouseEvent& /*mouse_event*/) override;
-	virtual void doHandleMouseWheelEvent(MouseWheelEvent& /*event*/) override;
+	virtual void doHandleMouseMoved(GLUIMouseEvent& /*mouse_event*/) override;
+	virtual void doHandleMouseWheelEvent(GLUIMouseWheelEvent& /*event*/) override;
 	virtual void doHandleKeyPressedEvent(KeyEvent& /*key_event*/) override;
 
 	virtual bool isVisible() override;

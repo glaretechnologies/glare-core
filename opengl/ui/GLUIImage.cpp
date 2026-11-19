@@ -87,12 +87,11 @@ void GLUIImage::setTexture(const OpenGLTextureRef& tex)
 }
 
 
-void GLUIImage::doHandleMouseMoved(MouseEvent& mouse_event)
+void GLUIImage::doHandleMouseMoved(GLUIMouseEvent& mouse_event)
 {
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
 	if(overlay_ob.nonNull())
 	{
-		if(rect.inOpenRectangle(coords)) // If mouse over widget:
+		if(rect.inOpenRectangle(mouse_event.ui_coords)) // If mouse over widget:
 		{
 			overlay_ob->material.albedo_linear_rgb = mouseover_colour;
 			mouse_event.accepted = true;
@@ -105,10 +104,9 @@ void GLUIImage::doHandleMouseMoved(MouseEvent& mouse_event)
 }
 
 
-void GLUIImage::doHandleMouseWheelEvent(MouseWheelEvent& wheel_event)
+void GLUIImage::doHandleMouseWheelEvent(GLUIMouseWheelEvent& wheel_event)
 {
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(wheel_event.gl_coords);
-	if(rect.inOpenRectangle(coords))
+	if(rect.inOpenRectangle(wheel_event.ui_coords))
 	{
 		if(handler)
 		{

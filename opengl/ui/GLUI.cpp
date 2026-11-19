@@ -228,15 +228,17 @@ void GLUI::handleMousePress(MouseEvent& event)
 		updateTooltip();
 	}
 
-	const Vec2f ui_coords = UICoordsForOpenGLCoords(event.gl_coords);
-	
-	getSortedWidgetsAtEventPos(widgets, ui_coords, temp_widgets);
+	GLUIMouseEvent glui_event(event, UICoordsForOpenGLCoords(event.gl_coords));
+
+	getSortedWidgetsAtEventPos(widgets, glui_event.ui_coords, temp_widgets);
 
 	for(size_t i=0; i<temp_widgets.size(); ++i)
 	{
-		temp_widgets[i]->handleMousePress(event);
-		if(event.accepted)
+		temp_widgets[i]->handleMousePress(glui_event);
+		if(glui_event.accepted)
 		{
+			event.accepted = true;
+
 			if(temp_widgets[i] != key_focus_widget.ptr())
 				setKeyboardFocusWidget(NULL); // A widget that wasn't the one with keyboard focus accepted the click.  Remove keyboard focus from any widgets that had it.
 
@@ -253,26 +255,35 @@ void GLUI::handleMousePress(MouseEvent& event)
 
 void GLUI::handleMouseRelease(MouseEvent& event)
 {
+	GLUIMouseEvent glui_event(event, UICoordsForOpenGLCoords(event.gl_coords));
+
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
-		widget->handleMouseRelease(event);
-		if(event.accepted)
+		widget->handleMouseRelease(glui_event);
+		if(glui_event.accepted)
+		{
+			event.accepted = true;
 			return;
+		}
 	}
 }
 
 
 void GLUI::handleMouseDoubleClick(MouseEvent& event)
 {
-	const Vec2f ui_coords = UICoordsForOpenGLCoords(event.gl_coords);
-	getSortedWidgetsAtEventPos(widgets, ui_coords, temp_widgets);
+	GLUIMouseEvent glui_event(event, UICoordsForOpenGLCoords(event.gl_coords));
+
+	getSortedWidgetsAtEventPos(widgets, glui_event.ui_coords, temp_widgets);
 
 	for(size_t i=0; i<temp_widgets.size(); ++i)
 	{
-		temp_widgets[i]->handleMouseDoubleClick(event);
-		if(event.accepted)
+		temp_widgets[i]->handleMouseDoubleClick(glui_event);
+		if(glui_event.accepted)
+		{
+			event.accepted = true;
 			break;
+		}
 	}
 	temp_widgets.clear();
 }
@@ -280,14 +291,15 @@ void GLUI::handleMouseDoubleClick(MouseEvent& event)
 
 bool GLUI::handleMouseWheelEvent(MouseWheelEvent& event)
 {
-	const Vec2f ui_coords = UICoordsForOpenGLCoords(event.gl_coords);
-	
-	getSortedWidgetsAtEventPos(widgets, ui_coords, temp_widgets);
+	GLUIMouseWheelEvent glui_event(event, UICoordsForOpenGLCoords(event.gl_coords));
+
+	getSortedWidgetsAtEventPos(widgets, glui_event.ui_coords, temp_widgets);
 	for(size_t i=0; i<temp_widgets.size(); ++i)
 	{
-		temp_widgets[i]->handleMouseWheelEvent(event);
-		if(event.accepted)
+		temp_widgets[i]->handleMouseWheelEvent(glui_event);
+		if(glui_event.accepted)
 		{
+			event.accepted = true;
 			temp_widgets.clear();
 			return true;
 		}
@@ -306,12 +318,14 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 
 	this->last_mouse_gl_coords = mouse_event.gl_coords;
 
+	GLUIMouseEvent glui_event(mouse_event, coords);
+
 	bool new_mouse_over_text_input_widget = false;
 	const std::string* new_hovered_tooltip = NULL; // Tooltip of the widget the mouse is over, if any.
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
-		widget->handleMouseMoved(mouse_event);
+		widget->handleMouseMoved(glui_event);
 
 		if(widget->rect.inOpenRectangle(coords) && widget->isVisible()) // If the mouse is over the widget:
 		{
@@ -322,6 +336,9 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 				new_mouse_over_text_input_widget = true;
 		}
 	}
+
+	if(glui_event.accepted)
+		mouse_event.accepted = true;
 
 	// If the mouse moved onto a widget with a different tooltip (or off any widget with a tooltip), restart the tooltip delay.
 	static const std::string empty_string;

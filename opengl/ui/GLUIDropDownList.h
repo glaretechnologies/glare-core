@@ -60,11 +60,11 @@ public:
 	void setValue(const std::string& new_val);        // fires handler.
 	void setValueNoEvent(const std::string& new_val); // no handler call.  Does nothing if new_val is not one of the options.
 
-	virtual void handleMousePress(MouseEvent& event) override;
-	virtual void handleMouseRelease(MouseEvent& event) override;
-	virtual void handleMouseDoubleClick(MouseEvent& event) override;
-	virtual void doHandleMouseMoved(MouseEvent& event) override;
-	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
+	virtual void handleMousePress(GLUIMouseEvent& event) override;
+	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
+	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseMoved(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseWheelEvent(GLUIMouseWheelEvent& event) override;
 	virtual void doHandleKeyPressedEvent(KeyEvent& key_event) override;
 
 	virtual void handleLosingKeyboardFocus() override;

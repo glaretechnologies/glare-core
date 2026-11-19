@@ -143,6 +143,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIDropDownList.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIDropDownList.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIContextMenu.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIContextMenu.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIEvents.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIEvents.h
 )
 
 

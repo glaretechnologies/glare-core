@@ -99,51 +99,47 @@ void GLUICollapsableGroupBox::setBodyWidget(const GLUIWidgetRef body_widget_)
 }
 
 
-void GLUICollapsableGroupBox::handleMousePress(MouseEvent& event)
+void GLUICollapsableGroupBox::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!visible || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUICollapsableGroupBox::handleMouseRelease(MouseEvent& /*event*/)
+void GLUICollapsableGroupBox::handleMouseRelease(GLUIMouseEvent& /*event*/)
 {
 }
 
 
-void GLUICollapsableGroupBox::handleMouseDoubleClick(MouseEvent& event)
+void GLUICollapsableGroupBox::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!visible || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUICollapsableGroupBox::doHandleMouseMoved(MouseEvent& event)
+void GLUICollapsableGroupBox::doHandleMouseMoved(GLUIMouseEvent& event)
 {
 	if(!visible || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 
 
-void GLUICollapsableGroupBox::doHandleMouseWheelEvent(MouseWheelEvent& event)
+void GLUICollapsableGroupBox::doHandleMouseWheelEvent(GLUIMouseWheelEvent& event)
 {
 	if(!visible || !args.background_consumes_events)
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 		event.accepted = true;
 }
 

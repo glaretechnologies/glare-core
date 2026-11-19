@@ -61,10 +61,10 @@ public:
 	// Called when an item is clicked, after the menu has closed, with the index of the item in args.items.
 	std::function<void(size_t item_index)> item_selected_func;
 
-	virtual void handleMousePress(MouseEvent& event) override;
-	virtual void handleMouseDoubleClick(MouseEvent& event) override;
-	virtual void doHandleMouseMoved(MouseEvent& event) override;
-	virtual void doHandleMouseWheelEvent(MouseWheelEvent& event) override;
+	virtual void handleMousePress(GLUIMouseEvent& event) override;
+	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseMoved(GLUIMouseEvent& event) override;
+	virtual void doHandleMouseWheelEvent(GLUIMouseWheelEvent& event) override;
 	virtual void doHandleKeyPressedEvent(KeyEvent& key_event) override;
 	virtual void handleLosingKeyboardFocus() override;
 

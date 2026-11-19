@@ -521,15 +521,14 @@ bool GLUITextView::isVisible()
 }
 
 
-void GLUITextView::handleMousePress(MouseEvent& event)
+void GLUITextView::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!visible)
 		return;
 
 	if(args.text_selectable)
 	{
-		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-		if(rect.inClosedRectangle(coords) && clip_rect.inClosedRectangle(coords))
+		if(rect.inClosedRectangle(event.ui_coords) && clip_rect.inClosedRectangle(event.ui_coords))
 		{
 			//conPrint("GLUITextView taking keyboard focus");
 			glui->setKeyboardFocusWidget(this);
@@ -537,9 +536,9 @@ void GLUITextView::handleMousePress(MouseEvent& event)
 			for(size_t i=0; i<glui_texts.size(); ++i)
 			{
 				GLUIText* glui_text = glui_texts[i].ptr();
-				if(glui_text->getRect().inClosedRectangle(coords))
+				if(glui_text->getRect().inClosedRectangle(event.ui_coords))
 				{
-					this->selection_start = glui_text->cursorPosForUICoords(*glui, coords);
+					this->selection_start = glui_text->cursorPosForUICoords(*glui, event.ui_coords);
 					this->selection_end = -1;
 					this->selection_start_text_index = i;
 				}
@@ -553,27 +552,26 @@ void GLUITextView::handleMousePress(MouseEvent& event)
 }
 
 
-void GLUITextView::handleMouseRelease(MouseEvent& /*event*/)
+void GLUITextView::handleMouseRelease(GLUIMouseEvent& /*event*/)
 {
 }
 
 
-void GLUITextView::handleMouseDoubleClick(MouseEvent& event)
+void GLUITextView::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!visible)
 		return;
 
 	if(args.text_selectable)
 	{
-		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-		if(rect.inClosedRectangle(coords) && clip_rect.inClosedRectangle(coords))
+		if(rect.inClosedRectangle(event.ui_coords) && clip_rect.inClosedRectangle(event.ui_coords))
 		{
 			for(size_t i=0; i<glui_texts.size(); ++i)
 			{
 				GLUIText* glui_text = glui_texts[i].ptr();
-				if(glui_text->getRect().inClosedRectangle(coords))
+				if(glui_text->getRect().inClosedRectangle(event.ui_coords))
 				{
-					const int click_cursor_pos = glui_text->cursorPosForUICoords(*glui, coords);
+					const int click_cursor_pos = glui_text->cursorPosForUICoords(*glui, event.ui_coords);
 				
 					this->selection_start = TextEditingUtils::getPrevStartOfNonWhitespaceCursorPos(glui_text->getText(), click_cursor_pos);
 				
@@ -589,7 +587,7 @@ void GLUITextView::handleMouseDoubleClick(MouseEvent& event)
 }
 
 
-void GLUITextView::doHandleMouseMoved(MouseEvent& mouse_event)
+void GLUITextView::doHandleMouseMoved(GLUIMouseEvent& mouse_event)
 {
 	if(!visible)
 		return;
@@ -601,9 +599,7 @@ void GLUITextView::doHandleMouseMoved(MouseEvent& mouse_event)
 		{
 			if(selection_start_text_index < glui_texts.size())
 			{
-				const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
-			
-				this->selection_end = glui_texts[selection_start_text_index]->cursorPosForUICoords(*glui, coords);
+				this->selection_end = glui_texts[selection_start_text_index]->cursorPosForUICoords(*glui, mouse_event.ui_coords);
 			
 				updateOverlayObTransforms(); // Redraw since selection region may have changed.
 			}

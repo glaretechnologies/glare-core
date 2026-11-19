@@ -280,18 +280,17 @@ void GLUILineEdit::updateTextTransform()
 }
 
 
-void GLUILineEdit::handleMousePress(MouseEvent& event)
+void GLUILineEdit::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 	{
 		//conPrint("GLUILineEdit taking keyboard focus");
 		glui->setKeyboardFocusWidget(this);
 
-		this->cursor_pos = glui_text->cursorPosForUICoords(*glui, coords);
+		this->cursor_pos = glui_text->cursorPosForUICoords(*glui, event.ui_coords);
 		this->last_cursor_update_time = Clock::getCurTimeRealSec();
 
 		this->selection_start = this->cursor_pos;
@@ -304,20 +303,19 @@ void GLUILineEdit::handleMousePress(MouseEvent& event)
 }
 
 
-void GLUILineEdit::handleMouseRelease(MouseEvent& /*event*/)
+void GLUILineEdit::handleMouseRelease(GLUIMouseEvent& /*event*/)
 {
 }
 
 
-void GLUILineEdit::handleMouseDoubleClick(MouseEvent& event)
+void GLUILineEdit::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inClosedRectangle(coords))
+	if(rect.inClosedRectangle(event.ui_coords))
 	{
-		const int click_cursor_pos = glui_text->cursorPosForUICoords(*glui, coords);
+		const int click_cursor_pos = glui_text->cursorPosForUICoords(*glui, event.ui_coords);
 
 		this->selection_start = TextEditingUtils::getPrevStartOfNonWhitespaceCursorPos(text, click_cursor_pos);
 
@@ -328,16 +326,14 @@ void GLUILineEdit::handleMouseDoubleClick(MouseEvent& event)
 }
 
 
-void GLUILineEdit::doHandleMouseMoved(MouseEvent& mouse_event)
+void GLUILineEdit::doHandleMouseMoved(GLUIMouseEvent& mouse_event)
 {
 	if(!background_overlay_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
-
 	if(background_overlay_ob.nonNull())
 	{
-		if(rect.inOpenRectangle(coords)) // If mouse over widget:
+		if(rect.inOpenRectangle(mouse_event.ui_coords)) // If mouse over widget:
 			background_overlay_ob->material.albedo_linear_rgb = args.mouseover_background_colour;
 		else
 			background_overlay_ob->material.albedo_linear_rgb = args.background_colour;
@@ -345,7 +341,7 @@ void GLUILineEdit::doHandleMouseMoved(MouseEvent& mouse_event)
 		// If left mouse button is down, update selection region
 		if((this->selection_start != -1) && (mouse_event.button_state & (uint32)MouseButton::Left) != 0)
 		{
-			this->selection_end = glui_text->cursorPosForUICoords(*glui, coords);
+			this->selection_end = glui_text->cursorPosForUICoords(*glui, mouse_event.ui_coords);
 
 			updateOverlayObTransforms(); // Redraw since selection region may have changed.
 		}

@@ -72,13 +72,12 @@ GLUICheckBox::~GLUICheckBox()
 }
 
 
-void GLUICheckBox::handleMousePress(MouseEvent& event)
+void GLUICheckBox::handleMousePress(GLUIMouseEvent& event)
 {
 	if(!box_overlay_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords) && enabled)
+	if((event.button == MouseButton::Left) && rect.inOpenRectangle(event.ui_coords) && enabled) // Only the left button toggles the check box.
 	{
 		pressed = true;
 
@@ -102,19 +101,18 @@ void GLUICheckBox::handleMousePress(MouseEvent& event)
 		}
 	}
 
-	updateColour(coords);
+	updateColour(event.ui_coords);
 }
 
 
-void GLUICheckBox::handleMouseDoubleClick(MouseEvent& event)
+void GLUICheckBox::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	// Similar to handleMousePress() above except don't set pressed to true.
 
 	if(!box_overlay_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-	if(rect.inOpenRectangle(coords) && enabled)
+	if((event.button == MouseButton::Left) && rect.inOpenRectangle(event.ui_coords) && enabled) // Only the left button toggles the check box.
 	{
 		checked = !checked;
 
@@ -138,33 +136,29 @@ void GLUICheckBox::handleMouseDoubleClick(MouseEvent& event)
 		}
 	}
 
-	updateColour(coords);
+	updateColour(event.ui_coords);
 }
 
 
-void GLUICheckBox::handleMouseRelease(MouseEvent& event)
+void GLUICheckBox::handleMouseRelease(GLUIMouseEvent& event)
 {
 	if(pressed)
 	{
 		pressed = false;
 
-		const Vec2f coords = glui->UICoordsForOpenGLCoords(event.gl_coords);
-
-		updateColour(coords);
+		updateColour(event.ui_coords);
 	}
 }
 
 
-void GLUICheckBox::doHandleMouseMoved(MouseEvent& mouse_event)
+void GLUICheckBox::doHandleMouseMoved(GLUIMouseEvent& mouse_event)
 {
 	if(!box_overlay_ob->draw) // If not visible:
 		return;
 
-	const Vec2f coords = glui->UICoordsForOpenGLCoords(mouse_event.gl_coords);
-
 	if(box_overlay_ob)
 	{
-		if(rect.inOpenRectangle(coords)) // If mouse over widget:
+		if(rect.inOpenRectangle(mouse_event.ui_coords)) // If mouse over widget:
 		{
 			mouse_event.accepted = true;
 		}
@@ -175,7 +169,7 @@ void GLUICheckBox::doHandleMouseMoved(MouseEvent& mouse_event)
 		}
 	}
 
-	updateColour(coords);
+	updateColour(mouse_event.ui_coords);
 }
 
 
