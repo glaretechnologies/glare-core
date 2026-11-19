@@ -171,12 +171,15 @@ void GLUIDropDownList::handleMousePress(GLUIMouseEvent& event)
 
 	if(rect.inOpenRectangle(event.ui_coords))
 	{
-		event.accepted = true;
+		if(event.button == MouseButton::Left) // Only the left button opens the options.
+		{
+			event.accepted = true;
 
-		glui->setKeyboardFocusWidget(this); // Take keyboard focus, so we can handle uo/down/esc keypresses
+			glui->setKeyboardFocusWidget(this); // Take keyboard focus, so we can handle uo/down/esc keypresses
 
-		// Create options drop-down UI
-		openButtonPressed();
+			// Create options drop-down UI
+			openButtonPressed();
+		}
 	}
 	else
 	{
