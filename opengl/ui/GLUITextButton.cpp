@@ -78,6 +78,12 @@ GLUITextButton::GLUITextButton(GLUI& glui_, const std::string& button_text_, con
 	makeTextView(/*visible=*/true);
 
 	this->setFixedDimsPx(max(fixed_size, Vec2f(glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().x), glui->getDevIndepPixelWidthForUIWidth(rect.getWidths().y))));
+
+	// An expanding button fills the space given to it by setAvailableRegionDims().
+	if(args.sizing_type_x == SizingType_Expanding)
+		sizing_type_x = SizingType_Expanding;
+	if(args.sizing_type_y == SizingType_Expanding)
+		sizing_type_y = SizingType_Expanding;
 }
 
 
@@ -100,6 +106,11 @@ void GLUITextButton::makeTextView(bool visible)
 	text_args.padding_px = 8;
 	text_args.text_selectable = false;
 	text_args.font_size_px = args.font_size_px;
+	// The text view background is the button background, so it expands along with the button.
+	if(args.sizing_type_x == SizingType_Expanding)
+		text_args.sizing_type_x = SizingType_Expanding;
+	if(args.sizing_type_y == SizingType_Expanding)
+		text_args.sizing_type_y = SizingType_Expanding;
 	text_args.z = m_z;
 	text_args.botleft = m_botleft;
 	text_view = new GLUITextView(*glui, button_text, text_args);
@@ -330,15 +341,9 @@ void GLUITextButton::setPos(const Vec2f& botleft)
 
 void GLUITextButton::setAvailableRegionDims(const Vec2f& available_dims)
 {
-	Vec2f dims = this->getDims();
+	text_view->setAvailableRegionDims(available_dims); // The text view expands in the same directions as the button.
 
-	if(sizing_type_x == SizingType_Expanding)
-		dims.x = myMax(dims.x, available_dims.x);
-	if(sizing_type_y == SizingType_Expanding)
-		dims.y = myMax(dims.y, available_dims.y);
-
-	rect = Rect2f::fromMinAndSpan(this->getRect().getMin(), dims);
-	text_view->setFixedDimsUICoords(dims);
+	rect = text_view->getRect();
 
 	updateDecorationTransforms();
 }
