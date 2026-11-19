@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2021 -
 #include "graphics/TextRenderer.h"
 #include "utils/RefCounted.h"
 #include "utils/Reference.h"
+#include "utils/Timer.h"
 #include "ui/UIEvents.h"
 #include <string>
 #include <set>
@@ -123,6 +124,7 @@ private:
 	GLARE_DISABLE_COPY(GLUI);
 
 	void removeKeyboardFocusForWidgetBeingRemoved();
+	void updateTooltip();
 
 	TextRendererFontFaceSizeSetRef fonts;
 	TextRendererFontFaceSizeSetRef emoji_fonts;
@@ -141,6 +143,12 @@ private:
 	bool mouse_over_text_input_widget;
 
 	Vec2f last_mouse_ui_coords;
+	Vec2f last_mouse_gl_coords;
+
+	std::string hovered_tooltip; // Tooltip of the widget the mouse is over, or empty if none.
+	Timer hovered_tooltip_timer; // Time since the mouse moved onto the widget with hovered_tooltip.
+	bool tooltip_shown; // Has updateTooltip() moved the tooltip onscreen?  Stays true while hideTooltip() is stopping it from being drawn.
+	bool tooltip_suppressed; // Set when a mouse button is pressed, until the mouse moves onto a widget with a different tooltip.
 
 	std::vector<GLUIWidgetRef> temp_widgets;
 

@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2021 -
 
 static const float TOOLTIP_Z = -0.999f; // -1 is near clip plane
 static const int tooltip_font_size_px = 12;
+static const double tooltip_delay_s = 0.5; // Time the mouse must be over a widget before its tooltip is shown.
 
 
 int GLUI::default_font_size_px = 12;
@@ -27,7 +28,10 @@ GLUI::GLUI()
 :	callbacks(NULL),
 	mouse_over_text_input_widget(false),
 	stack_allocator(NULL),
-	last_mouse_ui_coords(0.f)
+	last_mouse_ui_coords(0.f),
+	last_mouse_gl_coords(0.f),
+	tooltip_shown(false),
+	tooltip_suppressed(false)
 {
 }
 
@@ -90,6 +94,62 @@ void GLUI::think()
 		GLUIWidget* widget = it->ptr();
 		widget->think(*this);
 	}
+
+	// Show the tooltip once the mouse has been over the widget for long enough.
+	if(!tooltip_shown && !hovered_tooltip.empty())
+		updateTooltip();
+}
+
+
+// Shows the tooltip for hovered_tooltip at the mouse position, if the mouse has been over the widget for long enough, and no mouse button has been pressed since moving onto it.
+// Otherwise moves the tooltip offscreen.
+void GLUI::updateTooltip()
+{
+	if(!tooltip_overlay_ob)
+		return;
+
+	if(hovered_tooltip.empty() || tooltip_suppressed || (hovered_tooltip_timer.elapsed() < tooltip_delay_s))
+	{
+		tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0); // Move offscreen.
+		tooltip_shown = false;
+		return;
+	}
+
+	// Get or create tooltip texture
+	OpenGLTextureRef tex;
+	auto res = tooltip_textures.find(hovered_tooltip);
+	if(res == tooltip_textures.end())
+	{
+		tex = makeToolTipTexture(hovered_tooltip);
+		tooltip_textures[hovered_tooltip] = tex;
+	}
+	else
+		tex = res->second;
+
+	tooltip_overlay_ob->material.albedo_texture = tex;
+	tooltip_overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1); // Compensate for OpenGL loading textures upside down (row 0 in OpenGL is considered to be at the bottom of texture)
+	tooltip_overlay_ob->material.tex_translation = Vec2f(0, 1);
+
+	// This should give 1:1 texel : screen-space pixels.
+	const Vec2f ui_dimensions = Vec2f((float)tex->xRes(), (float)tex->yRes()) * 2 / (float)opengl_engine->getViewPortWidth();
+
+	const Vec2f gl_dims = OpenGLCoordsForUICoords(ui_dimensions);
+	const float scale_x = gl_dims.x;
+	const float scale_y = gl_dims.y;
+
+	const float mouse_pointer_h_gl = 40.f / opengl_engine->getViewPortHeight();
+
+	float pos_x = last_mouse_gl_coords.x;
+	float pos_y = last_mouse_gl_coords.y - scale_y - mouse_pointer_h_gl;
+
+	if(pos_y < -1.f) // If tooltip would go off bottom of screen:
+		pos_y = last_mouse_gl_coords.y;
+
+	if(pos_x + scale_x > 1.f) // If tooltip would go off right of screen:
+		pos_x = last_mouse_gl_coords.x - scale_x;
+
+	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos_x, pos_y, TOOLTIP_Z) * Matrix4f::scaleMatrix(scale_x, scale_y, 1);
+	tooltip_shown = true;
 }
 
 
@@ -161,6 +221,13 @@ static void getSortedWidgetsAtEventPos(const std::set<GLUIWidgetRef>& widgets, c
 
 void GLUI::handleMousePress(MouseEvent& event)
 {
+	// Hide the tooltip, and don't show it again until the mouse moves onto a different widget, so that it doesn't get in the way when using the widget, e.g. dragging a slider.
+	if(!hovered_tooltip.empty())
+	{
+		tooltip_suppressed = true;
+		updateTooltip();
+	}
+
 	const Vec2f ui_coords = UICoordsForOpenGLCoords(event.gl_coords);
 	
 	getSortedWidgetsAtEventPos(widgets, ui_coords, temp_widgets);
@@ -237,59 +304,36 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 
 	this->last_mouse_ui_coords = coords;
 
-	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0); // Move offscreen by default.
+	this->last_mouse_gl_coords = mouse_event.gl_coords;
 
 	bool new_mouse_over_text_input_widget = false;
+	const std::string* new_hovered_tooltip = NULL; // Tooltip of the widget the mouse is over, if any.
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
 		widget->handleMouseMoved(mouse_event);
 
-		// Show tooltip over the widget if the mouse is over it, and it has a tooltip:
 		if(widget->rect.inOpenRectangle(coords) && widget->isVisible()) // If the mouse is over the widget:
 		{
 			if(!widget->tooltip.empty()) // And the widget has a tooltip:
-			{
-				// Get or create tooltip texture
-				OpenGLTextureRef tex;
-				auto res = tooltip_textures.find(widget->tooltip);
-				if(res == tooltip_textures.end())
-				{
-					tex = makeToolTipTexture(widget->tooltip);
-					tooltip_textures[widget->tooltip] = tex;
-				}
-				else
-					tex = res->second;
-
-				tooltip_overlay_ob->material.albedo_texture = tex;
-				tooltip_overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1); // Compensate for OpenGL loading textures upside down (row 0 in OpenGL is considered to be at the bottom of texture)
-				tooltip_overlay_ob->material.tex_translation = Vec2f(0, 1);
-
-				// This should give 1:1 texel : screen-space pixels.
-				const Vec2f ui_dimensions = Vec2f((float)tex->xRes(), (float)tex->yRes()) * 2 / (float)opengl_engine->getViewPortWidth();
-
-				const Vec2f gl_dims = OpenGLCoordsForUICoords(ui_dimensions);
-				const float scale_x = gl_dims.x;
-				const float scale_y = gl_dims.y;
-
-				const float mouse_pointer_h_gl = 40.f / opengl_engine->getViewPortHeight();
-
-				float pos_x = mouse_event.gl_coords.x;
-				float pos_y = mouse_event.gl_coords.y - scale_y - mouse_pointer_h_gl;
-				
-				if(pos_y < -1.f) // If tooltip would go off bottom of screen:
-					pos_y = mouse_event.gl_coords.y;
-
-				if(pos_x + scale_x > 1.f) // If tooltip would go off right of screen:
-					pos_x = mouse_event.gl_coords.x - scale_x;
-
-				tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos_x, pos_y, TOOLTIP_Z) * Matrix4f::scaleMatrix(scale_x, scale_y, 1);
-			}
+				new_hovered_tooltip = &widget->tooltip;
 
 			if(widget->acceptsTextInput())
 				new_mouse_over_text_input_widget = true;
 		}
 	}
+
+	// If the mouse moved onto a widget with a different tooltip (or off any widget with a tooltip), restart the tooltip delay.
+	static const std::string empty_string;
+	const std::string& new_tooltip = new_hovered_tooltip ? *new_hovered_tooltip : empty_string;
+	if(new_tooltip != hovered_tooltip)
+	{
+		hovered_tooltip = new_tooltip;
+		hovered_tooltip_timer.reset();
+		tooltip_suppressed = false;
+	}
+
+	updateTooltip();
 
 	// Update mouse_over_text_input_widget
 	if(new_mouse_over_text_input_widget != mouse_over_text_input_widget)
@@ -386,6 +430,13 @@ void GLUI::removeWidget(const GLUIWidgetRef& widget)
 	if(widget == key_focus_widget)
 		removeKeyboardFocusForWidgetBeingRemoved();
 
+	// Hide the tooltip if it is for this widget, so that it isn't left showing until the mouse moves.
+	if(!hovered_tooltip.empty() && (widget->tooltip == hovered_tooltip))
+	{
+		hovered_tooltip.clear();
+		updateTooltip();
+	}
+
 	widgets.erase(widget);
 }
 
@@ -394,6 +445,9 @@ void GLUI::removeAllWidgets()
 {
 	if(key_focus_widget)
 		removeKeyboardFocusForWidgetBeingRemoved();
+
+	hovered_tooltip.clear();
+	updateTooltip();
 
 	widgets.clear();
 }

@@ -141,6 +141,8 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUISpinBox.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUISpinBox.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIDropDownList.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIDropDownList.h
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIContextMenu.cpp
+${GLARE_CORE_TRUNK_DIR_ENV}/opengl/ui/GLUIContextMenu.h
 )
 
 
