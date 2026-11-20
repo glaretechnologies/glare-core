@@ -78,72 +78,52 @@ void GLUICheckBox::handleMousePress(GLUIMouseEvent& event)
 
 	if((event.button == MouseButton::Left) && rect.inOpenRectangle(event.ui_coords) && enabled) // Only the left button toggles the check box.
 	{
-		pressed = true;
-
-		checked = !checked;
-
-		tick_overlay_ob->draw = checked;
-
-		if(handler)
-		{
-			GLUICallbackEvent callback_event;
-			callback_event.widget = this;
-			handler->eventOccurred(callback_event);
-			if(callback_event.accepted)
-				event.accepted = true;
-		}
-
-		if(on_checked_changed)
-		{
-			on_checked_changed();
-			event.accepted = true;
-		}
+		pressed = true; // The check box is toggled when the mouse button is released over it, see handleMouseRelease().
+		event.accepted = true;
 	}
 
 	updateColour(event.ui_coords);
+}
+
+
+void GLUICheckBox::handleMousePressCancelled()
+{
+	pressed = false;
+	updateColour(glui->getLastMouseUICoords());
 }
 
 
 void GLUICheckBox::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
-	// Similar to handleMousePress() above except don't set pressed to true.
-
-	if(!box_overlay_ob->draw) // If not visible:
-		return;
-
-	if((event.button == MouseButton::Left) && rect.inOpenRectangle(event.ui_coords) && enabled) // Only the left button toggles the check box.
-	{
-		checked = !checked;
-
-		pressed = false;
-
-		tick_overlay_ob->draw = checked;
-
-		if(handler)
-		{
-			GLUICallbackEvent callback_event;
-			callback_event.widget = this;
-			handler->eventOccurred(callback_event);
-			if(callback_event.accepted)
-				event.accepted = true;
-		}
-
-		if(on_checked_changed)
-		{
-			on_checked_changed();
-			event.accepted = true;
-		}
-	}
-
-	updateColour(event.ui_coords);
+	handleMousePress(event); // The second click of a double-click toggles the check box again, on release.
 }
 
 
+// The check box is toggled if the mouse button is released over it after being pressed on it.  Releasing elsewhere cancels the toggle.
 void GLUICheckBox::handleMouseRelease(GLUIMouseEvent& event)
 {
 	if(pressed)
 	{
 		pressed = false;
+
+		if(box_overlay_ob->draw && enabled && rect.inOpenRectangle(event.ui_coords)) // If visible, enabled and released over the check box:
+		{
+			event.accepted = true;
+
+			checked = !checked;
+
+			tick_overlay_ob->draw = checked;
+
+			if(handler)
+			{
+				GLUICallbackEvent callback_event;
+				callback_event.widget = this;
+				handler->eventOccurred(callback_event);
+			}
+
+			if(on_checked_changed)
+				on_checked_changed();
+		}
 
 		updateColour(event.ui_coords);
 	}

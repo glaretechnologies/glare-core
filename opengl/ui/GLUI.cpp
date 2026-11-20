@@ -81,6 +81,9 @@ void GLUI::destroy()
 		widgets.clear();
 	}
 
+	for(int i=0; i<NUM_MOUSE_BUTTONS; ++i)
+		pressed_widgets[i] = nullptr;
+
 	checkRemoveOverlayObAndSetRefToNull(opengl_engine.ptr(), tooltip_overlay_ob);
 
 	opengl_engine = NULL;
@@ -219,6 +222,16 @@ static void getSortedWidgetsAtEventPos(const std::set<GLUIWidgetRef>& widgets, c
 }
 
 
+// Returns true if widget is ancestor, or is contained in it, e.g. a button in a grid in ancestor.  Returns false if ancestor is null.
+static bool isWidgetOrDescendantOf(const GLUIWidget* widget, const GLUIWidget* ancestor)
+{
+	for(const GLUIWidget* w = widget; w; w = w->getParent())
+		if(w == ancestor)
+			return true;
+	return false;
+}
+
+
 void GLUI::handleMousePress(MouseEvent& event)
 {
 	// Hide the tooltip, and don't show it again until the mouse moves onto a different widget, so that it doesn't get in the way when using the widget, e.g. dragging a slider.
@@ -264,8 +277,12 @@ void GLUI::handleMousePress(MouseEvent& event)
 		{
 			event.accepted = true;
 
-			if(temp_widgets[i] != key_focus_widget.ptr())
-				setKeyboardFocusWidget(NULL); // A widget that wasn't the one with keyboard focus accepted the click.  Remove keyboard focus from any widgets that had it.
+			setPressedWidgetForMouseButton(glui_event.button, temp_widgets[i]); // This widget gets the following release of the button.
+
+			// If a widget outside the one with keyboard focus accepted the click, remove keyboard focus from it.
+			// Widgets inside the focus widget, e.g. the items of an open menu, don't remove focus, as that would close the menu before the item is clicked on release.
+			if(!isWidgetOrDescendantOf(temp_widgets[i].ptr(), key_focus_widget.ptr()))
+				setKeyboardFocusWidget(NULL);
 
 			temp_widgets.clear();
 			return;
@@ -278,19 +295,70 @@ void GLUI::handleMousePress(MouseEvent& event)
 }
 
 
+// Returns the index into pressed_widgets for the button, or -1 if presses of the button aren't tracked, e.g. for MouseButton::None.
+static int mouseButtonIndex(MouseButton button)
+{
+	switch(button)
+	{
+	case MouseButton::Left:    return 0;
+	case MouseButton::Middle:  return 1;
+	case MouseButton::Right:   return 2;
+	case MouseButton::Back:    return 3;
+	case MouseButton::Forward: return 4;
+	default:                   return -1;
+	}
+}
+
+
+// Makes the widget receive the following release of the button.
+// If another widget is still waiting for the release of an earlier press of the same button, e.g. because that release was never received, cancels that press.
+void GLUI::setPressedWidgetForMouseButton(MouseButton button, const GLUIWidgetRef& widget)
+{
+	const int index = mouseButtonIndex(button);
+	if(index >= 0)
+	{
+		if(pressed_widgets[index] && (pressed_widgets[index] != widget))
+		{
+			// Take the reference out of the array first, which also keeps the widget alive if the handler removes it from the UI.
+			const GLUIWidgetRef old_widget = pressed_widgets[index];
+			pressed_widgets[index] = NULL;
+			old_widget->handleMousePressCancelled();
+		}
+
+		pressed_widgets[index] = widget;
+	}
+}
+
+
+void GLUI::cancelMousePress()
+{
+	for(int i=0; i<NUM_MOUSE_BUTTONS; ++i)
+	{
+		// Take the reference out of the array first, which also keeps the widget alive if the handler removes it from the UI.
+		const GLUIWidgetRef widget = pressed_widgets[i];
+		pressed_widgets[i] = NULL;
+
+		if(widget)
+			widget->handleMousePressCancelled();
+	}
+}
+
+
 void GLUI::handleMouseRelease(MouseEvent& event)
 {
-	GLUIMouseEvent glui_event(event, UICoordsForOpenGLCoords(event.gl_coords));
-
-	for(auto it = widgets.begin(); it != widgets.end(); ++it)
+	// The release only goes to the widget that accepted the press of the same button, e.g. so that a button pressed and then released elsewhere still gets the release.
+	const int index = mouseButtonIndex(event.button);
+	if((index >= 0) && pressed_widgets[index])
 	{
-		GLUIWidget* widget = it->ptr();
+		GLUIMouseEvent glui_event(event, UICoordsForOpenGLCoords(event.gl_coords));
+
+		// Take the reference out of the array first, which also keeps the widget alive if a release handler removes it from the UI.
+		const GLUIWidgetRef widget = pressed_widgets[index];
+		pressed_widgets[index] = NULL;
+
 		widget->handleMouseRelease(glui_event);
 		if(glui_event.accepted)
-		{
 			event.accepted = true;
-			return;
-		}
 	}
 }
 
@@ -307,6 +375,7 @@ void GLUI::handleMouseDoubleClick(MouseEvent& event)
 		if(glui_event.accepted)
 		{
 			event.accepted = true;
+			setPressedWidgetForMouseButton(glui_event.button, temp_widgets[i]); // This widget gets the following release of the button.
 			break;
 		}
 	}
@@ -472,6 +541,10 @@ void GLUI::removeWidget(const GLUIWidgetRef& widget)
 	if(widget == key_focus_widget)
 		removeKeyboardFocusForWidgetBeingRemoved();
 
+	for(int i=0; i<NUM_MOUSE_BUTTONS; ++i)
+		if(pressed_widgets[i] == widget)
+			pressed_widgets[i] = nullptr; // A removed widget doesn't get mouse releases.
+
 	// Hide the tooltip if it is for this widget, so that it isn't left showing until the mouse moves.
 	if(!hovered_tooltip.empty() && (widget->tooltip == hovered_tooltip))
 	{
@@ -487,6 +560,9 @@ void GLUI::removeAllWidgets()
 {
 	if(key_focus_widget)
 		removeKeyboardFocusForWidgetBeingRemoved();
+
+	for(int i=0; i<NUM_MOUSE_BUTTONS; ++i)
+		pressed_widgets[i] = nullptr;
 
 	hovered_tooltip.clear();
 	updateTooltip();

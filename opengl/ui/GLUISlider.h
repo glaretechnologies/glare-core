@@ -50,6 +50,7 @@ public:
 
 	virtual void handleMousePress(GLUIMouseEvent& event) override;
 	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
+	virtual void handleMousePressCancelled() override;
 	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
 	virtual void doHandleMouseMoved(GLUIMouseEvent& event) override;
 	virtual void doHandleMouseWheelEvent(GLUIMouseWheelEvent& event) override;

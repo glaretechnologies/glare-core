@@ -105,6 +105,16 @@ void GLUISlider::handleMousePress(GLUIMouseEvent& event)
 }
 
 
+void GLUISlider::handleMousePressCancelled()
+{
+	if(knob_grabbed)
+	{
+		knob_grabbed = false;
+		updateKnobColour(glui->getLastMouseUICoords());
+	}
+}
+
+
 void GLUISlider::handleMouseRelease(GLUIMouseEvent& event)
 {
 	if(knob_grabbed)

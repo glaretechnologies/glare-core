@@ -133,7 +133,7 @@ public:
 	Vec2f gl_coords;
 	uint32 modifiers;
 	MouseButton button;
-	uint32 button_state;
+	uint32 button_state; // Bits MouseButton::Left, MouseButton::right etc... are set if mouse buttons are pressed.
 
 	bool accepted;
 };

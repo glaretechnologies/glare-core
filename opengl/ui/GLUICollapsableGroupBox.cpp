@@ -108,11 +108,6 @@ void GLUICollapsableGroupBox::handleMousePress(GLUIMouseEvent& event)
 }
 
 
-void GLUICollapsableGroupBox::handleMouseRelease(GLUIMouseEvent& /*event*/)
-{
-}
-
-
 void GLUICollapsableGroupBox::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!visible || !args.background_consumes_events)

@@ -51,7 +51,6 @@ public:
 	virtual ~GLUIGridContainer();
 
 	virtual void handleMousePress(GLUIMouseEvent& event) override;
-	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
 	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
 
 

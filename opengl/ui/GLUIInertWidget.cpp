@@ -60,11 +60,6 @@ void GLUIInertWidget::handleMousePress(GLUIMouseEvent& event)
 }
 
 
-void GLUIInertWidget::handleMouseRelease(GLUIMouseEvent& event)
-{
-}
-
-
 void GLUIInertWidget::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw)

@@ -106,30 +106,35 @@ void GLUIButton::handleMousePress(GLUIMouseEvent& event)
 
 	if((event.button == MouseButton::Left) && rect.inOpenRectangle(event.ui_coords)) // Only the left button presses the button.
 	{
-		pressed = true;
-
-		if(toggleable)
-			toggled = !toggled;
-
-		if(handler)
-		{
-			GLUICallbackEvent callback_event;
-			callback_event.widget = this;
-			handler->eventOccurred(callback_event);
-			if(callback_event.accepted)
-				event.accepted = true;
-		}
+		pressed = true; // The button is clicked when the mouse button is released over it, see handleMouseRelease().
+		event.accepted = true;
 	}
 
 	updateButtonColour(event.ui_coords);
 }
 
 
+// The button is clicked if the mouse button is released over it after being pressed on it.  Releasing elsewhere cancels the click.
 void GLUIButton::handleMouseRelease(GLUIMouseEvent& event)
 {
 	if(pressed)
 	{
 		pressed = false;
+
+		if(overlay_ob->draw && rect.inOpenRectangle(event.ui_coords)) // If visible and released over the button:
+		{
+			event.accepted = true;
+
+			if(toggleable)
+				toggled = !toggled;
+
+			if(handler)
+			{
+				GLUICallbackEvent callback_event;
+				callback_event.widget = this;
+				handler->eventOccurred(callback_event);
+			}
+		}
 
 		updateButtonColour(event.ui_coords);
 	}
@@ -138,6 +143,13 @@ void GLUIButton::handleMouseRelease(GLUIMouseEvent& event)
 
 // The second click of a double-click arrives as a double-click event instead of a press event, so treat it as a press.
 // A release event follows, which clears pressed.
+void GLUIButton::handleMousePressCancelled()
+{
+	pressed = false;
+	updateButtonColour(glui->getLastMouseUICoords());
+}
+
+
 void GLUIButton::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	handleMousePress(event);

@@ -89,6 +89,8 @@ private:
 	void updateButtonColours(const Vec2f& mouse_ui_coords);
 	void openButtonPressed();
 	void optionButtonPressed(GLUICallbackEvent& event);
+	GLUIWidget* getOptionButton(size_t option_index);
+	void selectOption(size_t option_index);
 	void setNewCurrentIndex(size_t new_cur_index);
 
 	OverlayObjectRef open_button_overlay_ob;

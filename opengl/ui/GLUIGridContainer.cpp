@@ -64,11 +64,6 @@ void GLUIGridContainer::handleMousePress(GLUIMouseEvent& event)
 }
 
 
-void GLUIGridContainer::handleMouseRelease(GLUIMouseEvent& /*event*/)
-{
-}
-
-
 void GLUIGridContainer::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw || !args.background_consumes_events)

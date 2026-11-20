@@ -192,13 +192,24 @@ void GLUIDropDownList::handleMousePress(GLUIMouseEvent& event)
 }
 
 
+// This widget gets the release of the press that opened the options.  If the mouse was dragged onto an option before releasing, select that option.
+// This allows press, drag and release to select an option, as well as a click to open the options followed by a click on an option.
 void GLUIDropDownList::handleMouseRelease(GLUIMouseEvent& event)
 {
-	/*if(open_button_pressed)
+	if(options_grid && (event.button == MouseButton::Left))
 	{
-		open_button_pressed = false;
-		updateButtonColours(event.ui_coords);
-	}*/
+		for(size_t i=0; i<args.options.size(); ++i)
+		{
+			GLUIWidget* option_button = getOptionButton(i);
+			if(option_button && option_button->getRect().inOpenRectangle(event.ui_coords))
+			{
+				event.accepted = true;
+				selectOption(i);
+				checkRemoveAndDeleteWidget(glui, options_grid); // Close/delete options grid
+				break;
+			}
+		}
+	}
 }
 
 
@@ -250,6 +261,7 @@ void GLUIDropDownList::openButtonPressed()
 			grid_args.interior_cell_x_padding_px = 0;
 			grid_args.interior_cell_y_padding_px = 0;
 			options_grid = new GLUIGridContainer(*glui, grid_args);
+			options_grid->setParent(this); // So that pressing an option, which is in the grid, doesn't take keyboard focus away from this widget and close the options.
 		}
 
 		// Add the option buttons
@@ -292,29 +304,42 @@ void GLUIDropDownList::optionButtonPressed(GLUICallbackEvent& event)
 		return;
 
 	for(size_t i=0; i<args.options.size(); ++i)
-	{
-		const size_t cell_x = i / MAX_NUM_ROWS;
-		const size_t cell_y = i % MAX_NUM_ROWS;
-
-		if((cell_x < options_grid->cell_widgets.getWidth()) && (cell_y < options_grid->cell_widgets.getHeight()) && (options_grid->cell_widgets.elem(cell_x, cell_y).ptr() == event.widget))
-		{
-			this->cur_index = i;
-
-			this->text->setText(getCurrentValue());
-
-			// call handler for this widget
-			if(this->handler_func)
-			{
-				GLUIDropDownListValueChangedEvent new_event;
-				new_event.widget = this;
-				new_event.index = i;
-				new_event.value = getCurrentValue();
-				this->handler_func(new_event);
-			}
-		}
-	}
+		if(getOptionButton(i) == event.widget)
+			selectOption(i);
 
 	checkRemoveAndDeleteWidget(glui, options_grid); // Close/delete options grid
+}
+
+
+// Returns the button for the option in the options grid, or NULL if the options grid is not open.
+GLUIWidget* GLUIDropDownList::getOptionButton(size_t option_index)
+{
+	const size_t cell_x = option_index / MAX_NUM_ROWS;
+	const size_t cell_y = option_index % MAX_NUM_ROWS;
+
+	if(options_grid && (cell_x < options_grid->cell_widgets.getWidth()) && (cell_y < options_grid->cell_widgets.getHeight()))
+		return options_grid->cell_widgets.elem(cell_x, cell_y).ptr();
+	else
+		return NULL;
+}
+
+
+// Makes the option the current one, and calls handler_func.  Doesn't close the options grid.
+void GLUIDropDownList::selectOption(size_t option_index)
+{
+	this->cur_index = option_index;
+
+	this->text->setText(getCurrentValue());
+
+	// call handler for this widget
+	if(this->handler_func)
+	{
+		GLUIDropDownListValueChangedEvent new_event;
+		new_event.widget = this;
+		new_event.index = option_index;
+		new_event.value = getCurrentValue();
+		this->handler_func(new_event);
+	}
 }
 
 

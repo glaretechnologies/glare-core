@@ -63,7 +63,6 @@ public:
 	virtual void setZ(float new_z) override;
 
 	virtual void handleMousePress(GLUIMouseEvent& event) override;
-	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
 	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
 	virtual void doHandleMouseMoved(GLUIMouseEvent& event) override;
 	virtual void doHandleKeyPressedEvent(KeyEvent& key_event) override;

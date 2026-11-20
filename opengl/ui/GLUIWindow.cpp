@@ -115,11 +115,6 @@ void GLUIWindow::handleMousePress(GLUIMouseEvent& event)
 }
 
 
-void GLUIWindow::handleMouseRelease(GLUIMouseEvent& /*event*/)
-{
-}
-
-
 void GLUIWindow::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!background_overlay_ob->draw || !args.background_consumes_events)

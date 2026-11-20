@@ -244,6 +244,17 @@ void GLUISpinBox::handleMousePress(GLUIMouseEvent& event)
 }
 
 
+void GLUISpinBox::handleMousePressCancelled()
+{
+	if(decrement_pressed || increment_pressed)
+	{
+		decrement_pressed = false;
+		increment_pressed = false;
+		updateButtonColours(glui->getLastMouseUICoords());
+	}
+}
+
+
 void GLUISpinBox::handleMouseRelease(GLUIMouseEvent& event)
 {
 	if(decrement_pressed || increment_pressed)

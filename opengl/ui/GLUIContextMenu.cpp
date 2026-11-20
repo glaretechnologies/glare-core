@@ -40,6 +40,7 @@ GLUIContextMenu::GLUIContextMenu(GLUI& glui_, const CreateArgs& args_, const Vec
 	grid_args.exterior_cell_x_padding_px = 4;
 	grid_args.exterior_cell_y_padding_px = 4;
 	grid = new GLUIGridContainer(*glui, grid_args);
+	grid->setParent(this); // So that pressing an item, which is in the grid, doesn't take keyboard focus away from the menu and close it.
 	glui->addWidget(grid);
 
 	int next_row = 0;
@@ -117,11 +118,13 @@ void GLUIContextMenu::close()
 }
 
 
-// Called from the clicked button's mouse press handler.
-// The GLUI holds references to the button and to this menu (as the menu rect contains the click) while dispatching the event,
-// so neither is destroyed if item_selected_func makes the owner remove and destroy the menu.
+// Called from the clicked button's mouse release handler.
+// The GLUI holds a reference to the button while dispatching the release.  Hold a reference to this menu too,
+// so that it, and item_selected_func, aren't destroyed during the call if item_selected_func makes the owner remove and destroy the menu.
 void GLUIContextMenu::itemClicked(size_t item_index)
 {
+	const Reference<GLUIContextMenu> this_ref(this);
+
 	close();
 
 	if(item_selected_func)

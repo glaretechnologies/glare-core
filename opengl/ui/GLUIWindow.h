@@ -71,7 +71,6 @@ public:
 	const GLUIWidgetRef& getBodyWidget() const { return body_widget; }
 
 	virtual void handleMousePress(GLUIMouseEvent& event) override;
-	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
 	virtual void handleMouseDoubleClick(GLUIMouseEvent& event) override;
 
 

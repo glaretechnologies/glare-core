@@ -303,10 +303,6 @@ void GLUILineEdit::handleMousePress(GLUIMouseEvent& event)
 }
 
 
-void GLUILineEdit::handleMouseRelease(GLUIMouseEvent& /*event*/)
-{
-}
-
 
 void GLUILineEdit::handleMouseDoubleClick(GLUIMouseEvent& event)
 {

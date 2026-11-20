@@ -552,11 +552,6 @@ void GLUITextView::handleMousePress(GLUIMouseEvent& event)
 }
 
 
-void GLUITextView::handleMouseRelease(GLUIMouseEvent& /*event*/)
-{
-}
-
-
 void GLUITextView::handleMouseDoubleClick(GLUIMouseEvent& event)
 {
 	if(!visible)

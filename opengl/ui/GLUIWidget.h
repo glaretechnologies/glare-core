@@ -38,6 +38,11 @@ public:
 	virtual void handleMouseRelease(GLUIMouseEvent& /*event*/) {}
 	virtual void handleMouseDoubleClick(GLUIMouseEvent& /*event*/) {}
 
+	// Called instead of handleMouseRelease() when a press that this widget accepted ends without a release, e.g. when a touch long-press opens a context menu.
+	// The widget should clear any pressed state, and not act on the press, e.g. a button should not be clicked.
+	// May be called more than once in a row, if the widget accepted presses of more than one mouse button.
+	virtual void handleMousePressCancelled() {}
+
 	// Called on a right mouse button press over the widget, before handleMousePress().  Accept the event to stop the press being processed further, e.g. if a context menu was opened.
 	// The default implementation calls handler->contextMenuRequestedEventOccurred() if handler is set.  If the handler doesn't accept the event, passes the request to the parent widget, if any.
 	virtual void contextMenuRequested(GLUIMouseEvent& event);

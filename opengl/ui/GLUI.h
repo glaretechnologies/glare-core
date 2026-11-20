@@ -59,6 +59,7 @@ public:
 	float OpenGLYScaleForUIYScale(float y_scale);
 
 	void handleMousePress(MouseEvent& event);
+	void cancelMousePress(); // Cancels any current presses: calls handleMousePressCancelled() on the widgets that accepted them, which then don't get the releases.
 	void handleMouseRelease(MouseEvent& event);
 	void handleMouseDoubleClick(MouseEvent& event);
 	bool handleMouseWheelEvent(MouseWheelEvent& event);
@@ -132,6 +133,12 @@ private:
 	std::set<GLUIWidgetRef> widgets;
 
 	GLUIWidgetRef key_focus_widget;
+
+	// For each mouse button, the widget that accepted the last press or double-click of that button, which receives the following release of the button.  May be null.
+	// Indexed by mouseButtonIndex(button).  Tracked per button, so that e.g. a widget dragged with the left button and then also pressed with the middle button gets both releases.
+	static const int NUM_MOUSE_BUTTONS = 5;
+	GLUIWidgetRef pressed_widgets[NUM_MOUSE_BUTTONS];
+	void setPressedWidgetForMouseButton(MouseButton button, const GLUIWidgetRef& widget);
 
 	OverlayObjectRef tooltip_overlay_ob;
 
