@@ -162,6 +162,9 @@ uint32 getDWordRegKey(RegHKey key, const std::string& subkey, const std::string&
 
 void setStringRegKey(RegHKey key, const std::string& subkey, const std::string& valuename, const std::string& new_valuedata);
 void setDWordRegKey(RegHKey key, const std::string& subkey, const std::string& valuename, uint32 new_valuedata);
+
+std::vector<std::string> getRegSubKeyNames(RegHKey key, const std::string& subkey); // Returns the names of the subkeys directly under subkey.  Returns an empty vector if subkey doesn't exist.
+void deleteRegKeyTree(RegHKey key, const std::string& subkey); // Deletes subkey, and all its subkeys and values.  Does nothing if subkey doesn't exist.
 #endif
 
 

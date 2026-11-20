@@ -957,6 +957,53 @@ uint32 PlatformUtils::getDWordRegKey(RegHKey key, const std::string &subkey_, co
 	return res;
 }
 
+
+std::vector<std::string> PlatformUtils::getRegSubKeyNames(RegHKey key, const std::string& subkey_)
+{
+	const HKEY hKey = convertRegKey(key);
+	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+
+	std::vector<std::string> names;
+
+	HKEY reg_key_handle;
+	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_ENUMERATE_SUB_KEYS, &reg_key_handle);
+	if(result == ERROR_SUCCESS)
+	{
+		for(DWORD i=0; ; ++i)
+		{
+			WCHAR name[256]; // Registry key names are at most 255 chars.
+			DWORD name_len = 256; // In chars, including the null terminator.  Set to the name length, excluding the null terminator, on success.
+			result = RegEnumKeyExW(reg_key_handle, i, name, &name_len, /*lpReserved=*/nullptr, /*lpClass=*/nullptr, /*lpcchClass=*/nullptr, /*lpftLastWriteTime=*/nullptr);
+			if(result == ERROR_NO_MORE_ITEMS)
+				break;
+			if(result != ERROR_SUCCESS)
+			{
+				RegCloseKey(reg_key_handle);
+				throw PlatformUtilsExcep("Failed to enumerate registry subkeys: " + getErrorStringForCode(result));
+			}
+			names.push_back(StringUtils::PlatformToUTF8UnicodeEncoding(std::wstring(name, name_len)));
+		}
+
+		result = RegCloseKey(reg_key_handle);
+		assert(result == ERROR_SUCCESS);
+	}
+	else if(result != ERROR_FILE_NOT_FOUND)
+		throw PlatformUtilsExcep("Failed to open registry key: " + getErrorStringForCode(result));
+
+	return names;
+}
+
+
+void PlatformUtils::deleteRegKeyTree(RegHKey key, const std::string& subkey_)
+{
+	const HKEY hKey = convertRegKey(key);
+	const std::wstring subkey = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
+
+	const LONG result = RegDeleteTreeW(hKey, subkey.c_str());
+	if((result != ERROR_SUCCESS) && (result != ERROR_FILE_NOT_FOUND))
+		throw PlatformUtilsExcep("Failed to delete registry key: " + getErrorStringForCode(result));
+}
+
 #endif // end if defined(_WIN32) && !defined(EMSCRIPTEN)
 
 
@@ -1216,6 +1263,49 @@ void PlatformUtils::testPlatformUtils()
 	}
 	catch(PlatformUtilsExcep&)
 	{
+	}
+
+	// Test getRegSubKeyNames() and deleteRegKeyTree()
+	try
+	{
+		const std::string test_key = "SOFTWARE\\Glare Technologies\\PlatformUtilsTest";
+		deleteRegKeyTree(RegHKey_CurrentUser, test_key); // In case left over from a previous failed run.
+
+		// Key does not exist
+		testAssert(getRegSubKeyNames(RegHKey_CurrentUser, test_key).empty());
+
+		// Create some subkeys, with a value in each (setStringRegKey creates the key if needed), and a nested subkey in one.
+		setStringRegKey(RegHKey_CurrentUser, test_key + "\\a", "value", "1");
+		setStringRegKey(RegHKey_CurrentUser, test_key + "\\b", "value", "2");
+		setStringRegKey(RegHKey_CurrentUser, test_key + "\\b\\c", "value", "3");
+		setStringRegKey(RegHKey_CurrentUser, test_key, "direct_value", "4"); // A value directly in the key, which is not a subkey.
+
+		std::vector<std::string> names = getRegSubKeyNames(RegHKey_CurrentUser, test_key);
+		std::sort(names.begin(), names.end());
+		testAssert(names.size() == 2);
+		testAssert(names[0] == "a");
+		testAssert(names[1] == "b");
+
+		testAssert(getRegSubKeyNames(RegHKey_CurrentUser, test_key + "\\b") == std::vector<std::string>(1, "c"));
+		testAssert(getRegSubKeyNames(RegHKey_CurrentUser, test_key + "\\a").empty());
+
+		// Delete a subkey with a nested subkey
+		deleteRegKeyTree(RegHKey_CurrentUser, test_key + "\\b");
+		testAssert(getRegSubKeyNames(RegHKey_CurrentUser, test_key) == std::vector<std::string>(1, "a"));
+		testAssert(!doesRegKeyAndValueExist(RegHKey_CurrentUser, test_key + "\\b\\c", "value"));
+		testAssert(doesRegKeyAndValueExist(RegHKey_CurrentUser, test_key + "\\a", "value"));
+
+		// Deleting a non-existent key does nothing
+		deleteRegKeyTree(RegHKey_CurrentUser, test_key + "\\does_not_exist");
+
+		// Delete the whole test key
+		deleteRegKeyTree(RegHKey_CurrentUser, test_key);
+		testAssert(getRegSubKeyNames(RegHKey_CurrentUser, test_key).empty());
+		testAssert(!doesRegKeyAndValueExist(RegHKey_CurrentUser, test_key, "direct_value"));
+	}
+	catch(PlatformUtilsExcep& e)
+	{
+		failTest(e.what());
 	}
 #endif
 }
