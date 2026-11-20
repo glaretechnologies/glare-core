@@ -240,6 +240,13 @@ void GLUIButton::updateOverlayTransform()
 }
 
 
+void GLUIButton::setButtonColour(const Colour3f& col)
+{
+	args.button_colour = col;
+	updateButtonColour(glui->getLastMouseUICoords());
+}
+
+
 void GLUIButton::updateButtonColour(const Vec2f mouse_ui_coords)
 {
 	if(overlay_ob)

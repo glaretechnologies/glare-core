@@ -72,6 +72,8 @@ public:
 
 	void setToggled(bool toggled_);
 
+	void setButtonColour(const Colour3f& col); // Sets the colour of a non-toggleable button when the mouse is not over it and it isn't pressed.  Linear.
+
 	virtual void setVisible(bool visible) override;
 	virtual bool isVisible() override;
 
