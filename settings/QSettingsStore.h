@@ -35,6 +35,9 @@ public:
 	virtual std::string getStringValue(const std::string& key, const std::string& default_value) override;
 	virtual void		setStringValue(const std::string& key, const std::string& value) override;
 
+	virtual std::vector<std::string> getMapKeys(const std::vector<std::string>& map_path) override;
+	virtual void removeMapEntry(const std::vector<std::string>& map_path, const std::string& key) override;
+
 private:
 	QSettings* settings;
 };

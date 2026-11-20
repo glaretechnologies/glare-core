@@ -7,7 +7,10 @@ Copyright Glare Technologies Limited 2023 -
 
 
 #include "../qt/QtUtils.h"
+#include "../utils/StringUtils.h"
+#include "../utils/Exception.h"
 #include <QtCore/QSettings>
+#include <QtCore/QStringList>
 
 
 QSettingsStore::QSettingsStore(QSettings* settings_)
@@ -64,4 +67,30 @@ std::string QSettingsStore::getStringValue(const std::string& key, const std::st
 void QSettingsStore::setStringValue(const std::string& key, const std::string& value)
 {
 	settings->setValue(QtUtils::toQString(key), QtUtils::toQString(value));
+}
+
+
+// Map entries are QSettings groups under the map's group.
+std::vector<std::string> QSettingsStore::getMapKeys(const std::vector<std::string>& map_path)
+{
+	if(map_path.empty())
+		throw glare::Exception("getMapKeys: map_path must not be empty");
+
+	settings->beginGroup(QtUtils::toQString(StringUtils::join(map_path, "/")));
+	const QStringList groups = settings->childGroups();
+	settings->endGroup();
+
+	std::vector<std::string> keys(groups.size());
+	for(int i=0; i<groups.size(); ++i)
+		keys[i] = QtUtils::toStdString(groups[i]);
+	return keys;
+}
+
+
+void QSettingsStore::removeMapEntry(const std::vector<std::string>& map_path, const std::string& key)
+{
+	if(map_path.empty())
+		throw glare::Exception("removeMapEntry: map_path must not be empty");
+
+	settings->remove(QtUtils::toQString(StringUtils::join(map_path, "/") + "/" + key)); // Removes the entry group and all settings in it.
 }

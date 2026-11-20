@@ -36,8 +36,12 @@ public:
 	virtual std::string getStringValue(const std::string& key, const std::string& default_value) override;
 	virtual void		setStringValue(const std::string& key, const std::string& value) override;
 
+	virtual std::vector<std::string> getMapKeys(const std::vector<std::string>& map_path) override;
+	virtual void removeMapEntry(const std::vector<std::string>& map_path, const std::string& key) override;
+
 private:
 	void getRegSubKeyAndValueName(const std::string& setting_key, std::string& subkey_out, std::string& value_name_out);
+	std::string getRegSubKeyForPath(const std::vector<std::string>& path); // e.g. {"a", "b"} -> "SOFTWARE\organisation_name\app_name\a\b"
 	bool doesRegValueExist(const std::string& setting_key);
 	std::string getRegStringVal(const std::string& setting_key);
 	uint32 getRegDWordVal(const std::string& setting_key);

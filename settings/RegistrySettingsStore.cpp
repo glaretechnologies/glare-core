@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/PlatformUtils.h>
 #include <utils/StringUtils.h>
 #include <utils/ConPrint.h>
+#include <utils/Exception.h>
 
 
 RegistrySettingsStore::RegistrySettingsStore(const std::string& organisation_name_, const std::string& app_name_)
@@ -37,6 +38,15 @@ void RegistrySettingsStore::getRegSubKeyAndValueName(const std::string& setting_
 			subkey_out += "\\";
 	}
 	value_name_out = keyparts.back();
+}
+
+
+std::string RegistrySettingsStore::getRegSubKeyForPath(const std::vector<std::string>& path)
+{
+	std::string subkey = "SOFTWARE\\" + organisation_name + "\\" + app_name;
+	for(size_t i=0; i<path.size(); ++i)
+		subkey += "\\" + path[i];
+	return subkey;
 }
 
 
@@ -175,6 +185,33 @@ void RegistrySettingsStore::setStringValue(const std::string& setting_key, const
 	std::string subkey, value_name;
 	getRegSubKeyAndValueName(setting_key, subkey, value_name);
 	PlatformUtils::setStringRegKey(PlatformUtils::RegHKey_CurrentUser, subkey, value_name, /*new valuedata=*/value);
+}
+
+
+// Map entries are registry subkeys of the map's subkey, with the entry fields as values.
+std::vector<std::string> RegistrySettingsStore::getMapKeys(const std::vector<std::string>& map_path)
+{
+	if(map_path.empty())
+		throw glare::Exception("getMapKeys: map_path must not be empty");
+
+	try
+	{
+		return PlatformUtils::getRegSubKeyNames(PlatformUtils::RegHKey_CurrentUser, getRegSubKeyForPath(map_path));
+	}
+	catch(glare::Exception& e)
+	{
+		conPrint("Warning: failed to get map keys: " + e.what());
+		return std::vector<std::string>();
+	}
+}
+
+
+void RegistrySettingsStore::removeMapEntry(const std::vector<std::string>& map_path, const std::string& key)
+{
+	if(map_path.empty())
+		throw glare::Exception("removeMapEntry: map_path must not be empty");
+
+	PlatformUtils::deleteRegKeyTree(PlatformUtils::RegHKey_CurrentUser, getRegSubKeyForPath(map_path) + "\\" + key);
 }
 
 
