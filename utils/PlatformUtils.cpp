@@ -830,129 +830,136 @@ static HKEY convertRegKey(PlatformUtils::RegHKey key)
 
 bool PlatformUtils::doesRegKeyAndValueExist(RegHKey key, const std::string &subkey_, const std::string &valuename_)
 {
-	const HKEY hKey = convertRegKey(key);
+	const HKEY key_handle = convertRegKey(key);
 	const std::wstring subkey    = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
 	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
-	
-	HKEY reg_key_handle;
-	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_QUERY_VALUE, &reg_key_handle);
-	if(result != ERROR_SUCCESS)
-		return false;
 
-	// Query the actual value
-	WCHAR lszValue[1024];
-	DWORD dwType = 0;
-	DWORD dwSize = 1024;
+	// With no data buffer, RegGetValueW just checks that the value exists, whatever its type and size.
+	const LONG result = RegGetValueW(
+		key_handle,
+		subkey.c_str(), // subkey
+		valuename.c_str(), // value
+		RRF_RT_ANY, // flags
+		nullptr, // type out (optional)
+		nullptr, // data out (optional)
+		nullptr // size in/out (optional when data out is null)
+	);
 
-	result = RegQueryValueExW(reg_key_handle, valuename.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
-	const bool value_exists = result == ERROR_SUCCESS;
-
-	result = RegCloseKey(reg_key_handle);
-	assert(result == ERROR_SUCCESS);
-
-	return value_exists;
+	return result == ERROR_SUCCESS;
 }
 
 
 std::string PlatformUtils::getStringRegKey(RegHKey key, const std::string &subkey_, const std::string &valuename_)
 {
-	const HKEY hKey = convertRegKey(key);
+	const HKEY key_handle = convertRegKey(key);
 	const std::wstring subkey    = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
 	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
 	
-	HKEY reg_key_handle;
-	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_QUERY_VALUE, &reg_key_handle);
-	if(result != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to open registry key: error code " + getErrorStringForCode(result));
+	std::wstring stringbuf(256, '\0');
+	DWORD size_B = (DWORD)stringbuf.size() * sizeof(WCHAR);
+	LONG result = RegGetValueW(
+		key_handle,
+		subkey.c_str(), // subkey
+		valuename.c_str(), // value
+		RRF_RT_REG_EXPAND_SZ | RRF_RT_REG_SZ, // flags
+		nullptr, // type out (optional)
+		stringbuf.data(), // data out
+		&size_B // size in/out
+	);
 
-	WCHAR lszValue[1024];
-	DWORD dwType = REG_SZ;
-	DWORD dwSize = 1024;
+	if(result == ERROR_MORE_DATA)
+	{
+		// Buffer wasn't big enough.  Try again with the required buffer size.
+		stringbuf.resize(size_B / sizeof(WCHAR) + 1); // Plus 1 in case size_B comes back from windows as an odd number (possible on malformed data in the registry?).
 
-	result = RegQueryValueExW(reg_key_handle, valuename.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
+		result = RegGetValueW(
+			key_handle,
+			subkey.c_str(), // subkey
+			valuename.c_str(), // value
+			RRF_RT_REG_EXPAND_SZ | RRF_RT_REG_SZ, // flags
+			nullptr, // type out (optional)
+			stringbuf.data(), // data out
+			&size_B // size in/out
+		);
+	}
+
 	if(result != ERROR_SUCCESS)
 		throw PlatformUtilsExcep("Failed to query registry key: error code " + getErrorStringForCode(result));
 
-	// Close key.
-	result = RegCloseKey(reg_key_handle);
-	assert(result == ERROR_SUCCESS);
+	// Trim down to actually written bytes.  RegGetValueW writes the size of the string including the null terminator into size_B.
+	const size_t num_chars_including_null_terminator = size_B / sizeof(WCHAR);
+	if(num_chars_including_null_terminator == 0)
+		throw PlatformUtilsExcep("invalid length");
+	stringbuf.resize(num_chars_including_null_terminator - 1);
 
-	return StringUtils::PlatformToUTF8UnicodeEncoding(lszValue);
+	return StringUtils::PlatformToUTF8UnicodeEncoding(stringbuf);
 }
 
 
 void PlatformUtils::setStringRegKey(RegHKey key, const std::string& subkey_, const std::string& valuename_, const std::string& new_valuedata_)
 {
-	const HKEY hKey = convertRegKey(key);
+	const HKEY key_handle = convertRegKey(key);
 	const std::wstring subkey        = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
 	const std::wstring valuename     = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
 	const std::wstring new_valuedata = StringUtils::UTF8ToPlatformUnicodeEncoding(new_valuedata_);
 
-	// Use RegCreateKeyEx so the key will be created if it does not exist.  If it does already exist it will just be opened.
-	HKEY reg_key_handle;
-	LONG result = RegCreateKeyEx(hKey, subkey.c_str(), /*Reserved=*/0, /*lpClass=*/nullptr, /*dwOptions=*/0, /*samDesired=*/KEY_SET_VALUE, /*lpSecurityAttributes=*/nullptr, &reg_key_handle, /*lpdwDisposition=*/nullptr);
-	if(result != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to open registry key: " + getErrorStringForCode(result));
+	// RegSetKeyValueW creates the subkey if it does not exist.
+	const LONG result = RegSetKeyValueW(
+		key_handle,
+		subkey.c_str(), // subkey
+		valuename.c_str(), // value
+		REG_SZ, // type
+		new_valuedata.c_str(), // data
+		(DWORD)((new_valuedata.size() + 1) * sizeof(WCHAR)) // size in bytes, including null terminator
+	);
 
-	result = RegSetValueExW(reg_key_handle, valuename.c_str(), /*reserved=*/0, REG_SZ, (const BYTE*)new_valuedata.c_str(), /*size in bytes, including null terminator=*/(DWORD)((new_valuedata.size() + 1) * 2));
 	if(result != ERROR_SUCCESS)
 		throw PlatformUtilsExcep("Failed to set registry key: " + getErrorStringForCode(result));
-
-	// Close key.
-	result = RegCloseKey(reg_key_handle);
-	assert(result == ERROR_SUCCESS);
 }
 
 
 void PlatformUtils::setDWordRegKey(RegHKey key, const std::string& subkey_, const std::string& valuename_, uint32 new_valuedata)
 {
-	const HKEY hKey = convertRegKey(key);
+	const HKEY key_handle = convertRegKey(key);
 	const std::wstring subkey    = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
 	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
 
-	// Use RegCreateKeyEx so the key will be created if it does not exist.  If it does already exist it will just be opened.
-	HKEY reg_key_handle;
-	LONG result = RegCreateKeyEx(hKey, subkey.c_str(), /*Reserved=*/0, /*lpClass=*/nullptr, /*dwOptions=*/0, /*samDesired=*/KEY_SET_VALUE, /*lpSecurityAttributes=*/nullptr, &reg_key_handle, /*lpdwDisposition=*/nullptr);
-	if(result != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to open registry key: " + getErrorStringForCode(result));
+	// RegSetKeyValueW creates the subkey if it does not exist.
+	const LONG result = RegSetKeyValueW(
+		key_handle,
+		subkey.c_str(), // subkey
+		valuename.c_str(), // value
+		REG_DWORD, // type
+		&new_valuedata, // data
+		(DWORD)sizeof(new_valuedata) // size in bytes
+	);
 
-	result = RegSetValueExW(reg_key_handle, valuename.c_str(), /*reserved=*/0, REG_DWORD, (const BYTE*)&new_valuedata, /*size in bytes, including null terminator=*/4);
 	if(result != ERROR_SUCCESS)
 		throw PlatformUtilsExcep("Failed to set registry key: " + getErrorStringForCode(result));
-
-	// Close key.
-	result = RegCloseKey(reg_key_handle);
-	assert(result == ERROR_SUCCESS);
 }
 
 
 uint32 PlatformUtils::getDWordRegKey(RegHKey key, const std::string &subkey_, const std::string &valuename_)
 {
-	const HKEY hKey = convertRegKey(key);
+	const HKEY key_handle = convertRegKey(key);
 	const std::wstring subkey    = StringUtils::UTF8ToPlatformUnicodeEncoding(subkey_);
 	const std::wstring valuename = StringUtils::UTF8ToPlatformUnicodeEncoding(valuename_);
 
-	HKEY reg_key_handle;
-	LONG result = RegOpenKeyExW(hKey, subkey.c_str(), /*ulOptions=*/0, KEY_QUERY_VALUE, &reg_key_handle);
-	if(result != ERROR_SUCCESS)
-		throw PlatformUtilsExcep("Failed to open registry key: error code " + getErrorStringForCode(result));
+	// RRF_RT_REG_DWORD makes RegGetValueW fail with ERROR_UNSUPPORTED_TYPE if the value is not a REG_DWORD.
+	uint32 res = 0;
+	DWORD size_B = sizeof(res);
+	const LONG result = RegGetValueW(
+		key_handle,
+		subkey.c_str(), // subkey
+		valuename.c_str(), // value
+		RRF_RT_REG_DWORD, // flags
+		nullptr, // type out (optional)
+		&res, // data out
+		&size_B // size in/out
+	);
 
-	WCHAR lszValue[1024];
-	DWORD dwType = 0;
-	DWORD dwSize = 1024;
-
-	result = RegQueryValueExW(reg_key_handle, valuename.c_str(), NULL, &dwType, (LPBYTE)lszValue, &dwSize);
 	if(result != ERROR_SUCCESS)
 		throw PlatformUtilsExcep("Failed to query registry key: error code " + getErrorStringForCode(result));
-	if(dwType != REG_DWORD)
-		throw glare::Exception("Unexpected registry key type: " + toString((uint32)dwType));
-
-	// Close key.
-	result = RegCloseKey(reg_key_handle);
-	assert(result == ERROR_SUCCESS);
-
-	uint32 res;
-	std::memcpy(&res, lszValue, sizeof(uint32));
 
 	return res;
 }
@@ -1167,11 +1174,30 @@ void PlatformUtils::endKeepSystemAwake()
 
 #include "ConPrint.h"
 #include "TestUtils.h"
+#include <functional>
+
+
+// Like testExceptionExpected() in TestExceptionUtils.h, but the exception must be a PlatformUtilsExcep.
+static void testPlatformUtilsExcepExpected(std::function<void()> test_func)
+{
+	try
+	{
+		test_func(); // Execute the test code.
+		failTest("PlatformUtilsExcep expected");
+	}
+	catch(PlatformUtils::PlatformUtilsExcep& )
+	{
+		// conPrint("Caught expected excep: " + e.what());
+	}
+	catch(glare::Exception& e)
+	{
+		failTest("Expected PlatformUtilsExcep, got other excep: " + e.what());
+	}
+}
 
 
 void PlatformUtils::testPlatformUtils()
 {
-
 	try
 	{
 #if defined(__x86_64__) || defined(_M_X64)
@@ -1245,24 +1271,73 @@ void PlatformUtils::testPlatformUtils()
 		failTest("Existing registry key/value not found");
 	}
 
-	// Key does not exist.
+	testPlatformUtilsExcepExpected([&]() { PlatformUtils::getStringRegKey(RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersionDoesNotExist", "ProductName"); }); // Key does not exist.
+	testPlatformUtilsExcepExpected([&]() { PlatformUtils::getStringRegKey(RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductNameDoesNotExist"); }); // Value does not exist.
+
+	// Test getStringRegKey() with values we write, of lengths around the initial buffer size in getStringRegKey().
 	try
 	{
-		PlatformUtils::getStringRegKey(RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersionDoesNotExist", "ProductName");
-		failTest("Non-existent registry key found");
+		const std::string test_key = "SOFTWARE\\Glare Technologies\\PlatformUtilsTest";
+		deleteRegKeyTree(RegHKey_CurrentUser, test_key); // In case left over from a previous failed run.
+
+		const size_t lengths[] = { 0, 1, 7, 8, 9, 255, 256, 257, 1000 };
+		for(size_t i=0; i<staticArrayNumElems(lengths); ++i)
+		{
+			const std::string value(lengths[i], 'a');
+			setStringRegKey(RegHKey_CurrentUser, test_key, "value", value);
+			testAssert(getStringRegKey(RegHKey_CurrentUser, test_key, "value") == value);
+		}
+
+		// Non-ASCII.  U+1F600 is a surrogate pair in UTF-16, so the 255 and 256 char prefixes place it across the 256 char boundary.
+		const std::string grinning_face = "\xF0\x9F\x98\x80"; // U+1F600 in UTF-8
+		const std::string non_ascii_values[] = { "\xC3\xA9", grinning_face, std::string(255, 'a') + grinning_face, std::string(256, 'a') + grinning_face };
+		for(size_t i=0; i<staticArrayNumElems(non_ascii_values); ++i)
+		{
+			setStringRegKey(RegHKey_CurrentUser, test_key, "value", non_ascii_values[i]);
+			testAssert(getStringRegKey(RegHKey_CurrentUser, test_key, "value") == non_ascii_values[i]);
+		}
+
+		// Overwriting with a shorter value
+		setStringRegKey(RegHKey_CurrentUser, test_key, "value", std::string(300, 'b'));
+		setStringRegKey(RegHKey_CurrentUser, test_key, "value", "c");
+		testAssert(getStringRegKey(RegHKey_CurrentUser, test_key, "value") == "c");
+
+		// A DWORD value is not returned as a string
+		setDWordRegKey(RegHKey_CurrentUser, test_key, "dword_value", 123);
+		testPlatformUtilsExcepExpected([&]() { getStringRegKey(RegHKey_CurrentUser, test_key, "dword_value"); });
+
+		deleteRegKeyTree(RegHKey_CurrentUser, test_key);
 	}
-	catch(PlatformUtilsExcep&)
+	catch(PlatformUtilsExcep& e)
 	{
+		failTest(e.what());
 	}
 
-	// Value does not exist.
+	// Test getDWordRegKey() with values we write with setDWordRegKey().
 	try
 	{
-		PlatformUtils::getStringRegKey(RegHKey_LocalMachine, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductNameDoesNotExist");
-		failTest("Non-existent registry value found");
+		const std::string test_key = "SOFTWARE\\Glare Technologies\\PlatformUtilsTest";
+		deleteRegKeyTree(RegHKey_CurrentUser, test_key); // In case left over from a previous failed run.
+
+		const uint32 values[] = { 0, 1, 123, 0x7FFFFFFF, 0x80000000, 0xFFFFFFFF };
+		for(size_t i=0; i<staticArrayNumElems(values); ++i)
+		{
+			setDWordRegKey(RegHKey_CurrentUser, test_key, "dword_value", values[i]);
+			testAssert(getDWordRegKey(RegHKey_CurrentUser, test_key, "dword_value") == values[i]);
+		}
+
+		testPlatformUtilsExcepExpected([&]() { getDWordRegKey(RegHKey_CurrentUser, test_key + "\\does_not_exist", "dword_value"); }); // Key does not exist
+		testPlatformUtilsExcepExpected([&]() { getDWordRegKey(RegHKey_CurrentUser, test_key, "does_not_exist"); }); // Value does not exist
+
+		// A string value is not returned as a DWORD
+		setStringRegKey(RegHKey_CurrentUser, test_key, "string_value", "123");
+		testPlatformUtilsExcepExpected([&]() { getDWordRegKey(RegHKey_CurrentUser, test_key, "string_value"); });
+
+		deleteRegKeyTree(RegHKey_CurrentUser, test_key);
 	}
-	catch(PlatformUtilsExcep&)
+	catch(PlatformUtilsExcep& e)
 	{
+		failTest(e.what());
 	}
 
 	// Test getRegSubKeyNames() and deleteRegKeyTree()
@@ -1307,6 +1382,8 @@ void PlatformUtils::testPlatformUtils()
 	{
 		failTest(e.what());
 	}
+
+	
 #endif
 }
 
