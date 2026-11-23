@@ -9,6 +9,8 @@ Copyright Glare Technologies Limited 2021 -
 #include "GLUIInertWidget.h"
 #include "GLUITextView.h"
 #include <graphics/SRGBUtils.h>
+#include <maths/mathstypes.h>
+#include <limits>
 #include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
@@ -409,13 +411,13 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 	const Vec2f coords = UICoordsForOpenGLCoords(mouse_event.gl_coords);
 
 	this->last_mouse_ui_coords = coords;
-
 	this->last_mouse_gl_coords = mouse_event.gl_coords;
 
 	GLUIMouseEvent glui_event(mouse_event, coords);
 
 	bool new_mouse_over_text_input_widget = false;
-	const std::string* new_hovered_tooltip = NULL; // Tooltip of the widget the mouse is over, if any.
+	const std::string* new_hovered_tooltip = nullptr; // Tooltip of the nearest widget with a tooltip that the mouse is over, if any.
+	float new_hovered_tooltip_z = std::numeric_limits<float>::infinity();
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
 		GLUIWidget* widget = it->ptr();
@@ -423,8 +425,12 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 
 		if(widget->rect.inOpenRectangle(coords) && widget->isVisible()) // If the mouse is over the widget:
 		{
-			if(!widget->tooltip.empty()) // And the widget has a tooltip:
+			// If the widget has a tooltip, and is nearer than any other widget with a tooltip under the mouse.  (e.g. a widget in a grid or window is nearer than the grid or window)
+			if(!widget->tooltip.empty() && (widget->getZ() < new_hovered_tooltip_z))
+			{
 				new_hovered_tooltip = &widget->tooltip;
+				new_hovered_tooltip_z = widget->getZ();
+			}
 
 			if(widget->acceptsTextInput())
 				new_mouse_over_text_input_widget = true;
@@ -623,17 +629,29 @@ OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
 	TextRendererFontFaceRef font       = fonts      ->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio * ui_scale));
 	TextRendererFontFaceRef emoji_font = emoji_fonts->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio * ui_scale));
 
-	const TextRenderer::SizeInfo size_info = font->renderer->getTextSize(tooltip_text, font.ptr(), emoji_font.ptr());
+	// The tooltip text can have multiple lines, separated by newlines.
+	const std::vector<std::string> lines = ::split(tooltip_text, '\n');
 
-	const int use_font_height = size_info.max_bounds.y; //text_renderer_font->getFontSizePixels();
+	int max_line_width = 0;
+	int use_font_height = 0;
+	for(size_t i=0; i<lines.size(); ++i)
+	{
+		const TextRenderer::SizeInfo size_info = font->renderer->getTextSize(lines[i], font.ptr(), emoji_font.ptr());
+		max_line_width  = myMax(max_line_width, size_info.glyphSize().x);
+		use_font_height = myMax(use_font_height, size_info.max_bounds.y);
+	}
+
+	const int line_spacing = (int)(use_font_height * 1.5f); // Distance between the baselines of consecutive lines.
 	const int padding_x = (int)(use_font_height * 0.6f);
 	const int padding_y = (int)(use_font_height * 0.6f);
-	
 
-	ImageMapUInt8Ref map = new ImageMapUInt8(size_info.glyphSize().x + padding_x * 2, use_font_height + padding_y * 2, 3);
+	const int text_height = use_font_height + line_spacing * ((int)lines.size() - 1);
+
+	ImageMapUInt8Ref map = new ImageMapUInt8(max_line_width + padding_x * 2, text_height + padding_y * 2, 3);
 	map->set(240); // Set to light grey colour
 
-	font->renderer->drawText(*map, tooltip_text, padding_x, padding_y + use_font_height, Colour3f(0.05f), /*render SDF=*/false, font.ptr(), emoji_font.ptr());
+	for(size_t i=0; i<lines.size(); ++i)
+		font->renderer->drawText(*map, lines[i], padding_x, padding_y + use_font_height + line_spacing * (int)i, Colour3f(0.05f), /*render SDF=*/false, font.ptr(), emoji_font.ptr());
 
 
 	TextureParams tex_params;
