@@ -104,9 +104,9 @@ public:
 
 	float getFaceAscender(); // The ascender is the vertical distance from the horizontal baseline to the highest 'character' coordinate in a font face. (https://freetype.org/freetype2/docs/tutorial/step2.html)
 
-	// The cap height is the height of capital letters such as 'H' above the baseline, in pixels.  Read from the font's OS/2 table.
-	// Returns getFaceAscender() if the font doesn't give a cap height.
-	float getFaceCapHeight();
+	// The cap height is the height of capital letters such as 'H' above the baseline, in pixels.  Read from the font's OS/2 table when the face is created.
+	// Is getFaceAscender() if the font doesn't give a cap height.
+	float getFaceCapHeight() const { return cap_height_px; }
 
 	// The font's recommended distance between the baselines of consecutive lines, in pixels, at the face's current size.
 	float getLineHeight();
@@ -117,6 +117,7 @@ public:
 	TextRendererRef renderer;
 	struct FT_FaceRec_* face;
 	int font_size_pixels;
+	float cap_height_px; // See getFaceCapHeight().
 
 	unsigned int cur_loaded_glyph_index; // Currently loaded glyph with identity transformation
 };

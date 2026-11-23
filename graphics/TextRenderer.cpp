@@ -367,8 +367,28 @@ TextRendererFontFaceRef TextRendererFontFaceSizeSet::getFontFaceForSize(int font
 }
 
 
+// Converts a distance in font units to pixels, at the face's current size.
+// Uses the face's y scale rather than font_size_pixels, as the face size is set with FT_Set_Char_Size at 96 dpi, so the em size in pixels is font_size_pixels * 96 / 72.
+static float fontUnitsToPixels(FT_Face face, FT_Long font_units)
+{
+	return (float)FT_MulFix(font_units, face->size->metrics.y_scale) / 64.f; // FT_MulFix with y_scale gives 26.6 fixed-point pixels.
+}
+
+
+// Returns the cap height in pixels, from the font's OS/2 table, or the ascender if the font doesn't give a cap height.
+static float computeCapHeight(FT_Face face)
+{
+	const TT_OS2* os2 = (const TT_OS2*)FT_Get_Sfnt_Table(face, FT_SFNT_OS2); // Null if the font has no OS/2 table.
+	if(os2 && (os2->version >= 2) && (os2->sCapHeight > 0)) // sCapHeight was added in version 2 of the OS/2 table.
+		return fontUnitsToPixels(face, os2->sCapHeight);
+	else
+		return fontUnitsToPixels(face, face->ascender);
+}
+
+
 TextRendererFontFace::TextRendererFontFace(TextRendererRef renderer_, const std::string& font_file_path, int font_size_pixels_)
 :	font_size_pixels(font_size_pixels_),
+	cap_height_px(0),
 	cur_loaded_glyph_index(std::numeric_limits<FT_UInt>::max())
 {
 	ZoneScoped; // Tracy profiler
@@ -394,6 +414,8 @@ TextRendererFontFace::TextRendererFontFace(TextRendererRef renderer_, const std:
 
 	if(error != FT_Err_Ok)
 		throw glare::Exception("FT_Set_Char_Size failed: " + getFreeTypeErrorString(error));
+
+	cap_height_px = computeCapHeight(face); // After FT_Set_Char_Size, as it depends on the face size.
 }
 
 
@@ -501,27 +523,9 @@ TextRenderer::SizeInfo TextRendererFontFace::getTextSize(const string_view text)
 }
 
 
-// Converts a distance in font units to pixels, at the face's current size.
-// Uses the face's y scale rather than font_size_pixels, as the face size is set with FT_Set_Char_Size at 96 dpi, so the em size in pixels is font_size_pixels * 96 / 72.
-static float fontUnitsToPixels(FT_Face face, FT_Long font_units)
-{
-	return (float)FT_MulFix(font_units, face->size->metrics.y_scale) / 64.f; // FT_MulFix with y_scale gives 26.6 fixed-point pixels.
-}
-
-
 float TextRendererFontFace::getFaceAscender()
 {
 	return fontUnitsToPixels(face, face->ascender);
-}
-
-
-float TextRendererFontFace::getFaceCapHeight()
-{
-	const TT_OS2* os2 = (const TT_OS2*)FT_Get_Sfnt_Table(face, FT_SFNT_OS2); // Null if the font has no OS/2 table.
-	if(os2 && (os2->version >= 2) && (os2->sCapHeight > 0)) // sCapHeight was added in version 2 of the OS/2 table.
-		return fontUnitsToPixels(face, os2->sCapHeight);
-	else
-		return getFaceAscender();
 }
 
 
