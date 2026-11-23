@@ -8,13 +8,10 @@ Copyright Glare Technologies Limited 2026 -
 
 #include "GLUIWidget.h"
 #include "GLUICallbackHandler.h"
-#include "../OpenGLEngine.h"
-#include "../utils/RefCounted.h"
-#include "../utils/Reference.h"
-#include "../maths/Rect2.h"
-#include <string>
+#include <functional>
 
 
+struct OverlayObject;
 class GLUI;
 
 
@@ -79,8 +76,8 @@ private:
 	void updateColour(const Vec2f mouse_ui_coords);
 	void updateOverlayTransforms();
 
-	OverlayObjectRef tick_overlay_ob;
-	OverlayObjectRef box_overlay_ob;
+	Reference<OverlayObject> tick_overlay_ob;
+	Reference<OverlayObject> box_overlay_ob;
 
 	CreateArgs args;
 

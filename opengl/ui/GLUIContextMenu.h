@@ -8,9 +8,7 @@ Copyright Glare Technologies Limited 2026 -
 
 #include "GLUIWidget.h"
 #include "../../graphics/colour3.h"
-#include "../../utils/Reference.h"
 #include <functional>
-#include <string>
 #include <vector>
 
 

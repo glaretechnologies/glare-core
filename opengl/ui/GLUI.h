@@ -9,16 +9,15 @@ Copyright Glare Technologies Limited 2021 -
 #include "GLUIWidget.h"
 #include "GLUIEvents.h"
 #include "FontCharTexCache.h"
-#include "../OpenGLEngine.h"
 #include "graphics/TextRenderer.h"
-#include "utils/RefCounted.h"
-#include "utils/Reference.h"
 #include "utils/Timer.h"
 #include "ui/UIEvents.h"
 #include <string>
 #include <set>
 
 
+class OpenGLEngine;
+struct OverlayObject;
 class GLUICallbacks;
 class GLUITextView;
 class GLUIText;
@@ -151,7 +150,7 @@ private:
 
 
 	Reference<GLUIText> tooltip_text_ob; // The tooltip text graphics.
-	OverlayObjectRef tooltip_overlay_ob; // Draws the solid background quad behind the tooltip text.
+	Reference<OverlayObject> tooltip_overlay_ob; // Draws the solid background quad behind the tooltip text.
 	std::string hovered_tooltip; // Tooltip of the widget the mouse is over, or empty if none.
 	const GLUIWidget* hovered_tooltip_widget; // The widget with hovered_tooltip, or null.  Only compared with, never dereferenced, and cleared when the widget is removed.
 	Timer hovered_tooltip_timer; // Time since the mouse moved onto hovered_tooltip_widget.

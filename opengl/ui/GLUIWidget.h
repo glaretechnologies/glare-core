@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
+#include "../graphics/colour3.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../maths/vec2.h"

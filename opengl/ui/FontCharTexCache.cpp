@@ -6,6 +6,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "FontCharTexCache.h"
 
 
+#include "../OpenGLEngine.h"
 #include "../../graphics/PNGDecoder.h"
 #include "../../utils/UTF8Utils.h"
 #include <tracy/Tracy.hpp>
@@ -278,7 +279,6 @@ CharTexInfo FontCharTexCache::makeCharTexture(Reference<OpenGLEngine> opengl_eng
 #if BUILD_TESTS
 
 
-#include <graphics/PNGDecoder.h>
 #include <utils/TaskManager.h>
 #include <utils/StringUtils.h>
 #include <utils/TestUtils.h>

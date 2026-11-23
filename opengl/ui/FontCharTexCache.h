@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2024 -
 #pragma once
 
 
-#include "../OpenGLEngine.h"
 #include "../../graphics/TextRenderer.h"
 #include "../../utils/RefCounted.h"
 #include "../../utils/Reference.h"
@@ -15,6 +14,8 @@ Copyright Glare Technologies Limited 2024 -
 
 
 class GLUIMouseWheelEvent;
+class OpenGLEngine;
+class OpenGLTexture;
 
 
 // Information about a character in an atlas

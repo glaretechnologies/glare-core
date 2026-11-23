@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2024 -
 #pragma once
 
 
-#include "../OpenGLEngine.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
 #include "../maths/Rect2.h"

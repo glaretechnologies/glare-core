@@ -11,14 +11,10 @@ Copyright Glare Technologies Limited 2026 -
 #include "GLUILineEdit.h"
 #include "GLUIGridContainer.h"
 #include "GLUITextView.h"
-#include "../OpenGLEngine.h"
-#include "../../utils/RefCounted.h"
-#include "../../utils/Reference.h"
-#include "../../maths/Rect2.h"
 #include "../../graphics/colour3.h"
-#include <string>
 
 
+struct OverlayObject;
 class GLUI;
 
 
@@ -93,7 +89,7 @@ private:
 	void selectOption(size_t option_index);
 	void setNewCurrentIndex(size_t new_cur_index);
 
-	OverlayObjectRef open_button_overlay_ob;
+	Reference<OverlayObject> open_button_overlay_ob;
 	GLUITextViewRef text;
 	//GLUILineEditRef text;
 	GLUIGridContainerRef options_grid;

@@ -8,14 +8,15 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "GLUIInertWidget.h"
 #include "GLUITextView.h"
+#include "../OpenGLEngine.h"
+#include "../OpenGLMeshRenderData.h"
 #include <graphics/SRGBUtils.h>
 #include <maths/mathstypes.h>
-#include <limits>
-#include "../OpenGLMeshRenderData.h"
 #include "../utils/FileUtils.h"
 #include "../utils/Exception.h"
 #include "../utils/ConPrint.h"
 #include "../utils/StringUtils.h"
+#include <limits>
 
 
 static const float TOOLTIP_Z = -0.999f; // -1 is near clip plane

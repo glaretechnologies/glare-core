@@ -92,12 +92,12 @@ private:
 	void updateTextTransform();
 	void deleteSelectedTextAndClearSelection();
 
-	OverlayObjectRef background_overlay_ob;
+	Reference<OverlayObject> background_overlay_ob;
 	Vec2i last_viewport_dims;
 	Vec2f last_background_dims;
 
-	OverlayObjectRef cursor_overlay_ob;
-	OverlayObjectRef selection_overlay_ob;
+	Reference<OverlayObject> cursor_overlay_ob;
+	Reference<OverlayObject> selection_overlay_ob;
 
 	GLUITextRef glui_text;
 

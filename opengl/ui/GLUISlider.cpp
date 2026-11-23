@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #include "GLUI.h"
+#include "../OpenGLEngine.h"
 #include "../OpenGLMeshRenderData.h"
 #include "../graphics/SRGBUtils.h"
 #include "../utils/ConPrint.h"

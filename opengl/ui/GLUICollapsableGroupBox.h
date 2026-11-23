@@ -9,14 +9,11 @@ Copyright Glare Technologies Limited 2026 -
 #include "GLUIWidget.h"
 #include "GLUITextView.h"
 #include "GLUIButton.h"
-#include "../OpenGLEngine.h"
-#include "../utils/RefCounted.h"
-#include "../utils/Reference.h"
 #include "../utils/Array2D.h"
-#include "../maths/Rect2.h"
 #include <string>
 
 
+struct OverlayObject;
 class GLUI;
 class MouseWheelEvent;
 class KeyEvent;
@@ -120,7 +117,7 @@ private:
 	GLUIButtonRef collapse_expand_button;
 	GLUIWidgetRef body_widget;
 	
-	OverlayObjectRef background_overlay_ob;
+	Reference<OverlayObject> background_overlay_ob;
 
 	bool visible;
 	bool expanded;

@@ -7,14 +7,11 @@ Copyright Glare Technologies Limited 2026 -
 
 
 #include "GLUIWidget.h"
-#include "../OpenGLEngine.h"
-#include "../utils/RefCounted.h"
-#include "../utils/Reference.h"
+#include "../graphics/colour3.h"
 #include "../utils/Array2D.h"
-#include "../maths/Rect2.h"
-#include <string>
 
 
+struct OverlayObject;
 class GLUI;
 class MouseWheelEvent;
 class KeyEvent;
@@ -104,7 +101,7 @@ private:
 public:
 	Array2D<GLUIWidgetRef> cell_widgets;
 private:
-	OverlayObjectRef background_overlay_ob;
+	Reference<OverlayObject> background_overlay_ob;
 
 	std::vector<float> col_min_x_px_vals;
 };

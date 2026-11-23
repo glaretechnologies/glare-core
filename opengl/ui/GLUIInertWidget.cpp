@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #include "GLUI.h"
+#include "../opengl/OpenGLEngine.h"
 
 
 GLUIInertWidget::CreateArgs::CreateArgs()

@@ -7,13 +7,9 @@ Copyright Glare Technologies Limited 2025 -
 
 
 #include "GLUIWidget.h"
-#include "../OpenGLEngine.h"
-#include "../utils/RefCounted.h"
-#include "../utils/Reference.h"
-#include "../maths/Rect2.h"
-#include <string>
 
 
+struct OverlayObject;
 class GLUI;
 class GLUIMouseWheelEvent;
 class KeyEvent;
@@ -73,7 +69,7 @@ private:
 	
 	CreateArgs args;
 
-	OverlayObjectRef background_overlay_ob;
+	Reference<OverlayObject> background_overlay_ob;
 };
 
 

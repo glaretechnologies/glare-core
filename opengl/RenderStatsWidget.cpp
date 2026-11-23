@@ -6,6 +6,9 @@ Copyright Glare Technologies Limited 2025 -
 #include "RenderStatsWidget.h"
 
 
+#include <opengl/OpenGLEngine.h>
+
+
 RenderStatsWidget::RenderStatsWidget(Reference<OpenGLEngine>& opengl_engine_, GLUIRef gl_ui_, int widget_index_)
 :	frame_num(0)
 {

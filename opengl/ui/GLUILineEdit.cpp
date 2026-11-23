@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "GLUI.h"
 #include "TextEditingUtils.h"
+#include "../OpenGLEngine.h"
 #include "../OpenGLMeshRenderData.h"
 #include "../MeshPrimitiveBuilding.h"
 #include "../../graphics/SRGBUtils.h"

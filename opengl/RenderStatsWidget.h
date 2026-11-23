@@ -11,10 +11,12 @@ Copyright Glare Technologies Limited 2025 -
 #include <opengl/ui/GLUITextView.h>
 #include <opengl/ui/GLUIInertWidget.h>
 #include <utils/ThreadSafeRefCounted.h>
+#include <utils/CircularBuffer.h>
 #include <vector>
 
 
 class GUIClient;
+struct OverlayObject;
 
 
 /*=====================================================================
@@ -42,13 +44,13 @@ private:
 	Reference<OpenGLEngine> opengl_engine;
 	int widget_index;
 
-	std::vector<OverlayObjectRef> bars;
+	std::vector<Reference<OverlayObject>> bars;
 
 	CircularBuffer<float> frame_times;
 
 	GLUIInertWidgetRef background_widget;
 
-	std::vector<OverlayObjectRef> horizontal_rules;
+	std::vector<Reference<OverlayObject>> horizontal_rules;
 
 	GLUITextViewRef plot_label;
 	GLUITextViewRef stats_label;

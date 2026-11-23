@@ -9,11 +9,10 @@ Copyright Glare Technologies Limited 2025 -
 #include "GLUIWidget.h"
 #include "GLUICallbackHandler.h"
 #include "GLUITextView.h"
-#include "../OpenGLEngine.h"
-#include "../utils/RefCounted.h"
-#include "../utils/Reference.h"
-#include "../maths/Rect2.h"
-#include <string>
+#include <functional>
+
+
+struct OverlayObject;
 
 
 /*=====================================================================
@@ -116,7 +115,7 @@ private:
 	// A shape drawn behind the text view background, for the outline and drop shadow layers.
 	struct Decoration
 	{
-		OverlayObjectRef ob;
+		Reference<OverlayObject> ob;
 		float expand_px; // How far the shape extends past the text view background on each side.
 		Vec2f offset_px; // Offset of the shape from the text view background.  +y is up.
 		float z_offset; // z relative to the button z.  The text view background is at +0.001, larger values are further back.

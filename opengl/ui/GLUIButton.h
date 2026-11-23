@@ -8,13 +8,10 @@ Copyright Glare Technologies Limited 2021 -
 
 #include "GLUIWidget.h"
 #include "GLUICallbackHandler.h"
-#include "../OpenGLEngine.h"
-#include "../utils/RefCounted.h"
-#include "../utils/Reference.h"
-#include "../maths/Rect2.h"
-#include <string>
 
 
+class OpenGLTexture;
+struct OverlayObject;
 class GLUI;
 
 
@@ -54,7 +51,7 @@ public:
 	~GLUIButton();
 
 	void setTexture(const std::string& tex_path);
-	void setTexture(const OpenGLTextureRef& tex);
+	void setTexture(const Reference<OpenGLTexture>& tex);
 
 	virtual void handleMousePress(GLUIMouseEvent& event) override;
 	virtual void handleMouseRelease(GLUIMouseEvent& event) override;
@@ -89,7 +86,7 @@ private:
 	void updateOverlayTransform();
 	void updateButtonColour(const Vec2f mouse_ui_coords);
 
-	OverlayObjectRef overlay_ob;
+	Reference<OverlayObject> overlay_ob;
 
 	CreateArgs args;
 };

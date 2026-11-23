@@ -9,14 +9,10 @@ Copyright Glare Technologies Limited 2026 -
 #include "GLUIWidget.h"
 #include "GLUICallbackHandler.h"
 #include "GLUILineEdit.h"
-#include "../OpenGLEngine.h"
-#include "../../utils/RefCounted.h"
-#include "../../utils/Reference.h"
-#include "../../maths/Rect2.h"
 #include "../../graphics/colour3.h"
-#include <string>
 
 
+struct OverlayObject;
 class GLUI;
 
 
@@ -97,9 +93,9 @@ private:
 	Rect2f incrementButtonRect() const;
 	void updateButtonColours(const Vec2f& mouse_ui_coords);
 
-	OverlayObjectRef background_ob;
-	OverlayObjectRef decrement_ob;
-	OverlayObjectRef increment_ob;
+	Reference<OverlayObject> background_ob;
+	Reference<OverlayObject> decrement_ob;
+	Reference<OverlayObject> increment_ob;
 	GLUILineEditRef line_edit;
 
 	CreateArgs args;
