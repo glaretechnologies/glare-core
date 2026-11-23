@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/RuntimeCheck.h"
 #include "../utils/Timer.h"
 #include <freetype/freetype.h>
+#include <freetype/tttables.h>
 #include <tracy/Tracy.hpp>
 
 
@@ -500,9 +501,33 @@ TextRenderer::SizeInfo TextRendererFontFace::getTextSize(const string_view text)
 }
 
 
+// Converts a distance in font units to pixels, at the face's current size.
+// Uses the face's y scale rather than font_size_pixels, as the face size is set with FT_Set_Char_Size at 96 dpi, so the em size in pixels is font_size_pixels * 96 / 72.
+static float fontUnitsToPixels(FT_Face face, FT_Long font_units)
+{
+	return (float)FT_MulFix(font_units, face->size->metrics.y_scale) / 64.f; // FT_MulFix with y_scale gives 26.6 fixed-point pixels.
+}
+
+
 float TextRendererFontFace::getFaceAscender()
 {
-	return font_size_pixels * (float)face->ascender / (float)face->units_per_EM;
+	return fontUnitsToPixels(face, face->ascender);
+}
+
+
+float TextRendererFontFace::getFaceCapHeight()
+{
+	const TT_OS2* os2 = (const TT_OS2*)FT_Get_Sfnt_Table(face, FT_SFNT_OS2); // Null if the font has no OS/2 table.
+	if(os2 && (os2->version >= 2) && (os2->sCapHeight > 0)) // sCapHeight was added in version 2 of the OS/2 table.
+		return fontUnitsToPixels(face, os2->sCapHeight);
+	else
+		return getFaceAscender();
+}
+
+
+float TextRendererFontFace::getLineHeight()
+{
+	return (float)face->size->metrics.height / 64.f; // metrics.height is in 26.6 fixed-point pixels, at the face's current size.
 }
 
 

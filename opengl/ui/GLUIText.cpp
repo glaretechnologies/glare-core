@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "GLUI.h"
 #include "../graphics/SRGBUtils.h"
+#include "../OpenGLEngine.h"
 #include "../OpenGLMeshRenderData.h"
 #include "../GLMeshBuilding.h"
 #include "../utils/ConPrint.h"
@@ -15,6 +16,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/UTF8Utils.h"
 #include "../utils/RuntimeCheck.h"
 #include "../utils/StackAllocator.h"
+#include "../maths/mathstypes.h"
 #include <tracy/Tracy.hpp>
 
 
@@ -37,9 +39,9 @@ static inline void setVec3f(MutableArrayRef<float> array, size_t index, const Ve
 }
 
 Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(OpenGLEngine* opengl_engine, FontCharTexCache* font_char_text_cache, 
-	TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float vert_pos_scale, bool render_SDF, 
+	TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float line_spacing_px, float vert_pos_scale, bool render_SDF,
 	glare::StackAllocator& stack_allocator,
-	Rect2f& rect_os_out, OpenGLTextureRef& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out)
+	Rect2f& rect_os_out, Rect2f& line_box_rect_os_out, OpenGLTextureRef& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out)
 {
 	ZoneScoped; // Tracy profiler
 
@@ -77,7 +79,7 @@ Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(OpenGLEngine* open
 		if(text[cur_string_byte_i] == '\n')
 		{
 			cur_char_pos.x = 0;
-			cur_char_pos.y -= font_size_px * 1.2f; // Standard line height factor is ~1.2 apparently: https://developer.mozilla.org/en-US/docs/Web/CSS/line-height
+			cur_char_pos.y -= line_spacing_px;
 		}
 		else
 		{
@@ -131,29 +133,42 @@ Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(OpenGLEngine* open
 		cur_string_byte_i += char_num_bytes;
 	}
 
+	// The line box goes from the baseline of the last line (cur_char_pos.y is now at it), up to the cap height above the baseline of the first line (y = 0).
+	{
+		TextRendererFontFaceRef font = fonts->getFontFaceForSize(font_size_px);
+		const float cap_height_px = font->getFaceCapHeight() * (float)font_size_px / (float)myMax(1, font->getFontSizePixels()); // Scale in case the face's size differs from font_size_px.
+		line_box_rect_os_out = Rect2f(Vec2f(rect_os_out.getMin().x, cur_char_pos.y * vert_pos_scale), Vec2f(rect_os_out.getMax().x, cap_height_px * vert_pos_scale));
+	}
+
 	return GLMeshBuilding::buildMeshRenderData(*opengl_engine->vert_buf_allocator, verts_and_uvs, indices, stack_allocator);
 }
 
 
-GLUIText::GLUIText(GLUI& glui_, const std::string& text_, const Vec2f& botleft_, const CreateArgs& args)
+GLUIText::GLUIText(GLUI& glui_, const std::string& text_, const Vec2f& line_0_baseline_pos_, const CreateArgs& args)
 {
 	gl_ui = &glui_;
 	opengl_engine = glui_.opengl_engine.ptr();
 
 	text_colour = args.colour;
 	font_size_px = (int)((float)args.font_size_px * glui_.getDevicePixelRatio() * glui_.getUIScale());
-	botleft = botleft_;
+	line_0_baseline_pos = line_0_baseline_pos_;
 	text = text_;
 	z = args.z;
 
+	rect_os          = Rect2f(Vec2f(0.f), Vec2f(0.f));
+	line_box_rect_os = Rect2f(Vec2f(0.f), Vec2f(0.f));
+
 	try
 	{
-		rect_os = Rect2f(Vec2f(0.f), Vec2f(0.f));
 		OpenGLTextureRef atlas_texture;
 
-		Reference<OpenGLMeshRenderData> mesh_data = makeMeshDataForText(opengl_engine, glui_.font_char_text_cache.ptr(), glui_.getFonts(), glui_.getEmojiFonts(), text, font_size_px, /*vert_pos_scale=*/1.f, 
+		// Use the font's own line spacing.  (Scaled in case the face's size differs from font_size_px.)
+		TextRendererFontFaceRef font = glui_.getFonts()->getFontFaceForSize(font_size_px);
+		const float line_spacing_px = font->getLineHeight() * (float)font_size_px / (float)myMax(1, font->getFontSizePixels());
+
+		Reference<OpenGLMeshRenderData> mesh_data = makeMeshDataForText(opengl_engine, glui_.font_char_text_cache.ptr(), glui_.getFonts(), glui_.getEmojiFonts(), text, font_size_px, line_spacing_px, /*vert_pos_scale=*/1.f,
 			/*render_SDF=*/false, *glui_.stack_allocator,
-			/*rect os out=*/rect_os, /*atlas texture out=*/atlas_texture, /*char_positions_font_coords_out=*/char_positions_fc);
+			/*rect os out=*/rect_os, /*line_box_rect_os_out=*/line_box_rect_os, /*atlas texture out=*/atlas_texture, /*char_positions_font_coords_out=*/char_positions_fc);
 
 		const float x_scale = 2.f / opengl_engine->getViewPortWidth();
 		const float y_scale = 2.f / opengl_engine->getViewPortHeight();
@@ -165,10 +180,7 @@ GLUIText::GLUIText(GLUI& glui_, const std::string& text_, const Vec2f& botleft_,
 		overlay_ob->material.alpha = args.alpha;
 		overlay_ob->material.albedo_texture = atlas_texture;
 
-
-		this->rect = Rect2f(botleft + rect_os.getMin() * x_scale, botleft + rect_os.getMax() * x_scale);
-
-		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * opengl_engine->getViewPortAspectRatio(), z) * Matrix4f::scaleMatrix(x_scale, y_scale, 1);
+		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(line_0_baseline_pos.x, line_0_baseline_pos.y * opengl_engine->getViewPortAspectRatio(), z) * Matrix4f::scaleMatrix(x_scale, y_scale, 1);
 
 		opengl_engine->addOverlayObject(overlay_ob);
 	}
@@ -200,9 +212,9 @@ void GLUIText::setAlpha(float alpha)
 }
 
 
-void GLUIText::setPos(const Vec2f& botleft_)
+void GLUIText::setLine0BaselinePos(const Vec2f& line_0_baseline_pos_)
 {
-	botleft = botleft_;
+	line_0_baseline_pos = line_0_baseline_pos_;
 
 	updateGLTransform();
 }
@@ -221,17 +233,31 @@ void GLUIText::updateGLTransform()
 	const float x_scale = 2.f / opengl_engine->getViewPortWidth();
 	const float y_scale = 2.f / opengl_engine->getViewPortHeight();
 
-	this->rect = Rect2f(botleft /*+ rect_os.getMin() * x_scale*/, botleft + rect_os.getMax() * x_scale);
-
 	if(overlay_ob)
-		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * opengl_engine->getViewPortAspectRatio(), z) * Matrix4f::scaleMatrix(x_scale, y_scale, 1);
+		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(line_0_baseline_pos.x, line_0_baseline_pos.y * opengl_engine->getViewPortAspectRatio(), z) * Matrix4f::scaleMatrix(x_scale, y_scale, 1);
+}
+
+
+Rect2f GLUIText::getLineBoxRect() const
+{
+	const float x_scale = 2.f / opengl_engine->getViewPortWidth(); // Font pixels to GL UI coords, which use the same scale for x and y.  See updateGLTransform().
+
+	return Rect2f(line_0_baseline_pos + line_box_rect_os.getMin() * x_scale, line_0_baseline_pos + line_box_rect_os.getMax() * x_scale);
+}
+
+
+void GLUIText::setLineBoxBotLeftPos(const Vec2f& line_box_botleft)
+{
+	const float x_scale = 2.f / opengl_engine->getViewPortWidth(); // Font pixels to GL UI coords, as in getLineBoxRect().
+
+	setLine0BaselinePos(line_box_botleft - line_box_rect_os.getMin() * x_scale);
 }
 
 
 // Get position to lower left of unicode character with given index.  char_index is allowed to be == text.size(), in which case get position past last character.
 Vec2f GLUIText::getCharPos(GLUI& glui, int char_index) const
 {
-	return botleft + getRelativeCharPos(glui, char_index);
+	return line_0_baseline_pos + getRelativeCharPos(glui, char_index);
 }
 
 
@@ -263,7 +289,7 @@ int GLUIText::cursorPosForUICoords(GLUI& /*glui*/, const Vec2f& coords)
 	float closest_dist = 1000000;
 	for(size_t i=0; i<char_positions_fc.size(); ++i)
 	{
-		Vec2f char_pos = botleft + Vec2f(char_positions_fc[i].pos.x * x_scale, 0);
+		Vec2f char_pos = line_0_baseline_pos + Vec2f(char_positions_fc[i].pos.x * x_scale, 0);
 
 		const float char_left_x = char_pos.x;
 		const float dist = fabs(char_left_x - coords.x);
@@ -279,7 +305,7 @@ int GLUIText::cursorPosForUICoords(GLUI& /*glui*/, const Vec2f& coords)
 
 	if(!char_positions_fc.empty())
 	{
-		Vec2f last_char_pos = botleft + Vec2f(char_positions_fc.back().pos.x * x_scale, 0);
+		Vec2f last_char_pos = line_0_baseline_pos + Vec2f(char_positions_fc.back().pos.x * x_scale, 0);
 		float last_char_hori_advance = char_positions_fc.back().hori_advance * x_scale;
 
 		const float last_char_right_x = last_char_pos.x + last_char_hori_advance;

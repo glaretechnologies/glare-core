@@ -270,7 +270,7 @@ void GLUILineEdit::updateTextTransform()
 		const float left_shift_amount = myMax(0.f, rel_cursor_pos.x - max_rel_cursor_x);
 		const Vec2f text_botleft = getRect().getMin() + Vec2f(margin_x, margin_y) - Vec2f(left_shift_amount, 0);
 
-		glui_text->setPos(text_botleft);
+		glui_text->setLine0BaselinePos(text_botleft);
 		glui_text->setZ(m_z - 0.01f);
 		glui_text->updateGLTransform();
 

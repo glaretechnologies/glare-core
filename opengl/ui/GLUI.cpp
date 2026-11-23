@@ -32,8 +32,10 @@ GLUI::GLUI()
 	stack_allocator(NULL),
 	last_mouse_ui_coords(0.f),
 	last_mouse_gl_coords(0.f),
+	hovered_tooltip_widget(nullptr),
 	tooltip_shown(false),
-	tooltip_suppressed(false)
+	tooltip_suppressed_by_press(false),
+	tooltip_hidden(false)
 {
 }
 
@@ -58,7 +60,8 @@ void GLUI::create(Reference<OpenGLEngine>& opengl_engine_, float device_pixel_ra
 	tooltip_overlay_ob = new OverlayObject();
 	tooltip_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
 	tooltip_overlay_ob->material.albedo_linear_rgb = toLinearSRGB(Colour3f(0.95f));
-	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0);
+	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::identity();
+	tooltip_overlay_ob->draw = false; // Hide initially
 
 	opengl_engine->addOverlayObject(tooltip_overlay_ob);
 
@@ -86,6 +89,7 @@ void GLUI::destroy()
 	for(int i=0; i<NUM_MOUSE_BUTTONS; ++i)
 		pressed_widgets[i] = nullptr;
 
+	tooltip_text_ob = nullptr;
 	checkRemoveOverlayObAndSetRefToNull(opengl_engine.ptr(), tooltip_overlay_ob);
 
 	opengl_engine = NULL;
@@ -113,47 +117,59 @@ void GLUI::updateTooltip()
 	if(!tooltip_overlay_ob)
 		return;
 
-	if(hovered_tooltip.empty() || tooltip_suppressed || (hovered_tooltip_timer.elapsed() < tooltip_delay_s))
+	if(hovered_tooltip.empty() || tooltip_suppressed_by_press || tooltip_hidden || (hovered_tooltip_timer.elapsed() < tooltip_delay_s))
 	{
-		tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(1000, 1000, 0); // Move offscreen.
+		// Hide tooltip
+		if(tooltip_text_ob)
+			tooltip_text_ob->setVisible(false);
+		tooltip_overlay_ob->draw = false;
 		tooltip_shown = false;
 		return;
 	}
 
-	// Get or create tooltip texture
-	OpenGLTextureRef tex;
-	auto res = tooltip_textures.find(hovered_tooltip);
-	if(res == tooltip_textures.end())
+	if(tooltip_text_ob.isNull() || (tooltip_text_ob->getText() != hovered_tooltip))
 	{
-		tex = makeToolTipTexture(hovered_tooltip);
-		tooltip_textures[hovered_tooltip] = tex;
+		// Create/Recreate tooltip_text_ob
+		// conPrint("Create/Recreate tooltip_text_ob with text: " + hovered_tooltip);
+		GLUIText::CreateArgs args;
+		args.font_size_px = tooltip_font_size_px; // In device-independent pixels
+		args.z = TOOLTIP_Z;
+		args.colour = Colour3f(0.f);
+		tooltip_text_ob = new GLUIText(*this, hovered_tooltip, /*botleft=*/Vec2f(0,0), args); // Adds text overlay object to OpenGL engine.
 	}
-	else
-		tex = res->second;
 
-	tooltip_overlay_ob->material.albedo_texture = tex;
-	tooltip_overlay_ob->material.tex_matrix = Matrix2f(1,0,0,-1); // Compensate for OpenGL loading textures upside down (row 0 in OpenGL is considered to be at the bottom of texture)
-	tooltip_overlay_ob->material.tex_translation = Vec2f(0, 1);
+	runtimeCheck(tooltip_text_ob.nonNull());
+	
 
-	// This should give 1:1 texel : screen-space pixels.
-	const Vec2f ui_dimensions = Vec2f((float)tex->xRes(), (float)tex->yRes()) * 2 / (float)opengl_engine->getViewPortWidth();
+	const float text_height_ui_coords = getUIWidthForDevIndepPixelWidth((float)tooltip_font_size_px);
+	const float padding_x_ui = text_height_ui_coords * 0.6f;
+	const float padding_y_ui = text_height_ui_coords * 0.6f;
 
-	const Vec2f gl_dims = OpenGLCoordsForUICoords(ui_dimensions);
-	const float scale_x = gl_dims.x;
-	const float scale_y = gl_dims.y;
+	const Vec2f text_dims_ui_coords = tooltip_text_ob->getLineBoxRect().getWidths();
+	const float box_w_ui = text_dims_ui_coords.x + padding_x_ui * 2;
+	const float box_h_ui = text_dims_ui_coords.y + padding_y_ui * 2;
 
-	const float mouse_pointer_h_gl = 40.f / opengl_engine->getViewPortHeight();
+	// Position the tooltip below the mouse pointer icon (which in turn is below the mouse position)
+	const float mouse_pointer_h_ui = getUIWidthForDevIndepPixelWidth(20.f);
 
-	float pos_x = last_mouse_gl_coords.x;
-	float pos_y = last_mouse_gl_coords.y - scale_y - mouse_pointer_h_gl;
+	float pos_x_ui = last_mouse_ui_coords.x;
+	float pos_y_ui = last_mouse_ui_coords.y - box_h_ui - mouse_pointer_h_ui;
 
-	if(pos_y < -1.f) // If tooltip would go off bottom of screen:
-		pos_y = last_mouse_gl_coords.y;
+	if(pos_y_ui < -this->getViewportMinMaxY()) // If tooltip would go off bottom of screen:
+		pos_y_ui = last_mouse_ui_coords.y;
 
-	if(pos_x + scale_x > 1.f) // If tooltip would go off right of screen:
-		pos_x = last_mouse_gl_coords.x - scale_x;
+	if(pos_x_ui + box_w_ui > 1.f) // If tooltip would go off right of screen:
+		pos_x_ui = last_mouse_ui_coords.x - box_w_ui;
 
-	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos_x, pos_y, TOOLTIP_Z) * Matrix4f::scaleMatrix(scale_x, scale_y, 1);
+	//tooltip_text_ob->setPos(Vec2f(pos_x_ui + padding_x_ui, pos_y_ui + padding_y_ui));
+	tooltip_text_ob->setLineBoxBotLeftPos(Vec2f(pos_x_ui + padding_x_ui, pos_y_ui + padding_y_ui));
+	tooltip_text_ob->setVisible(true);
+
+	const Vec2f pos_gl   = OpenGLCoordsForUICoords(Vec2f(pos_x_ui, pos_y_ui));
+	const Vec2f scale_gl = OpenGLCoordsForUICoords(Vec2f(box_w_ui, box_h_ui));
+	tooltip_overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(pos_gl.x, pos_gl.y, TOOLTIP_Z + 0.001f) * Matrix4f::scaleMatrix(scale_gl.x, scale_gl.y, 1);
+	tooltip_overlay_ob->draw = true;
+
 	tooltip_shown = true;
 }
 
@@ -173,6 +189,11 @@ Vec2f GLUI::UICoordsForOpenGLCoords(const Vec2f& gl_coords)
 {
 	// Convert from gl_coords to UI x/y coords
 	return Vec2f(gl_coords.x, gl_coords.y / opengl_engine->getViewPortAspectRatio());
+}
+
+float GLUI::UIYCoordForOpenGLYCoord(float y_gl)
+{
+	return y_gl / opengl_engine->getViewPortAspectRatio();
 }
 
 
@@ -239,7 +260,7 @@ void GLUI::handleMousePress(MouseEvent& event)
 	// Hide the tooltip, and don't show it again until the mouse moves onto a different widget, so that it doesn't get in the way when using the widget, e.g. dragging a slider.
 	if(!hovered_tooltip.empty())
 	{
-		tooltip_suppressed = true;
+		tooltip_suppressed_by_press = true;
 		updateTooltip();
 	}
 
@@ -416,7 +437,7 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 	GLUIMouseEvent glui_event(mouse_event, coords);
 
 	bool new_mouse_over_text_input_widget = false;
-	const std::string* new_hovered_tooltip = nullptr; // Tooltip of the nearest widget with a tooltip that the mouse is over, if any.
+	const GLUIWidget* new_hovered_tooltip_widget = nullptr; // The nearest widget with a tooltip that the mouse is over, if any.
 	float new_hovered_tooltip_z = std::numeric_limits<float>::infinity();
 	for(auto it = widgets.begin(); it != widgets.end(); ++it)
 	{
@@ -428,7 +449,7 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 			// If the widget has a tooltip, and is nearer than any other widget with a tooltip under the mouse.  (e.g. a widget in a grid or window is nearer than the grid or window)
 			if(!widget->tooltip.empty() && (widget->getZ() < new_hovered_tooltip_z))
 			{
-				new_hovered_tooltip = &widget->tooltip;
+				new_hovered_tooltip_widget = widget;
 				new_hovered_tooltip_z = widget->getZ();
 			}
 
@@ -440,15 +461,20 @@ bool GLUI::handleMouseMoved(MouseEvent& mouse_event)
 	if(glui_event.accepted)
 		mouse_event.accepted = true;
 
-	// If the mouse moved onto a widget with a different tooltip (or off any widget with a tooltip), restart the tooltip delay.
-	static const std::string empty_string;
-	const std::string& new_tooltip = new_hovered_tooltip ? *new_hovered_tooltip : empty_string;
-	if(new_tooltip != hovered_tooltip)
+	// If the mouse moved onto a different widget with a tooltip (or off all widgets with tooltips), restart the tooltip delay.
+	// Compare widgets rather than tooltip text, as different widgets can have the same tooltip, e.g. widgets created by the same script.
+	if(new_hovered_tooltip_widget != hovered_tooltip_widget)
 	{
-		hovered_tooltip = new_tooltip;
+		hovered_tooltip_widget = new_hovered_tooltip_widget;
 		hovered_tooltip_timer.reset();
-		tooltip_suppressed = false;
+		tooltip_suppressed_by_press = false;
 	}
+
+	// Update the text even if the widget hasn't changed, in case the widget's tooltip has changed.
+	if(new_hovered_tooltip_widget)
+		hovered_tooltip = new_hovered_tooltip_widget->tooltip;
+	else
+		hovered_tooltip.clear();
 
 	updateTooltip();
 
@@ -552,8 +578,9 @@ void GLUI::removeWidget(const GLUIWidgetRef& widget)
 			pressed_widgets[i] = nullptr; // A removed widget doesn't get mouse releases.
 
 	// Hide the tooltip if it is for this widget, so that it isn't left showing until the mouse moves.
-	if(!hovered_tooltip.empty() && (widget->tooltip == hovered_tooltip))
+	if(widget.ptr() == hovered_tooltip_widget)
 	{
+		hovered_tooltip_widget = nullptr;
 		hovered_tooltip.clear();
 		updateTooltip();
 	}
@@ -570,6 +597,7 @@ void GLUI::removeAllWidgets()
 	for(int i=0; i<NUM_MOUSE_BUTTONS; ++i)
 		pressed_widgets[i] = nullptr;
 
+	hovered_tooltip_widget = nullptr;
 	hovered_tooltip.clear();
 	updateTooltip();
 
@@ -624,54 +652,16 @@ float GLUI::getDevIndepPixelWidthForUIWidth(float ui_width)
 }
 
 
-OpenGLTextureRef GLUI::makeToolTipTexture(const std::string& tooltip_text)
-{
-	TextRendererFontFaceRef font       = fonts      ->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio * ui_scale));
-	TextRendererFontFaceRef emoji_font = emoji_fonts->getFontFaceForSize((int)((float)tooltip_font_size_px * this->device_pixel_ratio * ui_scale));
-
-	// The tooltip text can have multiple lines, separated by newlines.
-	const std::vector<std::string> lines = ::split(tooltip_text, '\n');
-
-	int max_line_width = 0;
-	int use_font_height = 0;
-	for(size_t i=0; i<lines.size(); ++i)
-	{
-		const TextRenderer::SizeInfo size_info = font->renderer->getTextSize(lines[i], font.ptr(), emoji_font.ptr());
-		max_line_width  = myMax(max_line_width, size_info.glyphSize().x);
-		use_font_height = myMax(use_font_height, size_info.max_bounds.y);
-	}
-
-	const int line_spacing = (int)(use_font_height * 1.5f); // Distance between the baselines of consecutive lines.
-	const int padding_x = (int)(use_font_height * 0.6f);
-	const int padding_y = (int)(use_font_height * 0.6f);
-
-	const int text_height = use_font_height + line_spacing * ((int)lines.size() - 1);
-
-	ImageMapUInt8Ref map = new ImageMapUInt8(max_line_width + padding_x * 2, text_height + padding_y * 2, 3);
-	map->set(240); // Set to light grey colour
-
-	for(size_t i=0; i<lines.size(); ++i)
-		font->renderer->drawText(*map, lines[i], padding_x, padding_y + use_font_height + line_spacing * (int)i, Colour3f(0.05f), /*render SDF=*/false, font.ptr(), emoji_font.ptr());
-
-
-	TextureParams tex_params;
-	tex_params.wrapping = OpenGLTexture::Wrapping_Clamp;
-	tex_params.allow_compression = false;
-	return opengl_engine->getOrLoadOpenGLTextureForMap2D(OpenGLTextureKey("tooltip_" + tooltip_text), *map, tex_params);
-}
-
-
 void GLUI::hideTooltip()
 {
-	if(tooltip_overlay_ob)
-		tooltip_overlay_ob->draw = false;
+	tooltip_hidden = true;
+	updateTooltip(); // Hides the tooltip, as tooltip_hidden is set.
 }
 
 
 void GLUI::unhideTooltip()
 {
-	if(tooltip_overlay_ob)
-		tooltip_overlay_ob->draw = true;
+	tooltip_hidden = false;
 }
 
 

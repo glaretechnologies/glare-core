@@ -6,8 +6,6 @@ Copyright Glare Technologies Limited 2024 -
 #pragma once
 
 
-#include "GLUIWidget.h"
-#include "GLUICallbackHandler.h"
 #include "../OpenGLEngine.h"
 #include "../utils/RefCounted.h"
 #include "../utils/Reference.h"
@@ -17,6 +15,10 @@ Copyright Glare Technologies Limited 2024 -
 #include <vector>
 
 
+class OpenGLEngine;
+class OpenGLMeshRenderData;
+class OpenGLTexture;
+struct OverlayObject;
 class GLUI;
 class FontCharTexCache;
 class TextRendererFontFaceSizeSet;
@@ -28,6 +30,7 @@ GLUIText
 --------
 Displays some text in the opengl engine.
 Just draws text, not any background behind it.
+Can draw multiple lines of text.
 =====================================================================*/
 class GLUIText final : public RefCounted
 {
@@ -39,11 +42,11 @@ public:
 		Colour3f colour;
 		float alpha;
 		float z; // -1 = near clip plane, 1 = far clip plane
-		int font_size_px; // In device-independent pixels. (e.g. will be multiplied by device pixel ration to get actual pixel size)
+		int font_size_px; // In device-independent pixels. (e.g. will be multiplied by device pixel ratio to get actual pixel size)
 	};
 
 	// botleft is in GL UI coords (see GLUI.h)
-	GLUIText(GLUI& glui, const std::string& text, const Vec2f& botleft, const CreateArgs& args);
+	GLUIText(GLUI& glui, const std::string& text, const Vec2f& line_0_baseline_pos, const CreateArgs& args);
 	~GLUIText(); // Removes overlay_ob from opengl engine.
 
 
@@ -53,17 +56,18 @@ public:
 		float hori_advance;
 	};
 
-	static Reference<OpenGLMeshRenderData> makeMeshDataForText(OpenGLEngine* opengl_engine, FontCharTexCache* font_char_text_cache, 
-		TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float vert_pos_scale, bool render_SDF, 
+	// line_spacing_px is the distance between the baselines of consecutive lines, in font pixels (before scaling by vert_pos_scale).
+	static Reference<OpenGLMeshRenderData> makeMeshDataForText(OpenGLEngine* opengl_engine, FontCharTexCache* font_char_text_cache,
+		TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float line_spacing_px, float vert_pos_scale, bool render_SDF,
 		glare::StackAllocator& stack_allocator,
-		Rect2f& rect_os_out, OpenGLTextureRef& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out);
+		Rect2f& rect_os_out, Rect2f& line_box_rect_os_out, Reference<OpenGLTexture>& atlas_texture_out, std::vector<CharPositionInfo>& char_positions_font_coords_out); // line_box_rect_os_out: see getLineBoxRect().
 
 
 	void setColour(const Colour3f& col);
 	void setAlpha(float alpha);
 
-	void setPos(const Vec2f& botleft);
-	Vec2f getPos() const { return botleft; }
+	void setLine0BaselinePos(const Vec2f& botleft);
+	Vec2f getLine0BaselinePos() const { return line_0_baseline_pos; }
 
 	void setZ(float new_z);
 
@@ -78,9 +82,13 @@ public:
 
 	int cursorPosForUICoords(GLUI& glui, const Vec2f& coords);
 
-	Rect2f getRect() const { return rect; }
+	// Returns a rectangle around the text, in GL UI coords, with a height that depends only on the font size and the number of lines, not on which characters are in the text.
+	// It goes from the baseline of the last line, up to the cap height above the baseline of the first line, so descenders, and any parts of characters above the cap height such as accents, extend outside it.
+	// For placing text in a box with even padding.
+	Rect2f getLineBoxRect() const;
 
-	const Vec2f getDims() const { return rect.getMax() - rect.getMin(); } // In GL UI coords
+	// Moves the text so that the bottom-left of getLineBoxRect() is at line_box_botleft (in GL UI coords).  E.g. to place multi-line text in a box with even padding.
+	void setLineBoxBotLeftPos(const Vec2f& line_box_botleft);
 
 	const std::string& getText() const { return text; }
 
@@ -96,16 +104,16 @@ private:
 
 	GLUI* gl_ui;
 	OpenGLEngine* opengl_engine;
-	OverlayObjectRef overlay_ob;
+	Reference<OverlayObject> overlay_ob;
 
 	std::string text;
 	Colour3f text_colour;
 	int font_size_px;
 
-	Vec2f botleft; // In GL UI coords
+	Vec2f line_0_baseline_pos; // In GL UI coords
 	float z;
-	Rect2f rect; // In GL UI coords
 	Rect2f rect_os; // In font pixel coords
+	Rect2f line_box_rect_os; // In font pixel coords.  See getLineBoxRect().
 
 	std::vector<CharPositionInfo> char_positions_fc; // char positions in font coordinates
 };

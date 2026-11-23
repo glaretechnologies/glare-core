@@ -21,6 +21,7 @@ Copyright Glare Technologies Limited 2021 -
 
 class GLUICallbacks;
 class GLUITextView;
+class GLUIText;
 namespace glare { class StackAllocator; }
 
 
@@ -54,6 +55,7 @@ public:
 
 	Vec2f UICoordsForWindowPixelCoords(const Vec2f& pixel_coords);
 	Vec2f UICoordsForOpenGLCoords(const Vec2f& gl_coords);
+	float UIYCoordForOpenGLYCoord(float y_gl);
 	Vec2f OpenGLCoordsForUICoords(const Vec2f& ui_coords);
 	Rect2f OpenGLRectCoordsForUICoords(const Rect2f& ui_coords);
 	float OpenGLYScaleForUIYScale(float y_scale);
@@ -86,7 +88,6 @@ public:
 	Vec2f getUIWidthForDevIndepPixelWidths(Vec2f pixel_w);
 	float getDevIndepPixelWidthForUIWidth(float ui_width);
 
-	OpenGLTextureRef makeToolTipTexture(const std::string& text);
 	void hideTooltip();
 	void unhideTooltip();
 
@@ -140,11 +141,7 @@ private:
 	GLUIWidgetRef pressed_widgets[NUM_MOUSE_BUTTONS];
 	void setPressedWidgetForMouseButton(MouseButton button, const GLUIWidgetRef& widget);
 
-	OverlayObjectRef tooltip_overlay_ob;
-
-	std::map<std::string, OpenGLTextureRef> tooltip_textures;
-
-	float device_pixel_ratio;
+	float device_pixel_ratio; // Drawable pixels per 'device-independent' pixels.
 	float ui_scale;
 
 	bool mouse_over_text_input_widget;
@@ -152,10 +149,15 @@ private:
 	Vec2f last_mouse_ui_coords;
 	Vec2f last_mouse_gl_coords;
 
+
+	Reference<GLUIText> tooltip_text_ob; // The tooltip text graphics.
+	OverlayObjectRef tooltip_overlay_ob; // Draws the solid background quad behind the tooltip text.
 	std::string hovered_tooltip; // Tooltip of the widget the mouse is over, or empty if none.
-	Timer hovered_tooltip_timer; // Time since the mouse moved onto the widget with hovered_tooltip.
-	bool tooltip_shown; // Has updateTooltip() moved the tooltip onscreen?  Stays true while hideTooltip() is stopping it from being drawn.
-	bool tooltip_suppressed; // Set when a mouse button is pressed, until the mouse moves onto a widget with a different tooltip.
+	const GLUIWidget* hovered_tooltip_widget; // The widget with hovered_tooltip, or null.  Only compared with, never dereferenced, and cleared when the widget is removed.
+	Timer hovered_tooltip_timer; // Time since the mouse moved onto hovered_tooltip_widget.
+	bool tooltip_shown; // Is the tooltip currently being drawn?  Set by updateTooltip().
+	bool tooltip_suppressed_by_press; // Set when a mouse button is pressed, until the mouse moves onto a different widget with a tooltip, or off all widgets with tooltips.  (Unlike tooltip_hidden, which hideTooltip() sets until unhideTooltip() is called.)
+	bool tooltip_hidden; // Set by hideTooltip() and unhideTooltip(), used when the context menu pops up.
 
 	std::vector<GLUIWidgetRef> temp_widgets;
 

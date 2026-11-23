@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "GLUIWidget.h"
 #include "GLUIText.h"
 #include "../../graphics/colour3.h"
+#include <functional>
 
 
 /*=====================================================================

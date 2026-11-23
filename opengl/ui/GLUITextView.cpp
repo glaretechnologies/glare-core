@@ -200,7 +200,7 @@ void GLUITextView::setText(const string_view new_text)
 			if(i == 0)
 				textpos.x += args.line_0_x_offset;
 
-			glui_text->setPos(textpos);
+			glui_text->setLine0BaselinePos(textpos);
 			glui_texts.push_back(glui_text);
 
 			cur_line_y_offset += glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f); // TEMP HACK line spacing
@@ -317,9 +317,9 @@ Vec2f GLUITextView::computeTextDimsWithPadding() const
 	Vec2f text_dims(0.f);
 	if(!glui_texts.empty())
 	{
-		Rect2f temp_rect = glui_texts[0]->getRect();
+		Rect2f temp_rect = glui_texts[0]->getLineBoxRect();
 		for(size_t i=1; i<glui_texts.size(); ++i)
-			temp_rect.enlargeToHoldRect(glui_texts[i]->getRect());
+			temp_rect.enlargeToHoldRect(glui_texts[i]->getLineBoxRect());
 		text_dims = temp_rect.getWidths();
 	}
 
@@ -446,7 +446,7 @@ void GLUITextView::setPos(const Vec2f& new_botleft)
 		if(i == 0)
 			textpos.x += args.line_0_x_offset;
 
-		glui_texts[i]->setPos(textpos);
+		glui_texts[i]->setLine0BaselinePos(textpos);
 		cur_line_y_offset += glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f); // TEMP HACK line spacing
 	}
 
@@ -536,7 +536,7 @@ void GLUITextView::handleMousePress(GLUIMouseEvent& event)
 			for(size_t i=0; i<glui_texts.size(); ++i)
 			{
 				GLUIText* glui_text = glui_texts[i].ptr();
-				if(glui_text->getRect().inClosedRectangle(event.ui_coords))
+				if(glui_text->getLineBoxRect().inClosedRectangle(event.ui_coords))
 				{
 					this->selection_start = glui_text->cursorPosForUICoords(*glui, event.ui_coords);
 					this->selection_end = -1;
@@ -564,7 +564,7 @@ void GLUITextView::handleMouseDoubleClick(GLUIMouseEvent& event)
 			for(size_t i=0; i<glui_texts.size(); ++i)
 			{
 				GLUIText* glui_text = glui_texts[i].ptr();
-				if(glui_text->getRect().inClosedRectangle(event.ui_coords))
+				if(glui_text->getLineBoxRect().inClosedRectangle(event.ui_coords))
 				{
 					const int click_cursor_pos = glui_text->cursorPosForUICoords(*glui, event.ui_coords);
 				

@@ -12,6 +12,7 @@ Copyright Glare Technologies Limited 2024 -
 
 
 class GLUI;
+struct OverlayObject;
 
 
 /*=====================================================================
@@ -95,10 +96,10 @@ private:
 	Rect2f recomputeRect() const;
 	Vec2f computeTextDimsWithPadding() const;
 
-	OverlayObjectRef background_overlay_ob;
+	Reference<OverlayObject> background_overlay_ob;
 	std::vector<GLUITextRef> glui_texts; // Lines of text.  glui_texts[0] is the top line.
 
-	OverlayObjectRef selection_overlay_ob;
+	Reference<OverlayObject> selection_overlay_ob;
 
 	int selection_start, selection_end;
 	size_t selection_start_text_index, selection_end_text_index; // TODO: Do multi-line select

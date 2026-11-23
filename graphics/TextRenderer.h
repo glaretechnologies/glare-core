@@ -102,7 +102,14 @@ public:
 	TextRenderer::SizeInfo getTextSize(const string_view text);
 
 
-	float getFaceAscender(); // The ascender is the vertical distance from the horizontal baseline to the highest ‘character’ coordinate in a font face. (https://freetype.org/freetype2/docs/tutorial/step2.html)
+	float getFaceAscender(); // The ascender is the vertical distance from the horizontal baseline to the highest 'character' coordinate in a font face. (https://freetype.org/freetype2/docs/tutorial/step2.html)
+
+	// The cap height is the height of capital letters such as 'H' above the baseline, in pixels.  Read from the font's OS/2 table.
+	// Returns getFaceAscender() if the font doesn't give a cap height.
+	float getFaceCapHeight();
+
+	// The font's recommended distance between the baselines of consecutive lines, in pixels, at the face's current size.
+	float getLineHeight();
 
 	int getFontSizePixels() const { return font_size_pixels; }
 	
