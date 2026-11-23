@@ -59,6 +59,8 @@ GLUITextView::GLUITextView(GLUI& glui_, const std::string& text_, const CreateAr
 	selection_start_text_index = selection_end_text_index = 0;
 	visible = true;
 
+	line_spacing = 0; // Computed by setText() if the text has more than one line.
+
 	if(args.background_alpha != 0)
 	{
 		background_overlay_ob = new OverlayObject();
@@ -179,7 +181,10 @@ void GLUITextView::setText(const string_view new_text)
 		const float padding = glui->getUIWidthForDevIndepPixelWidth((float)args.padding_px);
 
 		// See getOffsetToTopLine()
-		const float offset_to_top_line = glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f) * myMax(0, (int)line_begin_end_bytes.size() - 1);
+		if(line_begin_end_bytes.size() > 1) // Line spacing is only used if there is more than one line.
+			line_spacing = computeLineSpacing();
+
+		const float offset_to_top_line = line_spacing * myMax(0, (int)line_begin_end_bytes.size() - 1);
 
 		float cur_line_y_offset = -offset_to_top_line;
 		for(size_t i=0; i<line_begin_end_bytes.size(); ++i)
@@ -204,7 +209,7 @@ void GLUITextView::setText(const string_view new_text)
 			glui_text->setLine0BaselinePos(textpos);
 			glui_texts.push_back(glui_text);
 
-			cur_line_y_offset += glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f); // TEMP HACK line spacing
+			cur_line_y_offset += line_spacing;
 		}
 
 		this->rect = recomputeRect();
@@ -396,6 +401,9 @@ Vec2f GLUITextView::getMinDims() const
 
 void GLUITextView::viewportResized()
 {
+	if(glui_texts.size() > 1) // Line spacing is only used if there is more than one line.
+		line_spacing = computeLineSpacing();
+
 	for(size_t i=0; i<glui_texts.size(); ++i)
 		glui_texts[i]->updateGLTransform();
 
@@ -429,7 +437,15 @@ void GLUITextView::handleCopyEvent(std::string& clipboard_contents_out)
 // For multi-line text, the top line will be some vertical offset above the bottom line.  Compute this offset and return it.
 float GLUITextView::getOffsetToTopLine() const
 {
-	return glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f) * myMax(0, (int)glui_texts.size() - 1);
+	return line_spacing * myMax(0, (int)glui_texts.size() - 1);
+}
+
+
+float GLUITextView::computeLineSpacing() const
+{
+	const int font_size_screen_px = (int)((float)args.font_size_px * glui->getDevicePixelRatio() * glui->getUIScale()); // As in GLUIText::GLUIText()
+	const float line_spacing_px = GLUIText::getLineSpacingPx(*glui, font_size_screen_px);
+	return line_spacing_px * 2.f / opengl_engine->getViewPortWidth(); // Screen pixels to GL UI coords.
 }
 
 
@@ -448,7 +464,7 @@ void GLUITextView::setPos(const Vec2f& new_botleft)
 			textpos.x += args.line_0_x_offset;
 
 		glui_texts[i]->setLine0BaselinePos(textpos);
-		cur_line_y_offset += glui->getUIWidthForDevIndepPixelWidth(args.font_size_px + 4.f); // TEMP HACK line spacing
+		cur_line_y_offset += line_spacing;
 	}
 
 	this->rect = Rect2f::fromMinAndSpan(new_botleft, this->getDims());

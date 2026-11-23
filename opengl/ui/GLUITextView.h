@@ -70,6 +70,7 @@ public:
 	virtual void setZ(float new_z) override;
 
 	float getOffsetToTopLine() const; // For multi-line text, the top line will be some vertical offset above the bottom line.  Compute this offset and return it.
+	float getLineSpacing() const { return line_spacing; } // Distance between the baselines of consecutive lines, in GL UI coords.  See GLUIText::getLineSpacingPx().
 
 	float getPaddingWidth() const;
 
@@ -95,6 +96,7 @@ private:
 	void updateOverlayObTransforms();
 	Rect2f recomputeRect() const;
 	Vec2f computeTextDimsWithPadding() const;
+	float computeLineSpacing() const;
 
 	Reference<OverlayObject> background_overlay_ob;
 	std::vector<GLUITextRef> glui_texts; // Lines of text.  glui_texts[0] is the top line.
@@ -111,6 +113,9 @@ private:
 	Vec2f last_rounded_background_dims;
 
 	Rect2f clip_rect;
+
+	float line_spacing; // Distance between the baselines of consecutive lines, in GL UI coords.  Cached result of computeLineSpacing(), as it does a font lookup.  Depends on the viewport width and device pixel ratio, so is recomputed in viewportResized().
+	// Only computed when the text has more than one line, as it's not used otherwise.  0 or out of date for single-line text.
 };
 
 

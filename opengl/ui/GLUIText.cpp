@@ -164,6 +164,14 @@ static Matrix4f makeTextOverlayTransform(OpenGLEngine* opengl_engine, const Vec2
 }
 
 
+float GLUIText::getLineSpacingPx(GLUI& glui, int font_size_px)
+{
+	// Use the font's own line spacing.  (Scaled in case the face's size differs from font_size_px.)
+	TextRendererFontFaceRef font = glui.getFonts()->getFontFaceForSize(font_size_px);
+	return std::round(font->getLineHeight() * (float)font_size_px / (float)myMax(1, font->getFontSizePixels())); // Rounded to whole pixels, so that all lines are pixel-aligned when the text position is.
+}
+
+
 GLUIText::GLUIText(GLUI& glui_, const std::string& text_, const Vec2f& line_0_baseline_pos_, const CreateArgs& args)
 {
 	gl_ui = &glui_;
@@ -182,9 +190,7 @@ GLUIText::GLUIText(GLUI& glui_, const std::string& text_, const Vec2f& line_0_ba
 	{
 		OpenGLTextureRef atlas_texture;
 
-		// Use the font's own line spacing.  (Scaled in case the face's size differs from font_size_px.)
-		TextRendererFontFaceRef font = glui_.getFonts()->getFontFaceForSize(font_size_px);
-		const float line_spacing_px = std::round(font->getLineHeight() * (float)font_size_px / (float)myMax(1, font->getFontSizePixels())); // Rounded to whole pixels, so that all lines are pixel-aligned when the text position is.
+		const float line_spacing_px = getLineSpacingPx(glui_, font_size_px);
 
 		Reference<OpenGLMeshRenderData> mesh_data = makeMeshDataForText(opengl_engine, glui_.font_char_text_cache.ptr(), glui_.getFonts(), glui_.getEmojiFonts(), text, font_size_px, line_spacing_px, /*vert_pos_scale=*/1.f,
 			/*render_SDF=*/false, *glui_.stack_allocator,

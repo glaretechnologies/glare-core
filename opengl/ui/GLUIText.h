@@ -55,6 +55,10 @@ public:
 		float hori_advance;
 	};
 
+	// Returns the distance between the baselines of consecutive lines, in screen pixels, for text with the given font size in screen pixels (i.e. already multiplied by the device pixel ratio and UI scale).
+	// This is the font's own line height, rounded to whole pixels.
+	static float getLineSpacingPx(GLUI& glui, int font_size_px);
+
 	// line_spacing_px is the distance between the baselines of consecutive lines, in font pixels (before scaling by vert_pos_scale).
 	static Reference<OpenGLMeshRenderData> makeMeshDataForText(OpenGLEngine* opengl_engine, FontCharTexCache* font_char_text_cache,
 		TextRendererFontFaceSizeSet* fonts, TextRendererFontFaceSizeSet* emoji_fonts, const std::string& text, const int font_size_px, float line_spacing_px, float vert_pos_scale, bool render_SDF,
