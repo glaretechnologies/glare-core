@@ -16,6 +16,12 @@ Copyright Glare Technologies Limited 2024 -
 #include <tracy/Tracy.hpp>
 
 
+// Floor and ceiling of a 26.6 fixed-point value, in whole pixels.  (Like FreeType's internal FT_FLOOR and FT_CEIL.)
+// Used for glyph bounds, so that rounding is outwards and the bounds cover every pixel row and column of the rendered glyph bitmap.
+static inline int fixed26_6Floor(FT_Pos x) { return (int)(x >> 6); } // Arithmetic shift, so rounds towards -infinity for negative values.
+static inline int fixed26_6Ceil(FT_Pos x) { return (int)((x + 63) >> 6); }
+
+
 TextRenderer::TextRenderer()
 {
 	FT_Error error = FT_Init_FreeType(&library); // initialize library
@@ -231,12 +237,12 @@ TextRenderer::SizeInfo TextRenderer::getTextSize(const string_view text, TextRen
 				// See https://freetype.org/freetype2/docs/tutorial/step2.html
 				const Vec2i p(pen.x / 64, pen.y / 64);
 				const Vec2i char_min_bounds(
-					p.x + face->glyph->metrics.horiBearingX                                 / 64,
-					p.y + (face->glyph->metrics.horiBearingY - face->glyph->metrics.height) / 64
+					p.x + fixed26_6Floor(face->glyph->metrics.horiBearingX),
+					p.y + fixed26_6Floor(face->glyph->metrics.horiBearingY - face->glyph->metrics.height)
 				);
 				const Vec2i char_max_bounds(
-					p.x + (face->glyph->metrics.horiBearingX + face->glyph->metrics.width) / 64,
-					p.y + face->glyph->metrics.horiBearingY                                / 64
+					p.x + fixed26_6Ceil(face->glyph->metrics.horiBearingX + face->glyph->metrics.width),
+					p.y + fixed26_6Ceil(face->glyph->metrics.horiBearingY)
 				);
 				min_bounds.x = myMin(min_bounds.x, char_min_bounds.x);
 				min_bounds.y = myMin(min_bounds.y, char_min_bounds.y);
@@ -493,12 +499,12 @@ TextRenderer::SizeInfo TextRendererFontFace::getGlyphSize(const string_view text
 
 	// See https://freetype.org/freetype2/docs/tutorial/step2.html
 	const Vec2i char_min_bounds(
-		face->glyph->metrics.horiBearingX                                 / 64,
-		(face->glyph->metrics.horiBearingY - face->glyph->metrics.height) / 64
+		fixed26_6Floor(face->glyph->metrics.horiBearingX),
+		fixed26_6Floor(face->glyph->metrics.horiBearingY - face->glyph->metrics.height)
 	);
 	const Vec2i char_max_bounds(
-		(face->glyph->metrics.horiBearingX + face->glyph->metrics.width) / 64,
-		face->glyph->metrics.horiBearingY                                / 64
+		fixed26_6Ceil(face->glyph->metrics.horiBearingX + face->glyph->metrics.width),
+		fixed26_6Ceil(face->glyph->metrics.horiBearingY)
 	);
 
 	TextRenderer::SizeInfo size_info;

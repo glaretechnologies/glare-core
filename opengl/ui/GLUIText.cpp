@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/StackAllocator.h"
 #include "../maths/mathstypes.h"
 #include <tracy/Tracy.hpp>
+#include <cmath>
 
 
 static inline Vec2f toVec2f(const Vec3f& v)
@@ -144,6 +145,25 @@ Reference<OpenGLMeshRenderData> GLUIText::makeMeshDataForText(OpenGLEngine* open
 }
 
 
+// Returns the overlay object transform for text with the given line 0 baseline position (in GL UI coords).
+// The baseline position is snapped to the nearest pixel corner.  Glyph quad corners are at whole font pixels, and font pixels are the same size as screen pixels,
+// so the glyph texels then map exactly onto screen pixels, and bilinear filtering of the glyph atlas doesn't blur the glyphs.
+static Matrix4f makeTextOverlayTransform(OpenGLEngine* opengl_engine, const Vec2f& line_0_baseline_pos, float z)
+{
+	const float viewport_w = (float)opengl_engine->getViewPortWidth();
+	const float viewport_h = (float)opengl_engine->getViewPortHeight();
+
+	// OpenGL coords range from -1 to 1 over the viewport.
+	const float gl_x = line_0_baseline_pos.x;
+	const float gl_y = line_0_baseline_pos.y * opengl_engine->getViewPortAspectRatio();
+
+	const float snapped_gl_x = std::round((gl_x + 1.f) * 0.5f * viewport_w) * 2.f / viewport_w - 1.f;
+	const float snapped_gl_y = std::round((gl_y + 1.f) * 0.5f * viewport_h) * 2.f / viewport_h - 1.f;
+
+	return translationMulScaleMatrix(Vec4f(snapped_gl_x, snapped_gl_y, z, 0), /*scale_x=*/2.f / viewport_w, /*scale_y=*/2.f / viewport_h, /*scale_z=*/1);
+}
+
+
 GLUIText::GLUIText(GLUI& glui_, const std::string& text_, const Vec2f& line_0_baseline_pos_, const CreateArgs& args)
 {
 	gl_ui = &glui_;
@@ -164,23 +184,19 @@ GLUIText::GLUIText(GLUI& glui_, const std::string& text_, const Vec2f& line_0_ba
 
 		// Use the font's own line spacing.  (Scaled in case the face's size differs from font_size_px.)
 		TextRendererFontFaceRef font = glui_.getFonts()->getFontFaceForSize(font_size_px);
-		const float line_spacing_px = font->getLineHeight() * (float)font_size_px / (float)myMax(1, font->getFontSizePixels());
+		const float line_spacing_px = std::round(font->getLineHeight() * (float)font_size_px / (float)myMax(1, font->getFontSizePixels())); // Rounded to whole pixels, so that all lines are pixel-aligned when the text position is.
 
 		Reference<OpenGLMeshRenderData> mesh_data = makeMeshDataForText(opengl_engine, glui_.font_char_text_cache.ptr(), glui_.getFonts(), glui_.getEmojiFonts(), text, font_size_px, line_spacing_px, /*vert_pos_scale=*/1.f,
 			/*render_SDF=*/false, *glui_.stack_allocator,
 			/*rect os out=*/rect_os, /*line_box_rect_os_out=*/line_box_rect_os, /*atlas texture out=*/atlas_texture, /*char_positions_font_coords_out=*/char_positions_fc);
 
-		const float x_scale = 2.f / opengl_engine->getViewPortWidth();
-		const float y_scale = 2.f / opengl_engine->getViewPortHeight();
-
-	
 		overlay_ob = new OverlayObject();
 		overlay_ob->mesh_data = mesh_data;
 		overlay_ob->material.albedo_linear_rgb = args.colour;
 		overlay_ob->material.alpha = args.alpha;
 		overlay_ob->material.albedo_texture = atlas_texture;
 
-		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(line_0_baseline_pos.x, line_0_baseline_pos.y * opengl_engine->getViewPortAspectRatio(), z) * Matrix4f::scaleMatrix(x_scale, y_scale, 1);
+		overlay_ob->ob_to_world_matrix = makeTextOverlayTransform(opengl_engine, line_0_baseline_pos, z);
 
 		opengl_engine->addOverlayObject(overlay_ob);
 	}
@@ -230,11 +246,8 @@ void GLUIText::setZ(float new_z)
 
 void GLUIText::updateGLTransform()
 {
-	const float x_scale = 2.f / opengl_engine->getViewPortWidth();
-	const float y_scale = 2.f / opengl_engine->getViewPortHeight();
-
 	if(overlay_ob)
-		overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(line_0_baseline_pos.x, line_0_baseline_pos.y * opengl_engine->getViewPortAspectRatio(), z) * Matrix4f::scaleMatrix(x_scale, y_scale, 1);
+		overlay_ob->ob_to_world_matrix = makeTextOverlayTransform(opengl_engine, line_0_baseline_pos, z);
 }
 
 
