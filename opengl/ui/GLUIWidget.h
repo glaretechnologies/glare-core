@@ -34,6 +34,8 @@ public:
 	GLUIWidget();
 	virtual ~GLUIWidget();
 
+	GLARE_DISABLE_COPY(GLUIWidget);
+
 	void handleMouseMoved(GLUIMouseEvent& mouse_event);
 	virtual void handleMousePress(GLUIMouseEvent& /*event*/) {}
 	virtual void handleMouseRelease(GLUIMouseEvent& /*event*/) {}
@@ -135,9 +137,6 @@ public:
 	// Units are pixels if SizingType_FixedSizePx, and UI coordinate units if SizingType_FixedSizeUICoords.
 
 	std::string debug_name;
-private:
-	GLARE_DISABLE_COPY(GLUIWidget);
-
 protected:
 	GLUIWidget* m_parent; // so containers can be re-laid out when a widget size changes, via containedWidgetChangedSize() calls to parents.
 
