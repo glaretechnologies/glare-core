@@ -17,6 +17,10 @@ Copyright Glare Technologies Limited 2026 -
 #include <Timer.h>
 #include <networking/HTTPClient.h>
 #include <webserver/Escaping.h>
+#define LLM_RETRY_IMPLEMENTATION
+#include "../libs/llm_retry/llm_retry.hpp" // https://github.com/Mattbusel/llm-retry v0.3.0
+#include <algorithm>
+#include <cstdlib>
 
 
 LLMClient::LLMClient(const AIModel& AI_model, const ToolFunctionsSpec& tool_functions, const std::string& base_prompt, const SimpleCredentials* credentials_, LLMClientHandlerInterface* handler_)
@@ -419,49 +423,57 @@ LLMClient::SendResult LLMClient::sendChatRequestToLLMServer()
 
 	if(m_http_client)
 	{
-		const int max_num_retries = 3;
-		for(int z=0; z<max_num_retries; ++z)
+		// Retry socket errors and transient HTTP codes (408, 429, 5xx, 529) with exponential backoff, honouring Retry-After.
+		llm::RetryConfig retry_config;
+		retry_config.base_delay_ms = 1000;
+		try
 		{
-			try
+			res.type = llm::with_retry<SendResult::SendResultType>([&]() -> SendResult::SendResultType
 			{
-				// Clear buffer that we will stream data into and search locations
-				next_nonempty_line_start = 0;
-				newline_search_pos = 0;
-				http_response_data.clear();
-				current_assistant_response = LLMChatMessage(); // Clear current_assistant_response
-				current_assistant_response.role = LLMChatMessage::Role_Assistant;
-
-				Timer timer;
-				HTTPClient::ResponseInfo response_info = m_http_client->sendPost(
-					"https://" + cur_ai_model.api_domain + cur_ai_model.api_path,
-					post_content, 
-					"application/json", // content type
-					/*handler=*/*this
-				);
-
-				conPrint("HTTP response took " + timer.elapsedString());
-				conPrint("HTTP Response code: " + toString(response_info.response_code) + ", msg: '" + response_info.response_message + "'");
-				if(response_info.response_code >= 400)
+				try
 				{
-					conPrint("http_response_data: '" + std::string(http_response_data.data(), http_response_data.size()) + "'");
+					// Clear buffer that we will stream data into and search locations
+					next_nonempty_line_start = 0;
+					newline_search_pos = 0;
+					http_response_data.clear();
+					current_assistant_response = LLMChatMessage(); // Clear current_assistant_response
+					current_assistant_response.role = LLMChatMessage::Role_Assistant;
 
-					res.type = SendResult::SendResultType_SendFailed;
+					Timer timer;
+					HTTPClient::ResponseInfo response_info = m_http_client->sendPost(
+						"https://" + cur_ai_model.api_domain + cur_ai_model.api_path,
+						post_content, 
+						"application/json", // content type
+						/*handler=*/*this
+					);
+
+					conPrint("HTTP response took " + timer.elapsedString());
+					conPrint("HTTP Response code: " + toString(response_info.response_code) + ", msg: '" + response_info.response_message + "'");
+					if(response_info.response_code >= 400)
+					{
+						conPrint("http_response_data: '" + std::string(http_response_data.data(), http_response_data.size()) + "'");
+
+						llm::LLMError err{response_info.response_code, response_info.response_message, /*is_retryable=*/true};
+						char* end = nullptr;
+						const double retry_after = std::strtod(response_info.retry_after.c_str(), &end);
+						if(!response_info.retry_after.empty() && *end == '\0' && retry_after >= 0)
+							err.retry_after_seconds = std::min(retry_after, 60.0);
+						throw err;
+					}
+					return SendResult::SendResultType_SendSucceeded;
 				}
-				else
-					res.type = SendResult::SendResultType_SendSucceeded;
-				
-				break;
-			}
-			catch(glare::Exception& e)
-			{
-				conPrint("Connection to AI server exception: " + e.what());
-				if(z + 1 < max_num_retries)
-					conPrint("Retrying...");
-				if(z > 0)
-					PlatformUtils::Sleep(1000);
-
-				m_http_client->resetConnection(); // Set socket to null so the next sendPost() reconnects.
-			}
+				catch(glare::Exception& e)
+				{
+					conPrint("Connection to AI server exception: " + e.what());
+					m_http_client->resetConnection(); // Set socket to null so the next sendPost() reconnects.
+					throw llm::LLMError{0, e.what(), /*is_retryable=*/true};
+				}
+			}, retry_config).value;
+		}
+		catch(llm::LLMError& e)
+		{
+			conPrint("LLM request failed: " + e.message);
+			res.type = SendResult::SendResultType_SendFailed;
 		}
 	}
 
