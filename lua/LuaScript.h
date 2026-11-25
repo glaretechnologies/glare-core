@@ -23,6 +23,9 @@ public:
 	virtual void printFromLuaScript(LuaScript* script, const char* s, size_t len) {}
 
 	virtual void errorOccurredFromLuaScript(LuaScript* script, const std::string& msg) {}
+
+	// By default, prints the warning with a "Warning: " prefix.
+	virtual void warningOccurredFromLuaScript(LuaScript* script, const std::string& msg) { const std::string s = "Warning: " + msg; printFromLuaScript(script, s.data(), s.size()); }
 };
 
 
