@@ -53,7 +53,7 @@ namespace BitUtils
 	inline bool isBitSet(const T x, const T bitflag);
 
 	template <class T> 
-	inline bool areBitsSet(const T x, const T bitflags); // 'bitflags' is one or more bitflags OR'd together.
+	inline bool areBitsSet(const T x, const T bitflags); // Are all of the bits in bitflags set? 'bitflags' is one or more bitflags OR'd together.
 
 
 	// Sets the bit to 1, in place.
