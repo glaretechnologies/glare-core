@@ -49,10 +49,16 @@ static void* glareLuaAlloc(void* user_data, void* ptr, size_t original_size, siz
 				return nullptr;
 			}
 
-			lua_vm->total_allocated = new_total_allocated;
-			lua_vm->total_allocated_high_water_mark = myMax(lua_vm->total_allocated_high_water_mark, new_total_allocated);
+			void* res = malloc(new_size);
+			if(res)
+			{
+				lua_vm->total_allocated = new_total_allocated;
+				lua_vm->total_allocated_high_water_mark = myMax(lua_vm->total_allocated_high_water_mark, new_total_allocated);
+			}
+			else
+				lua_vm->num_mem_allocation_failures++;
 
-			return malloc(new_size);
+			return res;
 		}
 		else
 		{
@@ -69,10 +75,15 @@ static void* glareLuaAlloc(void* user_data, void* ptr, size_t original_size, siz
 				return nullptr;
 			}
 
-			lua_vm->total_allocated = new_total_allocated;
-			lua_vm->total_allocated_high_water_mark = myMax(lua_vm->total_allocated_high_water_mark, new_total_allocated);
-
 			void* res = realloc(ptr, new_size);
+			if(res)
+			{
+				lua_vm->total_allocated = new_total_allocated;
+				lua_vm->total_allocated_high_water_mark = myMax(lua_vm->total_allocated_high_water_mark, new_total_allocated);
+			}
+			else
+				lua_vm->num_mem_allocation_failures++;
+
 			return res;
 		}
 	}
@@ -95,9 +106,18 @@ static void glareLuaInterrupt(lua_State* state, int gc)
 // We need to define this to pass the userdata pointer from parent states to child states for coroutines, which have their own state.
 static void glareLuaUserThread(lua_State* parent, lua_State* child)
 {
-	// Luau passes a null parent when destroying a thread.
+	void* alloc_userdata = nullptr;
+	lua_getallocf(child, &alloc_userdata); // The allocator userdata is the LuaVM, see lua_newstate() call in LuaVM::LuaVM().
+	LuaVM* lua_vm = (LuaVM*)alloc_userdata;
+
+	// Luau passes a null parent when destroying a thread.  Threads are destroyed when the garbage collector frees them, not when they become unreferenced.
 	if(parent)
+	{
 		lua_setthreaddata(child, lua_getthreaddata(parent));
+		lua_vm->num_threads++;
+	}
+	else
+		lua_vm->num_threads--;
 }
 
 
@@ -259,7 +279,9 @@ LuaVM::LuaVM(const LuaVMOptions& options_)
 	num_mem_allocation_failures(0),
 	total_num_interrupts(0),
 	init_finished(false),
-	num_references(0)
+	num_references(0),
+	num_scripts(0),
+	num_threads(0)
 {
 	runtimeCheck(static_init_called);
 
@@ -445,4 +467,10 @@ void LuaVM::destroyReferenceToLuaValue(lua_State* calling_state, LuaValueRef ref
 	lua_unref(calling_state, reference.ref);
 
 	num_references--;
+}
+
+
+bool LuaVM::doGCStep(int step_size_KB)
+{
+	return lua_gc(state, LUA_GCSTEP, step_size_KB) != 0; // Returns 1 if a collection cycle finished.
 }

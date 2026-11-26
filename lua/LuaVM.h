@@ -94,16 +94,24 @@ public:
 
 	int getNumLuaValueReferences() const { return num_references; }
 
+	// Does an explicit step of incremental garbage collection, doing about as much GC work as if step_size_KB KB had been allocated.
+	// If the GC is paused, starts a new collection cycle.  Returns true if a collection cycle finished.
+	// Luau only does GC work when Lua code allocates, so garbage may never be collected in a VM that isn't running any code, or that has reached max_total_mem_allowed.
+	// Call this regularly to make sure garbage is collected.  Must not be called while Lua code is executing in this VM.
+	bool doGCStep(int step_size_KB);
+
 	lua_State* state;
 
 	LuaVMOptions options; // Kept because Luau stores the debugname a function was registered with, without copying it.
 
 	int64 total_allocated; // Current number of bytes allocated in this VM.
-	
+
 	// Stats tracking:
 	int64 total_allocated_high_water_mark;
 	uint64 num_mem_allocation_failures;
 	uint64 total_num_interrupts; // Total num interrupts that occurred while executing LuaScripts that use this LuaVM.
+	int64 num_scripts; // Number of LuaScripts using this LuaVM.
+	int64 num_threads; // Number of Lua threads (apart from the main thread) in this LuaVM, including threads that are no longer referenced but haven't been freed by the garbage collector yet.
 	
 
 	bool init_finished; // has finishInitAndSandbox() been called?

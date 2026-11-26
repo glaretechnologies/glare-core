@@ -174,6 +174,8 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 			}
 			//conPrint("building calls_to_undefined_globals took " + timer.elapsedStringMS());
 		}
+
+		lua_vm->num_scripts++; // Only increment once we know we aren't going to throw from the constructor.
 	}
 	catch(Luau::ParseErrors& e)
 	{
@@ -222,6 +224,8 @@ LuaScript::~LuaScript()
 		lua_vm->destroyReferenceToLuaValue(lua_vm->state, *it);
 
 	lua_vm->destroyReferenceToLuaValue(lua_vm->state, thread_ref);
+
+	lua_vm->num_scripts--;
 }
 
 
