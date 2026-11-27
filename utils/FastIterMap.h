@@ -102,9 +102,15 @@ public:
 		key_info_map.clear();
 	}
 
+	// The empty key is handled explicitly in insert(), erase(), contains() and find(), as HashMap doesn't handle it (it just asserts), and keys may come from untrusted sources.
+
 	// Returns true if inserted, false otherwise.
 	bool insert(const Key& key, const Value& value)
 	{
+		assert(key != key_info_map.empty_key);
+		if(key == key_info_map.empty_key) // Prevent crashes using empty_key as a key
+			return false;
+
 		auto res = key_info_map.find(key);
 		if(res == key_info_map.end())
 		{
@@ -119,6 +125,10 @@ public:
 
 	void erase(const Key& key)
 	{
+		assert(key != key_info_map.empty_key);
+		if(key == key_info_map.empty_key) // Prevent crashes using empty_key as a key
+			return;
+
 		auto res = key_info_map.find(key);
 		if(res != key_info_map.end())
 		{
@@ -144,10 +154,14 @@ public:
 
 	size_t size() const { return key_info_map.size(); }
 
-	bool contains(const Key& key) const { return key_info_map.find(key) != key_info_map.end(); }
+	bool contains(const Key& key) const { return (key != key_info_map.empty_key) && (key_info_map.find(key) != key_info_map.end()); }
 
+	// Returns end() for the empty key.
 	FastIterMapLookUpIterator<Key, Value, KeyHasher> find(const Key& key)
 	{
+		if(key == key_info_map.empty_key)
+			return end();
+
 		return FastIterMapLookUpIterator<Key, Value, KeyHasher>(&vector, key_info_map.find(key));
 	}
 
