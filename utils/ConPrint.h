@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2022 -
 
 
 #include <string>
+#include "string_view.h"
 
 
 /*
@@ -14,10 +15,10 @@ These functions should only be used for debugging and test code.
 */
 #define printVar(v) conPrint(std::string(#v) + ": " + ::toString(v))
 
-void conPrint(const std::string& s);
+void conPrint(const string_view s);
 
-void conPrintStr(const std::string& s);
+void conPrintStr(const string_view s);
 
-void stdErrPrint(const std::string& s);
+void stdErrPrint(const string_view s);
 
-void fatalError(const std::string& s);
+void fatalError(const string_view s);

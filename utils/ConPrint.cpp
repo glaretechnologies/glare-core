@@ -16,7 +16,7 @@ Copyright Glare Technologies Limited 2021 -
 static Mutex print_mutex;
 
 
-void conPrint(const std::string& s)
+void conPrint(const string_view s)
 {
 	Lock lock(print_mutex);
 
@@ -24,7 +24,7 @@ void conPrint(const std::string& s)
 }
 
 
-void conPrintStr(const std::string& s)
+void conPrintStr(const string_view s)
 {
 	Lock lock(print_mutex);
 
@@ -32,7 +32,7 @@ void conPrintStr(const std::string& s)
 }
 
 
-void fatalError(const std::string& s)
+void fatalError(const string_view s)
 {
 	{
 	Lock lock(print_mutex);
@@ -44,7 +44,7 @@ void fatalError(const std::string& s)
 }
 
 
-void stdErrPrint(const std::string& s)
+void stdErrPrint(const string_view s)
 {
 	std::cerr << s << std::endl;
 }
