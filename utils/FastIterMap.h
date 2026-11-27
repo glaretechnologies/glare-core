@@ -48,6 +48,22 @@ public:
 };
 
 
+template <class Key, class Value, class KeyHasher>
+class FastIterMapConstLookUpIterator
+{
+public:
+	explicit FastIterMapConstLookUpIterator(const js::Vector<FastIterMapValueInfo<Key, Value>, 16>* vector_, typename HashMap<Key, size_t, KeyHasher>::const_iterator it_) : vector(vector_), it(it_) {}
+
+	const Value& getValue() { return (*vector)[it->second].value; }
+
+	inline bool operator == (const FastIterMapConstLookUpIterator<Key, Value, KeyHasher>& other) const { return it == other.it; }
+	inline bool operator != (const FastIterMapConstLookUpIterator<Key, Value, KeyHasher>& other) const { return it != other.it; }
+
+	const js::Vector<FastIterMapValueInfo<Key, Value>, 16>* vector;
+	typename HashMap<Key, size_t, KeyHasher>::const_iterator it;
+};
+
+
 template <class Key, class Value>
 class FastIterMapValueIterator
 {
@@ -165,12 +181,25 @@ public:
 		return FastIterMapLookUpIterator<Key, Value, KeyHasher>(&vector, key_info_map.find(key));
 	}
 
+	FastIterMapConstLookUpIterator<Key, Value, KeyHasher> find(const Key& key) const
+	{
+		if(key == key_info_map.empty_key)
+			return end();
+
+		return FastIterMapConstLookUpIterator<Key, Value, KeyHasher>(&vector, key_info_map.find(key));
+	}
+
 	// For key lookups:
 	// typedef typename std::unordered_map<Key, Value, KeyHasher> iterator;
 
 	FastIterMapLookUpIterator<Key, Value, KeyHasher> end()
 	{
 		return FastIterMapLookUpIterator<Key, Value, KeyHasher>(&vector, key_info_map.end());
+	}
+
+	FastIterMapConstLookUpIterator<Key, Value, KeyHasher> end() const
+	{
+		return FastIterMapConstLookUpIterator<Key, Value, KeyHasher>(&vector, key_info_map.end());
 	}
 
 
