@@ -76,7 +76,8 @@ LuaScript::LuaScript(LuaVM* lua_vm_, const LuaScriptOptions& options_, const std
 	options(options_),
 	num_interrupts(0),
 	script_output_handler(options_.script_output_handler),
-	userdata(options_.userdata)
+	userdata(options_.userdata),
+	lua_func_references(LuaVM::LuaValueRef())
 {
 	try
 	{

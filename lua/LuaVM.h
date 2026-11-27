@@ -77,6 +77,7 @@ public:
 		LuaValueRef() : ref(/*LUA_NOREF=*/-1) {}
 		bool operator <  (LuaValueRef other) const { return ref < other.ref; }
 		bool operator == (LuaValueRef other) const { return ref == other.ref; }
+		bool operator != (LuaValueRef other) const { return ref != other.ref; }
 		int ref;
 	};
 	struct LuaValueRefHasher

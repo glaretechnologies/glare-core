@@ -9,11 +9,11 @@ Copyright Glare Technologies Limited 2024 -
 #include "LuaVM.h" // For LuaCFunction
 #include <utils/Exception.h>
 #include <utils/Reference.h>
+#include <utils/HashSet.h>
 #include <Luau/Location.h>
 #include <string>
 #include <vector>
 #include <limits>
-#include <unordered_set>
 class LuaScript;
 
 
@@ -134,7 +134,7 @@ public:
 	LuaVM::LuaValueRef Vec2MetaTable_ref;
 
 private:
-	std::unordered_set<LuaVM::LuaValueRef, LuaVM::LuaValueRefHasher> lua_func_references;
+	HashSet<LuaVM::LuaValueRef, LuaVM::LuaValueRefHasher> lua_func_references;
 
 	// Calls to global functions that are neither defined by the script nor globals in the VM when the script is loaded, such as a misspelt function name.
 	// Used by improveErrorMessage().
