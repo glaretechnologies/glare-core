@@ -38,7 +38,7 @@ class FastIterMapLookUpIterator
 public:
 	explicit FastIterMapLookUpIterator(js::Vector<FastIterMapValueInfo<Key, Value>, 16>* vector_, typename HashMap<Key, size_t, KeyHasher>::iterator it_) : vector(vector_), it(it_) {}
 
-	const Value& getValue() { return (*vector)[it->second].value; }
+	const Value& getValue() const { return (*vector)[it->second].value; }
 
 	inline bool operator == (const FastIterMapLookUpIterator<Key, Value, KeyHasher>& other) const { return it == other.it; }
 	inline bool operator != (const FastIterMapLookUpIterator<Key, Value, KeyHasher>& other) const { return it != other.it; }
