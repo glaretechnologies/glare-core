@@ -31,9 +31,12 @@ struct StackStringBuilder
 	void append(const string_view s)
 	{
 		const size_t num_to_copy = myMin(max_size - size, s.length());
-		std::memcpy(buf + size, s.data(), num_to_copy);
-		size += num_to_copy;
-		assert(size <= max_size);
+		if(num_to_copy > 0)
+		{
+			std::memcpy(buf + size, s.data(), num_to_copy);
+			size += num_to_copy;
+			assert(size <= max_size);
+		}
 	}
 
 	string_view getStringView() const { return string_view(buf, size); }
