@@ -49,6 +49,8 @@ public:
 		GLUIWidget::SizingType sizing_type_y;
 		Vec2f fixed_size; // In device-independent pixels. Used when sizing_type_x/y == SizingType_FixedSizePx.
 
+		float z; // Default 0.
+
 		std::string tooltip;
 
 		Colour3f background_colour;

@@ -29,6 +29,7 @@ GLUISpinBox::CreateArgs::CreateArgs()
 	sizing_type_x(GLUIWidget::SizingType_FixedSizePx),
 	sizing_type_y(GLUIWidget::SizingType_FixedSizePx),
 	fixed_size(100.f, std::ceil(GLUI::getDefaultFontSizePx() * 2.4f)),
+	z(0.f),
 	background_colour(toLinearSRGB(Colour3f(0.25f))),
 	button_colour(toLinearSRGB(Colour3f(1.f))),
 	mouseover_button_colour(toLinearSRGB(Colour3f(0.9f))),
@@ -49,6 +50,7 @@ GLUISpinBox::GLUISpinBox(GLUI& glui_, const CreateArgs& args_)
 	sizing_type_x = args.sizing_type_x;
 	sizing_type_y = args.sizing_type_y;
 	fixed_size = args.fixed_size;
+	m_z = args.z;
 
 	cur_value = myClamp(args.initial_value, args.min_value, args.max_value);
 

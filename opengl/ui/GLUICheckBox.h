@@ -38,6 +38,8 @@ public:
 		bool checked; // Initially checked?  False by default.
 
 		bool enabled; // Initially enabled? True by default
+
+		float z; // Default 0.
 	};
 
 	GLUICheckBox(GLUI& glui, const std::string& tick_texture_path, const CreateArgs& args);

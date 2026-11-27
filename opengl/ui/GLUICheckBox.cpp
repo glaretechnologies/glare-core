@@ -21,6 +21,7 @@ GLUICheckBox::CreateArgs::CreateArgs()
 
 	checked = false;
 	enabled = true;
+	z = 0.f;
 }
 
 
@@ -37,7 +38,8 @@ GLUICheckBox::GLUICheckBox(GLUI& glui_, const std::string& tick_texture_path, co
 	sizing_type_x = SizingType_FixedSizePx;
 	sizing_type_y = SizingType_FixedSizePx; 
 	fixed_size = Vec2f(22.f);
-	
+	m_z = args.z;
+
 	tick_overlay_ob = new OverlayObject();
 	tick_overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
 	tick_overlay_ob->material.albedo_linear_rgb = args.tick_colour;

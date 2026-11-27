@@ -38,6 +38,7 @@ GLUIDropDownList::GLUIDropDownList(GLUI& glui_, const CreateArgs& args_)
 	sizing_type_x = args.sizing_type_x;
 	sizing_type_y = args.sizing_type_y;
 	fixed_size = args.fixed_size;
+	m_z = args.z;
 
 	// Set cur_index
 	this->cur_index = 0;

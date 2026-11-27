@@ -37,6 +37,8 @@ public:
 
 		double scroll_speed;
 
+		float z; // Default 0.
+
 		std::string tooltip;
 
 		Colour3f knob_colour;

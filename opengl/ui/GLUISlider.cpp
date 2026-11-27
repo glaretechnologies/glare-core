@@ -30,6 +30,8 @@ GLUISlider::CreateArgs::CreateArgs()
 	initial_value = 0.5;
 
 	scroll_speed = 1.0;
+
+	z = 0.f;
 }
 
 
@@ -43,6 +45,7 @@ GLUISlider::GLUISlider(GLUI& glui_, const CreateArgs& args_)
 	sizing_type_x = args.sizing_type_x;
 	sizing_type_y = args.sizing_type_y;
 	fixed_size = args.fixed_size;
+	m_z = args.z;
 
 	cur_value = args_.initial_value;
 

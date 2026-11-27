@@ -31,6 +31,8 @@ public:
 		GLUIWidget::SizingType sizing_type_y;
 		Vec2f fixed_size; // x component used if sizing_type_x == SizingType_FixedSizePx, likewise for y component.
 
+		float z; // Default 0.
+
 		std::string tooltip;
 
 		// For toggleable buttons:

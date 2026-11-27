@@ -22,6 +22,8 @@ GLUIButton::CreateArgs::CreateArgs()
 	sizing_type_y = GLUIWidget::SizingType::SizingType_FixedSizeUICoords;
 	fixed_size = Vec2f(0.05f, 0.05f);
 
+	z = 0.f;
+
 	toggled_colour = toLinearSRGB(Colour3f(0.7f, 0.8f, 1.f));
 	untoggled_colour = Colour3f(1.f);
 
@@ -48,6 +50,7 @@ GLUIButton::GLUIButton(GLUI& glui_, const std::string& tex_path, const CreateArg
 	sizing_type_x = args.sizing_type_x;
 	sizing_type_y = args.sizing_type_y;
 	fixed_size    = args.fixed_size;
+	m_z           = args.z;
 
 	overlay_ob = new OverlayObject();
 	overlay_ob->mesh_data = opengl_engine->getUnitQuadMeshData();
@@ -67,8 +70,7 @@ GLUIButton::GLUIButton(GLUI& glui_, const std::string& tex_path, const CreateArg
 
 	const float y_scale = opengl_engine->getViewPortAspectRatio();
 
-	const float z = -0.999f;
-	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
+	overlay_ob->ob_to_world_matrix = Matrix4f::translationMatrix(botleft.x, botleft.y * y_scale, m_z) * Matrix4f::scaleMatrix(dims.x, dims.y * y_scale, 1);
 
 	opengl_engine->addOverlayObject(overlay_ob);
 
