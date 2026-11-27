@@ -24,7 +24,7 @@ class DatabaseKeyHash
 public:
 	inline size_t operator()(const DatabaseKey& v) const
 	{	
-		return hashBytes((const uint8*)&v.val, sizeof(uint64));
+		return hashUInt64(v.val);
 	}
 };
 

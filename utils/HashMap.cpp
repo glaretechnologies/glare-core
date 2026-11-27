@@ -275,7 +275,7 @@ void testHashMap()
 		const int N = 1000000;
 		{
 			Timer timer;
-			uint64 v = 0;
+			uint64 v = 234234324;
 			for(int i=0; i<N; ++i)
 			{
 				std::hash<uint64> h;
@@ -289,7 +289,7 @@ void testHashMap()
 
 		{
 			Timer timer;
-			uint64 v = 0;
+			uint64 v = 234234324;
 			for(int i=0; i<N; ++i)
 			{
 				HasherOb<uint64> h;
@@ -303,7 +303,7 @@ void testHashMap()
 
 		{
 			Timer timer;
-			uint64 v = 0;
+			uint64 v = 234234324;
 			for(int i=0; i<N; ++i)
 			{
 				uint64 hashval = hashBytes((const uint8*)&v, sizeof(uint64));
@@ -316,7 +316,20 @@ void testHashMap()
 
 		{
 			Timer timer;
-			size_t v = 0;
+			uint64 v = 234234324;
+			for(int i=0; i<N; ++i)
+			{
+				uint64 hashval = hashUInt64(v);
+				v ^= hashval;
+			}
+			double elapsed = timer.elapsed();
+			conPrint("hashUInt64 took         " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint(toString(v));
+		}
+
+		{
+			Timer timer;
+			size_t v = 234234324;
 			for(int i=0; i<N; ++i)
 			{
 				std::hash<uint32> h;
@@ -324,20 +337,20 @@ void testHashMap()
 				v ^= hashval;
 			}
 			double elapsed = timer.elapsed();
-			conPrint("std::hash (uint32) took                 " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint("std::hash (uint32) took " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
 			conPrint(toString(v));
 		}
 
 		{
 			Timer timer;
-			size_t v = 0;
+			size_t v = 234234324;
 			for(int i=0; i<N; ++i)
 			{
 				size_t hashval = hashBytes((const uint8*)&v, sizeof(uint32));
 				v ^= hashval;
 			}
 			double elapsed = timer.elapsed();
-			conPrint("hashBytes (uint32) took                 " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
+			conPrint("hashBytes (uint32) took " + ::doubleToStringNDecimalPlaces(elapsed, 6) + " s");
 			conPrint(toString(v));
 		}
 	}
