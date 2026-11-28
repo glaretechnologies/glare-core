@@ -32,7 +32,7 @@ namespace MemAlloc
 
 
 // If TRACE_ALLOCATIONS is 1, all malloc and free calling code should ideally call these instead, so that total memory an be tracked.
-void* traceMalloc(size_t n);
+void* traceMalloc(size_t n, size_t alignment);
 void traceFree(void* ptr);
 
 
@@ -43,7 +43,7 @@ size_t getHighWaterMarkB();
 
 
 // Throws std::bad_alloc on allocation failure.
-// Returns memory with at least GLARE_MALLOC_ALIGNMENT alignement: 16 bytes on 64-bit platforms and 8 bytes on 32-bit platforms.
+// Returns memory with at least GLARE_MALLOC_ALIGNMENT alignment: 16 bytes on 64-bit platforms and 8 bytes on 32-bit platforms.
 void* mallocWithDefaultAlignmentAndThrow(size_t size);
 void freeWithDefaultAlignmentAndThrow(void* mem);
 

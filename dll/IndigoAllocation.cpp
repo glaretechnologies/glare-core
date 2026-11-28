@@ -25,7 +25,7 @@ namespace Indigo
 void* indigoSDKAlloc(size_t size)
 {
 #if TRACE_ALLOCATIONS
-	void* p = MemAlloc::traceMalloc(size);
+	void* p = MemAlloc::traceMalloc(size, 16);
 #else
 	void* p = malloc(size);
 #endif

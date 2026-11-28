@@ -47,15 +47,13 @@ size_t MemAlloc::getHighWaterMarkB()
 
 #if TRACE_ALLOCATIONS
 
-void* MemAlloc::traceMalloc(size_t n)
+void* MemAlloc::traceMalloc(size_t n, size_t alignment)
 {
-	// Allocate the requested allocation size, plus room for a uint64 (and padding to make it 16 bytes), in which we will store the size of the allocation.
-	void* data = malloc(n + 16);
+	// Allocate the requested allocation size, plus room for 2 uint64s, to store allocation size and original pointer
+	alignment = myMax<size_t>(16, alignment); // Need room for at least 2 uint64s.
+	void* data = _mm_malloc(n + alignment, 16);
 	if(!data)
 		throw std::bad_alloc();
-
-	((uint64*)data)[0] = n; // Store requested allocation size
-
 
 	total_allocated_B += n;
 	high_water_mark_B = myMax(high_water_mark_B.getVal(), total_allocated_B.getVal());
@@ -64,14 +62,27 @@ void* MemAlloc::traceMalloc(size_t n)
 
 	// TracyAllocS(data, n, /*call stack capture depth=*/10);
 
-	return (uint64*)data + 2; // return a pointer just past the stored requested allocation size
+	// Snap the address down to the largest multiple of alignment <= original_addr
+	const uintptr_t rounded_down_addr = (uintptr_t)data - ((uintptr_t)data & (alignment - 1));
+	assert(rounded_down_addr % alignment == 0); // Check aligned
+	assert((rounded_down_addr <= (uintptr_t)data) && ((uintptr_t)data - rounded_down_addr < alignment));
+
+	void* returned_addr = (void*)(rounded_down_addr + alignment);
+
+	((uint64*)returned_addr)[-2] = n; // Store requested allocation size
+	((uint64*)returned_addr)[-1] = (uint64)data; // Store original ptr
+
+	return returned_addr;
 }
 
 
 void MemAlloc::traceFree(void* ptr)
 {
-	uint64* original_ptr = ((uint64*)ptr) - 2; // Recover original ptr
-	const uint64 size = *original_ptr;
+	if(!ptr)
+		return;
+
+	const uint64 size         = *(((uint64*)ptr) - 2); // Recover original requested allocation size
+	const uint64 original_ptr = *(((uint64*)ptr) - 1); // Recover original ptr returned from _mm_malloc().
 
 	assert(total_allocated_B >= (int64)size);
 	total_allocated_B -= size;
@@ -79,7 +90,7 @@ void MemAlloc::traceFree(void* ptr)
 
 	// TracyFreeS(original_ptr, /*call stack capture depth=*/10);
 
-	free(original_ptr);
+	_mm_free((void*)original_ptr);
 }
 
 
@@ -91,22 +102,27 @@ void MemAlloc::traceFree(void* ptr)
 // we need to use alignedMalloc for both of them.
 void* operator new(std::size_t count)
 {
-	return MemAlloc::alignedMalloc(count, 8);
-	//return MemAlloc::traceMalloc(count); // This crashes for some reason.
+	return MemAlloc::traceMalloc(count, /*alignment=*/16);
 }
 
 #if __cplusplus >= 201703L // If c++ version is >= c++17:
 void* operator new(std::size_t count, std::align_val_t al)
 {
-	return MemAlloc::alignedMalloc(count, (size_t)al);
+	return MemAlloc::traceMalloc(count, (size_t)al);
 }
 #endif
 
-void operator delete(void* p)
+void operator delete(void* p) noexcept
 {
-	MemAlloc::alignedFree(p);
-	//MemAlloc::traceFree(p);
+	MemAlloc::traceFree(p);
 }
+
+#if __cplusplus >= 201703L // If c++ version is >= c++17:
+void operator delete(void* p, std::align_val_t) noexcept
+{
+	MemAlloc::traceFree(p);
+}
+#endif
 
 #endif // end if TRACE_ALLOCATIONS
 
@@ -118,7 +134,7 @@ namespace MemAlloc
 void* mallocWithDefaultAlignmentAndThrow(size_t amount)
 {
 #if TRACE_ALLOCATIONS
-	void* ptr = traceMalloc(amount);
+	void* ptr = traceMalloc(amount, 16);
 #else
 	void* ptr = malloc(amount);
 #endif
@@ -145,6 +161,10 @@ void* alignedMalloc(size_t amount, size_t alignment)
 {
 	assert(Maths::isPowerOfTwo(alignment));
 
+#if TRACE_ALLOCATIONS
+	return traceMalloc(amount, alignment);
+#else
+
 	// The general idea here is to call original_addr = malloc(), then round the result down to largest multiple of alignment <= original_addr.
 	// We then add alignment bytes, to get an address > original_addr, that is also aligned.
 	// Assuming malloc returns a 4-byte aligned address, then the rounding down then adding alignemnt process should give
@@ -162,11 +182,7 @@ void* alignedMalloc(size_t amount, size_t alignment)
 
 	alignment = myMax(sizeof(unsigned int), alignment);
 
-#if TRACE_ALLOCATIONS
-	void* original_addr = traceMalloc(amount + alignment);
-#else
 	void* original_addr = malloc(amount + alignment);
-#endif
 	if(!original_addr)
 		throw std::bad_alloc();
 	assert((uintptr_t)original_addr % 4 == 0);
@@ -186,11 +202,17 @@ void* alignedMalloc(size_t amount, size_t alignment)
 //	TracyAllocS(original_addr, amount + alignment, /*call stack capture depth=*/10);
 
 	return returned_addr;
+
+#endif // end if !TRACE_ALLOCATIONS
 }
 
 
 void alignedFree(void* addr)
 {
+#if TRACE_ALLOCATIONS
+	traceFree(addr);
+#else
+	
 	if(addr == NULL)
 		return;
 
@@ -200,11 +222,9 @@ void alignedFree(void* addr)
 
 //	TracyFreeS(original_addr, /*call stack capture depth=*/10);
 
-#if TRACE_ALLOCATIONS
-	traceFree(original_addr);
-#else
 	free(original_addr);
-#endif
+
+#endif // end if !TRACE_ALLOCATIONS
 }
 
 
@@ -265,7 +285,7 @@ void MemAlloc::test()
 
 #if TRACE_ALLOCATIONS
 	{
-		void* p = traceMalloc(10);
+		void* p = traceMalloc(10, 16);
 		traceFree(p);
 	}
 #endif
