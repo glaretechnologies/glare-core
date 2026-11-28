@@ -62,22 +62,22 @@ void test()
 
 	//========================= Test AlignedCharArray =========================
 	{
-		static_assert(GLARE_ALIGNMENT(AlignedCharArray<4, 1>) == 4, "alignment");
+		static_assert(alignof(AlignedCharArray<4, 1>) == 4, "alignment");
 		AlignedCharArray<4, 1> test;
 		testAssert((uint64)&test.buf % 4 == 0);
 	}
 	{
-		static_assert(GLARE_ALIGNMENT(AlignedCharArray<8, 1>) == 8, "alignment");
+		static_assert(alignof(AlignedCharArray<8, 1>) == 8, "alignment");
 		AlignedCharArray<8, 1> test;
 		testAssert((uint64)&test.buf % 8 == 0);
 	}
 	{
-		static_assert(GLARE_ALIGNMENT(AlignedCharArray<16, 1>) == 16, "alignment");
+		static_assert(alignof(AlignedCharArray<16, 1>) == 16, "alignment");
 		AlignedCharArray<16, 1> test;
 		testAssert((uint64)&test.buf % 16 == 0);
 	}
 	{
-		static_assert(GLARE_ALIGNMENT(AlignedCharArray<32, 1>) == 32, "alignment");
+		static_assert(alignof(AlignedCharArray<32, 1>) == 32, "alignment");
 		AlignedCharArray<32, 1> test;
 		testAssert((uint64)&test.buf % 32 == 0);
 	}
@@ -85,7 +85,7 @@ void test()
 
 	//========================= Check alignment when the value type has large alignment =========================
 	{
-		static_assert(GLARE_ALIGNMENT(SmallArray<TestAligned16, 4>) == 16, "alignment");
+		static_assert(alignof(SmallArray<TestAligned16, 4>) == 16, "alignment");
 		const SmallArray<TestAligned16, 4> v;
 		testAssert((uint64)v.data() % 16 == 0);
 	}

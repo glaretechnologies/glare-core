@@ -115,12 +115,4 @@ void test();
 	void operator delete[](void* ptr) { MemAlloc::alignedFree(ptr); }
 
 
-// GLARE_ALIGNMENT - get alignment of type
-#ifdef _MSC_VER
-// alignof doesn't work in VS2012, so we have to use __alignof.
-#define GLARE_ALIGNMENT __alignof
-#else
-#define GLARE_ALIGNMENT alignof
-#endif
-
 #define assertSSEAligned(p) (assert(MemAlloc::isSSEAligned((p))))

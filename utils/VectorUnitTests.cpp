@@ -79,9 +79,9 @@ void VectorUnitTests::test()
 	conPrint("VectorUnitTests::test()");
 	
 	//========================= Test alignment =========================
-	static_assert(GLARE_ALIGNMENT(align_16) == 16, "GLARE_ALIGNMENT(align_16) == 16");
-	static_assert(GLARE_ALIGNMENT(align_32) == 32, "GLARE_ALIGNMENT(align_32) == 32");
-	static_assert(GLARE_ALIGNMENT(align_64) == 64, "GLARE_ALIGNMENT(align_64) == 64");
+	static_assert(alignof(align_16) == 16, "alignof(align_16) == 16");
+	static_assert(alignof(align_32) == 32, "alignof(align_32) == 32");
+	static_assert(alignof(align_64) == 64, "alignof(align_64) == 64");
 
 	{
 		js::Vector<align_16, 16> v;

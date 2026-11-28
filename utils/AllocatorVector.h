@@ -102,7 +102,7 @@ AllocatorVector<T, alignment>::AllocatorVector()
 	size_(0),
 	capacity_(0)
 {
-	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
+	static_assert(alignment % alignof(T) == 0, "alignment template argument insuffcient");
 }
 
 
@@ -113,7 +113,7 @@ inline AllocatorVector<T, alignment>::AllocatorVector(const Reference<glare::All
 	capacity_(0),
 	allocator(al)
 {
-	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
+	static_assert(alignment % alignof(T) == 0, "alignment template argument insuffcient");
 }
 
 
@@ -123,7 +123,7 @@ AllocatorVector<T, alignment>::AllocatorVector(size_t count)
 	size_(count),
 	capacity_(count)
 {
-	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
+	static_assert(alignment % alignof(T) == 0, "alignment template argument insuffcient");
 
 	if(count > 0)
 	{
@@ -149,7 +149,7 @@ inline AllocatorVector<T, alignment>::AllocatorVector(size_t count, const Refere
 	capacity_(count),
 	allocator(al)
 {
-	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
+	static_assert(alignment % alignof(T) == 0, "alignment template argument insuffcient");
 
 	if(count > 0)
 	{
@@ -174,7 +174,7 @@ AllocatorVector<T, alignment>::AllocatorVector(size_t count, const T& val)
 	size_(count),
 	capacity_(count)
 {
-	static_assert(alignment % GLARE_ALIGNMENT(T) == 0, "alignment template argument insuffcient");
+	static_assert(alignment % alignof(T) == 0, "alignment template argument insuffcient");
 
 	if(count > 0)
 	{
