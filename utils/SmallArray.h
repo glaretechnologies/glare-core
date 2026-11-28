@@ -6,7 +6,6 @@ Copyright Glare Technologies Limited 2021 -
 #pragma once
 
 
-#include "AlignedCharArray.h"
 #include "MemAlloc.h"
 #include "../maths/mathstypes.h"
 #include <assert.h>
@@ -59,13 +58,13 @@ public:
 	inline const_iterator begin() const;
 	inline const_iterator end() const;
 	
-	inline bool storingOnHeap() const { return e != reinterpret_cast<const T*>(direct.buf); }
+	inline bool storingOnHeap() const { return e != reinterpret_cast<const T*>(direct); }
 private:
 	inline void resizeSmaller(size_t new_size);
 	T* e;
 	size_t size_; // Number of elements in the vector.  Elements e[0] to e[size_-1] are proper constructed objects.
 	// We can't just use an array of T here as then the T objects will need to be constructed.  Instead we just want space for N T objects.
-	glare::AlignedCharArray<glare::AlignOf<T>::Alignment, sizeof(T) * N> direct;
+	alignas(T) char direct[sizeof(T) * N];
 };
 
 
@@ -77,7 +76,7 @@ void test();
 
 template <class T, int N>
 SmallArray<T, N>::SmallArray()
-:	e(reinterpret_cast<T*>(direct.buf)), size_(0)
+:	e(reinterpret_cast<T*>(direct)), size_(0)
 {}
 
 //
@@ -88,7 +87,7 @@ SmallArray<T, N>::SmallArray()
 //	if(count <= N)
 //		e = reinterpret_cast<T*>(direct); // Store directly
 //	else
-//		e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * count)); // Allocate new memory on heap
+//		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * count, alignof(T))); // Allocate new memory on heap
 //
 //	std::uninitialized_copy(array_ref.data_, array_ref.data_ + other.size_, /*dest=*/e);
 //}
@@ -99,9 +98,9 @@ SmallArray<T, N>::SmallArray(size_t count, const T& val)
 :	size_(count)
 {
 	if(count <= N)
-		e = reinterpret_cast<T*>(direct.buf); // Store directly
+		e = reinterpret_cast<T*>(direct); // Store directly
 	else
-		e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * count)); // Allocate new memory on heap
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * count, alignof(T))); // Allocate new memory on heap
 
 	std::uninitialized_fill(e, e + count, val); // Construct elems
 }
@@ -112,9 +111,9 @@ SmallArray<T, N>::SmallArray(const T* begin_, const T* end_) // Range constructo
 :	size_(end_ - begin_)
 {
 	if(size_ <= N)
-		e = reinterpret_cast<T*>(direct.buf); // Store directly
+		e = reinterpret_cast<T*>(direct); // Store directly
 	else
-		e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * size_)); // Allocate new memory on heap
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * size_, alignof(T))); // Allocate new memory on heap
 
 	std::uninitialized_copy(begin_, end_, /*dest=*/e);
 }
@@ -124,9 +123,9 @@ template <class T, int N>
 SmallArray<T, N>::SmallArray(const SmallArray<T, N>& other)
 {
 	if(other.size_ <= N)
-		e = reinterpret_cast<T*>(direct.buf); // Store directly
+		e = reinterpret_cast<T*>(direct); // Store directly
 	else
-		e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * other.size_)); // Allocate new memory on heap
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * other.size_, alignof(T))); // Allocate new memory on heap
 
 	// Copy-construct new objects from existing objects in 'other'.
 	std::uninitialized_copy(other.e, other.e + other.size_, /*dest=*/e);
@@ -141,7 +140,7 @@ SmallArray<T, N>::~SmallArray()
 		e[i].~T();
 
 	if(storingOnHeap())
-		MemAlloc::alignedSSEFree(e);
+		MemAlloc::alignedFree(e);
 }
 
 
@@ -158,9 +157,9 @@ SmallArray<T, N>& SmallArray<T, N>::operator=(const SmallArray& other)
 	if(other.size_ <= N)
 	{
 		if(storingOnHeap())
-			MemAlloc::alignedSSEFree(e); // Free existing mem
+			MemAlloc::alignedFree(e); // Free existing mem
 
-		e = reinterpret_cast<T*>(direct.buf); // Store directly
+		e = reinterpret_cast<T*>(direct); // Store directly
 
 		// Copy elements over from other
 		if(other.size_ > 0) 
@@ -171,10 +170,10 @@ SmallArray<T, N>& SmallArray<T, N>::operator=(const SmallArray& other)
 		assert(other.size_ > N);
 
 		if(storingOnHeap())
-			MemAlloc::alignedSSEFree(e); // Free existing mem
+			MemAlloc::alignedFree(e); // Free existing mem
 
 		// Allocate new memory
-		e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * other.size_));
+		e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * other.size_, alignof(T)));
 
 		// Copy elements over from other
 		std::uninitialized_copy(other.e, other.e + other.size_, e);
@@ -195,7 +194,7 @@ void SmallArray<T, N>::resizeSmaller(size_t new_size)
 	{
 		if(storingOnHeap()) // If we are currently storing on heap:
 		{
-			T* new_e = reinterpret_cast<T*>(direct.buf);
+			T* new_e = reinterpret_cast<T*>(direct);
 
 			// Copy-construct new objects from existing objects.
 			// e[0] to e[new_size-1] will now be proper initialised objects.
@@ -205,7 +204,7 @@ void SmallArray<T, N>::resizeSmaller(size_t new_size)
 			for(size_t i=0; i<size_; ++i)
 				e[i].~T();
 
-			MemAlloc::alignedSSEFree(e); // Free old buffer.
+			MemAlloc::alignedFree(e); // Free old buffer.
 			e = new_e;
 		}
 		else
@@ -251,7 +250,7 @@ void SmallArray<T, N>::resize(size_t new_size)
 		else // else new_size > N, so we need to allocate heap storage:
 		{
 			// Allocate new memory
-			T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * new_size));
+			T* new_e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * new_size, alignof(T)));
 
 			// Copy-construct new objects from existing objects.
 			// new_e[0] to new_e[size_-1] will now be proper initialised objects.
@@ -268,7 +267,7 @@ void SmallArray<T, N>::resize(size_t new_size)
 				e[i].~T();
 
 			if(storingOnHeap())
-				MemAlloc::alignedSSEFree(e); // Free old buffer.
+				MemAlloc::alignedFree(e); // Free old buffer.
 
 			e = new_e;
 		}
@@ -298,7 +297,7 @@ void SmallArray<T, N>::resize(size_t new_size, const T& val)
 		else
 		{
 			// Allocate new memory
-			T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * new_size));
+			T* new_e = static_cast<T*>(MemAlloc::alignedMalloc(sizeof(T) * new_size, alignof(T)));
 
 			// Copy-construct new objects from existing objects.
 			// new_e[0] to new_e[size_-1] will now be proper initialised objects.
@@ -313,7 +312,7 @@ void SmallArray<T, N>::resize(size_t new_size, const T& val)
 				e[i].~T();
 
 			if(storingOnHeap())
-				MemAlloc::alignedSSEFree(e); // Free old buffer.
+				MemAlloc::alignedFree(e); // Free old buffer.
 
 			e = new_e;
 		}

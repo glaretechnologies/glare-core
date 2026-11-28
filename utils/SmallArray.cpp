@@ -52,37 +52,6 @@ void test()
 {
 	conPrint("SmallArrayTest()");
 
-	//========================= Test AlignOf =========================
-	{
-		static_assert(AlignOf<int>::Alignment == 4, "alignment");
-		static_assert(AlignOf<double>::Alignment == 8, "alignment");
-		static_assert(AlignOf<char*>::Alignment == sizeof(char*), "alignment");
-		static_assert(AlignOf<TestAligned16>::Alignment == 16, "alignment");
-	}
-
-	//========================= Test AlignedCharArray =========================
-	{
-		static_assert(alignof(AlignedCharArray<4, 1>) == 4, "alignment");
-		AlignedCharArray<4, 1> test;
-		testAssert((uint64)&test.buf % 4 == 0);
-	}
-	{
-		static_assert(alignof(AlignedCharArray<8, 1>) == 8, "alignment");
-		AlignedCharArray<8, 1> test;
-		testAssert((uint64)&test.buf % 8 == 0);
-	}
-	{
-		static_assert(alignof(AlignedCharArray<16, 1>) == 16, "alignment");
-		AlignedCharArray<16, 1> test;
-		testAssert((uint64)&test.buf % 16 == 0);
-	}
-	{
-		static_assert(alignof(AlignedCharArray<32, 1>) == 32, "alignment");
-		AlignedCharArray<32, 1> test;
-		testAssert((uint64)&test.buf % 32 == 0);
-	}
-
-
 	//========================= Check alignment when the value type has large alignment =========================
 	{
 		static_assert(alignof(SmallArray<TestAligned16, 4>) == 16, "alignment");

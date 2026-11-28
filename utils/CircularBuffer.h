@@ -8,7 +8,6 @@ Copyright Glare Technologies Limited 2022 -
 
 #include "GlareAllocator.h"
 #include "Reference.h"
-#include "AlignedCharArray.h"
 #include "MemAlloc.h"
 #include "../maths/mathstypes.h"
 #include <assert.h>
@@ -225,7 +224,7 @@ void CircularBuffer<T>::operator = (const CircularBuffer<T>& other)
 	begin = 0;
 	end = other_size;
 	data_size = myMax<size_t>(4, other_size + 1);
-	data = alloc(sizeof(T) * data_size, glare::AlignOf<T>::Alignment);
+	data = alloc(sizeof(T) * data_size, alignof(T));
 
 	size_t other_i = other.begin;
 	for(size_t i=0; i<other_size; ++i)
@@ -447,7 +446,7 @@ void CircularBuffer<T>::increaseDataSize(size_t requested_new_data_size)
 
 	const size_t cur_size = size();
 	const size_t new_data_size = myMax<size_t>(4, requested_new_data_size);
-	T* new_data = alloc(sizeof(T) * new_data_size, glare::AlignOf<T>::Alignment);
+	T* new_data = alloc(sizeof(T) * new_data_size, alignof(T));
 
 	// Copy-construct new objects from existing objects:
 	
