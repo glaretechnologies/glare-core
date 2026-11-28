@@ -476,6 +476,39 @@ void test()
 	}
 
 
+	// Test exponential capacity growth behaviour with resize
+	{
+		SmallVector<int, 4> v;
+		v.resize(4);
+		testAssert(v.size() == 4);
+		testAssert(v.capacity() == 4);
+
+		v.resize(5);
+		testAssert(v.size() == 5);
+		testAssert(v.capacity() == 8);
+
+		v.resize(6);
+		testAssert(v.size() == 6);
+		testAssert(v.capacity() == 8);
+
+		v.resize(7);
+		testAssert(v.size() == 7);
+		testAssert(v.capacity() == 8);
+
+		v.resize(8);
+		testAssert(v.size() == 8);
+		testAssert(v.capacity() == 8);
+
+		v.resize(9);
+		testAssert(v.size() == 9);
+		testAssert(v.capacity() == 16);
+
+		v.resize(17);
+		testAssert(v.size() == 17);
+		testAssert(v.capacity() == 32);
+	}
+
+
 	//========================= push_back =========================
 
 	// With int type

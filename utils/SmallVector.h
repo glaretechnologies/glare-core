@@ -172,12 +172,12 @@ SmallVector<T, N>& SmallVector<T, N>::operator=(const SmallVector& other)
 
 
 template <class T, int N>
-void SmallVector<T, N>::reserve(size_t n)
+void SmallVector<T, N>::reserve(size_t new_capacity)
 {
-	if(n > capacity_) // If need to expand capacity
+	if(new_capacity > capacity_) // If need to expand capacity
 	{
 		// Allocate new memory
-		T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * n));
+		T* new_e = static_cast<T*>(MemAlloc::alignedSSEMalloc(sizeof(T) * new_capacity));
 
 		// Copy-construct new objects from existing objects.
 		// e[0] to e[size_-1] will now be proper initialised objects.
@@ -191,7 +191,7 @@ void SmallVector<T, N>::reserve(size_t n)
 			MemAlloc::alignedSSEFree(e); // Free old buffer.
 
 		e = new_e;
-		capacity_ = n;
+		capacity_ = new_capacity;
 	}
 }
 
@@ -208,7 +208,8 @@ void SmallVector<T, N>::resize(size_t new_size)
 	else
 	{
 		// else new_size > capacity_.  Since capacity_ >= size_, therefore new_size > size_.  So we don't have to delete any objects.
-		reserve(new_size);
+
+		reserve(/*new_capacity=*/myMax(new_size, 2 * capacity_));
 	}
 
 	// Initialise elements e[size_] to e[new_size-1]
@@ -233,7 +234,8 @@ void SmallVector<T, N>::resize(size_t new_size, const T& val)
 	else
 	{
 		// else new_size > capacity_.  Since capacity_ >= size_, therefore new_size > size_.  So we don't have to delete any objects.
-		reserve(new_size);
+
+		reserve(/*new_capacity=*/myMax(new_size, 2 * capacity_));
 	}
 
 	// Construct any new elems
